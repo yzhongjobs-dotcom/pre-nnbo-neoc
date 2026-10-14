@@ -1,0 +1,974 @@
+===== PDF PAGE 1 =====
+                                                     Robotics and Autonomous Systems 165 (2023) 104431
+
+
+                                            Contents lists available at ScienceDirect
+
+                      Robotics and Autonomous Systems
+
+
+                                           journal homepage: www.elsevier.com/locate/robot
+
+
+
+Model predictive impedance control with Gaussian processes for
+human and environment interaction
+Kevin Haninger a,∗, Christian Hegeler a, Luka Peternel b
+a Department of Automation, Fraunhofer IPK, Berlin, Germany
+b Cognitive Robotics Department, Delft University of Technology, Delft, The Netherlands
+
+
+a r t i c l e    i n f o             a b s t r a c t
+
+
+Article history:                                Robotic tasks which involve uncertainty – due to variation in goal, environment configuration, or
+Received 6 December 2022                     confidence in task model – may require human input to instruct or adapt the robot. In tasks with
+Received in revised form 6 February 2023          physical contact, several existing methods for adapting robot trajectory or impedance according
+Accepted 13 April 2023                          to individual uncertainties have been proposed,  e.g., realizing intention detection or uncertainty-
+Available online 23 April 2023
+                                       aware learning from demonstration. However, isolated methods cannot address the wide range of
+Keywords:                                      uncertainties jointly present in many tasks.
+Impedance control                            To improve generality, this paper proposes a model predictive control (MPC) framework which
+Model predictive control                        plans both trajectory and impedance online, can consider discrete and continuous uncertainties,
+Human–robot interaction                        includes safety constraints, and can be efficiently applied to a new task. This framework can consider
+Gaussian processes                             uncertainty from: contact constraint variation, uncertainty in human goals, or task disturbances. An
+Intention detection                            uncertainty-aware task model is learned from a few (≤3) demonstrations using Gaussian Processes.
+                                              This task model is used in a nonlinear MPC problem to optimize robot trajectory and impedance
+                                            according to belief in discrete human goals, human kinematics, safety constraints, contact stability, and
+                                         frequency-domain disturbance rejection. This MPC formulation is introduced, analyzed with respect to
+                                              convexity, and validated in co-manipulation with multiple goals, a collaborative polishing task, and a
+                                               collaborative assembly task.
+                                                              © 2023 Elsevier B.V. All rights reserved.
+
+
+
+
+1. Introduction                                                        identify five key categories related to uncertainty and impedance
+                                                                         control. (1) In learning from demonstration (LfD), uncertainty
+   Manipulation with physical contact is essential for robotics,    derived from the variability in demonstrations of trajectories can
+where impedance control1 is often paramount to robust and safe    be used to infer lower robot stiffness, since the human demon-
+execution. This is especially critical in tasks that involve physi-     strator does not seem to care about precision in that section of
+cal human–robot interaction (HRI), where the robot compliance    motion [2,3]. (2) In LfD, the robot’s available confidence in the skill
+allows the human co-worker to safely affect robot motion for      is used, where stiffness can be reduced when entering unexplored
+teaching or online collaboration. Impedance control defines the    regions as actions might be unsafe [4]. (3) When faced with
+characteristics of physical interaction by stiffness, damping, and    uncertainty in environment constraints in task execution, the robot
+inertia parameters [1]. These parameters must be appropriately    should have lower stiffness in order not to produce dangerously
+adapted to an application, with a large number of proposed    high forces when the contact is unexpected [5–7]. (4) In case
+methods to determine appropriate impedance parameters. Nev-     of uncertain external perturbations the robot should increase the
+ertheless, in practice, the tuning of these parameters is often done    impedance to ensure the accuracy of position tracking task [8,9].
+with ad-hoc or application-specific methods.                          (5) When there is uncertainty in human goal during collaborative
+  Some  recent works propose  generalizable approaches  to     tasks, the robot should be compliant to let them determine a
+adapting impedance parameters based on machine learning and     specific degree of freedom (DoF). For example, when the human
+human-in-the-loop approaches. A common theme in impedance    should lead the collaborative carrying of an object [10], or when
+adaptation is the degree of uncertainty. From the literature, we    the human should guide a polishing machine that is carried by
+                                                                 the robot [11].
+  ∗Corresponding author.                                                  Nevertheless, scaling up impedance control to different tasks,
+     E-mail address:  kevin.haninger@ipk.fraunhofer.de (K. Haninger).              conditions, and environments while accounting for human goals
+  1 Impedance is used to refer to general physical interaction control, i.e., both     in real-time is still a major challenge in physical HRI. The exist-
+impedance and admittance control.                                       ing methods typically focus on either one or a couple of these
+
+
+https://doi.org/10.1016/j.robot.2023.104431
+0921-8890/© 2023 Elsevier B.V. All rights reserved.
+
+===== PDF PAGE 2 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+uncertainty categories, although many tasks feature several of
+them. We aim to develop a framework which can account for
+multiple types of uncertainties for a unified physical HRI ap-
+proach. The goal is for robots to be able to plan trajectories and
+adapt impedance for semi-structured tasks in physical contact
+with humans and environments, without needing an analytical
+model of environment/human or large amounts of data.
+   To attain this goal, we propose a planning and optimization
+framework with probabilistic models of external force.  Gaus-
+sian processes are used to model force from the environment
+or human, and used as input to an admittance model of the
+robot to project stochastic trajectories. These trajectories can be
+evaluated with cost functions and constraints, to allow online                                                                                                Fig. 1. Sources of uncertainty during both demonstration and execution (left),
+optimization of admittance parameters and force reference tra-    how they are modeled (center), and how they enter the MPC framework (right).
+jectory. This acts as an outer-loop controller, setting parameters
+and force reference to an inner-loop admittance controller which
+maintains real-time responsiveness to external forces. The main                                                                    physical HRI (collaborative rail assembly, double peg-in-the-hole,
+contributions of this work are:
+                                                         and polishing) where we examine new aspects (task uncertainty,
+  • A taxonomy of uncertainty in physical interaction, includ-    goal uncertainty, and human ergonomics).
+     ing their sources, consequences for safety and performance,      The remainder of the paper is structured as follows; also see
+    and a unified problem formulation to address these with     Fig. 2 for an overview. The related work is given in Section 2. The
+     adaptive impedance control.                               modeling using GP is described in Section 3. The MPC problem
+  • Unlike existing approaches that use GPs as direct robot    formulation is provided in Section 4. This is followed by a the-
+     reference behavior generators (e.g., [12]), we use them as     oretical analysis in Section 5. Finally, experimental validation on
+     intermediate task models which combine with the robot     practical tasks is described in Section 6.
+    impedance in a Model Predictive Control (MPC) problem,
+     allowing explicit objectives which depend on the trajec-     2. Related work
+     tory uncertainty , intention detection, safety constraints, and
+     frequency-domain costs.                                    Here we examine the proposed method with respect to related
+  • Unlike  existing sampling-based approaches  to adapting    work in the literature. We first outline the work done in physical
+    impedance online (e.g., [13]), we propose the first gradient-    human–robot interaction where human intention modeling plays
+     based optimization of impedance, which allows constraints    a critical role in seamless collaboration. Then we proceed to robot
+     in the optimization problem such as maximum contact force    impedance adaptation, which is a fundamental part of the robot’s
+    and contact stability.                                          low-level actions as a result of the inferred intention. Finally, we
+  • The approach is experimentally validated, inferring discrete    review planning in contact tasks.
+    human goal online, increasing impedance damping for con-
+      tact stability, and reducing impedance in directions of task                                                                                   2.1. Physical human–robot interaction
+      variation, with 10–20 Hz MPC rates. The code2 and video3
+     are available.
+                                                      An important challenge in physical HRI is the ability of robots
+   This approach handles various types of uncertainty as seen     to infer human co-worker’s goals and states. To address this
+in Fig. 1. The uncertainty category (1) related to variability in     challenge, several recent works have proposed inference tech-
+demonstrations can be accounted for in the proposed framework    niques and applications. The study in [15] showed that robot
+through GP covariance, but we note this can produce unsafe    adaptation to the human task execution can improve task-related
+impedance skills when the low demonstration variance arises    performance. Robot adaption to the human state can also improve
+from contact with the environment [7]. The proposed framework    ergonomics [11]. Finally, user satisfaction can also be improved
+also addresses the uncertainty category (2) related to confidence    by robot adaptation [16]. Nevertheless, to adapt to these different
+in skill by leveraging on GP model uncertainty in the cost function     aspects, the robot should be able to infer the human state, which
+and optimization constraints. The uncertainty category (3) related    often requires complex sensory setups [17,18]. However, complex
+to environment constraints is handled by the increase in GP co-    measurement systems are not always available or feasible for
+variance induced by fitting hyperparameters on data with contact     practical applications, thus some specific states can be modeled,
+variance. An additional frequency-domain perturbation model is    such as the desired motion of the robot/payload [19–22], human
+used to resolve the uncertainty category (4) related to external     actions [23], preferences [24,25], human physical fatigue [11],
+perturbations. The uncertainty category (5) related to human goal     cognitive stress [26], and suitability of shared workspace [27–30].
+estimation is addressed by taking the expectation over the belief       For seamless collaboration, the adaption of the robot to the
+in human goal, inferred from the GPs.                       human should be prompt, and thus the human intent or goal
+  A preliminary study was presented at the 2022 IEEE Interna-    must be inferred during the task execution [11,31]. Human intent
+tional Conference on Robotics and Automation [14]. This paper      is often considered as a continuous variable [15,22], however, it
+significantly expands upon the previous study by an extended    can also reflect discrete changes in the task [32], e.g., a collection
+theoretical formulation of the method that accounts for all iden-     of possible goals. Discrete human state has been considered for
+tified uncertainties, adding two types of MPC constraints, a new                                                                           virtual fixtures [33], Dynamic Movement Primitives (DMPs) [32],
+theoretical analysis of impedance optimization, and a new exper-                                                         and impedance control [34].
+imental evaluation with three additional practical tasks involving                                                 When the robot has the knowledge of the human state and
+                                                                           intent, it must respond promptly with appropriate actions to fa-
+  2 https://gitlab.cc-asp.fraunhofer.de/hanikevi/gp-mpc-impedance-control          cilitate the collaborative task execution. This typically means gen-
+  3 https://youtu.be/Of2O3mHfM94                                        eration of motion trajectories and often simultaneous impedance
+
+                                                                   2
+
+===== PDF PAGE 3 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+
+               Table 1
+                Selected prior work in adaptation of impedance, organized according to motivating principle. Robotic applications to co-manipulation
+              and contact are shown, as well as the targeted degree of robot autonomy.
+
+                                        Principle                Robot impedance should:        Co-manip.     Env. Contact      Autonomy
+
+                                  Complementarity [46]    Be inverse of environment      –           –                –
+               Dynamics                                           Stability [9,47]             Stabilize unstable dyn             [8]            [48]                  Full
+
+                                Well-damped [39]       Reduce oscillation or jerk         [10,39]        [49]                  Interact, full
+
+                              Min intervention [2]         stiff where low variance          [43,50,51]     [51] safetya [7]      Interact, full
+                Optimal
+                 Control          game theory [52]       Min coupled cost function        [53]         –                    Interact
+
+                                          Reinf. learning          Min cost function                 [36]           [54,55]               Full
+
+                           Human hand imp [3]     Match human impedance       –              [56,57]               Full
+                 Transfer
+           Hum Imp           Co-contraction [58]       Prop or inv to co-contraction    –              [58]                 Interact
+
+                           Demo dynamics [34]     Which explains demos            [34]         –                    Interact
+
+                 aThis relates to the robot being stiff while being rigidly constrained by a potentially high-stiffness environment, which can cause
+                contact instability.
+
+
+adaptation. The trajectories can be chosen to optimize task-      An approach in [4] uses GP models to encode demonstrated
+related objectives: reducing trajectory jerk [35,36], minimize    desired robot movements and then leverages on the measure of
+positioning error [8,37,38], or render appropriate velocity re-    uncertainty in the modeled skill to modulate the stiffness through
+sponse [39,40]. In addition, human operator-related objectives    a direct expression. If the robot experiences unexpected external
+can be optimized as well, such as minimizing interaction forces     perturbations, the impedance controller forces the motion into
+[41] or metabolic cost [42]. A common rule is that the robot    the regions of higher certainty to be more confident in the given
+can take over aspects of the task that require precision, while      skill. If the robot still ends up in a region of high uncertainty, the
+the human can handle adaption to variations. The ‘minimum     stiffness is reduced as there might be insufficient confidence in
+intervention principle’ [43] follows this rule, where uncertain DOF    the skill to safely perform the movements there. Nevertheless,
+                                                                  there was no higher-level planner (e.g., MPC) to exploit givenshould have a lower stiffness [44,45], which can also be inter-
+                                                                 learned trajectories to generate new ones.preted as a risk-sensitive control. Nevertheless, such an approach
+                                                        From this, we conclude that there is a wide range of objectivesis not reasonable for all interactive tasks that involve physical
+                                                         and models—it seems unlikely that a single principle would be
+constraints [7].
+                                                                     suited for all or a large majority of these areas. Accordingly,
+   The literature can address the human-related properties (e.g.,
+                                               we propose a framework for optimizing impedance, capable of
+actions, preferences, ergonomics, etc.), real-time intention pro-
+                                                         accommodating a range of models and objectives.
+cessing, and uncertainty in an isolated manner. However, a uni-
+fied framework that can effectively combine all these aspects for
+                                                                                   2.3. Planning in contact tasks
+practical manufacturing tasks is still missing.
+
+                                                                       Intention modeling and low-level impedance control alone
+2.2. Impedance adaptation                                      can work well for simplified tasks. However, for a more flex-
+                                                                            ible robot behavior, a higher-level planner is required. MPC is
+   Physical HRI requires a safe and robust low-level control ap-    becoming increasingly popular for manipulation [13,63], and is
+proach to account for the uncertainty of practical tasks [58].    already a standard tool for locomotion and whole-body control,
+Classic position or force controllers often fail to perform well    capable of planning through contact models with either linear
+in such complex settings since they only focus on controlling    complementarity [64] or switching dynamic modes [65]. Contact
+either one of the variables, but not the characteristics of the inter-    can be considered as fully rigid constraints, using time-stepping
+action that define their relationship, i.e., impedance. Impedance    approaches to resolve the contact impulse over an integrator time
+adaption is empirically important for safety and robustness in    step [66], avoiding the issue of unbounded contact forces in rigid
+manipulation, and has been shown to improve sample efficiency     contact. A dynamic model for the environment has also been pro-
+of higher-level learning control [59]. Accordingly, a wide range    posed for manipulation [67], relaxing kinematic constraints into
+                                                               a stiffness. In most contact planning situations, signed distanceof techniques has been proposed for adjusting impedance pa-
+                                                                    functions are needed—typically, this requires geometry informa-rameters. Recent surveys provide a thorough overview of this
+                                                                      tion typically given by CAD, although  it has been learned onfield [60,61], so we present only an abbreviated summary in
+                                                                      simplified objects [68].
+Table 1.
+                                           We make two observations from the perspective of manipula-
+   Dynamics-based objectives are often based on continuous-
+                                                                          tion: (1) signed distance functions are difficult with the complex
+time dynamic models, considering factors like stability and damp-
+                                                               geometries typical in assembly and manipulation tasks, and (2)
+ing of the coupled system. A challenge is that environment dy-
+                                                             compliance is both common and critical—be it physical or by con-
+namics (e.g., stiffness) are application-specific. In some cases, the
+                                                                                      trol. To address this, we use a compliant contact model here (re-
+environment dynamics are known or controlled [47], in other                                                                    gressing contact force over robot position) which does not require
+cases properties of the dynamics (e.g., damping) can be found                                                               a signed distance function, and we consider the optimization of
+from trajectories [62].                                                          impedance parameters in the MPC problem.
+   Other approaches plan to minimize a general cost function,
+which may include the human or environment state [53]. Such     3. Models
+approaches allow consideration of uncertainty, but typically also
+require models of humans or the environment, which are typ-        This section presents the models used: GP models of external
+ically simplified such as assuming human force is a PD con-     force (from the environment or human), human kinematics, robot
+troller [43]. Data-driven methods such as reinforcement learning    admittance, and force disturbance. This aspect is highlighted by
+can be applied [54,55], but often require lots of trial and error.      with orange in Fig. 2.
+
+                                                                   3
+
+===== PDF PAGE 4 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+                                                                                   3.1.1. GP models
+                                                           GPs are used to regress force over pose for each mode n,
+                                                             based on a dataset of measured pose and force D = {{x1, f 1}
+                                                                                                         . . . , {xM, f M}}. We fit a GP model [69, p13] that gives a Gaussian
+                                                                      variable ˆf (x) ∼N(µf (x), Σf (x)) for a pose x, given a mean func-
+                                                                      tion m(x) ∈R6, kernel function k(x, x′) ∈R, and observed data D.
+                                                          The GP models for each dimension of f are fit independently and
+                                                                 the covariance Σf is therefore diagonal. As a result, correlations
+                                                         between the force dimensions are not modeled, which could arise
+                                                                  from, e.g., changes in contact plane orientation or in the direction
+                                                                        of desired motion from the operator.
+                                                                          In the sequel, we consider the fitting of a single dimension of
+                                                                                               f with corresponding scalars f , µf , Σf . Here, we use a squared
+                                                                 exponential kernel of the form
+                                                                        k(x, x′) = σ n2 exp(−1 (x −x′)T diag(l−2)(x −x′)),                (1)
+                                                                        2
+                                                             with hyperparameters σ n2 for the noise variance and l ∈R6 as the
+                                                                  length scale. The GP then defines a marginal Gaussian distribution
+                                                                          for a test point x as
+Fig. 2. Overview of the proposed approach, with corresponding paper sections in
+red. Initially, human demonstrations are used to model human and task forces     p(f |x, D, n, k) ∼N(µf , Σf ),                                    (2)
+with Gaussian Processes. These models are then used in a model predictive                                               2controller that accounts for robot impedance and trajectories, and includes costs    where mean µf = m(x) + kT∗(K + σ n I)−1[f1, . . . , fM]T , covariance
+and constraints related to the task and human. The MPC controller runs online,    Σf = σ n2 −kT∗(K + σ n2 I)−1k∗are built from kernel matrices
+updating trajectory and impedance parameters for a lower-level impedance   k∗= [k(x1, x), . . . , k(xM, x)]T ) ∈RM and K ∈RM×M, where the
+controller.                                                                                       i, jth element is k(xi, xj).
+                                                   A straightforward way to incorporate prior knowledge is a
+                                                  mean function. A common mean function is the zero function,
+3.1. Force models                                              m(x) = 0. To better model contact forces f c, a hinge function is
+                                                                       also used for the mean:
+   External forces, arising from contact with the human or en-        {c1,            if x ≦c3
+vironment, are modeled as Gaussian processes over robot pose.    m(x) =                                                          (3)                                                                                      c1 + c2x,  otherwise
+These models are used to capture two types of uncertainty:
+continuous uncertainty in force via the covariance of the GP, and    where x is the element of x which matches the dimension of the
+discrete variation by having a discrete collection of GPs. Discrete     force being fit f , and constants c1,2,3 ∈R6 are hyperparameters
+                                                         which are fit from data.variation arises from, e.g., having multiple discrete goals in a
+                                                            The data for these models are collected from initial demon-task, where the human forces will depend on the current goal.
+                                                                        strations where the robot is manually guided by the human.
+Concretely, for a robot with a tool-center point (TCP) pose x, we
+                                                             These models are built and the hyperparameters are fit (according
+consider three types of external forces:
+                                                                     to negative log-likelihood) independently for each mode n and
+Human forces f h(x, n) are a function of robot state and human
+                                                            dimension of f . By implementing them in an automatic differen-
+mode n, where n ∈[1 . . . N] indexes  discrete possible human                                                                           tiation framework, the gradient of the mean and covariance with
+behavior such as goals.                                                                    respect to pose can be efficiently calculated for the MPC problem.
+Contact forces f c(x, xe) depend on an environment configura-
+tion xe which is typically unmeasured and may vary between      3.2. Robot admittance dynamics
+iterations, such as a contact or constraint position.
+Disturbance forces  f d(t) such as polishing, cutting, or other        This subsection develops the dynamics of a robot with a Carte-
+process forces which should not affect robot position. We assume     sian admittance controller. An admittance is used as the hard-
+they can be represented in a frequency-domain model F d(jω),    ware implementation here uses a position-controlled industrial
+e.g., they are predominantly high-frequency.                          robot. As impedance and admittance are just inverse mathemat-
+  We use one force/torque (F/T) sensor, such that demonstra-     ical viewpoints of the interactive dynamics, the dynamics here
+tions measure total force f = f h + f c + f d. While multiple F/T    can be readily adapted to impedance-controlled robots.  The
+                                                              admittance dynamics are used to model how the external forcessensors can separate human and environment forces [55,56], a
+                                                                            affect the distribution of robot trajectories, to allow the optimiza-
+single F/T sensor reduces complexity. A disadvantage of a single
+                                                                      tion problem to consider how admittance and nominal trajectory
+F/T sensor is that in co-manipulation with contact, contact may be
+                                                                            affect the trajectory distribution.
+more difficult to identify, although this can be partly addressed
+                                                                   Consider a rendered admittance in the TCP frame which ap-
+by how the data is collected. Another disadvantage of this ap-                                                              proximates the continuous-time dynamics of
+proach is that forces are regressed over position, which may be
+challenging in stiff contact. We validate both these aspects in      f −f r = M ¨x + D˙x + K(x −x0),                                (4)
+Section 5.4 and Fig. 6. Velocity-dependent terms of human forces                                                             with pose x ∈R6, velocity ˙x ∈R6, acceleration ¨x ∈R6, measured
+are not captured with this method, and human force may vary     force f ∈R6 and force reference f r. The impedance parameters
+between data collection and online execution, due to factors such    are inertia M ∈R6×6, damping D ∈R6×6, and stiffness K ∈R6×6
+as the human adapting their impedance. We show the proposed     matrices, which are here all diagonal, and x0 which is the rest
+method is still capable of inferring human goal from online forces     position of the spring. The rotational elements of x and f are
+in Section 6.4.                                                    the angles and torques, respectively, about the three axes of the
+
+                                                                   4
+
+===== PDF PAGE 5 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+                                                                shoulder and one rotational joint for the elbow extension. This
+                                                        model has parameters of l1 and l2, for the length of the upper and
+                                                             lower arm, and xsh ∈R3 for the spatial position of the human
+                                                                    shoulder. Using these parameters and the human joint angles
+                                                        q ∈R4, we can calculate the human hand position xH ∈R3 with
+                                                              forward kinematics as
+
+                                                               xH = FK(q, xsh),                                            (10)
+
+                                                                  Forces measured at the end-effector can be translated into human
+Fig. 3. At time step t, the stochastic dynamics are rolled out from ξt = [xt, ˙xt],     joint torques τH as
+with a trajectory for each mode n  . Here, two modes are shown,  resulting in               T
+the green and red trajectories of mean and covariance.                     τH = J H(q)f H,                                              (11)
+                                                       where f H ∈R3 are linear forces at the human hand, and J H(q) ∈
+                                                            R3×4 is the standard Jacobian matrix of (10) with respect to q.
+TCP frame. In the sequel, K and x0 are dropped as it was found        Task-specific knowledge can be used to model xH or q. In
+empirically that the quasi-static tracking can be handled by the    most cases, we simplify the human kinematics by assuming the
+MPC adjusting f r.                                                     internal/external rotation of the arm is zero, q3 = 0, and that
+                                                               xH = x, i.e., the human hand is at the robot TCP, allowing us to
+3.2.1. Integrator                                                                  write closed-form inverse kinematics and evaluate (11).
+   To formulate an MPC problem, the dynamics in (4) have to be
+discretized. Let Ts be the sample time, subscript t denote the value                                                                                   3.4. Inference of mode n
+at time t0 + tTs, and state vector ξ = [xT, ˙xT]T .
+  A first-order explicit Euler integrator of (4) has oscillation
+                                                                    For tasks which have discrete variation in human goal, denote
+when 1 −TsDiM−1i < 0 [14], where •i denotes the i, i-th element                                                                 the current goal n ∈[1, . . . , N]. When a GP is fit for each mode,
+of a matrix. Instead, we use the semi-implicit integration of [66]
+                                                             then n can be inferred online by Bayesian estimation. Let the be-
+on (4) to find
+                                                                                         lief in mode n at time t be denoted bt ∈RN, bt[n] = p(n|f 1:t, x1:t),
+     [ I              TsI     ]                               and •1:t = [•1, . . . , •t]. This belief is updated recursively asξt+1 =                               ξt       0   M (M + TsD)−1
+                                                                  (5)     bt+1[n] ∝bt[n] det (2πΣfn ) exp ((f t −µfn)T (Σfn)−1(f t −µfn)) ,        [  0  ]            r     +                                           t −f t ),                                                                                                   (12)          TsM−1  (f
+where I ∈R6×6 and 0 ∈R6×6 are the identity and zero matrix,    where µ fn and Σfn are the mean and covariance of the GP model
+respectively.                                                           in mode n evaluated at xt, and bt is normalized after the update
+                                                             such that ∑ bt[n] = 1.
+3.2.2. Stochastic dynamics
+   The robot’s admittance affects the sensitivity to force, and     4. MPC problem
+thus the covariance of future trajectories when the forces are
+stochastic. To calculate the trajectory distribution for a single        This section presents the MPC optimization problem: the con-
+mode and dropping the argument n for compactness, we can     straints, cost functions, and multiple shooting formulation. This
+rewrite (5) in the form of                                          aspect is highlighted by the green part in Fig. 2.
+ξt+1 = Aφξt + Bφ ( f t −f rt ) ,                                    (6)
+                                                                                   4.1. Optimization problem
+where system matrices Aφ, Bφ depend on impedance parameters
+φ = {M, D}. Consider a Gaussian distribution over state ξt ∼      The MPC problem is formulated using multiple-shooting tran-
+N(µt, Σt), we find                                                    scription with a generic problem statement of
+µ+ = Aφµ + Bφ (µf (µ) −f r)                                  (7)                                                                             ut:t+H =                                          Section 4.1
+Σ+ = AφΣATφ + BφΣf (µ)BTφ,                                   (8)              arg minu ∑t+Ht  ∑Nn=1 bt[n]cn(ξnt , ut)        Section 4.2
+where •+ denotes the value of • at time step t + 1. Let the         s.t. ∀n ∈[1, . . . , N], τ ∈[t, . . . , t + H −1] :
+vectorization of the covariance matrix be denoted σ+ = vec(Σ+)           µnt = ξt, Σnt = 0
+                                                                          |µnτ+1 −f (µnτ, uτ )| ≤ϱ                     (7)and similarly σf = vec(Σf ). Vectorizing (8) gives [70, (520)]
+                                                                      |Στ+1 −g(µnτ, Σnτ, uτ )| ≤ϱ                 (9)
+σ+ = Aφ ⊗ATφσ + Bφ ⊗BTφσf ,                                  (9)           h (ξt, ut ) ≥0                             Section 4.3
+                                                           u ∈Uwhere ⊗is the Kronecker product.
+   As there is a GP force model for each mode, the trajectory is                                                                (13)
+rolled out for each mode by applying the corresponding µf (µ, n)
+and σf (µ, n) from the current state ξt, as illustrated in Fig. 3.    where H  is the planning horizon, U  is the range of allowed
+These trajectories use the same admittance parameters and f rt ,     inputs, ϱ the slack for the continuity constraints (the inequality
+but result in trajectories ξnt+1 and Σnt+1.                                      is applied element-wise), f is from (7), g following (9), and h are
+                                                                      inequality constraints to be presented in 4.3. The cost function cn
+3.3. Human kinematics                                                           is shown with its parameter argument ξt and decision variable u,
+                                                                 the detailed cost function provided in (4.2.1). Initial covariance is
+   Ergonomic costs are more naturally expressed in terms of    here simplified by setting Σt = 0 as it is assumed that the robot
+human joint torques [18,30], so we also consider a 4-DOF kine-     state is fully observed  , but this can be initialized with, e.g. the
+matic model of the human arm with three rotational DOF at the    covariance from an observer.
+
+                                                                   5
+
+===== PDF PAGE 6 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+   The constraints in (13) are nonlinear, so an interior-point non-    the inputs or state. Here, measured force is not an input to the
+linear optimization solver is used. While nonlinear, the problem   MPC problem, thus a new approach is taken.
+is written in an automatic differentiation framework, allowing     We consider a disturbance force model in Laplace domain as
+calculation of the gradient and Hessian of the objective and    F d(s) =                                                                                                αs   , where α and ωp adjust the magnitude and cut-off                                                                                   s+ωp
+constraints, significantly improving convergence.                    frequency. This model is a simple high-pass filter, distinguishing
+   The MPC framework here allows for different choices of deci-    from lower-frequency human input. This disturbance results in
+sion variable u, which can include any of the following:             robot position deviation according to the admittance dynamics
+      r                                                  X d(s) =  A(s)F d(s), where A(s) =  (Mis2 + Dis + Ki)−1. Recall
+   f t:t+H Robot trajectory                                                                 the equivalency of the two-norm in time and Laplace domain,
+∆Mt , ∆Dt Change in robot impedance                                  ∥xd(t)∥22 = ∥X d(s)∥22 by Parseval’s theorem [72], and that ∥X d(s)∥22
+where ∆Mt and ∆Dt are a change in the impedance parameters M    can be found by the observability grammian as
+and D.                                                  ∥X d(s)∥22 = BTdXoBd,                                         (16)
+                                                         where   AdXo + XoATd = CTd Cd,                           (17)4.2. Costs
+                                                       where Ad, Bd, Cd are a state-space realization of X d(s) [72]. The
+4.2.1. Stage cost function cn                                    Lyapunov equation in (17) is differentiable [73] with respect to
+   The general stage cost function is defined as                    admittance parameters Mi, Di, Ki, allowing the efficient calcula-
+cn(µ, Σ, µf ,n, Σf ,n, τH, u) =                                          tion of the Jacobian and Hessian of this objective for the optimiza-
+                                                                      tion problem. Note that the naïve solution of (17), by vectorizing
+                     µT Q µµ + Tr(Q ΣΣ)+                   and a linear solve may have numerical issues when the matrices
+                                                            (14)
+                          (µf ,n)T Q f µf ,n + Tr(Q Σ,f Σf ,n)               are poorly conditioned, in such case using specialized solvers like
+                                                                  Bartels–Stewart can improve performance.
+              + τTHQ ττH + uT Q uu,
+where µ and Σ are mean and covariance for the predicted state      4.3. Constraints
+ξ in mode n, µf ,n and Σf ,n are the mean and covariance of the
+GP forces in mode n, τH are the human joint torques from (11),      Impedance parameters affect contact safety. To improve con-
+u are control inputs, and Q · are the related weight-matrices for     tact safety, constraints for well-damped contact and force limit
+each cost factor. State cost Q µ includes  only a small penalty    are formulated.
+on velocity  (position terms are 0), the trajectory following is
+implicit in GP mean and covariance. In some applications (e.g. the      4.3.1. Force limit chance constraint
+rail assembly in Fig. 6), replacing (µf ,n)T Q Hµf ,n with (µf ,n +     A fundamental concern in contact is avoiding excessive force;
+f rt )T Q H(µf ,n + f rt ) is used to match the human demonstrations.     with a model of force over robot pose, this constraint can be di-
+                                                                          rectly transcribed. This force model may have uncertainty arising
+4.2.2. Human joint torque cost                                    from:
+  Human arm manipulability plays a key role in ergonomics
+                                                                                    1. Variation in environment constraint location
+[28,30], as  it relays the information about how well the joint
+                                                                                    2. Exploration of a new region or confidence in the skill
+torques can be transferred into the end-effector force where the
+task is produced. Therefore, we defined the ergonomic cost as      Both these uncertainties are captured in the GP regression here.
+                T                                                     For (1), the GP will fit hyperparameters which increase the uncer-
+τTHQ ττH = f HJ H(q)Q τ J H(q)T f H,                             (15)     tainty in the force model (validated in Section 5.4). For (2), when
+where, when Q τ = I, J HJ TH defines the standard manipulability     farther from the training data, the GP2   will revert to a baseline
+ellipsoid. This is a general formulation and the composition of    variance given by hyperparameter σ n .
+the human end-effector force f H can be specified based on the     A chance constraint is a constraint applied to a random vari-
+task. For example, in the case of a polishing task, the structure to     able which holds for a specified degree of certainty. For a scalar
+be polished itself supports the gravity force, which thus does not    Gaussian variable  f ∼N(µf , Σf ), a chance constraint can be
+play a key role. Here, the dominant force component is related     re-written over mean and covariance as
+                                                           √
+to the movement of the robot along a path, therefore we use     Prob{f ≤f } > 1 −ϵ ⇐⇒µf < f −erf−1(1 −ϵ)∥  Σf ∥,   (18)
+the damping forces of the robot f H =  D˙x, where  ˙x provides a
+weighting according to the direction of the expected forces. This    where f  is an upper bound on the force, erf−1 is the inverse of
+term explicitly includes the impedance parameter, allowing the    the error function and ϵ is a tuning parameter for the confidence
+damping to be optimized to direction of expected motion and     that the chance constraint should hold [74].
+ergonomics. Nevertheless, the proposed formulation is general           It can be seen that the uncertainty adds a conservatism to
+and f H can include gravity force and other static forces for tasks    the force bound; as Σf gets larger, the mean force µf must be
+such as carrying and drilling.                                     kept smaller. This constraint is applied element-wise on the linear
+                                                                            forces, evaluating the GP at the final MPC trajectory point ξt+H to
+4.2.3. Disturbance rejection                                      reduce computational complexity.
+   In many tasks, certain forces are external perturbations and
+should not influence the robot position, e.g., forces arising from      4.3.2. Well-damped contact constraint
+the rotation of a polishing disk in a polishing task. In some cases,      One challenge in admittance control is contact stability with
+these forces may be more easily distinguished in the frequency    environment constraints, where a higher-stiffness environment
+domain, where typical human forces are low-frequency, and dis-     typically requires higher virtual damping [75]. Ad hoc methods
+turbance forces may be medium- to high-frequency. Frequency-    can increase damping near contact [76], but make assumptions
+dependent costs can be considered through an augmented state    such as the robot is slowing down before contact.
+model [71], but this increases state dimension (and thus compu-           If we assume that the forces in demonstration were locally
+tational complexity) and requires the cost can be expressed from    dominated by a stiffness of f = K e(x −x0), where x0 is the rest
+
+                                                                   6
+
+===== PDF PAGE 7 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+position of the environmental stiffness (i.e. contact position), and
+further assume that this function is well-modeled by the posterior
+GP mean function µf (x), we can find
+       dµfi (x)Ke,i(xt) ≈                ,                                     (19)
+              dxi                                                                                                            ⏐⏐⏐⏐⏐x=xt
+where Ke,i is the estimated environment stiffness in the ith di-
+rection at pose xt. With this estimated stiffness, the dynamic
+parameters can be directly constrained using the condition for
+well-damped 2nd order systems
+
+Di ≥2ζ √ MiKe,i(xt),                                        (20)
+
+where ζ = 1 is critically-damped, and ζ > 1 introduces a safety
+margin which can help account for the non-idealized admittance
+dynamics. This constraint is applied to the entire MPC trajectory
+ξt+1:t+H.
+
+5. Analysis
+
+
+   This section, shown in purple in Fig. 2 shows some properties
+of the MPC problem: how trajectory and impedance optimization
+differ, necessary conditions for convexity, and investigates the      Fig. 4. Minimum eigenvalue of the Hessian ∇2TrΣ+ and ∇2 ln det Σ+ with
+ability to model contact with GPs.                                           respect to impedance parameters as Σf varies, where the minimum eigenvalue
+                                                                     must be  positive  for  this  objective to be convex. The  integrator schemes
+                                                                                        (Euler/implicit/exponential) and objective (Tr vs ln det) affect the convexity,
+5.1. Optimization of impedance vs trajectory                           where the implicit and exponential integrator with trace performs best over
+                                                                              a range of force uncertainty.
+  Why should we optimize impedance parameters φ instead
+of just the trajectory µ•? Taking the differential of the linear-
+Gaussian dynamics (7) and (9),                                                          The convexity of this objective will depend on the impedance
+[ dµ+ ]  [ Bφ       dφAφµ + dφBφµf      ] [ df r ]      parameter values, the choice of the integrator (which affects
+     =                                                                ,    A and B), and the relative magnitude of σ and σF. Note that
+  dσ+        0   dφ(Aφ ⊗ATφ)σ + dφ(Bφ ⊗BTφ)σf     dφ         BT ⊗BT =  [0, 0, 0, TsM−2], which gives ∇2MBT ⊗BT ⪰  0.
+                                                            (21)    Thus increasing Σf can increase the minimum eigenvalue of the
+                                                               Hessian of the objective (22). The terms for damping are more
+where prefix d indicates total differential and d• the partial
+                                                                                                            r    complex, thus numerical analysis is carried out.derivative with respect to •. We note two properties: (i) input f                                                                These results are validated numerically to see what matrix cost
+does not affect the covariance σ+, and (ii) state µ+ is determined
+                                       r                                     and integrator have better convexity. The minimum eigenvalueby both control input f  and impedance parameters φ, i.e., differ-                                                                        of the Hessian ∇2φTr(Q Σ+) and ∇2φ ln det(Q Σ+) are compared for
+ent combinations of force and impedance parameters can realize                                                                  three different integrator schemes: explicit Euler ˙x+ =  (1 +
+a certain change in µ+, as previously noted in [54].                                                                      TsD/M)˙x, implicit ˙x+ = M(M + TsD)−1˙x, and exponential ˙x+ =
+  When the robot changes admittance, the mean and variance of    exp(−TsD/M)˙x. We can see in Fig. 4 that the minimum eigenvalue
+the robot’s trajectory are affected. However, changing the robot’s                                                                    generally increases as |Σf | increases. Using a Tr(Q Σ+) is unilater-
+force reference only affects the mean trajectory.  Additionally, a                                                                              ally better than ln det(Q Σ+), and is thus used in the cost function
+change in trajectory can be realized by a combination of force
+                                                                      here. The implicit integrator has better average performance over
+and admittance, thus the optimization of trajectory alone is un-                                                                 the range of Σf —notably, the performance of the explicit Euler
+derdetermined. Empirically, this leads to variation in optimized
+                                                                      integrator is poor; the Hessian is indefinite for typical param-
+admittance parameters, requiring additional regularization. Thus,
+                                                                       eter values. Thus, here we use the trace of matrix costs with
+explicit consideration of trajectory covariance is important for                                                          an implicit integrator. Also note that convexity improves as Σf
+impedance, and the MPC trajectories should be stochastic when
+                                                                        increases, as suggested in the above analysis.
+optimizing impedance.
+
+                                                                                   5.3. Computational costs
+5.2. Convexity over impedance parameters φ
+
+                                                       One limitation of the GP approach is the higher online com-
+   For the optimization problem to be efficient, the objective
+                                                                    putational costs. The direct evaluation of a GP with a squared
+should be convex with respect to the decision variables [77].                                                                 exponential kernel has computational complexity of M2, where
+As optimizing with respect to parameters of the dynamics (e.g.,
+                                    M is the number of data points used in the dataset [69]. However,
+impedance parameters) is not studied, we check the convexity
+                                                                 the overall computational efficiency of an optimization problem
+of a toy cost function with respect to impedance parameters,
+                                                                       also depends on the gradient evaluation efficiency, in addition to
+denoted φ = [M, D]. As impedance parameters φ mostly affect
+                                                                 the effects of the GP on the loss landscape, a high complexity
+covariance, we consider a simplified objective in a single step
+                                                         which requires empirical analysis [74].
+shooting problem of minφ Tr(Q Σ+), where by results from [70],                                                            To do this empirical analysis, we consider a fixed MPC prob-
+Tr(Q Σ+) = Tr(Q AφΣATφ + Q BφΣf BTφ)                       (22)    lem, using the parameters used in Section 6.2, to compare the
+                                                                            effect of the number of GP points M and the number of modes
+     = σT vec(ATQA) + (σf )T vec(BTQB)                   N on the average solve time, evaluated offline over a replay
+     = (σT (AT⊗AT )+(σf )T (BT⊗BT )) vec(Q ).                     of the same trajectory. The results can be seen in Fig. 5, along
+
+                                                                   7
+
+===== PDF PAGE 8 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+                                                                 data identifies a lower stiffness and a contact position 1 cm too
+                                                                       high. In the applications here, this error was acceptable, but this
+                                                                                       is application-specific.
+                                                                      Next, the contact position was varied between trials, with a
+                                                                            total variation of 2 cm over three trials. The result can be seen in
+                                                                                  Fig. 6(b), where the three contact positions can be seen and the
+                                                                 higher covariance in the fit GP (green) can be seen compared to
+                                                                 the constant contact position (blue).
+                                                                                  Finally, contact with environments of various stiffnesses was
+                                                          made, with corresponding stiffness of [15, 45, 126] N/mm. The
+                                                                       resulting quality of the fit can be seen in Fig. 6(c), where the hinge
+                                                                   function can readily identify the changes in contact position and
+                                                                                stiffness.
+
+                                                                             6. Validation
+Fig. 5.  Computational cost as number of GP points M or number of modes N
+varies, with default parameters from Section 6.2 and baseline M = 50, N = 1.
+The fit is approximately quadratic and linear, respectively.                        This section presents four sets of experiments to validate the
+                                                                   various features of the proposed framework. These validation
+                                                              experiments should provide useful pointers for the application
+                                                                        of the proposed method in real-world scenarios (the blue part
+with a polynomial  fit. As the number of GP points increases,
+                                                                        in Fig. 2). Videos are attached as multimedia and can be found
+the average MPC solve time increases quadratically. Furthermore,
+                                                                         at https://youtu.be/Of2O3mHfM94. MPC and GP parameters used
+as the number of modes increases, the average MPC solve time
+                                                                          for each experiment can be found at the repository https://gitlab.
+increases linearly. This suggests that the number of GP points is
+                                                                 cc-asp.fraunhofer.de/hanikevi/gp-mpc-impedance-control.
+critical, and the number of points needed to describe a task may
+vary on its complexity and size within the state space.
+                                                                                   6.1. Contact uncertainty and stiffness
+
+5.4. Contact modeling                                           We first used a contact task to validate safe contact with
+                                                                 the environment. In particular, we examined the effects of force
+  We investigated the ability of the GPs to model contact by    chance constraint and well-damped constraint as contact vari-
+verifying (1) that GPs can identify the contact in human-guided    ance or stiffness increases. The robot was taught a task moving
+contact scenarios, (2) the impact of variation in the contact po-    from free space into contact, which resulted in GP models as seen
+sition, and (3) the impact of environment stiffness on the ability     in Section 5.4. The contact location could be varied by adding
+to regress the models. These together allow the direct modeling    blocks (Fig. 6(b)), and the environment made  stiff by locking
+of environment constraint uncertainty in realistic contact. The hy-    out a compliant element (Fig. 6(c)). For each contact condition
+perparameters in the following were all fit to minimize negative    – soft, high variance, and stiff – the corresponding model from
+log-likelihood from the same initial values.                          Section 5.4 was used, and only the MPC parameters relating
+  When the human guides the robot into contact, the sum of     to the chance constraint (f =  12, ϵ =  0.5, chosen by hand
+human and environmental forces is measured. We collect human-    tuning) and well-damped constraint (ξ = 1.2) are changed. The
+guided contact and autonomous contact data (i.e. the robot makes    low impedance test condition kept the minimum mass 5 Kg and
+contact without human forces), and compare the GPs which are    damping 500 Ns/m.
+fit to both of them. In Fig. 6(a), we see that both models identify      The force trajectories during contact are shown in Fig. 7,
+the contact location with the hinge mean function, but the human    averaged over three trials, where variance is indicated by the
+
+
+
+
+
+Fig. 6. Mean and covariance of GP models for various contact situations where contact occurs on the right side at −0.34 m, real data in dots and corresponding
+model in matching color. Learning from human-guided contact (a) introduces acceptable error in contact location and stiffness, (b) variation in contact location
+induces higher variance GP models, and (c) the hinge function can represent a range of environment stiffnesses.
+
+
+                                                                   8
+
+===== PDF PAGE 9 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+
+               Table 2
+                Objectives and constraints of the MPC framework, with definition, validation, and average MPC loop rate as evaluated by playing
+               back the data recorded from the rail assembly problem.
+
+                              Feature                    Functionality                Defined      Experiment                      Rate (Hz)
+
+                               Baseline               –                                                                           26.2
+
+                                Discrete modes        Human goal estimation                   Dual peg-in-hole Section 6.1      10.6
+            Human                      Human joint torque     Human ergonomics           (11)          Polishing Section 6.3              16.6
+
+                         Model variance           Repeatable task DOF          (1)             Rail Section 6.2                   24.2
+                                                         Constraint uncertainty        (1)           Contact Section 6.1
+
+                Task         Disturbance reject        Task performance            (16)          Polishing Section 6.3              14.6
+
+                          Well-damped            Contact stability              (20)          contact Section 6.1                22.2
+
+                           Chance constraint         Safety                        (18)          Contact Section 6.1               13.0
+
+
+
+
+
+                                                                                                Fig. 8. Rail assembly and polishing tasks, where the DOF which the human
+                                                                              should determine are shown in green.
+
+
+
+
+
+Fig. 7. Contact forces under contact conditions of soft (top, 45 N/mm), higher
+variance (middle, ±1 cm) and stiff (bottom, 126 N/mm). The two contact con-
+straints are compared, chance constraint (18) and well-damped (20). When the
+contact location has higher variance, the chance constraint is more conservative
+(middle). The well-damped constraint stabilizes contact with the high-stiffness
+environment by increasing damping (bottom), but does not interfere with the
+low-stiffness contact where increased damping is not needed (top).
+
+
+
+shaded area. In the soft contact condition, the difference is small
+as the constraints were not violated. As the variance in the
+environment increased, the low impedance MPC had a higher
+contact force, but both constraints reduced this peak force. The
+chance constraint had more oscillation, but the well-damped
+constraint was smoother. As the stiffness of the environment                                                                                                Fig. 9. Impedance values in the rail assembly task, showing principle axes of
+increased, the low impepdance MPC had a higher peak contact     damping and mass in task space along three trajectories. The DOF with task
+force, and had unstable contact (i.e., lost contact due to oscilla-      variation (green arrow) has consistently lower damping values, allowing easier
+tion). The well-damped constraint had more stable contact with    human manipulation along this axis.
+fewer oscillations, compared to the chance-constrained MPC.
+   In the supplementary video, it can be seen that these con-
+straints also affected the behavior approaching contact. Once the      6.2. Rail assembly
+chance constraint was activated, the robot pulled back from the
+contact approach. This was typically accompanied by infeasible
+                                                             Here we present a rail assembly task, where the location of the
+optimization problems (i.e., no solution meeting constraints could
+                                                                switch along the rail may vary according to factors not known to
+be found). This problem was empirically more pronounced when
+                                                                 the robot, such as existing parts. However, the rail mounting itselfusing a GP with a hinge function, thus the poor conditioning of
+                                                                                       is repeatable. This task was taught in three demonstrations fromstiff contact was identified as a contributing cause. Alternatively,
+the well-damped constraint paused to allow the damping to    various initial conditions, with varying goal locations along the
+increase before making contact. Also, the well-damped constraint      rail. The desired behavior is that this division of repeatable task
+was found empirically to have lower computational cost, with   DOF and variation can be automatically extracted from data, such
+an average MPC rate of 22 compared with 13 for the chance     that the robot allows the human to more easily manipulate this
+constraint (Table 2).                                          DOF, i.e., has a lower impedance in the DOF that varies.
+
+                                                                   9
+
+===== PDF PAGE 10 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+
+
+
+
+Fig. 10. Impedance values in the polishing task, showing that (b) frequency disturbance increases the mass across from the path, and (c) the human joint torque
+cost reduces impedance when farther from human, where more joint torque would be required. In (d) impedance over time is shown, where dotted is y-axis, solid
+x. The transition at 31 seconds corresponds to the corner in the trajectory.
+
+
+Table 3
+RMS velocity below and above 15 Hz, approximating the intentional motion
+and vibration, respectively. The high impedance and disturbance term suppress
+high-frequency vibration, but the high impedance results in a slow system.
+
+ MPC type          High imp.       Baseline        Dist.           Dist. + Jt.
+ High-freq RMS      5.4e−6        7.3e−6       6.5e−6      7.6e−6
+ Low-freq RMS      0.8e−4        4.2e−4       4.2e−4      4.1e−4
+
+
+
+   The results can be seen in Fig. 9, which shows the linear
+impedance parameters of mass and damping over space in three
+validation experiments. It can be seen that the impedance initial-
+ized at low values, but as the rail was approached, the impedance
+in the repeatable DOF was increased substantially, while kept low
+in the DOF which varied. The supplementary video shows that
+this results in a human easily intervening to adjust position along
+the rail. The task could also be achieved autonomously after the
+demonstrations when a cost was added to keep a positive force
+reference in the approach direction ∥15 −f r2∥.
+
+6.3. Polishing
+
+  We also examined a polishing task where the human had      Fig. 11. Velocity realized in polishing experiments, colors match coordinate
+to guide a robot-supported polishing spindle along a path. In     system  in  Fig.  8(b). The standard  cost function  is compared with adding
+this case, the human was determining speed along the path,     disturbance  cost.  It can be seen that the disturbance  result decreases the
+                                                                                high-frequency (> 10 Hz) velocity of the robot.
+while polishing vibration should not affect the robot’s trajectory.
+To balance the rejection of polishing force disturbance against
+the need for the human to easily manipulate the robot, a force
+disturbance cost was added to the MPC problem. An ergonomic    a penalty on human joint torques reduced the impedance when
+cost is also added, based on the assumed human arm geometry,     farther from the human, as an equivalent force at a greater
+and tested. The supplementary video shows polishing on a flat     distance requires more shoulder joint torques due to poor force
+surface, corresponding to Fig. 8(b), and a round object to show     manipulability. However, the human joint cost did not improve
+the ability to handle orientation.                                  the vibration suppression as significantly as the disturbance cost
+   As seen in Fig. 10, the different cost function terms affected    as seen in Table 3.
+the rendered impedance along the polishing path. When the
+frequency-domain disturbance was added, the directionality of      6.4. Double peg-in-hole
+the impedance was significantly affected, resulting in a higher
+impedance cross to the direction of motion, reducing oscillation        This task involved multiple possible goals from the human,
+cross from the direction of motion. This resulted in a reduction    with the two goals indicated in Fig. 12(a). While the human
+of high-frequency velocity, as seen in Fig. 11 and Table 3. Adding     objective was not known in advance, the belief was updated
+
+                                                                   10
+
+===== PDF PAGE 11 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+
+
+
+
+                                                                           Fig. 12. Dual peg-in-hole task.
+
+
+online as seen in Fig. 12(b). This update in the belief resulted    Declaration of competing interest
+in different force trajectories, as seen in Fig. 12(c). This allowed
+the planned robot trajectory to respond online to changes in the      The authors declare the following financial interests/personal
+human intent, providing 6-DOF assistance to the human.             relationships which may be considered as potential competing
+                                                                          interests: Kevin Haninger reports financial support was provided
+                                                          by European Research Council.7. Conclusion
+
+                                                          Data availability   This paper presented an MPC framework for impedance con-
+trol in contact with humans and the environment. The use of
+                                                           Code and data in Gitlab link.Gaussian Processes to model external force allows explicit consid-
+eration of variability in demonstrations (rail assembly), confidence
+in the skill (higher covariance outside demonstrations), and un-    Acknowledgments
+certain environment constraints (Fig. 6(b)). By using a GP model
+per human goal, a discrete goal can be estimated online to han-        This project has received funding from the European Union’s
+dle uncertainty in human goal. This approach can also consider    Horizon 2020 research and innovation programme under grant
+frequency-domain disturbance models for external perturbations.    agreement   Nos   820689–SHERLOCK   and   101058521–
+By using stochastic trajectories, the impedance parameters can    CONVERGING.
+be directly optimized.  Furthermore, it is empirically found that
+trajectory covariance in the cost function is helpful for admittance    Appendix A. Supplementary data
+parameters to converge.
+   While flexible, the approach has some limitations, many aris-       Supplementary material related to this article can be found
+ing from contact. Learning contact forces from human-led demon-    online at https://doi.org/10.1016/j.robot.2023.104431.
+strations is limited as human forces are not distinguished from
+the environment—autonomous data collection  is also needed.    References
+While the hinge function in GPs allows better modeling of stiff
+contact, the integration over these stiff contact models requires a        [1]  N.  Hogan,  Impedance  control: An  approach  to  manipulation:  Part
+small step size, even with implicit integrators. Without suitable           II—implementation,  J. Dyn. Syst. Meas. Control 107 (1) (1985) 8–16.
+                                                                                               [2]  S. Calinon,  I. Sardellitti, D.G. Caldwell, Learning-based control strategy for
+integrator parameters, the contact may be lost in the future
+                                                                                               safe human-robot interaction exploiting task and robot redundancies, in:
+trajectory and constraints such as chance or well-damped lose         2010 IEEE/RSJ International Conference on Intelligent Robots and Systems,
+effectiveness. These inequality constraints are effectively solved            IEEE, 2010, pp. 249–254.
+in an interior-point method, but care must be taken to keep the        [3]  K. Kronander, E. Burdet, A. Billard, Task transfer via collaborative manip-
+                                                                                             ulation for insertion assembly, in: Workshop on Human-Robot Interaction
+problem feasible, e.g., allowing fast changes in damping to react
+                                                                                                   for Industrial Manufacturing, Robotics, Science and Systems, Citeseer, 2014.
+to fast changes in projected environment stiffness.                           [4]  G. Franzese, A. Mészáros, L. Peternel,  J. Kober, ILoSA: Interactive learning
+   Further limitations arise from the GP models, which cannot            of stiffness and attractors, in: 2021 IEEE/RSJ International Conference on
+model certain types of uncertainty—this includes variation in             Intelligent Robots and Systems, IROS, IEEE, 2021, pp. 7778–7785.
+noise over the state space,  variation in human behavior due        [5]  D.S. Walker, J.K. Salisbury, G. Niemeyer, Demonstrating the benefits of vari-
+                                                                                          able impedance to telerobotic task execution, in: 2011 IEEE International
+to changes in the robot policy, or correlations between DOF in           Conference on Robotics and Automation, IEEE, 2011, pp. 1348–1353.
+the force signals. Variation in demonstrations is only captured        [6]  A. Ajoudani, N. Tsagarakis, A. Bicchi, Tele-impedance: Teleoperation with
+through optimization of the hyperparameters, which can only          impedance regulation using a body–machine interface, Int.  J. Robot. Res.
+affect the GP covariance per DOF, not locally. Heteroscedastic GPs,         31 (13) (2012) 1642–1656.
+                                                                                               [7]  L. Peternel, T. Petrič,  J. Babič, Robotic assembly solution by human-in-
+or fitting non-diagonal elements can address these issues, but                                                                                        the-loop teaching method based on real-time stiffness modulation, Auton.
+computationally-efficient methods are needed. Optimization of          Robots 42 (1) (2018) 1–17.
+the GP parameters needs strong regularization, especially to keep        [8]  C. Yang, G. Ganesh, S. Haddadin, S. Parusel, A. Albu-Schaeffer, E. Burdet,
+comparable between DOF or different GP models.  Additionally,          Human-like adaptation of force and impedance in stable and unstable
+                                                                                                  interactions, IEEE Trans. Robot. 27 (5) (2011) 918–930.
+GPs as implemented here cannot capture frequency-domain in-
+                                                                                               [9]  A. Naceri, T. Schumacher, Q.  Li,  S. Calinon, H. Ritter, Learning optimal
+formation, so adapting to suppress vibration required a separate          impedance  control during complex 3D arm movements, IEEE  Robot.
+model.                                                                      Autom. Lett. 6 (2) (2021) 1248–1255.
+
+                                                                   11
+
+===== PDF PAGE 12 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+
+[10]  V. Duchaine, C.M. Gosselin, General model of human-robot cooperation      [36]  F. Dimeas, N. Aspragathos, Reinforcement learning of variable admittance
+      using a novel velocity based variable impedance control, in: EuroHaptics            control for human-robot co-manipulation, in: Intelligent Robots and Sys-
+      Conference, 2007 and Symposium on Haptic Interfaces for Virtual Environ-          tems (IROS), 2015 IEEE/RSJ International Conference on, IEEE, 2015, pp.
+     ment and Teleoperator Systems. World Haptics 2007. Second Joint, IEEE,          1011–1016.
+     2007, pp. 446–451.                                                             [37]  E. Gribovskaya,  A. Kheddar,  A.  Billard, Motion learning and adaptive
+[11]  L. Peternel, N. Tsagarakis, D. Caldwell, A. Ajoudani, Robot adaptation to          impedance for robot control during physical interaction with humans, in:
+    human physical fatigue in human–robot co-manipulation, Auton. Robots           Robotics and Automation (ICRA), 2011 IEEE International Conference on,
+     (2018) 1–11.                                                                             IEEE, 2011, pp. 4326–4332.
+[12]  G. Franzese, A. Mészáros, L. Peternel,  J. Kober, Ilosa: Interactive learning      [38]  H. Lee, B. Lee, W. Kim, M. Gil,  J. Han, C. Han, Human-robot cooperative
+      of stiffness and attractors, in: 2021 IEEE/RSJ International Conference on            control based on pHRI (Physical Human-Robot Interaction) of exoskeleton
+      Intelligent Robots and Systems, IROS, IEEE, 2021, pp. 7778–7785.                   robot for a human upper extremity, Int. J. Precis. Eng. Manuf. 13 (6) (2012)
+[13]  L. Roveda,  J. Maskani, P. Franceschi, A. Abdi, F. Braghin, L.M. Tosatti, N.          985–992.
+      Pedrocchi, Model-based reinforcement learning variable impedance control      [39]  T. Tsumugiwa, R. Yokogawa, K. Hara, Variable impedance control based
+      for human-robot collaboration,  J. Intell. Robot. Syst. (2020) 1–17.                on estimation of human arm stiffness for human-robot cooperative cal-
+[14]  K. Haninger, C. Hegeler, L. Peternel, Model predictive control with Gaussian            ligraphic task, in: Robotics and Automation, 2002. Proceedings. ICRA’02.
+      processes for flexible multi-modal physical human robot interaction, 2021,           IEEE International Conference on, Vol. 1, IEEE, 2002, pp. 644–650.
+      arXiv preprint arXiv:2110.12433.                                                [40]  V. Duchaine, B.M. St-Onge, D. Gao, C. Gosselin, Stable and intuitive control
+[15]  A. Takagi, G. Ganesh, T. Yoshioka, M. Kawato, E. Burdet, Physically inter-                                                                                                of an intelligent assist device, IEEE Trans. Haptics 5 (2) (2012) 148–159.
+      acting individuals estimate the Partner’s goal to enhance their movements,
+                                                                                       [41]  X. Lamy, F. Colledani, F. Geffard, Y. Measson, G. Morel, Achieving efficient
+      Nat. Hum. Behav. 1 (3) (2017) 0054.
+                                                                            and stable comanipulation through adaptation to changes in human arm
+[16]  B. Corteville, E. Aertbeliën, H. Bruyninckx,  J. De Schutter, H. Van Brussel,
+                                                                                  impedance, in: Robotics and Automation, 2009. ICRA’09. IEEE International
+     Human-inspired robot assistant for fast point-to-point movements, in: Pro-
+                                                                                    Conference on, IEEE, 2009, pp. 265–271.
+     ceedings 2007 IEEE International Conference on Robotics and Automation,
+                                                                                       [42]  J.R.   Koller,   D.H.   Gates,   D.P.   Ferris,   C.D.  Remy,   ’Body-in-the-
+      IEEE, 2007, pp. 3639–3644.
+                                                                                        Loop’optimization  of  assistive  robotic  devices: A  validation  study.,
+[17]  A. Ajoudani, A.M. Zanchettin,  S.  Ivaldi, A. Albu-Schäffer, K. Kosuge, O.
+                                                                                                       in: Robotics: Science and Systems, 2016.
+      Khatib, Progress and prospects of the human–robot collaboration, Auton.
+                                                                                       [43]  J.R. Medina, D. Lee,  S. Hirche, Risk-sensitive optimal feedback control
+     Robots (2017) 1–19.
+                                                                                                   for haptic  assistance,  in: Robotics and Automation  (ICRA), 2012 IEEE[18]  P. Maurice, A. Malaisé,  C. Amiot, N.  Paris,  G.-J. Richard, O. Rochel,  S.
+                                                                                              International Conference on, IEEE, 2012, pp. 1025–1031.       Ivaldi, Human movement and ergonomics: An industry-oriented dataset
+                                                                                       [44]  S. Calinon, D. Bruno, M.S. Malekzadeh,  T. Nanayakkara, D.G. Caldwell,      for collaborative robotics, Int.  J. Robot. Res. 38 (14) (2019) 1529–1537.
+[19]  Y. Demiris, Prediction of intent in robotics and multi-agent systems, Cognit.         Human–robot skills transfer interfaces for a flexible surgical robot, Comput.
+      Process. 8 (3) (2007) 151–158.                                             Methods Programs Biomed. 116 (2) (2014) 81–96.
+[20]  Y.  Li,  S.S. Ge, Human–Robot collaboration based on motion intention      [45]  E. Pignat, S. Calinon, Learning adaptive dressing assistance from human
+      estimation, IEEE/ASME Trans. Mechatronics 19 (3) (2014) 1007–1014.               demonstration, Robot. Auton. Syst. 93 (2017) 61–75.
+[21]  C. Wang, Y. Li, S.S. Ge, T.H. Lee, Reference adaptation for robots in physical      [46]  N. Hogan, On the stability of manipulators performing contact tasks, Robot.
+      interactions with unknown environments, IEEE Trans. Cybern.  47 (11)           Automat., IEEE  J. 4 (6) (1988) 677–686.
+     (2017) 3504–3515.                                                              [47]  E. Burdet, R. Osu, D.W. Franklin, T.E. Milner, M. Kawato, The central ner-
+[22]  G. Kang, H.S. Oh,  J.K. Seo, U. Kim, H.R. Choi, Variable admittance con-          vous system stabilizes unstable dynamics by learning optimal impedance,
+       trol of robot manipulators based on human intention, IEEE/ASME Trans.          Nature 414 (6862) (2001) 446–449.
+     Mechatronics 24 (3) (2019) 1023–1032.                                         [48]  Y.  Li, G. Ganesh, N. Jarrassé,  S. Haddadin, A. Albu-Schaeffer, E. Burdet,
+[23]  S. Jain, B. Argall, Recursive Bayesian human intent recognition in shared-            Force, impedance, and trajectory learning for contact tooling and haptic
+      control robotics, in: 2018 IEEE/RSJ International Conference on Intelligent             identification, IEEE Trans. Robot. 34 (5) (2018) 1170–1182.
+     Robots and Systems, IROS, IEEE, 2018, pp. 3905–3912.                          [49]  F. Ferraguti, C. Talignani Landi, L. Sabattini, M. Bonfè, C. Fantuzzi, C. Secchi,
+[24]  R.K. Jain, S. Majumder, B. Ghosh, S. Saha, Design and manufacturing of        A variable admittance control strategy for stable physical human–robot
+     mobile micro manipulation system with a compliant piezoelectric actuator            interaction, Int.  J. Robot. Res. 38 (6) (2019) 747–765.
+     based micro gripper,  J. Manuf. Syst. 35 (2015) 76–91.                          [50]  P. Kormushev, S. Calinon, D.G. Caldwell, Robot motor skill coordination
+[25]  A. Bajcsy, D.P. Losey, M.K. O’Malley, A.D. Dragan, Learning robot objectives          with EM-based reinforcement learning, in: Intelligent Robots and Sys-
+     from physical human interaction, 2017, p. 10.                                 tems (IROS), 2010 IEEE/RSJ International Conference on, IEEE, 2010, pp.
+[26]  C. Messeri, G. Masotti, A.M. Zanchettin, P. Rocco, Human-robot collabora-          3232–3237.
+      tion: Optimizing stress and productivity based on game theory, IEEE Robot.      [51]  S. Calinon, D. Bruno, D.G. Caldwell, A task-parameterized probabilistic
+     Autom. Lett. 6 (4) (2021) 8061–8068.                                       model with minimal intervention  control,  in: 2014 IEEE International
+[27]  N. Vahrenkamp, H. Arnst, M. Wächter, D. Schiebener,  P. Sotiropoulos,           Conference on Robotics and Automation, ICRA, IEEE, 2014, pp. 3339–3344.
+     M. Kowalik,  T. Asfour, Workspace  analysis  for planning human-robot      [52]  Y. Li, J.-Y. Zhu, R. Tedrake, A. Torralba, Connecting touch and vision via
+      interaction  tasks,  in: 2016 IEEE-RAS 16th International Conference on           cross-modal prediction, 2019, arXiv:1906.06322 [cs].
+     Humanoid Robots, Humanoids, IEEE, 2016, pp. 1298–1303.                                                                                       [53]  Y.  Li, G. Carboni, F. Gonzalez, D. Campolo, E. Burdet, Differential game
+[28]  S. Gopinathan, S. Otting,  J. Steil, A user study on personalized adaptive
+                                                                                      theory for versatile physical human–robot interaction, Nat. Mach. Intell. 1
+       stiffness control modes for human-robot interaction, in: The 26th IEEE
+                                                                                                   (1) (2019) 36–43.
+      International Symposium on Robot and Human Interactive Communication,
+                                                                                       [54]  F. Stulp, J. Buchli, A. Ellmer, M. Mistry, E.A. Theodorou, S. Schaal, Model-free
+     2017, pp. 831–837.
+                                                                                     reinforcement learning of impedance control in stochastic environments,
+[29]  N. Mansfeld, M. Hamad, M.  Becker,  A.G. Marin,  S. Haddadin,  Safety
+                                                                                       IEEE Trans. Auton. Men. Dev. 4 (4) (2012) 330–341.
+     map: A unified representation for biomechanics impact data and robot
+                                                                                       [55]  C. Chang, K. Haninger,  Y.  Shi,  C. Yuan,  Z. Chen,  J. Zhang, Impedance
+      instantaneous dynamic properties, IEEE Robot. Autom. Lett. 3 (3) (2018)
+                                                                                       adaptation by reinforcement learning with contact dynamic movement
+     1880–1887.
+                                                                                                primitives, in: 2022 IEEE Intl. Conf. on Advanced Intelligent Mechatronics,
+[30]  L. Peternel, D.T. Schøn, C. Fang, Binary and hybrid work-condition maps
+                                                                                 AIM, 2022.
+      for  interactive exploration  of ergonomic human arm  postures,  Front.
+                                                                                       [56]  T. Tang, H.-C. Lin, M. Tomizuka, A learning-based framework for robot peg-
+     Neurorobot. (2021) 114.
+[31]  H. Ben Amor, G. Neumann, S. Kamthe, O. Kroemer,  J. Peters, Interaction            hole-insertion, in: Dynamic Systems and Control Conference, vol. 57250,
+      Primitives for Human-Robot Cooperation Tasks, IEEE, 2014, pp. 2831–2837.          American Society of Mechanical Engineers, 2015, V002T27A002.
+[32] M. Khoramshahi,  A.  Billard, A dynamical system approach  to  task-      [57]  E. Caldarelli, A. Colomé, C. Torras, Perturbation-based stiffness inference
+      adaptation in physical human–robot interaction, Auton. Robots 43 (4)            in variable impedance  control, IEEE Robot. Autom.  Lett. 7  (4) (2022)
+     (2019) 927–946.                                                            8823–8830.
+[33]  G. Raiola, S.S. Restrepo, P. Chevalier, P. Rodriguez-Ayerbe, X. Lamy, S. Tliba,      [58]  L. Peternel, N. Tsagarakis, A. Ajoudani, A Human–Robot co-manipulation
+       F. Stulp, Co-manipulation with a library of virtual guiding fixtures, Auton.          approach based on human sensorimotor information, IEEE Trans. Neural
+     Robots 42 (5) (2018) 1037–1051.                                                          Syst. Rehabil. Eng. 25 (7) (2017) 811–822.
+[34]  L. Rozo, S. Calinon, D.G. Caldwell, P. Jimenez, C. Torras, Learning physical      [59] M. Ulmer,  E. Aljalbout,  S. Schwarz,  S. Haddadin, Learning robotic ma-
+      collaborative robot behaviors from human demonstrations, IEEE Trans.           nipulation skills using an adaptive force-impedance action space, 2021,
+      Robot. 32 (3) (2016) 513–527.                                                   arXiv:2110.09904 [cs].
+[35]  Y. Maeda, T. Hara, T. Arai, Human-robot cooperative manipulation with      [60]  F.J. Abu-Dakka, M. Saveriano, Variable impedance control and learning –
+     motion estimation, in: Proceedings 2001 IEEE/RSJ International Conference        A review, 2020, arXiv:2010.06246 [cs].
+     on Intelligent Robots and Systems. Expanding the Societal Role of Robotics      [61] M.  Sharifi, A. Zakerimanesh,  J.K. Mehr, A. Torabi, V.K. Mushahwar, M.
+      in the the Next Millennium (Cat. No. 01CH37180), Vol. 4, Ieee, 2001, pp.            Tavakoli, Impedance variation and learning  strategies in human-robot
+     2240–2245.                                                                                interaction, IEEE Trans. Cybern.  (2021) 1–14.
+
+                                                                   12
+
+===== PDF PAGE 13 =====
+K. Haninger, C. Hegeler and L. Peternel                                                                             Robotics and Autonomous Systems 165 (2023) 104431
+
+
+[62]  F. Ferraguti, N. Preda, M. Bonfe, C. Secchi, Bilateral teleoperation of a dual      [77]  J.B. Rawlings, D.Q. Mayne, M. Diehl, Model Predictive Control: Theory,
+     arms surgical robot with passive virtual fixtures generation, in: Intelligent          Computation, and Design, Vol. 2, Nob Hill Publishing Madison, 2017.
+     Robots and Systems (IROS), 2015 IEEE/RSJ International Conference on,
+      IEEE, 2015, pp. 4223–4228.
+[63] M. Rubagotti, T. Taunyazov, B. Omarali, A. Shintemirov, Semi-autonomous
+      robot teleoperation with obstacle avoidance via model predictive control,                          Kevin Haninger researches physical, interactive sys-
+     IEEE Robot. Autom. Lett. 4 (3) (2019) 2746–2753.                                                    tems, developing algorithms and design methods for
+[64]  Z. Manchester, S. Kuindersma, Variational contact-implicit trajectory opti-                          impedance  control, compliant mechanisms, and ob-
+      mization, in: N.M. Amato, G. Hager, S. Thomas, M. Torres-Torriti (Eds.), in:                               servers for contact-rich manipulation and human–robot
+      Robotics Research, vol. 10, Springer International Publishing, Cham, 2020,                                 interaction. He graduated with a Ph.D. in Mechanical
+      pp. 985–1000.                                                                                     Engineering from the University of California, Berkeley
+[65]  J.-P. Sleiman, F. Farshidian, M.V. Minniti, M. Hutter, A unified mpc frame-                                in 2016, and is currently affiliated with Fraunhofer IPK
+     work for whole-body dynamic locomotion and manipulation, IEEE Robot.                                in Berlin, Germany.
+     Autom. Lett. 6 (3) (2021) 4688–4695.
+[66]  D.E. Stewart, Rigid-body dynamics with friction and impact, SIAM Rev. 42
+      (1) (2000) 3–39.
+[67] M.V. Minniti, R. Grandia, K. Fäh, F. Farshidian, M. Hutter, Model predic-
+                                                                                                           Christian Hegeler is a researcher in the area of robot
+      tive robot-environment interaction control for mobile manipulation tasks,
+                                                                                                       planning and  control, developing  data-efficient ma-
+     2021, arXiv:2106.04202 [cs].
+                                                                                                        chine learning methods for robots to handle uncertain
+[68]  S. Pfrommer, M. Halm, M. Posa, ContactNets: Learning of discontinu-
+                                                                                                                          tasks. He has  finished  his  Master’s degree  at  the
+     ous contact dynamics with smooth, implicit representations, 2020, arXiv
+                                                                                                            Technical University of Berlin in 2023.
+      preprint arXiv:2009.11193.
+[69]  C.E. Rasmussen, Gaussian Processes for Machine Learning, MIT Press, 2006.
+[70]  K.B. Petersen, M.S. Pedersen, et al., The Matrix Cookbook, Vol. 7, Technical
+      University of Denmark, 2008, p. 15.
+[71]  R. Grandia, F. Farshidian, A. Dosovitskiy, R. Ranftl, M. Hutter, Frequency-
+     Aware  model  predictive  control,  IEEE  Robot.  Autom.  Lett.  (2019)
+       1.
+[72]  K. Zhou, J.C. Doyle, K. Glover, Robust and Optimal Control, Vol. 40, Prentice                         Luka Peternel received a Ph.D. in robotics from the
+      hall New Jersey, 1996.                                                                                  Faculty of Electrical Engineering, University of Ljubl-
+[73]  T.-C. Kao, G. Hennequin, Automatic differentiation of Sylvester, Lyapunov,                                 jana, Slovenia in 2015. He conducted my Ph.D. studies
+     and algebraic Riccati equations, 2020, arXiv:2011.11430 [cs, math].                                        at the Department for Automation, Biocybernetics and
+[74]  L. Hewing,  J. Kabzan, M.N. Zeilinger, Cautious model predictive control                               Robotics, Jožef Stefan Institute in Ljubljana from 2011
+      using Gaussian process regression, IEEE Trans. Control Syst. Technol. 28                               to 2015, and at the Department of Brain-Robot In-
+      (6) (2019) 2736–2743.                                                                                            terface, ATR Computational Neuroscience Laboratories
+[75]  A. Albu-Schäffer, C. Ott, U. Frese, G. Hirzinger, Cartesian impedance control                                in Kyoto, Japan in 2013 and 2014. He was with the
+      of redundant robots: Recent results with the dlr-light-weight-arms, in:                         Human-Robot Interfaces and Physical Interaction Lab,
+      Robotics and Automation, 2003. Proceedings. ICRA’03. IEEE International                          Advanced Robotics, Italian Institute of Technology in
+     Conference on, Vol. 3, IEEE, 2003, pp. 3704–3709.                                                 Genoa, Italy from 2015 to 2018. Since 2019, he is an
+[76]  F. Ficuciello, L. Villani, B. Siciliano, Variable impedance control of redundant      Assistant Professor at the Department of Cognitive Robotics, Delft University of
+     manipulators for intuitive human–robot physical interaction, IEEE Trans.     Technology in the Netherlands.
+      Robot. 31 (4) (2015) 850–863.
+
+
+
+
+
+                                                                   13

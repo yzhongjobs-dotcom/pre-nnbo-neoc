@@ -1,0 +1,822 @@
+===== PDF PAGE 1 =====
+                                                   Robotics and Autonomous Systems 189 (2025) 104961
+
+
+                                                 Contents lists available at ScienceDirect
+
+                       Robotics and Autonomous Systems
+
+
+                                           journal homepage: www.elsevier.com/locate/robot
+
+
+
+Model predictive variable impedance control towards safe robotic
+interaction in unknown disturbance-rich environments
+Junyuan Xue a,b, Wenyu Liang b,∗, Yan Wu b, Tong Heng Lee a
+
+a Department of Electrical and Computer Engineering, National University of Singapore, Singapore, 117582, Singapore
+b Institute for Infocomm Research (I2R), A*STAR, Singapore, 138632, Singapore
+
+
+A R T I C L E   I N F O            A B S T R A C T
+
+
+Keywords:                                       Robotic systems have evolved to handle various significant interaction tasks in different environments. Under
+Impedance control                                  these conditions, the involvement of humans in the environment drastically complicates such interaction tasks;
+Adaptive control                                    as the safety of humans should be prioritized while seeking to achieve the desired task aim. It is thus paramount
+Model predictive control                              that appropriate developments should be pursued with specific considerations for such safety-performance-
+Safe interaction
+                                              balanced interaction tasks on unknown soft environments (e.g., humans). Towards this end, we present an
+                                                adaptive robust, and passive control scheme based on model predictive control and variable impedance
+                                                   control that addresses this challenge. Under this control scheme, during robotic interaction tasks with complex
+                                              environments (e.g., humans), the presented development and design incorporate safety thresholds that are
+                                                     carefully satisfied via impedance adaptation, and realized by a safety-related mode-switching mechanism. Once
+                                                 the safety thresholds are satisfied, task performance is then focused on. Additionally, a real-time adaptive
+                                                 robust parameter estimator is designed and utilized to estimate the environment contact model for the model
+                                                    predictive control, and thus this control scheme is robust against disturbances (e.g., which would invariably
+                                                       arise from the inevitable small bounded human motions) during the interaction tasks. Finally, the key safety
+                                          and performance attainments of the proposed control scheme are verified via experiments. The experiments
+                                                 are conducted on two silicone rubber models and a human arm. These show that the proposed control scheme
+                                                       effectively outperformed various currently available control schemes in these interaction tasks with unknown
+                                             environment contact models, and bounded but unpredictable environment position shifts, such as in robotic
+                                                ultrasound scanning applications.
+
+
+
+1. Introduction                                                                           is thus designed, which changes the impedance model in the control
+                                                                     loop for better adaptivity [5]. Many previous works achieve VIC via
+   After the introduction of industrial robots in the past century, the                                                                         learning-based methods such as learning from demonstration [6–9] and
+field of robotics has been trending towards solving interaction tasks in
+                                                                       reinforcement learning [10–12], but they are respectively limited by
+unstructured environments. The rise of human–robot collaboration and
+                                                                        the arduous demonstration process or the sim-to-real problem. In [13,interaction have further propelled this direction through means such as
+collaborating in factories to learn and optimize the assembly task [1],     14], linear quadratic regulators (LQRs) generate the optimal impedance
+assisting in medical/surgical operation [2], and rehabilitation [3], etc.     parameters via human demonstrations. In [15], the impedance param-
+However, developing control laws with a safe interaction between     eters are tuned based on dynamics models, and sliding mode control
+humans and robots is nontrivial.                                                       is adopted for handling interaction uncertainties. The impedance vari-
+   Impedance control (IC) has been widely adopted since its intro-
+                                                                           ation can also be realized via bio-mimetic methods for motor behavior
+duction in [4]. As an indirect force control method, IC regulates the
+                                                                          learning [16], dual-arm operation [17], and manipulator control for
+robot–environment interaction based on a virtual impedance model,
+enabling robots to comply with varying contact forces and avoiding     contact tasks [18]. Bio-mimetic methods humanize the robotic inter-
+risks of damaging the environment during interaction tasks compared     action and enhance user experiences, but they might increase the
+to direct force control methods. As a growing number of tasks re-     computational complexity and reduce the generalizability.
+quire a flexible impedance model, variable impedance control (VIC)
+
+
+  ∗Corresponding author.
+     E-mail addresses: xue.junyuan@u.nus.edu (J. Xue), liang_wenyu@i2r.a-star.edu.sg (W. Liang), wuy@i2r.a-star.edu.sg (Y. Wu), eleleeth@nus.edu.sg
+(T.H. Lee).
+
+https://doi.org/10.1016/j.robot.2025.104961
+Received 15 September 2024; Received in revised form 10 January 2025; Accepted 4 March 2025
+Available online 13 March 2025
+0921-8890/© 2025 Elsevier B.V. All rights are reserved, including those for text and data mining, AI training, and similar technologies.
+
+===== PDF PAGE 2 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+   However, neither IC nor VIC inherently incorporates any con-
+straints, potentially leading to failures in tasks requiring the robotic
+system to obey constraints [19,20]. Model predictive control (MPC),
+initially developed for the chemical process industry in the late 1970s
+[21], has become a widely adopted technique [22] due to its ability to
+optimize subject to multiple constraints. In recent years, MPC has also
+been favored for interaction control, thanks to its optimization with
+constraints [23]. Therefore, MPC can be considered for integration with
+IC or VIC to complement their functionalities and address the constraint
+issues.
+   Several works have successfully integrated MPC with IC or VIC,
+demonstrating the effectiveness of this combined approach in robotic
+interaction tasks. In [24], an admittance control  is designed based
+on MPC with constraints of velocity and interaction force. In [25],
+the objective function for MPC is constructed based on the desired
+impedance model with user-designed constraints. Furthermore, the
+MPC is adopted in [26] to optimize the impedance parameters for
+tracking error minimization. In [27], a learned model for MPC adapts
+the impedance parameters to realize the VIC. In [28], the MPC  is                          Fig. 1. A robotic interaction task with a human.
+employed to optimize the robot trajectory and impedance model online
+via a task model from demonstrations. All the aforementioned works
+design the objective concisely, e.g., minimizing tracking errors, but     to estimate the nonlinear HC model accurately in real-time during the
+they may not satisfy the complicated task requirements. For instance,     interaction between the robot and environment.
+in a human-involved interaction task, the control objective should       The main contributions of this work are:
+prioritize humans’ safety and then achieve the desired control. No
+previous works have proposed such complex objectives for optimization             • development of a novel MPVIC scheme with specific consider-
+with constraints.                                                                 ations for safety-performance-balanced interaction tasks on un-
+   To address this research gap, a novel model predictive variable        known soft environments, e.g., humans;
+impedance control (MPVIC) is proposed in this work. The proposed             • an adaptive robust parameter estimator for real-time nonlinear
+MPVIC aims at maintaining safety and then achieving a desired per-         environment model estimation;
+formance, i.e., safety-performance balance, with constraint compliance,             • a theoretical analysis that guarantees the passivity of the con-
+robustness, and passivity guarantee, for an interaction task with un-            trol scheme (ensuring safety) as well as the convergence and
+known soft environments, e.g., humans. One real-world example is          robustness of the environment estimator (demonstrating system
+diagnostic ultrasonography, where a doctor holds a probe and moves           adaptability);
+it along the human skin to obtain an ultrasonic image inside the body,             • appropriate experiments (conducted on two silicone rubber mod-
+as illustrated in Fig. 1.                                                                  els and a human arm) which show that the proposed control
+   In the proposed MPVIC, passivity-based control is first employed         scheme effectively outperformed various currently available con-
+to ensure safety and stability during interactions between robots and            trol schemes in these interaction tasks with unknown environ-
+humans as well as to adapt to the changes in system dynamics. Passivity        ment contact models, and bounded but unpredictable environ-
+describes how a system handles energy: a system  is passive  if  its                                                                 ment position shifts, such as in robotic ultrasound scanning ap-
+inflow of energy is always non-negative, i.e., it never creates energy                                                                                       plications.
+on its own. In [29], a passive variable impedance control is proposed
+based on electromyography for operator intention detection. In [30], a       The rest of this paper is organized as follows. Section 2 formulates
+passive impedance control scheme is proposed to control the maximum     the problem to be solved. Following that, the proposed control scheme
+penetration depth during the robotic ultrasound scanning task. In [31],      is presented in detail in Section 3. Section 4 shows and discusses
+the energy-aware variable impedance control is proposed for aerial     the experimental results of the proposed control scheme along with a
+vehicles in the port Hamiltonian framework to achieve free-flight and    comparison to two state-of-the-art control schemes. Finally, Section 5
+in-contact stability. To guarantee the passivity of MPVIC, the tank-     provides the conclusion.
+based approach inspired by [32],  is designed in this work. In this
+approach, energy dissipated from the system is accumulated in a virtual
+                                                                           2. Problem formulation
+energy tank, ensuring the overall system remains passive.
+   Furthermore, these interaction tasks present significant challenges
+due to the inherent properties of soft environments. The soft envi-        This work focuses on one category of physical human–robot interac-
+ronments are generally nonlinear, viscoelastic, and inhomogeneous,     tion tasks, examples of which are ultrasonography, body massage, etc.
+further compounded by the high degree of uncertainty and distur-     Specifically, this category of tasks aims at safely applying a suitable
+bance due to the unpredictable nature of human movements. It is also     contact force on humans while moving along its surface. As mentioned
+noteworthy that the performance of MPC relies on the accuracy of     in Section 1, such human environments are extremely complex: they
+the environment model. For contacts with a soft environment, three     are unknown, nonlinear, viscoelastic, inhomogeneous tangentially and
+commonly used linear viscoelastic models are the Maxwell model,     normally, and with unpredictable disturbance. In this work, the safety
+Kelvin–Voigt model, and Zener model [33]. Nevertheless, the Hunt–     of interaction  is  first emphasized by the control scheme, and then
+Crossley (HC) model introduced in [34] offers a better  fit for soft     the desired impedance behavior is maintained. To further enhance the
+environments and human tissues such as membranes, muscles, and     safety of interaction, constraints on position, velocity, and acceleration
+skins [35,36]. To address the challenges of interacting with soft envi-    can be enabled via MPC. For a successful MPC with unknown or
+ronments and ensuring accurate model in MPC, a novel adaptive robust    inhomogeneous environments, an environment model that accounts
+parameter estimator with a dead zone is integrated into this work, such     for disturbances is crucial. To address these challenges, the following
+that the estimator, originally for linear models in [37], is then able     definitions and assumptions are established.
+
+                                                                        2
+
+===== PDF PAGE 3 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+Definition 1. The interaction is defined to be safe when the force and
+its first-order time derivative are both within certain predefined ranges
+and vice versa.
+
+
+Assumption 1. Interaction with the environment is within the robot
+workspace without singularity. The initial position and orientation of
+the environment are known to the robot, which starts in contact with
+the environment.
+
+
+Assumption 2. The disturbance 𝛿(𝑡), e.g., environment position shift,
+sensor noise, etc., is bounded by 𝛥 as in (1), and the environment
+orientation is invariant in the task.                                                                    Fig. 2. Coordinate definitions for position and force.
+sup |𝛿(𝑡)| ≤𝛥,                                                        (1)
+
+                                                               impedance model ensures that the robot motion adapts to achieve the   Definition 1 narrows down the definition of safety by ISO/TS
+15066 [38] into the force limit only for simplicity without the loss of     desired force profile, which is particularly suitable for tasks requiring
+generality, as the velocity and power of the robot are insignificant in a     accurate force control and compliance as discussed in this paper.
+slow interaction task and can always be added into the safety-related         Different from the majority of previous MPC-based VIC works such
+mode design presented later. Assumption 1 can be released via path     as [26], the environment interaction force model is considered in the
+planning and visual recognition, which are beyond the scope of this   MPC model here for a better prediction accuracy of MPC. Consider thus
+work. Assumption 2 is realistic as the human is expected to stay near    both the contact situation (̂𝑓𝐻𝐶> 0) and the non-contact situation
+the initial position during the task, and large motions, if any, can be     (̂𝑓𝐻𝐶 =  0); the environment force estimated from the HC model
+estimated as part of the environment, or compensated by additional 𝑓𝐻𝐶(𝑧,̇𝑧) is:
+visual feedback, which is beyond the scope of this work as well.
+   This work focuses on the impedance control along the z direction,     𝑓𝐻𝐶(𝑧,̇ 𝑧) = max(𝑘𝑧𝑛+ 𝑐𝑧𝑛̇𝑧, 0),                                      (9)
+i.e., the normal direction of the environment without the loss of gener-
+                                                              where function max(𝑎, 𝑏) outputs the larger value from 𝑎 or 𝑏, and 𝑘, 𝑐,
+ality, because the same control method can be applied to any direction.
+                                                              and 𝑛 are the HC model parameters, which are estimated in real-time
+Initially, consider the dynamics of a robot manipulator:
+                                                                     during the task by the parameter estimator. Rewrite (9) with (7), and
+𝑀(𝑞)̈𝑞+ 𝐶(𝑞,̇ 𝑞) + 𝐺(𝑞) = 𝜏𝑐−𝐽𝑇(𝑞)𝑓𝑒𝑛𝑣,                             (2)       it results in:
+where 𝑞  is the joint variable of the manipulator, 𝜏𝑐  is the control     𝑓𝐻𝐶(𝑒𝑧,̇ 𝑒𝑧) = max((𝑘−𝑐̇𝑒𝑧)(𝑧𝑟−𝑒𝑧)𝑛, 0),                          (10)
+torque of the manipulator, 𝑀(𝑞), 𝐶(𝑞,̇ 𝑞), 𝐺(𝑞) are the known dynamics
+matrices, 𝐽  is the Jacobian matrix, and 𝑓𝑒𝑛𝑣 is the interaction force.     Focusing on the contact case where ̂𝑓𝐻𝐶> 0, the nonlinear system
+Define a matrix 𝐷:                                                    equation is obtained by substituting (10) into (8):
+     ⎡           02×6            ⎤                                        𝑚𝑖̈𝑒𝑧+ [𝑑𝑖(𝑡) −𝑐(𝑧𝑟−𝑒𝑧)𝑛]̇𝑒𝑧+ 𝑘𝑖(𝑡)𝑒𝑧+ 𝑘(𝑧𝑟−𝑒𝑧)𝑛−𝑓𝑟
+𝐷= ⎢𝑟31   𝑟32    𝑟33   0  0  0 ⎥ ,                                  (3)
+         ⎢⎣           03×6                        ⎥⎦                             = 0.                                                         (11)
+where 𝑟31, 𝑟32, and 𝑟33 are elements from the third row of the 3 × 3       Regarding the time-varying damping and stiffness coefficients for
+rotational matrix 𝑅 between the robot base frame and the task frame,     VIC, when the interaction is considered unsafe, the damping should
+and 0𝑟×𝑐 denotes an r-by-c zero matrix. With Cartesian variable 𝑝 and     increase while the stiffness should decrease. In this work, damping
+the relationship ̈𝑝= 𝐽̈𝑞+̇ 𝐽̇𝑞, one obtains:                            and stiffness parameters 𝑑𝑖, 𝑘𝑖 are adapted, and the desired damping
+                                                              and stiffness are {𝑑𝑖,𝑚𝑖𝑛, 𝑘𝑖,𝑚𝑎𝑥}, while {𝑑𝑖,𝑚𝑎𝑥, 𝑘𝑖,𝑚𝑖𝑛= 0} are adopted
+𝑧= 𝐷̈𝑝= 𝐷(𝐽̈𝑞+̇ 𝐽̇𝑞).                                                               (4)̈
+                                                                 under unsafe conditions. A smooth transition of VIC coefficients and
+                                                                        the passivity guarantee for the task are also necessary.
+𝑞= 𝐽−1𝐷+(̈𝑧−𝐷̇𝐽̇𝑞),                                                (5)
+
+where 𝐷+ denotes the pseudo-inverse of matrix 𝐷. The low-level con-     3. Control scheme
+trol law along the z direction, namely 𝜏𝑐𝑧, is obtained by taking (5) back
+to (2):
+                                                              To solve the control problem formulated in the previous section,
+𝜏𝑐𝑧= 𝑀(𝑞)𝐽−1𝐷+(̈𝑧−𝐷̇𝐽̇𝑞) + 𝐶(𝑞,̇ 𝑞) + 𝐺(𝑞) + 𝐽𝑇𝑓𝑒𝑛𝑣,                (6)    a control scheme is proposed here that incorporates (𝑖) the real-time
+                                                                       adaptive robust parameter estimator to estimate the HC contact force
+   With the reference position 𝑧𝑟 and the reference force 𝑓𝑟, the    model, and (𝑖𝑖) the MPVIC scheme that controls and regulates the robot
+position error 𝑒𝑧 and the force error 𝑒𝑓 are defined as:                    following the desired impedance behavior under safe scenarios. The
+𝑒𝑧= 𝑧𝑟−𝑧, 𝑒𝑓= 𝑓𝑟−𝑓𝑒𝑛𝑣.                                          (7)     general structure of the proposed control scheme is shown in Fig. 3,
+                                                                    with details as in the following subsections.
+The interaction task in this paper aims to maintain stable contact with
+the environment, i.e., ̇𝑧𝑟=̈ 𝑧𝑟= 0. The coordinates of robot end-effector
+position 𝑧 and environment force 𝑓𝑒𝑛𝑣 are defined in Fig. 2.                 3.1. Adaptive robust parameter estimator
+   The impedance model for VIC is then formulated as:
+                                                         An adaptive robust parameter estimator  is designed to estimate
+𝑚𝑖̈𝑒𝑧+ 𝑑𝑖(𝑡)̇𝑒𝑧+ 𝑘𝑖(𝑡)𝑒𝑧= 𝑒𝑓,                                         (8)                                                                        the HC contact force model ̂𝑓𝐻𝐶(𝑡) based on actual force feedback
+where 𝑚𝑖, 𝑑𝑖(𝑡), and 𝑘𝑖(𝑡) are the impedance parameters for VIC, among      𝑓𝑒𝑛𝑣(𝑡). The nonlinear HC model is initially linearized via logarithmic
+which only the damping and stiffness coefficient are adapted, and the     operation, and the parameter estimator output ̂𝑦(𝑡) = log(̂𝑓𝐻𝐶(𝑡)) tracks
+mass coefficient remains constant. The use of force error 𝑒𝑓  in the     the optimal output 𝑦(𝑡) = log(𝑓𝑒𝑛𝑣(𝑡)), which can be rewritten in the
+
+                                                                        3
+
+===== PDF PAGE 4 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+                                                                  Proof of Lemma 1. Define the true parameter vector as 𝜃∗. The actual
+                                                                            force feedback can then be expressed with 𝜃∗ as:
+
+                                                                                            𝑦(𝑡) = 𝜃∗𝑇𝜙(𝑡−1) + 𝛿(𝑡).                                         (17)
+
+                                                                       Define the parameter estimation error ̃𝜃(𝑡) as:
+
+                                                                                          𝜃(𝑡) = 𝜃∗−̂ 𝜃(𝑡).                                                 (18)
+
+                                                                            Substitute (17) and (18) into (16), one obtains:
+                                                                                     𝑎(𝑡−1)𝜙(𝑡−1)𝑒𝑦(𝑡)
+                                                                                          𝜃(𝑡) =̃ 𝜃(𝑡−1) −                                   .                             (19)
+                                                                                    1 + |𝜙(𝑡−1)|2
+                Fig. 3. Block diagram of the proposed MPVIC scheme.                Square both sides of (19) results in:
+
+                                                                                                2𝑎(𝑡−1)[𝑒𝑦(𝑡) −𝛿(𝑡)]𝑒𝑦(𝑡)
+                                                                                                           |̃𝜃(𝑡)|2 = |̃𝜃(𝑡−1)|2 −
+                                                                                           1 + |𝜙(𝑡−1)|2
+linear-in-the-parameter form as:
+                                                                                        𝑎(𝑡−1)2|𝜙(𝑡−1)|2𝑒𝑦(𝑡)2
+𝑦(𝑡) = log([𝑘(𝑡−1) + 𝑐(𝑡−1)̇𝑧(𝑡−1)]𝑧(𝑡−1)𝑛(𝑡−1))                           +
+                                                                                                     [1 + |𝜙(𝑡−1)|2]2
+   = log(𝑘(𝑡−1)) + 𝑛(𝑡−1) log(𝑧(𝑡−1))                                                          2𝑎(𝑡−1)[𝑒𝑦(𝑡) −𝛿(𝑡)]𝑒𝑦(𝑡)
+                  𝑐(𝑡−1)̇𝑧(𝑡−1)                                               ≤|̃𝜃(𝑡−1)|2 −                                            (20)       + log(1 +                    )                                                            1 + |𝜙(𝑡−1)|2
+                    𝑘(𝑡−1)
+                                                               (12)                     𝑎(𝑡−1)𝑒𝑦(𝑡)2   = log(𝑘(𝑡−1)) + 𝑛(𝑡−1) log(𝑧(𝑡−1))                                +
+        ∞                                                                    1 + |𝜙(𝑡−1)|2    ∑ (−1)𝑖+1(𝑐(𝑡−1)̇𝑧(𝑡−1))𝑖                                                                                                      𝑎(𝑡−1)𝑒𝑦(𝑡)[𝑒𝑦(𝑡) −2𝛿(𝑡)]       +
+               𝑖=1        𝑖𝑘(𝑡−1)𝑖                                 = |̃𝜃(𝑡−1)|2 −     1 + |𝜙(𝑡−1)|2          .
+     ≈̂ 𝜃(𝑡−1)𝑇𝜙(𝑡−1),                                                          From the definition of the dead zone in (15), one obtains:
+where ̂𝜃(𝑡) and 𝜙(𝑡) are defined as:                     {                                                                                                        0,   𝑒𝑦(𝑡)[𝑒𝑦(𝑡) −2𝛿(𝑡)] ≤0
+                                                                 𝑎(𝑡−1) =                                                      (21)                         𝑐(𝑡)
+𝜃(𝑡) =[log(𝑘(𝑡)), 𝑛(𝑡),                           ]𝑇,                                                                         1,   𝑒𝑦(𝑡)[𝑒𝑦(𝑡) −2𝛿(𝑡)] > 0,
+                       𝑘(𝑡)                                         (13)
+                                                               which results in:𝜙(𝑡) =[1, log(𝑧(𝑡)),̇ 𝑧(𝑡)]𝑇.
+                                                                                𝑎(𝑡−1)𝑒𝑦(𝑡)[𝑒𝑦(𝑡) −2𝛿(𝑡)] ≥0.                                    (22)Here, ̂𝜃(𝑡) is the vector that includes all parameters to be estimated,
+and 𝜙(𝑡)  is the vector that includes remaining terms for 𝜃(𝑡). The    Take (22) back to (20), the following properties are obtained:
+approximation in (12) holds based on the assumption as follows.
+                                                                                                                      |̃𝜃(𝑡)|2 −|̃𝜃(𝑡−1)|2 ≤0,                                                                                                                                       (23)
+Assumption 3. The viscosity term 𝑐(𝑡−1)̇𝑧(𝑡−1) in the HC model is     |𝜃∗−̂ 𝜃(𝑡)| ≤|𝜃∗−̂ 𝜃(𝑡−1)| ≤|𝜃∗−̂ 𝜃(0)|.
+much smaller than the stiffness term 𝑘(𝑡−1).                                                             The convergence of the estimator is thus proved in (23). □
+
+   This assumption holds for most real-world environments; a  sit-
+uation which  is also evidenced in the experiments here, and with    Remark 1. The parameter estimator (16) is robust and will adapt when
+real-world conditions which have been experimentally verified. For     the estimation error 𝑒𝑦(𝑡) exceeds twice the disturbance bound 𝛥 due to
+those extremely viscous environments, a different contact force model     the dead zone (15).
+can be considered; though naturally with this much more challenging
+condition (of extremely viscous environments), there will be associated    Remark 2. The parameter estimator (16) is able to estimate the envi-
+costs of possibly reduced prediction accuracy and increased estimation    ronment when the disturbance 𝛿 does not exceed the predefined upper
+frequencies. Based on Assumption 3, only the first-order term remains    bound 𝛥. Otherwise, the estimator regards 𝛿 as part of the signal 𝑦(𝑡).
+in the summation of (12). The estimation error is defined as:            The temporarily wrong parameter estimations do not affect the control
+                                                                   performance because they treat the bound-exceeding disturbance as
+𝑒𝑦(𝑡) = 𝑦(𝑡) −̂ 𝑦(𝑡).                                               (14)     part of an ‘updated environment’ and match ̂𝑦(𝑡) with 𝑦(𝑡), and correct
+                                                                   parameter estimations are retrieved when 𝛿 reduces back within 𝛥.To overcome the disturbance 𝛿 bounded by 𝛥 in (1), a dead zone is
+defined as:
+    {                                                                    3.2. Model predictive variable impedance control
+              1,   |𝑒𝑦(𝑡)| > 2𝛥𝑎(𝑡−1) =                                                      (15)
+              0,   |𝑒𝑦(𝑡)| ≤2𝛥.                                                            Firstly, two modes for the proposed MPVIC are defined: safety
+                                                       mode and performance mode, with user-defined impedance model
+It is noteworthy that the disturbance upper bound 𝛥 should be carefully
+                                                                     parameters {𝑑𝑖,𝑚𝑖𝑛, 𝑘𝑖,𝑚𝑎𝑥} (desired impedance model for performanceselected to balance between the estimation accuracy and the computa-
+                                                       mode that achieves the performance) and {𝑑𝑖,𝑚𝑎𝑥, 𝑘𝑖,𝑚𝑖𝑛} (conservativetional consumption. The parameter estimator is then designed with (14)
+                                                               impedance model for safety mode that avoid dangers). In the safety
+and (15):
+                                                              mode, the safety of the environment, e.g., the human, is exceedingly
+               𝑎(𝑡−1)𝜙(𝑡−1)[𝑦(𝑡) −̂ 𝜃(𝑡−1)𝑇𝜙(𝑡−1)]                   emphasized by sacrificing the task performance, reducing the stiffness𝜃(𝑡) =̂ 𝜃(𝑡−1) +                                                                     .            (16)
+                         1 + |𝜙(𝑡−1)|2                                   to  𝑘𝑖,𝑚𝑖𝑛 while increasing the damping to 𝑑𝑖,𝑚𝑎𝑥 for the impedance
+   For the developments above, the following intermediate result (by    model. In the performance mode, the robot focuses on the task per-
+way of a stated Lemma) can be established and noted at this point.       formance by following the desired impedance model and adopting
+                                                               impedance parameters {𝑑𝑖,𝑚𝑖𝑛, 𝑘𝑖,𝑚𝑎𝑥}.
+Lemma 1.  With the parameter estimator (16), all estimated parameters       Based on Definition 1 in Section 2, the controlled system enters
+in ̂𝜃(𝑡) converge to their true values with robustness against a disturbance 𝛿     the safety mode only upon abnormal force feedback. Thus, two safety
+bounded by 𝛥.                                                             thresholds are defined in terms of interaction force error 𝑒𝑓 and its
+
+                                                                        4
+
+===== PDF PAGE 5 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+Table 1                                                                              stiffness 𝑘𝑖(0), and it is bounded in the non-negative real value for all
+Definition of modes and impedance parameters.                                    time:
+ Mode               Thresholds of 𝑒𝑓,  ̇𝑒𝑓                 𝑘𝑖(𝑡)                 𝑑𝑖(𝑡)
+                    𝑒𝑓∈(−∞, −𝜔1]                                              𝑘𝑖(0) = 𝑘𝑖(0),̄  𝑘𝑖(𝑡) ≥0  ∀𝑡.                                      (27)
+                                        ∪[𝑓𝑟, +∞),̇  Safety                                       0                    𝑑𝑖,𝑚𝑎𝑥             Stiffness constraining is achieved via constraining the positive changing
+                    𝑒𝑓∈(−∞, −̇𝑒𝑓𝑏]
+                                                                              rate of ̄𝑘𝑖(𝑡) to ensure the passivity:                                              ∪[̇𝑒𝑓𝑏, +∞)
+                   𝑒𝑓∈[0, 𝑓𝑟−𝜔1],̇                                   ⎧
+ Performance        𝑒𝑓∈[−̇𝑒𝑓𝑏+ 𝜔2,̇                     𝑘𝑖,𝑚𝑎𝑥                 𝑑𝑖,𝑚𝑖𝑛             ⎪ 𝑘𝑖(𝑡) + 𝜆𝑒𝑘𝑖(𝑡),                           |𝑒𝑧| ≤𝜖                                                                                                                                       (28)                                                                                                                                                                           2[𝑑𝑖(𝑡)̇𝑒2𝑧−𝑓𝑟̇𝑒𝑧+𝑝1]                                                                                             𝑘𝑖(𝑡) = ⎨                          𝑒𝑓𝑏−𝜔2]                                                                                                     min(̇𝑘𝑖(𝑡) + 𝜆𝑒𝑘𝑖(𝑡),                                                                                                                                                                                  ),   |𝑒𝑧| > 𝜖                                                                                                                                                                                                                                𝑒2𝑧  Transition          Otherwise                             (0, 𝑘𝑖,𝑚𝑎𝑥)            (𝑑𝑖,𝑚𝑖𝑛, 𝑑𝑖,𝑚𝑎𝑥)                            ⎪⎩̇
+                                                              where 𝑒𝑘𝑖(𝑡) =  𝑘𝑖(𝑡) −̄ 𝑘𝑖(𝑡) is the difference between the theoretical
+                                                                      unconstrained stiffness 𝑘𝑖(𝑡) and the actual constrained stiffness ̄𝑘𝑖(𝑡), 𝜆
+                                                                                                is a positive constant gain for tracking ̄𝑘𝑖(𝑡) to 𝑘𝑖(𝑡). 𝜖 is a small positive
+                                                                         threshold constant to avoid singularity when 𝑒𝑧→0. 𝑝1 is defined as:
+                                 {
+                                                                                                   0,     𝑉𝑡𝑘≤0
+                                                                              𝑝1 =     𝜆𝑒𝑘𝑖𝑒2𝑧                                                    (29)
+                                                                                                                                                             ,  𝑉𝑡𝑘> 0.                                                                                                     2
+                                                                              𝑝1 here is the energy flow supported by a virtual energy tank 𝑉𝑡𝑘.
+                                                                                 Essentially, 𝑉𝑡𝑘 provides the energy for the constrained stiffness ̄𝑘𝑖(𝑡)
+                                                                            to track the desired theoretical unconstrained stiffness 𝑘𝑖(𝑡). Here, 𝑉𝑡𝑘
+                                                                                                is defined with a positive user-designed initial energy budget 𝑉𝑡𝑘,0:
+Fig. 4. One example of the safety, transition, and performance modes: (a) top view;      𝑉𝑡𝑘|𝑡=0 = 𝑉𝑡𝑘,0,̇
+(b) 3D view.                                                                                                                             (30)
+                                                            𝑉𝑡𝑘= (𝑑𝑖(𝑡) −𝑝2)̇𝑒2𝑧−𝑓𝑟̇𝑒𝑧−1 𝑘𝑖(𝑡)𝑒2𝑧,                                                                                                                                                                                                                                                                                   2̇̄
+                                                              where 𝑝2 is a small positive constant to ensure the strict passivity when
+time derivative ̇𝑒𝑓. Safety mode is entered at the beginning of the     𝑒𝑧≠0.
+task as well as when safety thresholds are violated. Performance mode
+is entered when safety thresholds are satisfied. To ensure a smooth                                                      Remark 3. The energy budget 𝑉𝑡𝑘,0 should be appropriately selected
+transition between the two modes, a third mode named transition    based on the impedance model and environment model. Assuming that
+mode is designed, which links the two modes with smooth impedance    a nominal HC model  is given for the interaction environment, the
+variations. The boundaries and values of different modes are defined in    impedance model energy can be simulated during the interaction. The
+Table 1, where 𝜔1 and 𝜔2 are transition mode widths.               maximum energy can then be referred for deciding 𝑉𝑡𝑘,0, such that it is
+   Smooth transitions between the safety mode and transition mode,     neither so small that the controller becomes over-conservative, nor so
+and between the transition mode and performance mode are essential     large that the controller becomes too aggressive to effectively constrain
+for both the safety and the performance of the task [39]. A transition     the system behavior.
+function 𝜎(𝑥, 𝑎, 𝑏) with transition width 𝜔= 𝑏−𝑎 is then designed:
+                                                                                                         It will be rigorously proved later (with a result that we denote as
+        ⎧0,              𝑥< 𝑎                          Theorem 1) that 𝑝1  is the upper bound of the energy flow into the
+        ⎪ 1𝜎(𝑥, 𝑎, 𝑏) =         + 1 sin( 𝜋     + 𝜋 ),  𝑥∈[𝑎, 𝑏]                   (24)    human–robot system due to the constrained stiffness ̄𝑘𝑖(𝑡) when |𝑒𝑧| > 𝜖,        ⎨ 2    2   𝜔(𝑥−𝑏)    2                                  and that 𝑉𝑡𝑘 ensures an upper bound of the energy in the system,
+               1,              𝑥> 𝑏.                                            i.e., the passivity. It will also be proved that when the energy budget               ⎪⎩
+This transition function can transit between two modes smoothly. Based     in 𝑉𝑡𝑘 is fully consumed, i.e., 𝑉𝑡𝑘= 0, the passive controller under (28)
+                                                                   obeys passivity via reducing the stiffness ̄𝑘𝑖(𝑡) and thus releasing energyon (24) and Table 1, the mode indicator 𝜇(𝑒𝑓,̇ 𝑒𝑓) is constructed as:
+                                                                 back to 𝑉𝑡𝑘.
+𝜇(𝑒𝑓,̇ 𝑒𝑓) =𝜎(𝑒𝑓, −𝜔1, 0)[1 −𝜎(𝑒𝑓, 𝑓𝑟−𝜔1, 𝑓𝑟)]                                      Significantly, an extreme case under this design is that both energy
+                                                               (25)
+             𝜎(̇𝑒𝑓, −̇𝑒𝑓𝑏, −̇𝑒𝑓𝑏+ 𝜔2)[1 −𝜎(̇𝑒𝑓,̇ 𝑒𝑓𝑏−𝜔2,̇ 𝑒𝑓𝑏)],                    stored in the energy tank and potential energy in the model stiffness are
+                                                                           depleted, i.e., 𝑉𝑡𝑘= 0,̄ 𝑘𝑖(𝑡) = 0. A safety stop indicator 𝑠𝑠𝑡𝑜𝑝 is designed
+where 𝜔1 and 𝜔2 are widths of the transition zone along 𝑒𝑓 and ̇𝑒𝑓,     to stop the system execution under this extreme case:
+and ̇𝑒𝑓𝑏 indicates the boundaries. It is pertinent to note that selecting     {
+these width and boundary values is a matter that should be thoughtfully     𝑠𝑠𝑡𝑜𝑝=   true  𝑉𝑡𝑘< 𝜖, and̄ 𝑘𝑖(𝑡) < 𝜖,                            (31)
+addressed. The normal approach is to refer to those from an exemplary                false  otherwise.
+human operation to decide the boundaries, and then select a sufficiently                                                                      Here, the controller will examine the value of 𝑠𝑠𝑡𝑜𝑝 in real-time and im-
+large transition width to ensure a smooth mode transition. The mode     mediately stop the robot if the value is ‘true’ for safety considerations.
+indicator 𝜇(𝑒𝑓,̇ 𝑒𝑓) indicates the safety mode when 𝜇= 0, the transition       Based on 𝑑𝑖(𝑡) from (26) and ̄𝑘𝑖(𝑡) from (28), the framework from
+mode when 0 < 𝜇< 1, and the performance mode when 𝜇= 1. An     [25] is improved by linearizing the nonlinear MPC for faster compu-
+example of the distribution of the three modes is illustrated in Fig. 4.      tation and thus faster response. Rewrite the system Eq. (11) in the
+   With the above mode indicator, variable impedance controller pa-     function form:
+rameters 𝑘𝑖(𝑡) and 𝑑𝑖(𝑡) are then designed with (25) as:                                                                                                            𝑓𝑠𝑦𝑠(̈𝑒𝑧,̇ 𝑒𝑧, 𝑒𝑧) = 𝑚𝑖̈𝑒𝑧+ [𝑑𝑖(𝑡) −𝑐(𝑧𝑟−𝑒𝑧)𝑛]̇𝑒𝑧
+𝑘𝑖(𝑡) =𝜇(𝑒𝑓,̇ 𝑒𝑓)𝑘𝑖,𝑚𝑎𝑥,                                                               (26)        +̄𝑘𝑖(𝑡)𝑒𝑧+ 𝑘(𝑧𝑟−𝑒𝑧)𝑛−𝑓𝑟.                                     (32)
+𝑑𝑖(𝑡) =𝑑𝑖,𝑚𝑎𝑥+ 𝜇(𝑒𝑓,̇ 𝑒𝑓)(𝑑𝑖,𝑚𝑖𝑛−𝑑𝑖,𝑚𝑎𝑥).
+                                                             The linearization of (32) via first-order Taylor expansion is conducted
+   Because the increase of controller parameter 𝑘𝑖(𝑡) in (26) will result
+                                                                                at 𝑒𝑧= 𝑒𝑧0, ̇𝑒𝑧=̇ 𝑒𝑧0, ̈𝑒𝑧=̈ 𝑒𝑧0 when 𝑡= 𝑡0:
+in the self-generation of energy in the controlled system, 𝑘𝑖(𝑡) is further
+restricted by the constrained stiffness. Define the constrained stiffness                                          𝜕𝑓𝑠𝑦𝑠
+                                                                                                            𝑓𝑠𝑦𝑠(̈𝑒𝑧,̇ 𝑒𝑧, 𝑒𝑧) ≈𝑓𝑠𝑦𝑠(̈𝑒𝑧0,̇ 𝑒𝑧0, 𝑒𝑧0) +           (̈𝑒𝑧−̈ 𝑒𝑧0)
+as ̄𝑘𝑖(𝑡). Here, ̄𝑘𝑖(𝑡) is initialized as the same value as unconstrained                                                      𝜕̈𝑒𝑧                                                                                                                                                                                                                                                                                                                                                                                                                               |||||𝑡0
+
+                                                                        5
+
+===== PDF PAGE 6 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+     𝜕𝑓𝑠𝑦𝑠                          𝜕𝑓𝑠𝑦𝑠
+ +                (̇𝑒𝑧−̇ 𝑒𝑧0) +                               (𝑒𝑧−𝑒𝑧0).                       (33)         1. Safety-Performance Balance: The control system prioritizes the safety
+        𝜕̇𝑒𝑧                 𝜕𝑒𝑧                                                          of the environment by regulating contact forces and achieves target                                    |||||𝑡0                                                                |||||𝑡0
+                                                                           impedance performance subject to arbitrary feasible constraints.
+Based on (33), the system equation is linearized as:
+                                                                                    2. Passivity: The system remains passive with an energy upper bound
+𝑐1̈𝑒𝑧+ 𝑐2̇𝑒𝑧+ 𝑐3𝑒𝑧+ 𝑐4 = 0,                                       (34)             for all time due to the tank-based passive control scheme, and the
+                                                                                 energy flow into the controlled system is regulated by 𝑝1 in (29) when
+where                                                                                         |𝑒𝑧| > 𝜖.
+𝑐1 =𝑚𝑖,
+𝑐2 =𝑑𝑖(𝑡0) −𝑐(𝑧𝑟−𝑒𝑧0)𝑛,                                              Proof of Theorem 1. At first, we prove the safe-performance balance
+                                                                              of the proposed MPVIC. In the control scheme, MPC optimizes along
+𝑐3 =̄𝑘𝑖(𝑡0) −𝑛(𝑘−𝑐̇𝑒𝑧0)(𝑧𝑟−𝑒𝑧0)𝑛−1,
+                                                                        the objective function 𝐽 such that the system (34) holds with feasible
+𝑐4 = −𝑓𝑟+ 𝑘(𝑧𝑟−𝑒𝑧0)𝑛+ 𝑛(𝑘−𝑐̇𝑒𝑧0)(𝑧𝑟−𝑒𝑧0)𝑛−1𝑒𝑧0.                MPC constraints. Based on (25), under unsafe scenarios in Table 1, the
+   With (34), define an objective function 𝐽 with the discrete time
+                                                                   system switches to the safety mode 𝜇(𝑒𝑓,̇ 𝑒𝑓) = 0. According to (26)
+𝑡𝑑= 1, 2, … ∈N+ over a prediction horizon ℎ𝑝 with the MPC state 𝑥 and    and (28), the conservative impedance model {𝑚𝑖, 𝑑𝑖,𝑚𝑎𝑥, 0} is adopted
+the weight matrix 𝑄 that includes the impedance model information:
+                                                                 under unsafe scenarios. On the contrary, the system switches to the
+     𝑡𝑑+ℎ𝑝∑                                                            performance mode 𝜇(𝑒𝑓,̇ 𝑒𝑓) = 1 when safety thresholds in Table 1
+𝐽=    𝑥𝑇𝑄𝑥,                                                          are satisfied, and the system then adopts the desired impedance model
+         𝑡𝑑                                                        (35)     {𝑚𝑖, 𝑑𝑖,𝑚𝑖𝑛, 𝑘𝑖,𝑚𝑎𝑥}. This proves that MPVIC prioritizes the safety of the
+𝑥= [̈𝑒𝑧,̇ 𝑒𝑧, 𝑒𝑧, 1]𝑇,                                                   environment and then achieves target impedance performance.
+𝑄= [𝑐1, 𝑐2, 𝑐3, 𝑐4]𝑇[𝑐1, 𝑐2, 𝑐3, 𝑐4].                                              Next, we prove the passivity of the human–robot system. Recall
+The linearized MPC problem is thus constructed in discrete time with     that a system is passive if its inflow of power is always non-negative.
+the time interval 𝑇𝑠 as:                                                Consider the storage function that incorporates the kinetic energy and
+                                                                                    elastic energy of the impedance model:
+              𝑡𝑑+ℎ𝑝∑                                                                        1            𝑥𝑇𝑄𝑥min  𝐽= min                                      𝑉=                                                                                                                            𝑧.                                           (37) 𝑢(𝑡𝑑)             𝑢(𝑡𝑑)                                                                        2                                                                                                    𝑚𝑖̇𝑒2𝑧+ 12̄𝑘𝑖(𝑡)𝑒2                      𝑡𝑑
+  ⎧           ⎡ 1  0  0  0 ⎤       ⎡𝑇𝑠 ⎤                             Take the time derivative of (37), and one obtains:  ⎪               ⎢                            ⎥                                     ⎢                                        ⎥
+  ⎪               ⎢ 𝑇𝑠  1  0  0                            ⎥                                     ⎢ 0                                        ⎥                        (36)   𝑉= 𝑚𝑖̇𝑒𝑧̈𝑒𝑧+̄ 𝑘𝑖(𝑡)𝑒𝑧̇𝑒𝑧+ 1       𝑧.                                (38)                                                                                                                                        2̇̄𝑘𝑖(𝑡)𝑒2                                               𝑢(𝑡𝑑)  ⎪    𝑥(𝑡𝑑+ 1) = ⎢                            ⎥                                 𝑥(𝑡𝑑) + ⎢                                        ⎥𝑠.𝑡.  ⎨               ⎢ 0 𝑇𝑠1  0                            ⎥                                     ⎢ 0                                        ⎥                                                                            Substitute (11) into (38),  ⎪                                                                                which results in:               0  0  0  1                                  0                                                        ⎥⎦               ⎢⎣  ⎪                      ⎢⎣                                                                               ⎥⎦                  𝑉= −[𝑑𝑖(𝑡) −𝑐(𝑧𝑟−𝑒𝑧)𝑛]̇𝑒2𝑧−𝑘(𝑧𝑟−𝑒𝑧)𝑛̇𝑒𝑧    other feasible constraints (See Remark 4.)    ⎪⎩                                                                               1                                             (39)
+                                                       + 𝑓𝑟̇𝑒𝑧+   𝑘𝑖(𝑡)𝑒2𝑧.                                                                                                                                                                                                                                                         2̇̄
+Remark 4. The property of MPC, i.e., optimization along the objective
+                                                             The energy that the robot injects into the system is denoted as 𝑉𝑟𝑜𝑏, andfunction 𝐽 subject to multiple constraints, provides freedom to design
+                                                                        the power is thus ̇𝑉𝑟𝑜𝑏= 𝑓𝑒𝑛𝑣̇𝑒𝑧, which can be estimated as ̂𝑓𝐻𝐶̇𝑒𝑧. Withsoft or hard MPC state or input constraints for different purposes such
+                                                                              (10), (28) and (39), if |𝑒𝑧| > 𝜖, the system energy flow is then:as safety consideration, as long as the MPC remains feasible. Specifi-
+cally, as presented later in this work, we designed constraints in terms    𝑉+̇ 𝑉𝑟𝑜𝑏=̇ 𝑉+̂ 𝑓𝐻𝐶̇𝑒𝑧
+of position (a state constraint) to avoid damage to the environment.                               1
+                                                       = −𝑑𝑖(𝑡)̇𝑒2𝑧+ 𝑓𝑟̇𝑒𝑧+ 2̇̄𝑘𝑖(𝑡)𝑒2                                                                                                                                   𝑧                              (40)
+Remark𝑒𝑧.To realize5. Thethe inputlow-levelsignalcontrol𝑢(𝑡𝑑) inin (6),(36)¨z iscanthebejerkobtainedof positionas the errortime              ≤−𝑑𝑖(𝑡)̇𝑒2= 𝑝1.   𝑧+ 𝑓𝑟̇𝑒𝑧+ [𝑑𝑖(𝑡)̇𝑒2𝑧−𝑓𝑟̇𝑒𝑧+ 𝑝1]
+integral of 𝑢(𝑡𝑑).
+                                                                        This proves that 𝑝1 from (29) is essentially an upper bound of the
+                                                              human–robot system energy flow ̇𝑉+̇𝑉𝑟𝑜𝑏 when |𝑒𝑧| > 𝜖, and this upperRemark 6.  The advantage of linearized MPC is confirmed by com-
+                                                            bound can be flexibly adjusted by 𝜆.paring the running time of nonlinear MPIC and linearized MPIC for
+                                                                        Furthermore, consider the total energy 𝑊  that incorporates the2000 time steps in MATLAB simulation on the same computer. The
+                                                                   system energy (40) and the energy tank 𝑉𝑡𝑘 in (30) :comparison study shows that the linearized MPC offers a significant
+computational advantage, requiring only 2.8 s compared to 23.2 s for  𝑊= 𝑉+ 𝑉𝑟𝑜𝑏+ 𝑉𝑡𝑘.                                             (41)
+nonlinear MPC. This translates to roughly eight times faster execution,
+which is crucial for meeting the real-time requirement of the system    The total energy flow ̇𝑊 can be computed with (30) and (40):
+operating at 100 Hz. The model error introduced by the linearization   𝑊=̇ 𝑉+̇ 𝑉𝑟𝑜𝑏+̇ 𝑉𝑡𝑘
+process  is negligible within the high-frequency framework, further                                                                                       1
+                                                                                                                             𝑧justifying the use of linearized MPC. It is also noteworthy that a higher     = −𝑑𝑖(𝑡)̇𝑒2𝑧+ 𝑓𝑟̇𝑒𝑧+ 2̇̄𝑘𝑖(𝑡)𝑒2                                                                                                                                       (42)frequency, though demanding more stringent requirements in terms of
+                                                                                                                                         𝑧communication and computation, would be beneficial for interaction                                                       + (𝑑𝑖(𝑡) −𝑝2)̇𝑒2𝑧−𝑓𝑟̇𝑒𝑧−12̇̄𝑘𝑖(𝑡)𝑒2
+scenarios (where applicable and needed) with faster interaction speed     = −𝑝2̇𝑒2𝑧≤0
+or higher requirements of interaction force sensitivity.
+                                                               which proves the passivity of MPVIC, under 𝑑𝑖(𝑡) from (26), and ̄𝑘𝑖(𝑡)
+   With all the developments above, the following main result can now    from (28). The total energy flow (42) also shows that the energy tank
+be stated.                                                                         𝑉𝑡𝑘 fully absorbs or provides the change of the human–robot system
+                                                                    energy 𝑉+ 𝑉𝑟𝑜𝑏, and the tank itself slowly dissipates energy at the rate
+Theorem 1.  Given the human–robot system (2) performing a physical     of 𝑝2̇𝑒2𝑧.
+interaction task along the 𝑧-direction, controlled by the proposed MPVIC         Finally, the case when the energy budget in 𝑉𝑡𝑘 is fully consumed is
+scheme (36) with environment model estimator (16) and variable impedance     considered, i.e., 𝑉𝑡𝑘= 0, and one has 𝑝1 = 0 from (29), indicating that
+𝑑𝑖(𝑡) in (26) and ̄𝑘𝑖(𝑡) in (28), the following properties hold:                  the human–robot system energy 𝑉+𝑉𝑟𝑜𝑏 is non-increasing according to
+
+                                                                        6
+
+===== PDF PAGE 7 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+
+
+
+
+              Fig. 5. Two silicone rubber models A (left) and B (right).
+
+
+(42). Thus, any system variation by 𝑒𝑧 or ̇𝑒𝑧 will be compensated by the                        Fig. 6. Design of Experiment 1 (left) and 2 (right).
+change of ̄𝑘𝑖(𝑡) to maintain the non-increasing 𝑉+𝑉𝑟𝑜𝑏 until 𝑉𝑡𝑘 becomes
+positive again, or ̄𝑘𝑖(𝑡) reaches zero leading to a safety stop due to 𝑠𝑠𝑡𝑜𝑝
+in (31). □
+
+
+4. Experiments and results
+
+
+   To evaluate the performance of the proposed control scheme, ex-
+periments have been conducted using a 7-DoF KUKA iiwa robot with a
+2-finger Robotiq gripper where two XELA tactile sensors are attached
+to the gripper fingers, as shown in Fig. 1. In the experiments, the
+3D-printed tools are held by the gripper and manipulated by the
+robot manipulator where the tactile sensors measure the contact force
+(i.e., the force along the normal direction of the environment). The
+control scheme is implemented by MATLAB and the tactile sensing
+information is communicated through ROS with a communication fre-
+quency of 100 Hz, and according to Remark 6, the linearization of MPC
+is essential to meet this communication frequency.
+
+
+4.1. Experiments on silicone rubber models
+
+                                                                                                          Fig. 7. Results of Experiment 1: (a) on Model A; (b) on Model B.
+   To fully simulate the complex environment of the human tissues,
+two types of silicone rubber models as shown in Fig. 5 are utilized as the
+interaction environment in this work. The first silicone rubber model,
+                                                       MPVIC as |̈𝑒𝑧| < 5. The boundary of the force change rate for MPVICnamely Model A, is horizontally inhomogeneous with different depths,
+                                                                                                is selected as ̇𝑒𝑓𝑏= 1, and transition mode widths are 𝜔1 = 0.3 andwhere the stiffness changes are gentle in general but with a subtle
+                                                                𝜔2 = 0.5 respectively. Passivity-related parameters are selected as 𝜆= 5,
+variation. The second model, namely Model B, is vertically inhomo-
+                                                                                               𝑉𝑡𝑘,0 = 5 and 𝑝2 = 0.001. The disturbance bound for the environment
+geneous with multiple layers. These two models simulate the stiffness                                                                         estimator is decided as 𝛥= 0.03. The threshold value 𝜖 is selected as
+changes in different directions. The Young’s modulus is measured as                                               𝜖= 10−4 in this work.
+14.50 kPa at 𝑧= 5 mm and 18.07 kPa at 𝑧= 8 mm for Model A, and
+5.47 kPa at 𝑧= 4 mm and 7.91 kPa at 𝑧= 8 mm for Model B, roughly     4.1.1. Experiment 1
+matching Young’s modulus of human muscle (8 to 17 kPa) and skin (1         Fig. 7 shows the results of Experiment 1 on both Models A and B.
+to 10 kPa) [40].                                                       Here, dotted lines in the position plots indicate the periods while the
+  Two experiments on both models shown in Fig. 6 have been con-     disturbances are applied to the system (i.e., when retraction occurred),
+ducted. In Experiment 1, both models retract from the tool at a random     effectively illustrating the duration of these disturbances. Also, Table 2
+time and remain in the retracted position until the task ends. In      lists the root-mean-square (RMS) and the maximum absolute (MaxA) of
+Experiment 2, the models are pushed against the tool. Moreover, for     𝑒𝑓 [i.e., RMS errors (RMSEs) and MaxA errors (MaxAEs)] in Experiment
+comparison purposes, the IC [4] and MPIC [25] are also tested. Table 2    1 without and with disturbance, after the contact becomes steady.
+lists the selected impedance model parameters for IC, MPIC, and MPVIC       As can be seen, the performances of all three control schemes are
+in the form of the following vector:                                   comparable in the absence of disturbances where the proposed control
+                                                              scheme slightly performs the best. This indicates that the real-time
+𝑝𝑖𝑚𝑝= [𝑚𝑖, 𝑑𝑖,𝑚𝑖𝑛, 𝑑𝑖,𝑚𝑎𝑥, 𝑘𝑖,𝑚𝑎𝑥, 𝑧𝑟, 𝑓𝑟]                              (43)    model estimation in the proposed MPVIC scheme provides an accurate
+                                                             model for MPC to adapt to the unknown/varying environment.
+The silicone rubber model type (Env.) is listed in Table 2 for Experiment
+                                                                                     Significantly, the robots controlled by IC and MPIC lost contact
+1 as well. The three approaches adopt the same impedance parameters
+                                                                    with both silicone rubber models once they were retracted from the
+in Experiment 2.
+                                                                                    tool. These can be observed in Fig. 7 and Table 2, where 𝑒𝑓≈𝑓𝑟,
+   Considering the high inhomogeneity of interaction environments
+                                                                            indicating 𝑓𝑒𝑛𝑣≈0 (i.e., no contact force). In contrast, the proposed
+assumed in the experiments and the demand of real-time computation,                                                                    MPVIC-controlled robot can still maintain contact while it is subjected
+the relatively short prediction horizon ℎ𝑝 and control horizon ℎ𝑐 for     to environmental retraction/disturbance and thus it can achieve much
+both MPIC and MPVIC are selected, which are ℎ𝑝= 5 and ℎ𝑐= 3     better contact force control performance than the other two control
+throughout the experiments.                                           schemes. In addition, the mode-switching mechanism of the proposed
+    It is experimentally supported that such low horizons have almost    scheme works effectively on both models when the environments are
+no negative effect on the interaction task performance thanks to the     retracted, with the mode switching from the performance mode to the
+high control frequency (100 Hz) achieved by the linearization of MPC.     transition or safety mode. Therefore, both performance and safety can
+The same acceleration constraints are set for the MPC in MPIC and    be ensured by the proposed control scheme in Experiment 1.
+
+                                                                        7
+
+===== PDF PAGE 8 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+
+                Table 2
+                 Experimental results of experiments 1.
+                  Env.          𝑝𝑖𝑚𝑝                        Disturbance      RMS of 𝑒𝑓 [N]                     Max of |𝑒𝑓| [N]
+
+                                                                             IC         MPIC       MPVIC        IC         MPIC       MPVIC
+
+             A             [0.01, 0.1, 0.4, 0.2, 1, 1]      No                0.366        0.375       0.357        0.393        0.409       0.376
+              B             [0.01, 0.1, 0.4, 0.2, 1, 1]      No                0.444        0.443       0.439        0.514        0.547       0.506
+             A             [0.01, 0.1, 0.4, 0.2, 1, 1]        Yes               0.958        0.894       0.680        0.974        0.902       0.696
+              B             [0.01, 0.1, 0.4, 0.2, 1, 1]        Yes               0.943        0.950       0.711        0.958        0.964       0.720
+
+
+
+
+
+          Fig. 8. Results of Experiment 2: (a) on Model A; (b) on Model B.
+                                                                                                Fig. 10. Demonstration of three control schemes on the two models: (a) before start;
+                                                                                                 (b) IC; (c) MPIC; (d) MPVIC.
+
+
+
+
+
+                        Fig. 9. Force increases in Experiment 2.
+
+
+                                                                                                            Fig. 11. Performance of MPVIC without and with constraints.
+
+4.1.2. Experiment 2
+    Fig. 8 shows the results of Experiment 2 on both Models A and
+B. In this experiment, we focus on the reactions of MPIC and MPVIC     safety-performance balance of the MPVIC scheme is independent of
+upon disturbances by the interaction environment to demonstrate the    model/environment properties. Fig. 10 visually demonstrates the per-
+effectiveness of the mode-switching mechanism. Similar to IC, both    formance of the three control schemes on both models in Experiment
+MPIC and MPVIC are compliant against small disturbances. For large     1. The proposed MPVIC can consistently wipe the white gel more
+and sudden disturbances, both MPIC and MPVIC stop the robot when     thoroughly than the other two control schemes. This is because the
+the robot position exceeds the initial position in the case that the    proposed MPVIC can successfully maintain the desired contact under
+contact force model (9) is undefined when 𝑧< 0. Against such large    unexpected disturbances that are larger than the bound 𝛥, while IC and
+and sudden disturbances, the robot controlled by MPIC complied with    MPIC fail.
+the environment change based on its fixed impedance model, while         Besides, the complexity of the three tested algorithms, IC, MPIC, and
+the robot controlled by MPVIC complied with the environment change    MPVIC, are compared via the average time consumption of 100 simu-
+via mode switching and its variable impedance model. This difference     lated interactions in MATLAB, each with 2000 time steps. The time con-
+results in smaller average force increases for MPVIC compared to MPIC    sumptions of algorithms are recorded in Table 3. From the results, it can
+on both models as shown in Fig. 9. The average force increases for    be concluded that the complexity of the proposed MPVIC is comparable
+MPVIC are significantly small which are about 47% and 58% of the     with that of MPIC. Further improvements in computational complexity
+average force increases for MPIC on both models, respectively. This    may include the simplified linear model for environment estimation,
+implies that better safety in terms of the contact force can be achieved    and the varying MPC horizons based on real-time performance.
+by the proposed MPVIC.
+   In summary, both Experiments 1 and 2 demonstrate better per-     4.2. Investigation on position constraints
+formance and safety can be achieved by MPVIC upon IC and MPIC
+in the disturbance-rich and environment-changing interaction tasks.        Additionally, to emphasize the utility of constraints in the MPC,
+Significantly, the experimental results are consistent on both Models    Experiment 3 is designed on Model A to compare the performance of
+A and B for all three control schemes, indicating that the improved    MPVIC without and with position constraints. In this experiment, all
+
+                                                                        8
+
+===== PDF PAGE 9 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+
+                                                                                Table 3
+                                                                                  Average time per simulation time step [milliseconds].
+
+                                                                                          IC                           MPIC                        MPVIC
+
+                                                                                     0.037                             1.079                             1.246
+
+
+
+
+                                                                         disturbances while ensuring safety. In conclusion, the proposed MPVIC
+                                                                  can achieve safety-performance-balanced interaction in the unknown
+                                                                           disturbance-rich environment.
+                                                                            Besides that, videos of some experiments presented in this Section
+                                                                  can be found in the supplementary materials.
+
+
+                                                                           5. Conclusion
+
+
+                                                                               In this paper, a novel MPVIC was proposed to achieve safe and high-
+                                                                   performance  physical  robotic  interaction  with  unknown  and
+                                                                           disturbance-rich environments. The proposed MPVIC includes the real-
+                                                                    time adaptive robust environment estimator to efficiently model the
+                                                         unknown environment with the nonlinear HC model. A mode-based
+                                                              VIC is designed to smoothly switch between safety and performance
+                                                           modes to achieve the target impedance model while ensuring safety
+                                                            upon abnormal interaction force or interaction force changing rate.
+                                                      An MPC-based framework incorporates the above sections to enable
+                                                                            constraint compliance. The proposed MPVIC control scheme also has
+                                                                  a comparable algorithm complexity to the state-of-the-art algorithm
+                                                                   such as MPIC.  It was also proven theoretically that the proposed
+                                                                   parameter estimator could estimate the environment model against
+                                                             bounded disturbances, and the controlled system would remain passive
+Fig. 12. Experiment on a human arm using MPVIC: (a) setup and demonstration; (b)     against external energy injection from the physical interaction.
+results; (c) adaptive impedance parameters.
+                                                                            Several experiments have been conducted on two silicone rubber
+                                                                models and a human arm. The experimental results showed that the
+                                                                   proposed control scheme outperformed the available control schemes
+the parameters are the same as those in Experiment 2 on Model A, with                                                                              in the interaction tasks with unknown environment contact models
+similar disturbances (pushing against the tool). In this experiment, the                                                              and bounded but unpredictable environment position shifts, such as
+constraints are set for position error as |𝑒𝑧| < 2, while constraints can be     robotic ultrasound scanning. Specifically, the proposed control scheme
+readily applied to velocity as well (acceleration constraints unchanged).
+                                                                              successfully maintained the contact compared to other available meth-
+The position and force in the experiment are shown in Fig. 11. By com-
+                                                                   ods when the interaction environment suddenly retracted, and also
+paring the performance of MPVIC without and with constraints, it can
+                                                                enhanced interaction safety by a lower force increase when the environ-
+be observed that the robot is effectively constrained under disturbances,
+                                                            ment drastically pushed against the robot. A case study on a real human
+which ensures that the robot operates within a defined workspace and
+                                                          arm with rich disturbance further confirmed the above advantages.
+complies with the safety requirements. Therefore, the proposed MPVIC
+                                                                        For future directions, learning-based tuning of hyperparameters in
+provides a safe and optimal solution for the interaction tasks where
+                                                                        the control scheme and the incorporation of high-level task planning
+there are constraints to the robotic systems.
+                                                                     could be considered to reduce the requirement of manual tuning and
+                                                                 enhance the readiness for real-world application. A generalized abnor-
+4.3. Case study on a human arm
+                                                                        mality examiner and additional visual systems could also contribute to
+                                                                     handling more generalized and complex real-world situations.
+    Finally, being inspired by ultrasonography, an experiment has been
+conducted on a human arm using the proposed MPVIC, whose exper-
+                                                           CRediT authorship contribution statementimental setup is shown in Fig. 12(a). As can be seen, a 3D-printed
+ultrasound probe (as the tool) is grasped by the robotic gripper and
+                                                            Junyuan Xue: Writing – original draft, Validation, Methodology.manipulated by the robot manipulation. During the experiment, the
+                                                   Wenyu Liang: Writing – review & editing, Validation, Supervision,probe is moved along the surface of the human arm, while the human
+                                                                  Methodology, Conceptualization. Yan Wu: Writing – review & editing,arm retracts from and pushes against the probe with varying amounts
+at random times. These movements can be considered as unknown     Supervision, Conceptualization. Tong Heng Lee: Writing – review &
+disturbances to the system, similar to the previous experiments. More     editing, Supervision, Methodology, Conceptualization.
+specifically, the human arm retracts from the probe when the other
+hand under the arm moves away during the first phase, and the human    Declaration of competing interest
+arm moves up towards the probe in the later phase.
+   The experimental results of this interaction task on the human arm       The authors declare that they have no known competing finan-
+are shown in Fig. 12(b), and the variations of impedance parameters      cial interests or personal relationships that could have appeared to
+are also presented for better clarity in Fig. 12(c). It can be found that     influence the work reported in this paper.
+the robot controlled by the proposed MPVIC exhibits continued contact
+after the human arm retraction. Furthermore, the contact force remains    Acknowledgments
+within an acceptable range when the human arm pushes against the
+probe. The observation, based on the force error 𝑒𝑓, demonstrates that        This research is supported by the A*STAR C210812049, and also by
+the MPVIC can establish stable contact with the human arm after the     the National University of Singapore via an NGS-ISEP Scholarship.
+
+                                                                        9
+
+===== PDF PAGE 10 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+Appendix A. Supplementary data                                             [23]  T. Zeng, A. Mohammad, A.G. Madrigal, D. Axinte, M. Keedwell, A robust human–
+                                                                                               robot collaborative control approach based on model predictive control, IEEE
+   Supplementary material related to this article can be found online             Trans. Ind. Electron. 71 (7) (2024) 7360–7369.
+                                                                                      [24]  A. Wahrburg, K. Listmann, MPC-based admittance control for robotic manipu-
+at https://doi.org/10.1016/j.robot.2025.104961.                                             lators, in: 2016 IEEE 55th Conference on Decision and Control, CDC, IEEE, Las
+                                                                                              Vegas, NV, USA, 2016, pp. 7548–7554.
+Data availability                                                                  [25] M. Bednarczyk, H. Omran, B. Bayle, Model predictive impedance control, in:
+                                                                                2020 IEEE International Conference on Robotics and Automation, ICRA, IEEE,
+                                                                                         2020, pp. 4702–4708.
+   Data will be made available on request.                                     [26]  Z. Jin, D. Qin, A. Liu, W.-a. Zhang, L. Yu, Model predictive variable impedance
+                                                                                                    control of manipulators for adaptive precision-compliance tradeoff, IEEE/ASME
+                                                                                                   Trans. Mechatronics 28 (2) (2023) 1174–1186.
+References                                                                         [27]  A.S. Anand, J.T. Gravdahl, F.J. Abu-Dakka, Model-based variable impedance
+                                                                                                   learning  control  for  robotic manipulation, Robot. Auton.  Syst. 170 (2023)
+                                                                                      104531.
+  [1]  L. Roveda, M. Magni, M. Cantoni, D. Piga, G. Bucca, Human–robot collaboration
+                                                                                      [28]  K. Haninger, C. Hegeler, L. Peternel, Model predictive impedance control with
+       in sensorless assembly task learning enhanced by uncertainties adaptation via
+                                                                                            Gaussian processes for human and environment interaction, Robot. Auton. Syst.
+      Bayesian Optimization, Robot. Auton. Syst. 136 (2021) 103711.
+                                                                                165 (2023) 104431.
+  [2]  H. Tanaka, K. Ohnishi, H. Nishi, T. Kawai, Y. Morikawa, S. Ozawa, T. Furukawa,      [29] M. Bednarczyk, H. Omran, B. Bayle, EMG-based variable impedance control with
+      Implementation of bilateral control system based on acceleration control using             passivity guarantees for collaborative robotics, IEEE Robot. Autom. Lett. 7 (2)
+     FPGA for Multi-DOF haptic endoscopic surgery robot, IEEE Trans. Ind. Electron.            (2022) 4307–4312, http://dx.doi.org/10.1109/LRA.2022.3149575.
+     56 (3) (2009) 618–627.                                                          [30] M. Dyck, A. Sachtler,  J. Klodmann, A. Albu-Schaffer, Impedance control on
+  [3]  S. Cai, P. Xie, G. Li, L. Xie, Compensation-corrective adaptive control strategy             arbitrary surfaces for ultrasound scanning using discrete differential geometry,
+       for upper-limb rehabilitation robots, Robot. Auton. Syst. 177 (2024) 104701.             IEEE Robot. Autom. Lett. 7 (3) (2022) 7738–7746, http://dx.doi.org/10.1109/
+  [4]  N.  Hogan,  Impedance  control: An  approach  to  manipulation:  Part  II—           LRA.2022.3184800.
+      Implementation, J. Dyn. Syst. Meas. Control. 107 (1) (1985) 8–16.                  [31]  R. Rashad, D. Bicego, J. Zult, S. Sanchez-Escalonilla, R. Jiao, A. Franchi, S.
+  [5]  R. Ikeura, H. Inooka, Variable impedance control of a robot for cooperation with             Stramigioli, Energy aware impedance control of a flying end-effector in the
+      a human, in: 1995 IEEE International Conference on Robotics and Automation,            Port-Hamiltonian framework, IEEE Trans. Robot. 38 (6) (2022) 3936–3955,
+      ICRA, Vol. 3, IEEE, 1995, pp. 3097–3102.                                              http://dx.doi.org/10.1109/TRO.2022.3183532.
+  [6]  E. Gribovskaya, A. Kheddar, A. Billard, Motion learning and adaptive impedance      [32]  F. Ferraguti, C. Secchi, C. Fantuzzi, A tank-based approach to impedance control
+       for robot  control during  physical  interaction with humans,  in: 2011 IEEE            with variable stiffness, in: 2013 IEEE International Conference on Robotics and
+       International Conference on Robotics and Automation, ICRA, IEEE, 2011, pp.            Automation, ICRA, IEEE, 2013, pp. 4948–4953.
+      4326–4332.                                                                     [33] W. Liang, J. Ma, K.K. Tan, Contact force control on soft membrane for an ear
+  [7]  K. Kronander, A. Billard, Online learning of varying stiffness through physical             surgical device, IEEE Trans. Ind. Electron. 65 (12) (2018) 9593–9603.
+      human-robot interaction, in: 2012 IEEE International Conference on Robotics and      [34]  K.H. Hunt, F.R.E. Crossley, Coefficient of restitution interpreted as damping in
+      Automation, ICRA, IEEE, 2012, pp. 1842–1849.                                            vibroimpact, J. Appl. Mech. 42 (2) (1975) 440–445.
+  [8]  S. Suzuki, K. Furuta, Adaptive impedance control to enhance human skill on a      [35]  Z. Feng, W. Liang, J. Ling, X. Xiao, K.K. Tan, T.H. Lee, Precision force tracking
+      haptic interface system, J. Control Sci. Eng. 2012 (2012) 1–10.                             control of a surgical device interacting with a deformable membrane, IEEE/ASME
+  [9]  Y. Michel, R. Rahal, C. Pacchierotti, P.R. Giordano, D. Lee, Bilateral teleoperation             Trans. Mechatronics (2022) 1–12.
+                                                                                      [36]  A. Pappalardo, A. Albakri, C. Liu, L. Bascetta, E. De Momi, P. Poignet, Hunt–
+      with adaptive impedance control for contact tasks, IEEE Robot. Autom. Lett. 6
+                                                                                                       crossley model based  force  control  for minimally  invasive  robotic  surgery,
+       (3) (2021) 5429–5436, http://dx.doi.org/10.1109/LRA.2021.3066974.
+                                                                                       Biomed. Signal Process. Control. 29 (2016) 31–43.
+[10]  F. Stulp, J. Buchli, A. Ellmer, M. Mistry, E.A. Theodorou, S. Schaal, Model-free
+                                                                                      [37]  G.C. Goodwin, K.S.  Sin, Parameter estimation  for deterministic systems,  in:
+      reinforcement learning of impedance control in stochastic environments, IEEE
+                                                                                           Adaptive Filtering Prediction and Control, Courier Corporation, Mineola, NY,
+       Trans. Auton. Ment. Dev. 4 (4) (2012) 330–341.
+                                                                                   USA, 2014, pp. 88–91.
+[11]  J. Luo, E. Solowjow, C. Wen, J.A. Ojea, A.M. Agogino, A. Tamar, P. Abbeel,
+                                                                                      [38] ISO/TS 15066, Robots and Robotic Devices — Collaborative Robots, Tech. rep.,
+      Reinforcement  learning on  variable impedance  controller  for  high-precision
+                                                                                     ISO/TS 15066, 2016–02, International Organization for Standardization, Geneva,
+       robotic assembly,  in: 2019 IEEE  International Conference on Robotics and
+                                                                                  CH, 2016.
+      Automation, ICRA, 2019, pp. 3080–3087.                                          [39]  Y. Pan, Z.  Li, T. Shi, C. Wen, Composite learning variable impedance robot
+[12]  L. Roveda, J. Maskani, P. Franceschi, A. Abdi, F. Braghin, L. Molinari Tosatti, N.             control with stability and passivity guarantees, IEEE Robot. Autom. Lett. 9 (1)
+      Pedrocchi, Model-based reinforcement learning variable impedance control for            (2024) 119–126.
+      human-robot collaboration, J. Intell. Robot. Syst. 100 (2) (2020) 417–433.           [40]  J. Liu, H. Zheng, P. Poh, H.-G. Machens, A. Schilling, Hydrogels for engineering
+[13]  S. Calinon, D. Bruno, D.G. Caldwell, A task-parameterized probabilistic model             of perfusable vascular networks, Int. J. Mol. Sci. 16 (7) (2015) 15997–16016.
+      with minimal intervention control, in: 2014 IEEE International Conference on
+      Robotics and Automation, ICRA, IEEE, 2014, pp. 3339–3344.
+[14]  Y. Wu, F. Zhao, T. Tao, A. Ajoudani, A framework for autonomous impedance
+                                                                                             Junyuan Xue received the B.S. degree from the Department
+       regulation of robots based on imitation learning and optimal control, IEEE Robot.
+                                                                                                                             of Mechanical and Aerospace Engineering, Tohoku Univer-
+     Autom. Lett. 6 (1) (2021) 127–134.
+                                                                                                                                                   sity, Japan, in 2021, and the M.Eng degree in Mechanical
+[15]  H. Khan, M.C. Lee,  J. Suh, R. Kim, Enhancing robot end-effector trajectory
+                                                                                                                 Engineering from  the  National  University  of  Singapore,
+       tracking using virtual force-tracking impedance control, Adv. Intell. Syst. (2024)
+                                                                                                                    Singapore, in 2023. Currently, he  is working towards his
+      http://dx.doi.org/10.1002/aisy.202400380.
+                                                                                                                 Ph.D. degree with the Department of Electrical and Com-
+[16]  G. Ganesh, A. Albu-Schaffer, M. Haruno, M. Kawato, E. Burdet, Biomimetic
+                                                                                                                    puter Engineering, National University of Singapore (NUS),
+      motor behavior for simultaneous adaptation of force, impedance and trajectory
+                                                                                                                    Singapore.
+       in interaction tasks, in: 2010 IEEE International Conference on Robotics and
+                                                                                                                     His current research interests include impedance control
+      Automation, IEEE, Anchorage, AK, 2010, pp. 2705–2711, http://dx.doi.org/10.
+                                                                                                    and physical human–robot interaction.
+     1109/ROBOT.2010.5509994.
+[17]  Y. Ren, Y. Liu, M. Jin, H. Liu, Biomimetic object impedance control for dual-
+     arm cooperative 7-DOF manipulators, Robot. Auton. Syst. 75 (2016) 273–287,
+                                                                                  Wenyu Liang received the B.Eng and M.Eng degrees in
+      http://dx.doi.org/10.1016/j.robot.2015.09.018.
+                                                                                                            mechanical engineering from China Agricultural University,
+[18]  T.  Tsuji, Y. Tanaka, Bio-mimetic impedance control  of robotic manipulator
+                                                                                                                                  Beijing, China, in 2008 and 2010, respectively, and the
+       for dynamic contact tasks, Robot. Auton. Syst. 56 (4) (2008) 306–316, http:
+                                                                                                                 Ph.D. degree in electrical and computer engineering from
+      //dx.doi.org/10.1016/j.robot.2007.09.001.
+                                                                                                                    the  National  University  of Singapore (NUS),  Singapore,
+[19]  D. Shi, E.G. Collins  Jr., B. Goldiez, A. Donate, X. Liu, D. Dunlap, Human-
+                                                                                                                             in 2014. He  is  currently a  Scientist with  the  Institute
+      aware robot motion planning with velocity constraints, in: 2008 International
+                                                                                                                                  for Info-comm Research, Agency for Science, Technology
+     Symposium  on  Collaborative  Technologies  and  Systems,  IEEE,  2008,  pp.
+                                                                                                    and Research (A*STAR), Singapore, and also an Adjunct
+      490–497.
+                                                                                                                             Assistant Professor with the Department of Electrical and
+[20] M. Kimmel, S. Hirche, Invariance control for safe human–robot interaction in
+                                                                                                    Computer Engineering, NUS.
+     dynamic environments, IEEE Trans. Robot. 33 (6) (2017) 1327–1342.
+                                                                                                                     His research interests include robotics, intelligent sys-
+[21]  J. Richalet, A. Rault, J. Testud, J. Papon, Model predictive heuristic control,
+                                                                                                                    tems, dexterous manipulation, precision motion control, and
+      Automatica 14 (5) (1978) 413–428.
+                                                                                                                           force control.
+[22]  J.H. Lee, Model predictive control: Review of the three decades of development,
+        Int. J. Control. Autom. Syst. 9 (3) (2011) 415–424.
+
+                                                                        10
+
+===== PDF PAGE 11 =====
+J. Xue et al.                                                                                                                        Robotics and Autonomous Systems 189 (2025) 104961
+
+
+                    Yan Wu  is the Deputy Head  of the Robotics and Au-                          Tong Heng  Lee  received  the  B.A.  degree  (Hons.)  in
+                       tonomous Systems Division at A*STAR Institute for Info-                                     electrical engineering from the University of Cambridge,
+                  comm Research, where he also works as a Principal Scientist                              Cambridge, U.K., in 1980, the M.Eng. degree in electrical
+                       and Leader of the Manipulation Group. Yan received his                                engineering from  the  National  University  of  Singapore
+                       BA(Hons) in Engineering from the University of Cambridge                              (NUS), Singapore, in 1985, and the Ph.D. degree in electrical
+                            in 2007, and Ph.D. in Electrical Engineering from Imperial                                engineering from Yale University, New Haven, CT, USA, in
+                          College London in 2013. From Aug 2012, he worked con-                              1987. He is currently a Professor with the Department of
+                           currently at the UCL Institute of Child Health as a Research                                     Electrical and Computer Engineering, NUS, and the NUS
+                           Associate and Great Ormond Street Hospital as a Research                              Graduate School, NGS. He was the past Vice President
+                           Fellow. Since Dec 2013, he has been with the A*STAR                                (Research) of NUS.
+                              Institute for Infocomm Research, Singapore. Yan currently                                   His  research   interests  include  adaptive  systems,
+                           serves as an Associate Editor at multiple editorial boards,                              knowledge-based control, intelligent mechatronics, and com-
+                           including IEEE Robotics and Automation Society Conference                                 putational intelligence.
+                             Editorial Board, IEEE Intelligent Transport Systems Society                                     Dr.  Lee  is  currently  an  Associate  Editor  of  IEEE
+                         Conference Editorial Board and Frontier in Robotics and AI.                                Transactions on Cybernetics, Control Engineering Practice
+                             His research interests include dexterous manipulation,                                 (IFAC), and International Journal of Systems Science (Tay-
+                       embodied  intelligence and  interaction, and  service and                                     lor & Francis, U.K.). In addition, he  is the past Deputy
+                              assistive robotics.                                                                              Editor-in-Chief of Mechatronics (IFAC).
+
+
+
+
+
+                                                                        11

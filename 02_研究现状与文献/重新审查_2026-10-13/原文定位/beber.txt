@@ -1,0 +1,452 @@
+===== PDF PAGE 1 =====
+      A Passive Variable Impedance Control Strategy with Viscoelastic
+         Parameters Estimation of Soft Tissues for Safe Ultrasonography
+
+         Luca Beber1, Edoardo Lamon2,3, Davide Nardi2, Daniele Fontanelli1, Matteo Saveriano1, Luigi Palopoli2
+
+
+            Abstract— In the context of telehealth, robotic approaches   of medical telerobotics, ultrasonography stands out as one
+          have proven a valuable solution to in-person visits in remote   of the most promising. It is a safe, noninvasive diagnostic
+           areas, with decreased costs for patients and infection risks.                                                                              tool  that allows healthcare professionals  to evaluate the
+          In particular, in ultrasonography, robots have the potential to
+                                                                                   state of organs and issues in order to detect the potential          reproduce the skills required to acquire high-quality images
+           while reducing  the sonographer’s  physical  efforts. In  this   presence of diseases or assess their evolution. Acquiring
+           paper, we address the control of the interaction of the probe   ultrasound images is a complex task that requires skilled
+          with the  patient’s body, a  critical aspect  of ensuring  safe   sonographers and the continuous exertion of considerable2024   and effective ultrasonography. We introduce a novel approach                                                                               force, which might  result  in a health  risk (work-related
+          based on variable impedance control, allowing the real-time
+                                                                       musculoskeletal disorders [4]). The quality of the diagnosis           optimisation of compliant controller parameters during  ul-
+          trasound procedures. This optimisation  is formulated as a   very much depends on the skills of the sonographer, and theApr
+          quadratic programming problem and incorporates physical   number of experienced operators is not sufficient to deliver
+15    constraintsSafety and passivityderived constraints,from viscoelasticincludingparameteran energyestimations.tank, are    the service in remote areas [5]. Robotised solutions, which                                                                         involve lightweight manipulators and accurate perception
+            also integrated to minimise potential risks during human-robot
+                                                                       systems, have the potential to eliminate such issues. Key            interaction. The proposed method’s efficacy  is demonstrated
+          through experiments on a patient’s dummy torso, highlighting   enablers are a new generation of sensorised probes [6] and
+              its potential for achieving safe behaviour and accurate force   path planning strategies computed from RGB-D cameras [7],
+           control during ultrasound procedures, even in cases of contact   which can adapt to the motion of the patient’s tissues through
+             loss.                                                                         online path updates [8], [9].[cs.RO]                                           A crucial aspect is how to control the motion of the probe
+                                        I. INTRODUCTION
+                                                                    along trajectories on the patient’s body. The literature in this
+             Telehealth is commonly defined as the ability to provide   area offers both autonomous [5], [10] and teleoperated [11],
+           health care services, removing the need for in-person visits.   [12] solutions. While the two approaches differ mainly on
+          This paradigm is particularly useful to reach geographically    position reference computation, both require the regulation
+         remote areas and has gained  traction during the Covid-   of the contact forces with the patient’s body. Indeed, ap-
+         19 pandemics  for  the obvious reduction  in  the  risk  of   plying excessive force during this contact can potentially
+         pathogen transmission between patients and medical staff.    distort the target anatomical structure and cause harm to
+        The recognised advantages of this approach are increased    the patient. Conversely, insufficient force will not guarantee
+          comfort for patients and cost reduction for both patients and    effective transmission of acoustic waves, leading to poor
+           the health service [1], [2]. The most advanced frontier of   image quality. Therefore, the goal of most existing robot
+           telehealth is the ability for the physician to execute complex    control methods for ultrasonography is to apply a constant
+           diagnostic activities that require physical contact with the    force on the probe in the normal direction of the patient’s
+            patient. An example of  this kind  is  tactile examination    surface [8], [13], [14]. Tsumura et al. [14] advocate the use
+           (palpation), in which the doctor uses fingertips and palms   of passive spring as an alternative to the robot’s actuators inarXiv:2309.14893v2
+           to feel the presence of anomalies underneath the skin. A   order to guarantee by design that the maximum force will
+          promising solution for this type of activity is telerobotics [3],   be below an acceptable limit, preserving the patient’s safety.
+           in which a robotic system interacts with the patient and   Virga et al. [15] proposed to apply a patient-specific optimal
+             is remotely controlled or supervised by a physician. Med-    contact force encoded through the ultrasound confidence
+            ical applications of telerobotics are perceived as technically   map, which contains prior information on the ultrasound
+          challenging because they require the integration of different   image quality. Other approaches, instead, tailor the force to
+            tools, e.g., virtual reality, haptic interfaces, precise control,    the patient by means of the estimates of biomechanics prop-
+         and force feedback. In the rich set of possible applications    erties of the patient’s tissues [16], [17]. Nevertheless, through
+                                                                          force control, the direction tangential to the body surface
+          We acknowledge the support of the MUR PNRR project FAIR - Future AI
+                                                                    cannot be position-controlled; therefore, a correct operation            Research (PE00000013) and the project iNEST - Interconnected Nord-Est
+             Innovation Ecosystem (ECS 00000043) funded by the NextGenerationEU.    of the system requires to switch between position (free space
+              1Department of Industrial Engineering, Universit`a di Trento, Trento, Italy.   motions) and force control (when in contact with the body).
+              2Department of Information Engineering and Computer Science, Univer-
+                                                                 Another effective way to indirectly control the probe force is
+                   sit`a di Trento, Trento, Italy. edoardo.lamon@unitn.it
+            3Human-Robot Interfaces and Interaction, Istituto Italiano di Tecnologia,   through task-space compliant schemes. In [18], for instance,
+           Genoa, Italy.                                                      the robot desired force consists of a constant term plus a
+
+===== PDF PAGE 2 =====
+spring with constant stiffness. Wang et al. instead model   and dampers arranged in various configurations [22]. The
+the impedance as a mass-spring-damper system to control   simplest and most common model  is  the Kelvin-Voight
+a robot through a hybrid admittance strategy with constant   model, where the tissue is modelled with a spring damper-
+parameters [19]. These approaches appear promising when   system  [23]. However,  this model has major  limitations
+the tissue or organ to be scanned has approximately the same    especially when the penetration is small. As shown in [21],
+biomechanics properties and the parameters can be tuned    [24], the hysteresis loop obtained with the Kelvin-Voight
+accordingly. However, some specific exams, such as lung or   model is not energetically consistent. Moreover, the contact
+heart ultrasound, require the probe to pass through bones and   phase is characterised by unnatural behaviours since, using
+soft parts in close proximity (e.g., chest and abdomen). This    this model, the coefficient of restitution  is not dependent
+scenario reveals the requirement for adapting compliance to   on the velocity [24]. To overcome these limitations, non-
+different situations. For example, Duan et  al. propose to    linear models, where the velocity is also dependent on the
+transfer human motion skills to the robot by learning the    penetration depth, have been developed. One of the most
+impedance from human demonstrations [20]. An example of   used is the Hunt-Crossley (HC) model [21]
+this is when the patient moves or there is a contact loss                                           (κεβ(t) + λεβ(t)˙ε(t),  εbetween the probe tip and the patient’s body (due also to the           Ftissue(t) =               ≥0 ,     (1)
+                                                                                          0,                   ε < 0presence of a gel that removes the friction of the surface).
+In   this        scenario, monitoring                         and restricting                                             the                                            energy                                                                                                                                              ˙ε(t)                                                and   where                                                                                                   is the                                                                        amount                                                                                              of penetration,                                                                        ε(t) ∈R                                                     ∈R ispower      transmission                        is of the greatest                                 importance                                                   in                                                achieving                                                            κ                                                                                              η                                                                the penetration                                                                                             rate,                                                                                                                  is the                                                                                                                      elasticity, and                                                                                                                                                      is                                        ∈R                                                     ∈Ra safe human-robot interaction.                                the viscosity. Note that                                                                                       these coefficients do not correspond
+  In this paper, we focus on the problem of force-controlled                                                                   to the real values of elasticity and viscosity, but for ease
+motion  for lung and heart ultrasonography. At the core                                                              of communication, we  will  refer  to them as such. The
+of our approach  is a method to optimise on-the-fly the                                                         exponent β takes into account the variation of the contact
+impedance parameters of a compliant controller by exploiting                                                               area between the indenter and the surface as the penetration
+the paradigm of variable impedance control. The optimisa-                                                           depth changes. β depends on both the type of material and
+tion    problem                 is formulated                          through                                    quadratic                                       programming
+                                                                the shape of the tip being used. Values β ∈(1.0, 1.5) are(QP)     and includes                   physical                               constraints,                                  which                                                are obtained                                                               generally better for materials that are quite soft, as in the
+by means of a prior estimation of the viscoelastic parameters,                                                            case of biological tissue. The hysteresis loop obtained with
+and safety constraints through the addition of an energy                                                                the Hunt-Crossley model is energetically consistent (i.e., the
+tank. To initialise the proposed control strategy, an offline                                                           loop closes). Moreover, the restitution factor depends on the
+phase is required, which consists of a discrete biomechanics                                                                 velocity of impact but it is independent from the exponent
+characterisation and a smoothing operation  to  retrieve a   β [24], resulting in a more natural contact behaviour.
+continuous body description. The nonlinear model proposed    Due to the presence of viscous characteristics a dynamic
+by Hunt and Crossley [21] is used to relate the deformation    test is necessary to identify the parameters of (1). Therefore,
+to  the  tissue  force, and  the  viscoelastic parameters  are  we control the robot to perform a sinusoidal motion in the
+retrieved by minimising the error with respect to the forces    vertical direction and collect data (force and penetration)
+measured by a F/T sensor. Then, the estimated parameters    for the estimation process. Considering that the robot’s end-
+are interpolated through a Gaussian Process (GP) to describe    effector always remains in contact with the surface during
+the desired body surface smoothly. In the online phase,    the data collection, the force exerted by the tissue is
+these parameters are used in the computation of impedance
+parameters to ensure that the correct amount of force  is             Ftissue = κ(s −zee)β −λ ˙zee(s −zee)β,       (2)
+tracked and that the penetration into the body is limited,   where s and zee are the position of the tissue surface and the
+removing the requirement for precise control in cases of    position of the end-effector along the z-axis. The minus sign
+perception inaccuracy or failure. In addition, an energy tank    indicates that the penetration rate is in the opposite direction
+is used to limit both the energy introduced into the system   of the end-effector velocity. The force collected at the force
+and its power flow to prevent a large amount of energy from   sensor is
+being injected instantaneously. The method is evaluated in a
+                                                               Fsensor = Ftissue         ¨zee                            (3)proof-of-concept ultrasound of the dummy torso of a patient                                               −mI
+through a set of experiments that evaluate the viscoelastic        = κ(s −zee)β −λ ˙zee(s −zee)β −mI ¨zee,   (4)
+modelling and compare the performance of the proposed
+                                                     where mI is the mass of the indenter. Parameters estimation
+passive variable impedance with standard approaches.
+                                                                are derived offline using a least square algorithm to find the
+                        II. METHODOLOGY                      parameters κ and λ that best fit the sensed force profile. The
+                                                                       least square minimises the sum-of-square lossA. Tissue Parameters Estimation
+  Biological tissues are known to demonstrate viscoelastic             n
+behaviour, implying that their response depends not only      L = X  (Fsensor,j + mI ¨zee,j)                     (5)
+on the deformation applied but also on the rate of defor-              j=i
+mation. As a result, they can be represented using springs            −(κ(sj −zee,j)β −λ ˙zee,j(sj −zee,j)β)  ,
+
+===== PDF PAGE 3 =====
+where n is the number of observations. We decide not to   when the energy is extracted from the tank (˙T(xt) > η),
+include beta in the minimisation because, as  it is strongly   where η ∈R−is the maximum allowed power.dependent on the shape of the end effector, once a good value     The viscoelastic body map computed in subsection  II-
+is found, the benefits of fine tuning it would not compensate  A and the aforementioned passive analysis are then used
+for the increase  in the complexity of the minimisation.    in a QP that allows online modulation of the stiffness of
+Repeating the dynamic test at different points on the body, it    the Cartesian impedance in (6). The optimisation problem
+is possible to create a 3D map of the inspected surface. The   involves a trade-off between the precise tracking of a desired
+3D map is then smoothly interpolated using the GRIDFIT   wrench and  the  necessity  to uphold a  limited  level  of
+library [25]. This geometric representation of the surface is    stiffness. Inspired by [29], we formulated the QP as follows:
+then augmented with elasticity and viscosity information re-
+                                                                1      ext
+constructed using Gaussian Process Regression (GPR) [26],        min                        R                                                Kd∈Rm×m 2 ∥F  −F d∥2Q+∥Kd −Kmin∥2
+[27]. In its standard form, a GPR predicts a scalar value given
+a (possibly) multidimensional input. Therefore, we  fit two           s.t. Kmin ≼Kd ≼Kmax
+GPRs that predict elasticity and viscosity given the indenter       F min ≼F ext ≼F max                           (9)
+position. GPR parameters are learned from the collected data                                         Tt−1where the input is the indenter position and the output is the       Kd ˙˜x       ˙˜xT Dd ˙˜x    Kmin ˙˜x +    −Tmin                                                          −˜xT   ≤σ       −˜xT           ∆t
+elasticity or the viscosity.                                    −˜xT Kd ˙˜x ≤σ ˙˜xT Dd ˙˜x −˜xT                                                               Kmin ˙˜x −η
+B. Variable Impedance Control                           where Q and R ∈Rm×m are diagonal positive definite
+  The closed-loop behaviour of a Cartesian compliant con-   weighting matrices, Kd ∈Rm×m  is the desired stiffnesstroller  relates the external wrenches applied to the end-   of the Cartesian impedance controller, Kmin and Kmax
+effector of the robot to a mass-spring-damper model as  ∈Rm×m are diagonal matrices representingext        the minimum
+follows                                                and maximum allowed stiffness, F  ∈Rm is the wrench                  ext                                           of the impedance interaction model, which can be modelled         F  = Λd¨˜x + Dd ˙˜x + Kd˜x,             (6)               d
+                                                           with (6), F            is the desired interaction wrench and                                                            min ∈Rm
+where ˜x = x −xd ∈Rm is the Cartesian error computed  F max/F   ∈Rm is the maximum/minimum wrench thatwith respect to the desired Cartesian end-effector pose xd,    the robot can exert. The symbol ≼represents the matrix
+F ext ∈Rm  is the external wrench applied on the end-    inequality. The  last two  constraints  limit  the maximum
+effector, and Λd, Dd, Kd ∈Rm×m are the desired Cartesian   energy T −Tmin which can be injected in the system and
+inertia, damping, and stiffness, respectively.                    the rate |η| at which the energy is injected, and are obtained
+  Since the stability of the system might be violated in the   from T ≥Tmin and ˙T ≥η. 1/∆t is the controller frequency.
+presence of a variable impedance controller, we enforce the  When T < Tmin, the stiffness decreases to  its minimum
+passivity of the system through the concept of passivity of the  (Kd = Kmin).
+power port ˙xT F ext. To do so, we introduce the formalism of     Given the formulation of the optimisation problem in (9),
+port-Hamiltonian systems to describe the interaction model    in this paper we propose two strategies to set the desired
+of the variable Cartesian impedance augmented with an   and the minimum  force, F d and F min  in the problem
+energy tank [28] with dynamics:                             according to (2). From now on, we will focus on the vertical
+                                                     component of these forces, denoted as Fz,d and Fz,min. The
+                 σ
+                          ˙xt =     ˙˜xT Dd ˙˜x             ˙˜x,               (7)   two strategies are defined as follows:                       xt     −wTxt                                                                 1) Variable Stiffness with Constant Force (VS-CF):
+                                                                                   ref  constant and Fz,min(εmax),                                                                                  bodywhere xt ∈R is the state of the tank, σ ∈{0, 1} modulates         Fz,d = F
+the energy storage, and w an the extra input of the port-      2) Variable Stiffness with Variable Force (VS-VF):
+Hamiltonian system defined as:                                    Fz,d = Fbody(εd) and Fz,min constant.
+         (                                          In VS-CF the objective is to achieve a reference force, similar                                            if T(xt) > Tmin        w(t) =  −Kv(t)˜x                            (8)    to what happens in force control. This force is constrained,
+                 0           otherwise,
+                                                          however, to meet the condition of maximum penetration that
+                                                                the end effector can have in the body. This constraint  iswhere Kv(t)  is time-varying component of the stiffness
+(Kd(t) = Kmin + Kv(t)). At each instant of time, the   expressed in the minimum force that can be generated, i.e.,
+                                                                                x, y) = κx,yεβmax + λx,y ˙εεβmax,     (10)tank energy is defined by T(xt) = 12x2t and Tmin ∈R+ is        Fz,min(εmax,the minimum energy that the tank is allowed to store. Thanks
+to (8), we can infer the condition T(xt) > Tmin when the   where κx,y and λx,y are the values of the HC model at that
+stiffness is allowed to raise without violating the passivity    point, and εmax  is the maximum penetration. We assume
+constraint. However, this bound does not prevent the energy    that the stiffness of the body  is constant up to a certain
+of the tank to be drained instantaneously, situation which    depth, so it is not necessary to reach εmax at each palpation
+leads to the complete loss of performance. For this reason, it   during the estimation phase, which may not be clinically
+is reasonable to further constrain the power flow of the tank    safe. The penetration velocity ˙ε can be rewritten in function
+
+===== PDF PAGE 4 =====
+                                                                    15
+     Robot                                                        F/T sensor       HC 1.35
+     UR3e                                            F/T Sensor                 KV           HC 1.1
+                                                      HC 1.5
+                                                                                         [N] 10
+                                                                                                                                                    Force 5
+
+
+                                                                     0
+                         Chest                      3D Printed              0                 5                 10                15
+                 Dummy                                Indenter                                   Penetration [m]             #10!3
+
+
+                                                                                            Fig. 2.  Load tests obtained with the different models.
+                        Fig. 1.  Experimental setup.
+
+
+                                                              of foams [31]. To prevent potential patient harm and ensure
+of end effector velocity and surface change in the direction
+                                                          experiment repeatability, we performed the sonography on a
+of movement d as
+                                           dummy chest, the Blue Phantom COVID-19 Lung Simulator
+                               ˙ε = −˙zee −∇z(x, y) · d.             (11)   (33of humancm × tissue,33 cm allowing× 23 cm),clinicianswhich replicatesto practicetheandpropertiesdevelop
+This formulation prevents the robot from sinking excessively    the ultrasound imaging skills necessary to diagnose the key
+into the softest parts of the body, adding another degree of    findings consistent, in this specific case, with COVID-19
+safety in addition to those provided by the energy tanks and    cases. The anatomy of the device includes a lung, chest
+energy valves. VS-VF can be seen as the opposite approach    wall, ribs (1-5), and diaphragm. The viscoelastic map was
+to VS-CF, as it tries to maintain the desired penetration along   computed with MATLAB 2023a, in particular exploiting
+the entire trajectory but avoid crossing the ribs because the  lsqr  for the  least squares method, GRIDFIT [25]  for
+force exerted is excessive and thus may injure the patient.    the surface reconstruction, and fitrgp for the GPR. The
+The equation that describes the desired force is similar to  QP problem was instead implemented in C++ using the
+(10), but instead of using a εmax that has to be avoided, εd   open-source QPOASES solver [32] on Ubuntu 22.04. All
+will be used, that should be kept over all the trajectory.       experiments were run on a computer with an AMD Ryzen 9
+  More          details             on the QP                        problem                                   formulation                                          and energy
+                                                5900X (24) @ 3.7 GHz × 12-cores CPU and 32 GB RAM.tank     constraint                definition                          are                              available                                         in [29]. However,                                                    our
+                                                            A. Viscoelastic Model Validationapproach differs mainly on the desired wrench definition,
+which was learned from human demonstrations, while here     The standard procedure to evaluate a viscoelastic model is
+it is defined with the viscoelastic tissue model. Moreover, in    to perform a load and unload test at constant velocity. This
+the current formulation, the power flow constraint was added.    test is done with a Cartesian position controller in the fol-
+                                                         lowing way: the loading phase is done with constant velocity
+                 III. EXPERIMENTAL RESULTS
+                                                              of 3 cm · s−1 for 0.75 s, the load is maintained then for 10 s  Experiments carried out require the characterisation of    to reach the equilibrium and finally there is the unloading
+the viscoelasticity map and the repetition of a proof-of-   phase with a velocity of 1.5 cm · s−1 for 1.5 s. Results ofconcept ultrasound  in two  conditions, namely with and    this test in Figure 2 show the limitation of the linear Kelvin-
+without sudden patient motion. For each condition, we tested   Voight, i.e., for the first phase of the penetration the model
+the two proposed variable impedance strategies (variable    prediction is far from the measured force. The Hunt-Crossley
+stiffness with constant force VS-CF and variable stiffness   model achieves better results in imitating how the body react
+with variable force VS-VF) and we compared the results with   under a load. In Table I are shown the residual of the least
+an impedance control with constant stiffness (CS) and a force   square Equation 5 when varying β. Minimising the value of
+control with constant reference (CF).                              this variable over different points of the puppet we obtain
+  The methodology  is  evaluated  in  a  proof-of-concept    that β = 1.35 is the best compromise. This value of β is
+robotic ultrasonography setup (Figure 1), made of a position   used to estimate elasticity and viscosity of the tissue with the
+controlled manipulator of 6 DoF, the Universal Robot UR3e,    sinusoidal palpation and the least square method. A known
+a 6-axis F/T sensor, the SensONE BOTA System mounted on    issue of the least square method is that is crucial to have
+the robot end effector and a 3D printed rigid conical indenter   a large amount of observations in order to retrieve precise
+with a spherical tip (2 cm radius, 7 cm height), which  is    estimates. Figure 3 shows how the residuals are affected by
+used in parameter estimation and controller evaluation to    the palpation time; they decrease with exponential behaviour.
+simulate the presence of the ultrasound probe. The UR3e  We choose 5 s as trade-off between length and precision of
+is controlled by means of Forward Dynamics Compliance    the estimation. The palpations on the chest dummy were
+Control (FDCC) [30], which unifies impedance, admittance,   made at a distance of 1 cm apart so that the surface could
+and force control in a single strategy for position-controlled   be accurately reconstructed.
+robots. A similar setup has already been validated with a      In Figure 4 are shown the elasticity and viscosity map
+high-precision measurement device to estimate the elasticity   computed using the GPR. Focussing on the elasticity map,
+
+===== PDF PAGE 5 =====
+        0.1
+                                                            B. Variable Impedance Control Validation
+    [N] 0.08
+                                         We compare the behaviour of the CF and CS controller
+    RRV 0.06                                                       against VS-CF and VS-VF that exploit the information of
+                                                                the body reconstruction. For simplicity, we assume that the
+      0.04
+         0       5      10      15      20      25      30      value of the rotational stiffness is constant in each direction.
+                       Time [s]                     The optimisation variable Kd is then a diagonal 3x3 matrix,
+                                                     where each element represents the stiffness in one direction.
+         Fig. 3.   Variation of residual as palpation time changes.
+                                                  The minimum and maximum stiffness are identical in every
+                                                                  direction and respectively equal to Kmini,i  = 100 N/m and
+                                         Kmaxi,i  = 1000 N/m. The inner PD force controller gains,
+                                                                     that ensures the force tracking as explained in in [30], were
+                                                                      set to kp = 0.3 and kd = 0.01 for all the controllers beside
+                                                                the CS where we let the default values of kp = 0.05 and
+                                                        kd = 0.0005 due to instability problems. For experiments, a
+                                                               reference target is maintained at constant z under the surface
+                                                              of the dummy to ensure contact and is moved with constant
+                                                                 velocity of 1 cm · s−1 in the longitudinal direction of the                                                               chest dummy. Note that the force controller is hybrid since
+                                                                the x and y axes are controlled by the compliant controller,
+Fig. 4.   Resulting maps from the GPR computing the values of elasticity                                                           while the z axis is controlled in force, hence it is not possibleand viscosity every 0.1 mm.
+                                                                   to give a reference value to this axis. As expected, the force
+                                                            generated by the CS control is strongly dependent on the
+                                                         shape of the body (Figure 7: when the surface is further
+                                      Ribs
+                                                      from the target, the generated force is stronger than when the
+                                                               surface is closer. The force controller, instead, can track the
+                                                                     target force without any problem but has the downside that it
+                                                           cannot be controlled in position, so it is not possible to raise
+                                                                the end-effector from the surface as in the case of the end of
+                                                                the experiment. Also, in the case of problems, it would not be
+                                                               possible to stop the end effector except by resetting the target
+                                                               force it has to reach, which may result in dangerous motions.
+                                                  The VS-CF control can track a reference force as good as
+                                                           a force control (Figure 6), but without its downsides. It is
+                                                               possible to control all the axes when in free motion and also
+                                                                   to suddenly detach the end-effector from the surface in case
+Fig. 5.   Surface reconstruction with elasticity information. The view is
+rotated of 180◦degrees wrt Figure 4 to better show the shape of the body.   of necessity. On top, it uses the information registered by the
+                                                                reconstruction to cut the reference force when the maximum
+                                                                penetration is reached preventing the tip from sinking further.                     TABLE I
+                                                  The VS-VF, instead of tracking a constant force, it is tracking              VISCOELASTIC MODEL VALIDATION
+                                                                the force necessary to keep a constant penetration into the
+               RELATIVE RESIDUAL VALUE [N]                     material. In this case, the minimum force avoids pushing too
+                                                           hard on the stiff points, such as the ribs: at these points, to
+            Kelvin-Voight           Hunt-Crossley
+                                                            achieve the desired penetration, it would require more force
+                     β = 1.5   β = 1.35   β = 1.1
+                                                            than the maximum force we want to impart on the body.
+           0.066            0.029      0.014      0.045
+                                                    The same  test  is done under the action of some dis-
+                                                             turbances to demonstrate the inherent safety of this new
+                                                         approach (Figure 7). The disturbance consists in raising the
+it can be seen that there are 4 yellow lines, three more  dummy to see how the different controls would handle the
+evident, and one less; those lines represent the ribs of the    situation. Given that the safety of the approaches VS-CF
+chest dummy that are stiffer than the rest of the surface. In   and VS-VF is identical, indeed both use energy tanks and
+Figure 5 the dummy-specific elasticity map is projected on   energy valves to avoid the creation of sudden forces, this
+the surface reconstructed with the GRIDFIT algorithm. The    test was done on one of them. We decided to choose the
+upward tilt in the bottom left of the figure is the beginning   second one given that, in this approach, the maximum force
+of the shoulder that can be seen in Figure 1. It is interesting    is limited by a constant. Instead, in the first approach, the
+to notice that the rib covered by the pectoral muscle seems  maximum force limit can be subject to estimation errors
+less stiff than the others covered only by a thin layer of skin.   leaving room for possible dangerous behaviour. Figure 7
+
+===== PDF PAGE 6 =====
+          0                               V S −CF                                     0                      V S −V F
+
+       [N]                                                                                                   [N]
+
+  F                                 F
+      −20      F d = const        F/T sensor          Fmin                          −20      F d(∆xd)        F/T sensor          Fmin
+
+      [m] 0.100                                                                                            [m] 0.100
+  x                                 x
+       0.075         zd           z                                                           0.075         zd           z
+
+       1000                                                                      1000
+           [N/m]                                                                                                                                                                     [N/m]
+    ki   0                                                          ki   0
+                           kz          kmin/kmax                                                                                            kz          kmin/kmax
+          1                                                                         1
+
+           [J]                                                                                                   [J]
+    T 0                                T 0
+                    T (xt(t))          Tmin                                                                   T (xt(t))          Tmin
+
+          0.1                                                                                   0.1
+          [J/s]  0.0                                                                                                                                                          [J/s]  0.0
+   ˙T −0.1             ˙T (xt(t))          η                                     ˙T −0.1             ˙T (xt(t))          η
+             0.0      2.5      5.0      7.5     10.0     12.5     15.0     17.5     20.0           0.0      2.5      5.0      7.5     10.0     12.5     15.0     17.5     20.0
+                                    time [s]                                                              time [s]
+
+
+Fig. 6.   Results of the ultrasound experiment on a dummy chest in nominal conditions. (left) VS-CF, (right) VS-VF. The results of the CS and CF
+controllers are not reported here for the sake of space. A video of the experiments is available in the multimedia extension and in https://youtu.
+be/IwQhgzcd4IM.
+
+                               V S −CF                                              CS
+          0                                                                         0
+       [N]                                                                                                   [N]
+
+  F                                 F
+      −20      F d(∆xd)          Fmin                                        −20      F/T sensor
+         0.15                                                                               0.15
+       [m] 0.10                                                                                              [m] 0.10
+  x                                 x
+         0.05         zd           z                                                              0.05        z           zd
+
+       1000
+           [N/m]
+    ki   0
+                           kz          kmin/kmax
+                                                                            CF
+          1
+                                                                                     0
+           [J]                                                                                               [N]
+    T 0                               F
+                    T (xt(t))          Tmin                                        −20      F/T sensor        F d
+          0.2                                                                                   0.2
+
+
+
+
+
+   ˙T          [J/s]  0.0                                                                                               [m]x 0.1
+                                       ˙T (xt(t))          η                                                                                        z
+       −0.20.0       2.5       5.0       7.5      10.0      12.5      15.0      17.5             0.0       2.5       5.0       7.5      10.0      12.5      15.0      17.5
+                                    time [s]                                                              time [s]
+
+
+                     Fig. 7.  Comparison of ultrasound experiment on a dummy chest with disturbances: (a) VS-VF, (b) CS, (c) CF.
+
+
+shows that, as soon as the end-effector starts to be moved    the  stability of the variable impedance, the energy tank
+away, the stiffness of the impedance spring starts decreasing   was used to ensure the passivity of the system and prevent
+until no force is acting anymore; then, the spring value is   unsafe behaviour by limiting the minimum energy and the
+limited to its minimum until the moment of the new contact.  maximum power flow. The experimental results show that
+At the moment of contact, the  stiffness would suddenly    the proposed controller outperforms the baseline regarding
+increase, but the presence of the valves partially limits its    tracking performance and  safety. However, the approach
+growth and restricts the tank from being emptied too quickly.   has some limitations. First, offline viscoelastic estimation
+                                                                 requires the patient to remain still for long periods of time,
+                    IV. CONCLUSION                                                     which is not desirable for practical reasons. Thus, an online
+  This paper presents a novel variable impedance strategy   parameter estimation is paramount [33]. Second, a motion
+to regulate the interaction forces between the probe and    tracking module is required to match the viscoelastic model
+the patient’s body in ultrasonography operations. This  is   deformation, as  in  [8],  [9].  Finally, the control  strategy
+particularly useful in the case of lung or heart ultrasounds    requires a multi-subject evaluation on real patients.
+where ribs and muscles are close. Furthermore, to ensure
+
+===== PDF PAGE 7 =====
+                 REFERENCES                                        invasive robotic surgery,” Biomedical Signal Processing and Control,
+                                                                                            vol. 29, pp. 31–43, 8 2016.
+ [1] European Reference Networks and Digital Health, “Market study on                                                                              [17] M. Ferro, C. Gaz, M. Anzidei, and M. Vendittelli, “Online Needle-
+      telemedicine,” European Commission, Tech. Rep., 2018. [Online].                                                                                 Tissue Interaction Model Identification for Force Feedback Enhance-
+      Available: http://europa.eu                                                                      ment in Robot-Assisted Interventional Procedures,” IEEE Transactions
+ [2]  Digital Health and Innovation, “Consolidated telemedicine implemen-        on Medical Robotics and Bionics, vol. 3, no. 4, pp. 936–947, 11 2021.
+      tation guide,” World Health Organization, Tech. Rep., 2022. [Online].    [18] Z. Jiang, M. Grimm, M. Zhou, Y. Hu, J. Esteban, and N. Navab, “Auto-
+      Available: https://www.who.int/publications/i/item/9789240059184            matic Force-Based Probe Positioning for Precise Robotic Ultrasound
+ [3]  S. Avgousti, E. G. Christoforou, A. S. Panayides, S. Voskarides,          Acquisition,” IEEE Transactions on Industrial Electronics, vol. 68,
+     C. Novales, L. Nouaille, C. S. Pattichis, and P. Vieyres, “Medical          no. 11, pp. 11 200–11 211, 11 2021.
+      telerobotic systems: current  status and future trends,” BioMedical    [19]  J. Wang, C. Lu, Y. Lv, S. Yang, M. Zhang, and Y. Shen, “Task
+     Engineering  OnLine  2016  15:1,  vol.  15,  no.  1,  pp.  1–44,         Space Compliant Control and Six-Dimensional Force Regulation To-
+     8 2016.  [Online].  Available:  https://biomedical-engineering-online.        ward Automated Robotic Ultrasound Imaging,” IEEE Transactions on
+     biomedcentral.com/articles/10.1186/s12938-016-0217-7                     Automation Science and Engineering, 2023.
+ [4] C. T. Coffin, “Work-related musculoskeletal disorders in sonographers:    [20] A. Duan, M. Victorova, J. Zhao, Y. Sun, Y. Zheng, and D. Navarro-
+   A review of causes and types of injury and best practices for reducing         Alarcon, “Ultrasound-Guided Assistive Robots for Scoliosis Assess-
+      injury risk,” Reports in Medical Imaging, vol. 7, no. 1, pp. 15–26,        ment With Optimization-Based Control and Variable Impedance,”
+     2014. [Online]. Available: http://dx.doi.org/10.2147/RMI.S34724           IEEE Robotics and Automation Letters, vol. 7, no. 3, pp. 8106–8113,
+ [5] K. Li, Y. Xu, and M. Q. Meng, “An Overview of Systems and        7 2022.
+     Techniques for Autonomous Robotic Ultrasound Acquisitions,” IEEE    [21] K.  H.  Hunt  and  F.  R.  Crossley,  “Coefficient  of  Restitution
+     Transactions on Medical Robotics and Bionics, vol. 3, no. 2, pp. 510–          Interpreted  as  Damping  in  Vibroimpact,”  Journal  of  Applied
+     524, 5 2021.                                                            Mechanics, vol. 42, no. 2, pp. 440–445, 6 1975. [Online]. Available:
+ [6] X. Ma, W. Y. Kuo, K. Yang, A. Rahaman, and H. K. Zhang, “A-SEE:          https://dx.doi.org/10.1115/1.3423596
+     Active-Sensing End-Effector Enabled Probe Self-Normal-Positioning    [22] N. ¨Ozkaya, M. Nordin, D. Goldsheyder, and D. Leger, “Fundamen-
+      for Robotic Ultrasound Imaging Applications,” IEEE Robotics and            tals of biomechanics: Equilibrium, motion, and deformation: Third
+     Automation Letters, vol. 7, no. 4, pp. 12 475–12 482, 10 2022.                  edition,” Fundamentals of Biomechanics: Equilibrium, Motion, and
+ [7]  J. Tan, Y. Li, B. Li, Y. Leng, J. Peng, J. Wu, B. Luo, X. Chen, Y. Rong,         Deformation: Third Edition, pp. 1–275, 1 2012.
+     and C. Fu, “Automatic Generation of Autonomous Ultrasound Scan-    [23] W.  Fl¨ugge,  Viscoelasticity.   Berlin,  Heidelberg:  Springer  Berlin
+     ning Trajectory Based on 3-D Point Cloud,” IEEE Transactions on          Heidelberg,  1975.  [Online].  Available:  http://link.springer.com/10.
+     Medical Robotics and Bionics, vol. 4, no. 4, pp. 976–990, 11 2022.          1007/978-3-662-02276-4
+ [8] C. Hennersperger, B. Fuerst, S. Virga, O. Zettinig, B. Frisch, T. Neff,    [24] N. Diolaiti, C. Melchiorri, and S. Stramigioli, “Contact impedance
+     and N. Navab, “Towards MRI-Based Autonomous Robotic US Ac-          estimation  for  robotic systems,” IEEE Transactions on  Robotics,
+      quisitions: A First Feasibility Study,” IEEE Transactions on Medical           vol. 21, no. 5, pp. 925–935, 10 2005.
+     Imaging, vol. 36, no. 2, pp. 538–548, 2 2017.                           [25]  J.  D’Errico, “Surface  fitting using  gridfit,” MATLAB  central  file
+ [9]  J. Zhan, J. Cartucho, and S. Giannarou, “Autonomous Tissue Scanning         exchange, vol. 643, 2005.
+     under Free-Form Motion for Intraoperative Tissue Characterisation,”    [26] C. K. Williams and C. E. Rasmussen, Gaussian processes for machine
+     Proceedings - IEEE International Conference on Robotics and Au-          learning.  MIT press Cambridge, MA, 2006.
+     tomation, pp. 11 147–11 154, 5 2020.                                    [27]  P. Chalasani, L. Wang, R. Roy, N. Simaan, R. H. Taylor, and M. Ko-
+[10] M. C. Roshan, A. Pranata, and M. Isaksson, “Robotic Ultrasonography           bilarov, “Concurrent nonparametric estimation of organ geometry and
+      for Autonomous Non-Invasive Diagnosis - A Systematic Literature           tissue stiffness using continuous adaptive palpation,” in Proceedings
+     Review,” IEEE Transactions on Medical Robotics and Bionics, vol. 4,            - IEEE International Conference on Robotics and Automation, vol.
+     no. 4, pp. 863–874, 11 2022.                                              2016-June, 2016.
+[11]  F. von Haxthausen, S.  B¨ottger, D. Wulff,  J. Hagenah, V. Garc´ıa-    [28]  F.  Ferraguti, N.  Preda, A. Manurung, M. Bonfe, O. Lambercy,
+      V´azquez, and S. Ipsen, “Medical Robotics for Ultrasound Imaging:         R. Gassert, R. Muradore, P. Fiorini, and C. Secchi, “An Energy Tank-
+     Current Systems and  Future  Trends,”  Current  Robotics  Reports        Based Interactive Control Architecture for Autonomous and Teleoper-
+     2021 2:1, vol. 2, no. 1, pp. 55–71, 2 2021. [Online]. Available:          ated Robotic Surgery,” IEEE Transactions on Robotics, vol. 31, no. 5,
+      https://link.springer.com/article/10.1007/s43154-020-00037-y                  pp. 1073–1088, 10 2015.
+[12] Z.  Jiang,  S.  E.  Salcudean, and N. Navab,  “Robotic  ultrasound    [29]  J. Zhao, A. Giammarino, E. Lamon,  J. Gandarias, E. Momi, and
+     imaging:  State-of-the-art and  future  perspectives,” Medical Image        A. Ajoudani, “A Hybrid Learning and Optimization Framework to
+      Analysis,  vol.  89,  p.  102878,  10  2023.  [Online].  Available:         Achieve Physically  Interactive Tasks With Mobile Manipulators,”
+     https://linkinghub.elsevier.com/retrieve/pii/S136184152300138X            IEEE Robotics and Automation Letters, vol. 7, no. 3, 2022.
+[13]  S. Merouche, L. Allard, E. Montagnon, G. Soulez, P. Bigras, and    [30]  S. Scherzinger, A. Roennau, and R. Dillmann, “Forward Dynamics
+     G. Cloutier, “A robotic ultrasound scanner for automatic vessel track-        Compliance Control (FDCC): A new approach to cartesian compliance
+     ing and three-dimensional reconstruction of b-mode images,” IEEE           for robotic manipulators,” IEEE International Conference on Intelli-
+     Transactions on Ultrasonics, Ferroelectrics, and Frequency Control,          gent Robots and Systems, vol. 2017-September, pp. 4568–4575, 12
+      vol. 63, no. 1, pp. 35–46, 1 2016.                                         2017.
+[14] R. Tsumura and H. Iwata, “Robotic fetal ultrasonography platform    [31] L. Beber, E. Lamon, L. Palopoli, L. Fambri, M. Saveriano, and
+     with a passive scan mechanism,” International Journal of Computer        D. Fontanelli, “Elasticity measurements of expanded foams using a
+      Assisted Radiology and Surgery,  vol. 15, no.  8, pp. 1323–1333,          collaborative robotic arm,” in 2024 IEEE International Instrumentation
+     8 2020. [Online]. Available: https://link.springer.com/article/10.1007/        and Measurement Technology Conference (I2MTC), 2024, pp. 1–6.
+     s11548-020-02130-1                                                    [32] H.  Ferreau, C.  Kirches, A.  Potschka, H. Bock, and M.  Diehl,
+[15]  S. Virga, O. Zettinig, M. Esposito, K. Pfister, B. Frisch, T. Neff,        “qpOASES: A parametric active-set algorithm for quadratic program-
+     N. Navab, and C. Hennersperger, “Automatic force-compliant robotic         ming,” Mathematical Programming Computation, vol. 6, no. 4, pp.
+     Ultrasound screening of abdominal aortic aneurysms,” IEEE Inter-         327–363, 2014.
+     national Conference on Intelligent Robots and Systems, vol. 2016-    [33] A. Haddadi and K. Hashtrudi-Zaad, “Real-time identification of hunt-
+     November, pp. 508–513, 11 2016.                                             crossley dynamic models of contact environments,” IEEE Transactions
+[16] A. Pappalardo, A. Albakri, C. Liu, L. Bascetta, E. De Momi, and        on Robotics, vol. 28, no. 3, pp. 555–566, 2012.
+       P. Poignet, “Hunt–Crossley model based force control for minimally

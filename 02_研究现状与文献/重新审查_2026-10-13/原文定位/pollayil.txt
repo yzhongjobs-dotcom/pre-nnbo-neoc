@@ -1,0 +1,1304 @@
+===== PDF PAGE 1 =====
+        IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023                                                                                     1281
+
+      Choosing Stiffness and Damping for Optimal
+                Impedance Planning
+
+        Mathew Jose Pollayil    , Member, IEEE, Franco Angelini    , Member, IEEE, Guiyang Xin    , Member, IEEE,
+        Michael Mistry, Member, IEEE, Sethu Vijayakumar    , Antonio Bicchi    , Fellow, IEEE, and Manolo Garabini
+
+
+
+         Abstract—The attention given to impedance control in recent     Index Terms—Control, impedance, planning.
+       years does not match a similar focus on the choice of impedance
+        values that the controller should execute. Current methods are                                   I. INTRODUCTION
+       hardly general and often compute ﬁxed controller gains relying
+      on the use of expensive sensors. In this article, we address the    N RECENT years, robots have been required to operate in
+       problem of online impedance planning for Cartesian impedance      environments where safety and performance are both tight        controllers that do not assign the closed-loop inertia. We propose I                                                                               requisites. In this regard, collaborative robots (cobots) are being
+      an optimization-based algorithm that, given the Cartesian iner-
+                                                                 adopted into several branches of the industry [1] to perform tasks
+          tia, computes the stiffness and damping gains without relying on
+        force/torque measurements and so that the effects of perturbations   such as shared manipulation [2] or on-site inspection [3]. Such
+       are less than a maximum acceptable value. By doing so, we increase   robots are often built using compliant elements, such as soft
+       robot resilience to unexpected external disturbances while guar-   coverings or springs, which enable safer operation modes that
+       anteeing performance and robustness. The algorithm provides an  make it easier for humans and machines to coexist in working
+        analytical solution in the case of impedance-controlled robots with
+                                                                    environments.
+        diagonally dominant inertia matrix. Instead, established numerical
+      methods are employed to deal with the more common case of     In addition to the robots with built-in compliance, i.e., soft
+       nondiagonally dominant inertia. Our work attempts to create a   robots [4], such as the ones with ﬂexible joints/links [5], [6] or
+       general impedance planning framework, which needs no additional   employing variable stiffness/impedance actuators [7], [8], tradi-
+      hardware and is easily applicable to any robotic system. Through   tional “rigid” robots can also be made compliant by enforcing a
+       experiments on real robots, including a quadruped and a robotic
+                                                                       desired impedance behavior by means of control. Such a possi-
+       arm, our method is shown to be employable in real time and to lead
+        to satisfactory behaviors.                                                bility is provided by the impedance control technique, initially
+                                                                proposed by Hogan [9] and later expanded by several authors,
+                                                                                       e.g., see [10], [11]. This control method offers the advantage
+          Manuscript received 8 January 2022; revised 11 July 2022; accepted 21
+        September 2022. Date of publication 15 November 2022; date of current version   of being able to modulate the impedance of the robot, which,
+        5 April 2023. This work was supported in part by the EU Horizon 2020 Research   together with proper tuning, can lead to improved efﬁciency and
+        and Innovation Programmes: Project NI: “Natural Intelligence for Robotic   robustness. Therefore, employing impedance control on robots
+        Monitoring of Habitats” under Grant 101016970, in part by Project THING:
+        “subTerranean Haptic INvestiGator” under Grant 780883, in part by Project   has become common.
+       SOPHIA: “Socio-physical Interaction Skills for Cooperative Human-Robot     Notwithstanding, very few authors have explicitly addressed
+        Systems in Agile Production” under Grant 871237, and in part by the Ministry of   the problem of choosing the desired impedance parameters.
+         University and Research (MUR) as a part of the PON 2014-2021 “Research and
+         Innovation” resources—Green/Innovation Action—DM MUR 1062/2021. This   Section II highlights the context we refer to and presents a review
+           article was recommended for publication by Associate Editor F. Ficuciello and   of the relevant literature on the topic.
+         Editor E. Yoshida upon evaluation of the reviewers’ comments. (Corresponding    One of the major challenges in computing the impedance
+         author: Mathew Jose Pollayil.)
+         Mathew Jose Pollayil and Antonio Bicchi are with the Centro di Ricerca   gains lies in their tight dependence on the requirements of
+        “Enrico Piaggio”, Università di Pisa, 56126 Pisa, Italy, also with the Soft   the speciﬁc tasks to be performed. As a result, using ﬁxed
+        Robotics for Human Cooperation and Rehabilitation, Fondazione Istituto Ital-   ofﬂine-computed gains is rarely a good choice, and thus, the
+         iano di Tecnologia, 16163 Genoa, Italy, and also with the Dipartimento di
+         Ingegneria dell’Informazione, Università di Pisa, 56126 Pisa, Italy (e-mail:   possibility of varying the impedance becomes interesting [12]
+        mathewjosepollayil@gmail.com; antonio.bicchi@iit.it).                     (see Fig. 1 for an example).
+          Franco Angelini and Manolo Garabini are with the Centro di Ricerca “Enrico     Nevertheless, current variable impedance planning tech-
+         Piaggio”, Università di Pisa, 56126 Pisa, Italy, and also with the Dipartimento
+          di Ingegneria dell’Informazione, Università di Pisa, 56126 Pisa, Italy (e-mail:   niques are very much application-oriented and rely on the use
+        frncangelini@gmail.com; manolo.garabini@gmail.com).                    of expensive devices, such as force/torque sensors (cf., Sec-
+          Guiyang Xin is with the School of Optoelectronic Engineering and Instrumen-   tion II-B). Additionally, these techniques often assume that the
+          tation Science, Dalian University of Technology, Dalian 116024, China (e-mail:
+         guiyang.xin@dlut.edu.cn).                                     impedance controller performs inertia shaping, i.e., the con-
+          Michael Mistry and Sethu Vijayakumar are with the  Institute of Per-   troller assigns an arbitrary close-loop inertia. However, inertia
+         ception,  Action and  Behaviour,  School  of  Informatics, The  University   shaping is not easily realizable in practice whenever expensive
+         of Edinburgh, Edinburgh EH89AB, U.K.  (e-mail: mmistry@inf.ed.ac.uk;
+         sethu.vijayakumar@ed.ac.uk).                                   and very precise force/torque sensors are not available or if
+           This   article  has  supplementary   material  provided  by   the   au-   forces cannot be effectively measured [10]. For these reasons,
+         thors  and   color   versions   of  one   or  more  ﬁgures   available   at   current impedance planning methods are hardly useable out of
+         https://doi.org/10.1109/TRO.2022.3216078.
+            Digital Object Identiﬁer 10.1109/TRO.2022.3216078                       their contexts.
+
+                             1552-3098 © 2022 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                          See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 2 =====
+          1282                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+                                                                             in Sections IV, V, and VI, respectively. These lead to our
+                                                              impedance planning algorithm explained in Section VII. Then,
+                                                                             in Section VIII, the proposed method  is validated through
+                                                                   experiments on real robots and comparisons with a standard
+                                                                method. Finally, conclusions are drawn in Section IX.
+
+                                                                                                                            II. STATE OF THE ART
+
+                                                                     A. Background
+
+                                                                     Let the dynamic model of a rigid-joint robotic system be
+                                                                            B(q)¨q + C(q, ˙q) ˙q + G(q) = τ + J⊺(q)Fext       (1)
+
+           Fig. 1.   Planning a variable impedance, based on requirements on tracking and                                                             where q ∈IRnj is the vector of joint positions, τ ∈IRnj is the           robustness, shapes the impedance ellipsoid and ensures better performance.
+                                                                        vector of joint torques, B ∈IRnj×nj is the mass matrix, C ∈
+                                                                   IRnj×nj is the Coriolis and centrifugal matrix, G ∈IRnj is the
+           In  this  article, by  substantially extending our previous   vector of gravity torques, J ∈IR6×nj is the analytic Jacobian
+       work [13], we present a general algorithm that provides a frame-   of the end-effector, and Fext ∈IR6 is the external force/torque
+       work to autonomously manage the planning of the impedance   acting on the end-effector. We wish to impose a closed-loop
+         gains,  stiffness, and damping  of  a  Cartesian impedance  impedance model of the form
+         controller.  It attempts to minimize the effects of impacts/
+                                                                                                         Λd¨˜x + Dd ˙˜x + Kd˜x = Fext               (2)        perturbations while ensuring tracking performance. The algo-
+        rithm resorts to two methods, which are in turn based on solving  where  ˜x = x −xd  is the deviation of the end-effector pose
+        constrained optimization problems. We minimize an objective  x ∈IR6 from the desired equilibrium pose xd ∈IR6. The matri-
+         function, which depends on the impedance, subject to some   ces Λd ∈IR6×6, Dd ∈IR6×6, and Kd ∈IR6×6 are, respectively,
+         constraints derived from performance requirements. Without   the desired positive-deﬁnite Cartesian inertia, damping, and
+        relying on external force/torque measurements to react at impact   stiffness. Notice that using the geometric Jacobian would reduce
+        time, our approach performs a conservative design of the con-   the issue of singularity prone representations of orientation.
+          troller gains to always assign the minimum closed-loop inertia.   However, this might require appropriately redeﬁning ˜x [14].
+         The proposed algorithm can handle both the cases of diag-     For instance, the behavior in (2) can be achieved using the
+        onally dominant and nondiagonally dominant Cartesian inertia   following control law [10]:
+       matrices.Bothcanoccurwheneverinertiashapingcannotbeper-
+                                                                                  τ = J⊺(q)Fτ + C(q, ˙q) ˙q + G(q)            (3)       formed.Hence,ourapproachaidsindesigningtheimpedancefor
+        a relevant class of impedance-controlled robotic systems, such                                                                   with the control input Fτ ∈IR6 being
+        as humanoids or quadrupeds, in which accurate measurements
+                                                                   Fτ = Λ(q)¨xd −Λ(q)Λ−1d (Dd ˙˜x + Kd˜x)        of external forces are often not available and also for robotic ma-
+         nipulators that do not have precise built-in force/torque sensors.                                               + (Λ(q)Λ−1d  −I)Fext −Λ(q) ˙J(q) ˙q       (4)
+         The primary contribution of this article with respect to [13]
+          is the overcoming of its main limitation: therein, planning was  where Λ(q) = (J(q) B−1(q) J⊺(q))−1  is the robot equiva-
+         restricted to the case of diagonal inertia matrix. The possibility   lent Cartesian  inertia matrix. Note  that (3)–(4)  is merely
+        of using the same algorithm in the case of inertia matrices with  one of the many possible impedance controllers. Depend-
+         negligible off-diagonal elements was discussed in [13]. Instead,   ing on the system under analysis, different implementations
+        the algorithm presented herein is general and can also deal with    (e.g., [15], [16], [17], [18], [19]) can be employed, leading to
+        the nondiagonal case while also including the method presented   closed-loop dynamics analogous to (2). It is worth mentioning
+         in [13].                                                                   that, according to the choice of the Jacobian, the impedance of
+        As a matter of fact, contrarily to [13], the planning framework   not only the end-effector but also multiple points of the robot
+         that we propose in this article is not limited to speciﬁc systems   can be regulated. However, this might be feasible only to the
+        but addresses every robotic system in which impedance control   extent allowed by the degrees of freedom of the system.
+          is used. The results of experiments on a quadruped, which have     In addition, notice how the model-based control law (3)–(4)
+       been presented in [13], and on a robotic arm support the general   neglects delays and static nonlinearities that permeate the real
+        nature of our effort. For this reason, this work can be considered   hardware. These are often assumed to be negligible or the con-
+        as a general framework for impedance planning.                    troller to be fast enough to compensate for them. However, under
+          This article is organized as follows. Section II-A provides   such assumptions, control law (3)–(4) guarantees to assign the
+        the context for our work with a quick overview of impedance   closed-loop behavior (2). The actual behavior of the controlled
+         control. In Section II-B, a review of the literature on impedance   system will depend on whether its real dynamics is faster than
+        design for robots is conducted. Section III states the problem   the one that excites it, i.e., Fext.
+      we wish to tackle, for which a general optimization-based       If we wish to ﬁnd Λd, Dd, and Kd so that the impedance is
+        procedure and two approaches for its solution are presented   minimized and the tracking performance is guaranteed, this can
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 3 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1283
+
+
+      be done without big effort since inertia shaping is performed:  Asada [23] proposed an adaptive progressive learning method
+        in (2), all matrices are arbitrarily assigned and, hence, can be   based on measurements of error and reaction forces for real-time
+       chosen to be diagonal for enforcing an exact decoupled behavior.   tuning of stiffness and damping. More recently, iterative learning
+     As a matter of fact, most of the traditional stiffness and damping   control has been consistently used to shape impedance. Exam-
+       design methods for a single degree of freedom, second-order   ples are given in [24] and [25]. The former dealt with combining
+       systems can be applied.                                               iterative learning control with an adaption of the stiffness for
+        However, in practice, assigning an arbitrary Λd is not always   enabling its convergence to an optimal value. Instead, the latter
+         trivial. Whenever  it  is not possible to employ sensors that   proposed an iterative algorithm to smooth the damping for
+       provide precise and direct feedback of the external forces or   minimizing the external force exerted by a human. Another
+       Cartesian acceleration, the closed-loop inertia cannot be shaped.   relevant work is [26], which presented a novel controller that
+       Force/torque sensors are not only expensive but usually have   deals with periodic tasks by estimating interaction forces and by
+       limited measurement areas, out of which forces are not sensed   adapting feed-forward force and impedance but also by modify-
+        effectively. Moreover, acquiring accurate measurements of the   ing the reference trajectory to deal with rigid environments. Two
+       robot acceleration is also hard.                                very recent works are also noteworthy: Bednarczyk et al., [27]
+         Without such feedback, the Cartesian inertia needs to be set   approach optimal control through model predictive impedance
+        identical to the robot Cartesian inertia Λ(q) [10], [16]. Moreover,   control and Bednarczyk et al., [28] derive passivity conditions
+       since the inertia is not constant anymore, if the impedance model   that provide bounds on the desired impedance gains.
+         is meant to represent a real mechanical system, a nonconstant     Control algorithms can also be combined with other tech-
+       term ¯C(q, ˙q) should also be introduced.1                         niques, such  as programming by  demonstration,  to  learn
+        The control input (4) can be changed as                    impedance parameters while coping with unmodeled uncer-
+                                                                                    tainties. For instance, Gribovskaya et al., [29] used haptic and
+        Fτ = Λ(q)¨xd −Dd ˙˜x −Kd˜x −¯C(q, ˙q) ˙˜x −Λ(q) ˙J(q) ˙q.  (5)
+                                                                       proprioceptive feedback to tune the impedance for accurate
+       Here, ¯C(q, ˙q) can be any matrix such that ˙Λ(q) −2¯C(q, ˙q) is   reproduction of learned tasks. Another example of impedance
+      skew symmetric (e.g., ¯C = 12 ˙Λ) [10].                            learning method based on human demonstrations is [30], in
+        Using (3) together with (5), the following closed-loop non-  which tactile sensors were used to modulate the gains of object-
+        linear impedance behavior is achieved:                             level impedance control to accomplish robust and dexterous
+                                                                     manipulation. A human-like adaptive learning tool, which does
+                    Λ(q)¨˜x + (Dd + ¯C(q, ˙q)) ˙˜x + Kd˜x = Fext.        (6)                                                                     not require interaction force sensing and that is able to deal
+        The presence of the term ¯C(q, ˙q) is usually a hindrance for the   with periodic tasks also in presence of unstable interactions,
+       design of the controller gains Dd and Kd. This is usually solved  was proposed in [31]. In [32], a combination of Gaussian mix-
+      by assuming slowly varying inertia (˙Λ(q) ≈0) [10] whenever   ture model and LQR control was used to reproduce stiffness
+       the velocity of the robot is not high or if the controller itself (or a   geometry obtained from human demonstrations.
+       lower level controller) compensates ¯C(q, ˙q). With this assump-     Besides adaptive and iterative learning, machine learning
+        tion, several approaches have been proposed in the literature to   algorithms can also deal with impedance planning. A very
+       design the impedance parameters.                                early example of application of neural networks to regulate the
+                                                                         end-effector impedance for minimizing position/force control
+       B. Literature Review                                              error can be seen in [33]. In [34], the authors presented an
+                                                                         application of reinforcement learning PI2 algorithm to ﬁnd
+          Traditionally, the choice of the gains for impedance control is                                                                        the impedance necessary to accomplish a given task. Despite
+      basedonthecommonrationaleofconsideringatradeoffbetween                                                                                their efﬁcacy, the price to pay is that learning techniques re-
+       permissible interaction forces and allowable set-point errors.                                                                        quire huge datasets and a large number of trials for properly
+         Initially, such an analysis led to the outlining of fundamen-                                                                        learning optimal models [35]. Optimization-based techniques
+         tal impedance planning strategies, such as the ones presented                                                                have also been proposed. In [36], particle swarm optimization
+        in [20]. Therein, the authors carried out some basic discussions                                                         was used to tune ofﬂine the impedance controller. We pro-
+       about choosing optimal values of impedance based on well-                                                               posed the robust optimization-based design of system compli-
+      known results in linear optimal control theory.                                                                ance and impedance, respectively, in [37] and [13]. We also
+        Soon enough, the option of varying the target impedance                                                                     presented optimal control-based formulations to algorithmi-
+        for ensuring stability of interaction emerged. For instance, Sur-                                                                            cally optimize the spatio-temporal modulation of impedance
+       dilovic[21]examinedtheimportanceofthetargetdampingratio,                                                                            in [38] and [39] and applied it for mapping human impedance
+      which was found to be a critical factor for contact stability with                                                                              strategies to heterogeneous robot actuators [40] and realizing
+         stiff environments. This study also brought about the idea of a                                                                      explosive movement tasks [41]. Another example of particle
+       fuzzy adaptation of the impedance based on deviations of the                                                       swarm optimization is [42]. Therein, the target impedance of
+      measured force from the desired ones in order to limit peaks in                                                              an exoskeleton was optimized for assistance and rehabilitation
+       contact forces [22].                                                                            in accordance with the knowledge of an estimate of human
+         Adaptive and iterative learning controls allow tackling the                                                                impedance.
+      problem  of planning impedance. For example, Yang and                                                                Approaches speciﬁcally targeted at human–robot interaction
+                                                                        are also topics of research interest. Most of these are based on
+           1This aids in proving the asymptotic convergence of the error ˜x(t).         measurements of the forces applied by the human. For instance,
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 4 =====
+          1284                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+
+
+
+           Fig. 2.  High impedance versus low impedance on the robot ANYmal with a Cartesian impedance controller regulating its torso. With low impedance, when
+           subject to an external force disturbance, the robot cannot track correctly the reference position and falls. However, more robustness to unforeseen contacts is
+           displayed. High impedance, instead, ensures tracking by rejecting force disturbances, but environment interaction destabilizes the robot, which loses support on
+         two legs (dashed red circle). (a) Constant force disturbance with low impedance. (b) Environment interaction with low impedance. (c) Constant force disturbance
+          with high impedance. (d) Environment interaction with high impedance.
+
+
+       Tsumugiwa et al., [43] and [44] changed the impedance based   We wish to address the following problem. Let some bounds
+       on a passivity index and an estimation of the human stiffness,   be provided on the matrices K and D; these can be related
+         respectively. A different approach was presented in [45]: therein,   to the limits on the actuation and on the degree of uncertainty
+       an experimental study on human–robot comanipulation was   in the dynamic model (see also Appendix C). Provided also
+         carried out and the end-effector dynamics is controlled to a mass-  some limits on the initial states ˜x0 and ˙˜x0 and on the external
+       damper behavior. The damping matrix is changed as a function   forces Fext, ﬁnd an algorithm that autonomously chooses the
+        of the end-effector velocity in order to improve accuracy and   values of K and D such that the evolution of the tracking error
+        execution time of the collaborative task.                                    ˜x remains bounded in between some required values. Moreover,
+        Some  other  works  are  also  worth  citing.  Spyrakos-  we demand that the impedance assigned by the controller should
+        Papastavridis et al., [46], [47], and [48] used the concept of   be the lowest possible that fulﬁlls the stated requirements. This
+       Lyapunov stability margins to regulate the impedance for im-    is because we wish to be robust to unexpected contacts with
+        proved balancing and walking in humanoids. Finally, Balatti   external factors, such as the environment.
+          et al., [49] and [50] employed force measurements and visual     This problem clearly requires a solution that is a tradeoff
+        data to autotune the impedance.                             between high and low impedance. A low closed-loop impedance
+         The approach proposed in this article is novel with respect to   improves robustness to undesired and unexpected disturbances;
+        the majority of the state of the art in the following.              a high impedance increases tracking performance (see Fig. 2 for
+           1)  It does not require the use of any force/torque sensors.     an example) [14]. Since we require both robustness and good
+           2)  It builds on top of established results in control theory   tracking, the solution to our problem should be somewhere in
+            and optimization and is not related to any speciﬁc robotic   between high and low gains.
+             system or controller.                                      Finding such a solution would be fairly easy if inertia shaping
+           3)  It provides robustness by performing a worst-case design   wasperformedsincedecoupledshapingofeachsubsystemcould
+              of the controller gains.                                be conducted. Instead, in our case, traditional methods fail in
+         These points are conﬁrmed through experimental validation   providing a general solution to the stated stiffness and damping
+       and comparisons with a standard method for impedance plan-   planning problem because of the couplings in the system, caused
+        ning with inertia shaping (see Section VIII).                  by nondiagonal inertia, and also since we assume not to use any
+                                                                         force/torque sensor (see the literature review in Section II-B).
+                                                                   Notice that tuning the large number of parameters of K and D
+                                 III. PROBLEM DESCRIPTION
+                                                            by trial and error while complying with constraints on positive
+        As mentioned in Section II-A, with the assumption of slowly   deﬁniteness of the matrices, on the boundedness of tracking
+        varying inertia, the closed-loop impedance without inertia shap-   error, and on minimizing the impedance is practically never
+        ing (6) becomes                                                    viable.
+                                                                                                     It is also worth discussing that minimizing the impedance
+                             Λ(q)¨˜x + D ˙˜x + K˜x = Fext.               (7)    is one possible way to achieve the aforementioned desired
+                                                                         behavior. Some other viable solutions include regulating the
+        Here, and also in the remaining of this article, for the sake of   inner control loops of the robot to quickly react to impacts
+       compactness,weremovethesubscriptdtobothK andD.Notice   or adding kinetic energy constraints directly into the controller
+         that the only difference with (2) is that Λ is conﬁguration de-   formulation. Also, mechanically modifying the robot to include
+        pendent and usually not diagonal and nonmodiﬁable. Recall that   soft paddings on the covers can help. However, these solutions
+        since Λ(q) is time-varying, constant positive-deﬁnite controller   donotﬁtintothescopeofthisarticle,whichextendsourprevious
+        gains might not sufﬁce for the convergence of (7).             work [13] within the context of impedance control.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 5 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1285
+
+
+                                                                         In this work, we choose to keep always at a minimum required
+                                                                     value the impedance regulated by the controller. Hence, in
+                                                                                   (8), the cost function h(D, K) is targeted at minimizing the
+                                                             impedance of (7) to increase resilience to external uncertain-
+                                                                                     ties while fulﬁlling the performance requirement through the
+                                                                maximization constraint. The impedance matrix of (7) is given
+                                                           by Z(jω) = −ω2Λ + jωD + K, where ω = 2πf and f is the
+                                                                  frequency of the external force. For instance, we can choose
+                                                                   hZ(D, K) = ∥Z(jω)∥2F .                (9)
+
+          Fig. 3.   Proposed algorithm acts by modifying the gains K and D of the   Here, the operator ∥· ∥F stands for the Frobenius norm of a
+        impedance controller based on the current state q of the robot and on some
+        performance requirements (explained later on).                            matrix. However, since we have no control over both the angular
+                                                                  frequency ω and on the inertia Λ, to minimize (9), a best effort
+                                                                approach would be attempting to minimize
+                           IV. PROPOSED SOLUTION                               h(D, K) = ∥κD + K∥2F              (10)
+
+        The basic idea behind our approach to the problem is to  where κ is a constant coefﬁcient for normalizing the different
+       provide the controller—which realizes (7)—with the minimum   units in the cost. To solve optimization (8), with the cost being
+       necessary impedance gains, K and D, for achieving the required   (10), we make the following assumptions.
+       performance in the presence of bounded external disturbances.     Assumption 1: Λ(q) is almost a constant Λ between two
+       This is the aim of our impedance planner, which will act on the   planning instances. Hence, we assume quasi-static conditions
+      whole architecture, as shown in Fig. 3.                       between two consecutive impedance updates.
+      We set up an optimization problem aimed at computing at     Assumption2: Theexternaldisturbancesactingontherobotic
+       each planning iteration the minimum impedance in accordance   system occur in brief instants of time. Thus, we approximate Fext
+       with the current state of the robot and with some provided   to be impulsive: Fext,i = ¯F δd(t).
+       performance and robustness bounds.                         The ﬁrst assumption is reasonable if the robot velocity is not
+                                                                  high and if the gain update rate of the planner is relatively high.
+           arg min  h(D, K)                                    These are highly speciﬁc to the robot and can be estimated nu-          D,K
+                                                                      merically if a symbolic expression of Λ(q) is available. However,
+                               ldi,j ≤di,j ≤udi,j                                   this tedious procedure can often be replaced by trial and error.
+                        s.t.                               lki,j ≤ki,j ≤uki,j                        The second assumption requires external forces to act only for
+                                                                          short amounts of time, such as in the case of impacts. However,
+                        s.t.   max˜x0, ˙˜x0,Fext  |˜xi(t)| ≤bi  ∀t ∈[0, +∞)        these should not be ideal impulses with dynamics much faster
+                                           l˜x0i ≤˜x0i ≤u˜x0i                        than the control rate, which might prevent the desired impedance
+                                       l    ≤˙˜x0i ≤u                           behavior to be assigned by the controller. We also disregard the                                                         ˙˜x0i                      ˙˜x0i                                s.t.                                           (8)   case of very prolonged interactions.
+                                          lFexti ≤Fexti ≤uFexti                                                           Remark 1: Suppose a constant force acting on the robot end-
+                        Λ(q) ¨˜x + D ˙˜x + K˜x = Fext.                                                                            effector is due to an external body attached to it. If the inertial
+                                                                          properties of the body are known, the robot dynamic model can      The solution to (8) ﬁnds D and K, which minimize h, and
+                                                              be modiﬁed so that the controller compensates for the load. The       ensures that the error ˜x remains bounded throughout time by
+                                                                               result would be a change of the inertia Λ(q).       keeping the peaks of each ˜xi(t) below the bounds bi, provided
+                                                                         In line with Remark 1, in many practical scenarios, e.g.,        that the external force Fext and the initial conditions ˜x0 and ˙˜x0 are
+                                                                  a robot manipulator grasping an object, Assumption 2 is not
+       bounded. This constraint on the peak of the error will be denoted
+                                                                                  restrictive and external impacts can be considered impulsive.
+       also as performance requirement in the rest of this article. The
+                                                           Remark 2: The impulse response of a linear system is equiva-       elements of the damping and stiffness matrices are di,j and ki,j,
+                                                                              lent to the free response from suitable nonzero initial conditions        respectively. The bilateral bounds on the variables di,j, ki,j,
+                                                                  with  ˙˜x0̸ = 0 [52] (see Appendix A). Hence, by virtue of As-         ˜x0,  ˙˜x0, and Fext are written using the operators l(·) and u(·)
+                                                                sumption 2, we limit ourselves to optimize the free response of
+         that, respectively, denote lower and upper bounds. Notice that
+                                                                                   (7).
+        (8) is a minimization problem with a maximization constraint,
+                                                               Assumption 1 and Remark 2 lead us to modify (8) into      which needs to be solved ∀t ∈[0, +∞) and ∀i, j ∈{1, . . . , 6}
+        (this detail is omitted also in the rest of this article for the        arg min  h(D, K)
+       sake of compactness of equations). It is noteworthy that the        D,K
+       maximization constraint in (8) is a function of unknown but                          ldi,j ≤di,j ≤udi,j
+      bounded parameters, namely, the initial conditions and external                  s.t.                                                                                                                       lki,j ≤ki,j ≤uki,j
+       forces,whichareuncertain.Problems,suchas(8),arecommonly
+        referred to as robust optimizations [51].                                                  s.t.   max˜x0, ˙˜x0  |˜xi(t)| ≤bi    ∀t ∈[0, +∞)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 6 =====
+          1286                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+                                              l˜x0i ≤˜x0i ≤u˜x0i                                V. CASE 1: DIAGONALLY DOMINANT INERTIA
+                                          l                                     ≤˙˜x0i ≤u                                  s.t.                                                            ˙˜x0i                                                                                       ˙˜x0i                  (11)    As discussed in [13], for some robots and control choices,
+                  Λ ¨˜x + D ˙˜x + K˜x = 0.                     the Cartesian inertia matrix Λ can be diagonally dominant. This
+                                                                                         is the case, for example, when the controller is set to modulate
+        Here, we recompute the bounds on ˙˜x0 also in accordance with   the impedance of the torso of a quadruped. The large inertia of
+        the removed bounds on Fexti (see Appendix A).                  the robot base would make the elements on the diagonal of Λ
+          Equation (7) is usually not decoupled in six single-degree-   dominant w.r.t. the off-diagonal terms.
+        of-freedom equations  to be solved independently. To ﬁnd
+          ˜xi(t),  it is required to compute ﬁrst ˜x(t) and then choose   A. Decoupled Optimization
+          ˜xi(t) = e⊺i ˜x(t), where ei is the ith vector of the canonical basis.                                                                   For diagonally dominant Λ, we replace it with its diagonal
+        Let ξ = [˜x⊺˙˜x⊺]⊺and ν = Fext. System (7) can be rewritten as                                                                     approximation. We choose D and K to be diagonal as well.
+              O        I        O                This yields the decoupled approximation of (7)
+                            ˙ξ =                        ξ +           ν.    (12)               −Λ−1K −Λ−1D        Λ−1                                                                                                          mi¨˜xi + di ˙˜xi + ki˜xi = Fext,i.            (15)
+                      A             B
+                                                                    Here, mi = mii, di, and ki are the ith diagonal elements,
+       The analytical solution of the homogeneous part of (12), in the   respectively, of the constant diagonally dominant Λ of D and
+        general case of time-varying matrix A(t), is given by            of K. The scalars ˜xi, ˙˜xi, and ¨˜xi are the ith elements of ˜x, ˙˜x, and
+                                                                                                                                                 ¨˜x, respectively. Fext,i is ith element of Fext.
+                               ξ(t) = φ(t, t0)ξ0.                  (13)                                                        As a consequence, (11) becomes decoupled into six distinct
+                                                                       optimizations if we choose the cost h(D, K) to be independent        Here, φ(t, τ) is called the state-transition matrix and can be                                                                             for each subsystem. Hence, by choosing the cost for the ith
+       found using various methods; for more details, refer [53]. How-                                                                subsystem as hi(di, ki), optimization (11) turns out to be         ever, via Assumption 1, A(t) can be assumed constant, and (13)
+       becomes ξ(t) = eAtξ0. The error ˜x(t) = [I  O]ξ(t) and its ith       arg min    hi(di, ki)
+       component is ˜xi(t) = e⊺i [I  O]ξ(t).                                           di,ki
+           In the light of the above considerations, (11) becomes                               ldi ≤di ≤udi
+                                                                                                                   s.t.                                                                                                             lki ≤ki ≤uki             arg min  h(D, K)
+           D,K
+                                                                                                                   s.t.   max˜x0i, ˙˜x0i  |˜xi(t)| ≤bi    ∀t ∈[0, +∞)
+                                ldi,j ≤di,j ≤udi,j
+                         s.t.                                lki,j ≤ki,j ≤uki,j                                                                              l˜x0i ≤˜x0i ≤u˜x0i
+                                                                                                                                 l                                                                                                          ≤˙˜x0i ≤u                                                                                                                            s.t.                                                                                                                                                                                       ˙˜x0i                                                                                                                                                                                                                  ˙˜x0i                  (16)
+                         s.t.   max˜x0, ˙˜x0 |e⊺i [I  O] eAt  ˜x⊺0  ˙˜x⊺0 ⊺| ≤bi                                                                                                                mi¨˜xi + di ˙˜xi + ki˜xi = 0
+                                  t ≥0
+                                                                  ∀i ∈{1, . . . , 6}, i.e., for each subsystem.                                  s.t.     l˜x0i ≤˜x0i ≤u˜x0i                  (14)
+                                         l    ≤˙˜x0i ≤u                   We enforce one of the three behaviors of second-order linear                                                           ˙˜x0i                   ˙˜x0i.                                                                     systems: in particular, we choose the critically-damped condi-
+                                                                             tion        As such, this optimization problem is robust and nonconvex
+       due to the uncertainties and the dependence on time in the                               d2i
+                                                                                                     ki =                           (17)
+       maximization constraint. Hence, this approach is not easily                         4mi
+         viable. It is more practical to solve the maximization for making
+                                                             which guarantees the fastest convergence of the error without        optimization (12) deterministic. A straightforward way is by
+                                                                                 oscillations. Here, since the stiffness becomes a function of the        enforcing a decoupled behavior.
+                                                                damping, the optimization is performed only over di. Thus, for        Two cases can be identiﬁed. Let mij denote the entry in the
+                                                                            instance, hi(di, ki) can be chosen as a quadratic function of di.         ith row and the jth column of Λ: we distinguish the following.
+                                                                 Moreover, by taking into account the analytical solution of (15)         Case 1: Diagonally Dominant Inertia
+                                                                             for impulsive external forces [52] (by virtue of Assumption 2
+                           |mii| ≥    |mij|  ∀i, j.                  and Remark 2) and deﬁning the worst-case initial conditions
+                                               i̸=j                                                              ˜x0i,max ≜max(|l˜x0i |, u˜x0i )
+         Case 2: Non-diagonally Dominant Inertia
+                                                                                                                          ˙˜x0i,max ≜max(|l ˙˜x0i |, u ˙˜x0i )             (18)
+                    ∃i such that |mii| <    |mij|  ∀j.                                                                       optimization (16) can be rewritten as
+                                                         i̸=j
+                                                                             d2i                                                                         arg mindi
+           In the following, the former case is tackled in Section V, while
+        the latter is addressed in Section VI.                                                    s.t.    ldi ≤di ≤udi
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 7 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1287
+
+
+                                                  ˜x0di                   by the particular choice of Lyapunov function in [55], which is
+                                                          2mi ≤bi                      s.t.   max      ˜x0 +    ˙˜x0 +         t  e−dit
+                               ˜x0i, ˙˜x0i,t            2mi                    always veriﬁed if the damping is incremented but not when it is
+                                                                     reduced. Since we plan the gains at discrete time intervals, we
+                      0 ≤˜x0i ≤˜x0i,max                        can approximate the stability condition (25) as
+                              s.t.  0 ≤˙˜x0i ≤˙˜x0i,max                    (19)                                                                                                                   di(t) ˙mi(t)T                                                                                                                                                     i (t)T
+                                                          +                               t ≥0.                                                di(t + T) > di(t) −d2                                                                                                                               (26)
+                                                                                         mi(t)       mi(t)
+     We transform the robust optimization problem into a determinis-
+                                                            where T is the planner update period, i.e., sampling time. The         tic one. To this end, we solve the maximization constraint, Using
+                                                                  terms di(t + T) and di(t) are, respectively, the newly planned    KKT conditions [54], and replace it in (19) with the following
+                                                           damping [solution to (23)] and the current damping. In case       nonlinear inequality:
+                                                                       (26) is satisﬁed, we can update the controller with the new
+        2mi ˙˜x0i,max + di˜x0i,max   2mi ˙˜x0i,max+di−2mi ˙˜x0i,max˜x0i,max               damping value (23). Otherwise, to guarantee stability, we limit                                e                ≤bi.   (20)                      di                                                 the damping variation as per (26). Note that ˙mi(t) needs to be
+                                                                     estimated online, but since the term di(t) ˙mi(t)T/mi(t) is al-
+       This can further be simpliﬁed by ﬁnding a conservative linear
+                                                            most negligible (under Assumption 1), it can also be substituted
+       upper-bound such as
+                                                           by a worst-case constant value.
+                                     2 mi ˙˜x0i,max          A quick comment needs to be made on using the solutions
+             max                                ˜xi(t) ≤˜x0i,max +                                                                                    .       (21) K = diag(ki) and D = diag(di) of (17) and (23) on the non-                                             e di                           ˜x0i,                                     ˙˜x0i,t
+                                                                decoupled system (7). The off-diagonal terms in Λ couple the
+       This maximum represents the peak that the free response   dynamics and make system (7) nonlinear. Using the diagonal
+       of (15) would reach from the worst-case  initial conditions   approximation, Λ ≈diag(mi) is equivalent to linearizing the
+         (˜x0i,max, ˙˜x0i,max). By using (21), optimization (19) turns into     system about the equilibrium in the origin. For this reason,
+                               d2i                                   the approach presented in this section does not ensure global                      arg mindi
+                                                                uniform asymptotic stability. However, asymptotic stability is
+                                         s.t.    ldi ≤di ≤udi                              still guaranteed and the effect of the off-diagonal terms is only
+                                           2 mi ˙˜x0i,max                      to reduce the basin of attraction.                                                               (22)                                         s.t.   di ≥                                                     (bi−˜x0i,max) e
+                                                                         VI. CASE 2: NONDIAGONALLY DOMINANT INERTIA
+      which has the following closed-form solution [13]:
+                                                                         In the case in which inertia Λ is not diagonally dominant,
+                              2 mi ˙˜x0i,max             di = min max   ldi,                           , udi    .     (23)  which might be the case, for instance, of a Cartesian impedance-
+                                       (bi −˜x0i,max) e                    controlledroboticarm,themethodpresentedinSectionVcannot
+         Forbetterexplanationsandlinesofproofoftheprevioussteps,   be applied to solve optimization (11). A straightforward and
+        refer to [13].                                                    blind approach to solve the problem would be to deal with opti-
+         Equation (23) together with (17) provides two direct formulae   mization (14). This can be solved as such using state-of-the-art
+        to compute the optimal damping and stiffness to achieve a   methods.
+        critically damped behavior with minimum impedance and that     However, robust nonlinear optimization remains to date less
+       complies with the performance requirement. However, since we   studied than its linear counterpart [56], [57]. For this reason,
+       considered only a single planning iteration so far, the stability   hereafter,wepresentabetteroptiontodealwith(11):SectionVI-
+       of the closed-loop system (15) with time-varying gains remains  A describes some preliminaries that lead to Section VI-B, where
+        to be studied.                                               decoupling is forced in some new coordinates assuming a par-
+                                                                                 ticular type of damping. This will allow us to replace the robust
+       B. Stability Analysis                                           optimization with a deterministic one.
+
+        Given the second-order linear time-varying system
+                                                                    A. Preliminaries
+                          mi(t)¨˜x + di(t) ˙˜x + ki(t)˜x = 0           (24)                                                                 Mechanical vibration theory (cf., [58]) shows that if Λ is
+       the stability of its equilibrium in the origin for the critically-   symmetric and positive deﬁnite and D and K are symmetric
+      damped case (17) can be veriﬁed by the following.             and nonnegative deﬁnite, the dynamics of (7) can be decoupled
+        Theorem 1: The origin of (24) is uniformly asymptotically    if and only if
+        stabile in the critically-damped case if ∀t ≥0, di(t)/mi(t) is                                                        DΛ−1K = KΛ−1D.                (27)
+        positive, bounded, and differentiable, and
+                                                                       In this case, the matrix of generalized eigenvectors U of the
+                                                  i (t)    di(t) ˙mi(t)                            ˙di(t) > −d2  +                 .           (25)  undamped system provided by
+                             mi(t)     mi(t)
+                                                 KU = ΛUΓ                    (28)
+        The proof of Theorem 1 can be found in [13].
+          Inequality (25) limits the rate of variation of the damping.   can be used to ﬁnd new coordinates in which the system is
+          It is noteworthy that this is a sufﬁcient-only condition, given   decoupled [58]. In (28), Γ is a diagonal matrix containing
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 8 =====
+          1288                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+        the solutions γi of the corresponding generalized eigenvalue                          s.t.   max˜x0, ˙˜x0  |˜xi(t)| ≤bi  ∀t ∈[0, +∞)
+        problem, given by
+                                                                                                                                                       l˜x0i ≤˜x0i ≤u˜x0i
+                       det(K −γiΛ) = 0.                 (29)                                          l    ≤˙˜x0i ≤u                                                                                                                                                                                                   ˙˜x0i                      ˙˜x0i
+                                                                                                                                     s.t.                                (35)
+       However, condition (27) is hardly applicable in practice since                                                           Λ ¨˜x + (αΛ + βWW ⊺) ˙˜x
+            it leads to an additional nonlinear constraint. A more practical               +WW ⊺˜x = 0.
+        sufﬁcient condition for decoupling, which is also a particular
+        case of (27), is                                               Here, the cost function to be minimized, the bounds and the
+                                                                            constraints have been reconsidered in function of α, β, and W
+                D = αΛ + βK                   (30)                                                                         since we imposed D = αΛ + βK and K = WW ⊺.
+      whereα andβ arerealscalars. Thisconditionforcesthedamping    Remark 6: The set T of lower triangular matrices is convex.
+         to be a linear combination of the inertia and the stiffness and is  Given a generic matrix A ∈IRn×n, its orthogonal projection
+      known in mechanical vibration theory as proportional damping.   onto T is trivial since it involves zeroing the elements above the
+         Remark 3: Proportional damping is to date one of the most   diagonal of A through an operator tril(·):
+      commonly used damping models within linear analysis. It con-
+         strains and limits the oscillations to normal modes but presents                        ProjT (A) = tril(A).
+       some distinct advantages [59], the most important being the                                                                       Projected optimization methods can efﬁciently deal with the
+        decoupling of the second-order mechanical system.                                                                            constraint W ∈T .
+         Assuming (30), (7) can be transformed into                                                           The advantage of (35) is that the constraint
+                               ¨μ + (αI + βΓ) ˙μ + Γμ = ¯U ⊺Fext          (31)
+                                                  Λ ¨˜x + (αΛ + βWW ⊺) ˙˜x + WW ⊺˜x = 0       (36)
+       by applying the coordinate change
+                                                                         together with (28), (29), (30), (32), (33), and (34), expressed in
+                                                  ˜x = ¯Uμ.                      (32)                                                                 thecoordinatesμ(modalcoordinates),leadstothehomogeneous
+        Here, ¯U is a mass-normalized version of U, i.e., ¯U complies   part of (31), which is a set of six decoupled second-order
+        with                                                                   differential equations. Hence, we would be forcing the decou-
+                                                                         pling of the closed-loop system in the modal coordinates. If we
+                                        ¯U ⊺Λ ¯U = I.                    (33)                                                                choose a convex objective function h(α, β, W) for minimizing
+       The steps leading from (7) to (31) can be found in [59].          the impedance, the constrained robust optimization problem
+          Since Λ is always positive deﬁnite, (7) can be brought to the   (35) is convex in all components except for constraints (28),
+       form in (31) only if the nonnegative deﬁniteness of the damping   (29), and (33), which are nonconvex and, respectively, bilinear,
+       and the stiffness are assured [58].                              polynomial, and quadratic. The constraint on the peak keeps the
+         Remark 4: The nonnegative deﬁniteness of K and D  is   complexity of the optimization high.
+        a necessary condition for the decoupling and stability of the     In the following, (35) is transformed into the modal coordi-
+        closed-loop system.                                                nates. The resulting problem will have the advantage that the
+      A symmetric nonnegative deﬁnite matrix has a Cholesky   robust optimization problem is made deterministic.
+        decomposition: K can be factorized as
+                K = WW ⊺                    (34)   B. Decoupled Optimization
+                                                                          In modal coordinates, applying (32), (36) turns out to be       where W ∈T , with T being the set of lower triangular matrices.
+                                                                 decoupled into p single degree of freedom systems         Remark 5: Factorizing the stiffness matrix K as in (34)
+        guarantees its nonnegative deﬁniteness and symmetricity. Ad-                        ¨μi + (α + βγi) ˙μi +  γi  μi = 0.          (37)
+         ditionally, if we constrain α and β in (30) to be nonnegative,
+                                                                                                      a1            a0
+        the damping matrix is also ensured to be symmetric and non-
+        negative deﬁnite. Hence, we satisfy the necessary condition for  An analytical solution to the maximum of μi(t) can be found.
+        decoupling and stability.                                      Rewriting (35) in modal coordinates yields
+          Taking into account (28), (29), and (33) and enforcing (30),
+         (32), and (34), the robust optimization problem in (11) becomes   arg minα,β,W, ¯U,Γ  h(α, β, W)
+          arg minα,β,W, ¯U,Γ  h(α, β, W)                                                     lα ≤α ≤uα
+                                                                                                      lβ ≤β ≤uβ
+                              lα ≤α ≤uα                                                                                                                   lwi,j ≤wi,j ≤uwi,j
+                                 lβ ≤β ≤uβ                                                                                                                           s.t. W ∈T
+                                     lwi,j ≤wi,j ≤uwi,j                                                            det(WW ⊺−γiΛ) = 0
+                                  s.t. W ∈T                       WW ⊺¯U = Λ ¯UΓ
+                   det(WW ⊺−γiΛ) = 0                                                ¯U ⊺Λ ¯U = I
+            WW ⊺¯U = Λ ¯UΓ
+                                    ¯U ⊺Λ ¯U = I                                                                 s.t.   maxμi0, ˙μi0 |μi(t)| ≤bμi ∀t ∈[0, +∞)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 9 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1289
+
+
+                                        lμ0i ≤μ0i ≤uμ0i                    optimization of such nonconvex problems is time-consuming
+                                       s.t.    l ˙μ0i ≤˙μ0i ≤u ˙μ0i             (38)  and cannot be achieved in real time, numerical methods can ef-
+                                               ¨μi + a1 ˙μi + a0μi = 0.               ﬁciently address them utilizing branch-and-bound, cutting, and
+                                                                  approximation algorithms; for instance, [64] and [65] present
+       Here, recalling that for the generalized eigenvalue problem, it                                                           two reformulation-linearization techniques that lead to linear
+       generally holds that ¯U −1̸ = ¯U ⊺, the whole maximization con-                                                           programming problems, which in turn produce tight lower
+        straint has been transformed into the new coordinates.                                                             bounds on the solution of the original bilinear and polynomial
+                         lμ0i = ¯U −1l˜x0i ;  uμ0i = ¯U −1u˜x0i                problems. Some efﬁcient algorithms for nonlinear programming
+                                                                      include the interior point method [66] and some others found
+                             l                                 ˙μ0i = ¯U −1l ˙˜x0i                                                      ; u ˙μ0i = ¯U −1u ˙˜x0i                  in [67]. It behoves us to point out that it is not conceivable to
+                                                                    guarantee a priori that nonlinear programs, such as (40), always
+                      bμi = ¯U −1bi.
+                                                                       lead to nonempty solution space [68]. However, experiments
+       In (38), α, β, and W being ﬁxed, the robust maximization can   performed on a state-of-the-art robot show that, in practice,
+      be replaced by p nonlinear inequality constraints.               numerical solutions to (40) are always found (see Section VIII).
+        To show this, observe the following. The p maximization   This is reasonable since as long as the maximum allowed initial
+        constraints of (38) impose to comply with the bounds bμi at   perturbation ˜x0i,max is within the bounds bi, it is theoretically
+       each instant for unknown but bounded initial conditions μi0   always possible to ﬁnd controller gains to limit the relative peak
+      and ˙μi0. Hence, similarly to [13] and Section V, we focus   to arbitrarily small values. Moreover, in the very unlikely case
+      on the worst case and consider, without loss of generality,   thatnosolutionisfound,weforwardtothecontrollerthesolution
+       μi0 > 0 and ˙μi0 > 0. As a matter of fact, the absolute value on   found at the previous iteration, adequately modiﬁed to ensure
+       μi(t) can be removed since the peak would be positive. More-   stability of the origin and passivity of the closed-loop system.
+        over, readjusting the bounds as μ0i,max ≜max(|lμ0i |, uμ0i ) and
+         ˙μ0i,max ≜max(|l ˙μ0i |, u ˙μ0i ), each maximization constraint in   C. Stability and Passivity Analysis
+       (38) can be rewritten as                                                                     Optimization (35), or equivalently (40), produces at the nth
+             max     μi(t) ≤bμi                                   iteration a solution, i.e., a stiffness Kn = WnWn⊺ and a damping
+                     μi0, ˙μi0,t                             Dn = αnΛn + βnWnW n.⊺ The actual gains of the impedance
+                                       t ≥0                                  controller should be updated only after ensuring the stability of
+                            0 ≤μ0i ≤μ0i,max                    the origin and the passivity of the closed-loop system (7).
+                                        s.t.                                 (39)                            0 ≤˙μ0i ≤˙μ0i,max                   Given the second-order linear time-varying system
+                                                ¨μi + a1 ˙μi + a0μi = 0.
+                                                                                                        Λ(t)¨˜x + D(t) ˙˜x + K(t)˜x = Fext           (41)
+       Following the steps in Appendix B, an upper bound fci on the
+      peak of μi(t) can be found [cf., (57)] for the worst-case initial    its stability and passivity properties can be studied using the
+       conditions μ0i,max and ˙μ0i,max and for a speciﬁc oscillatory   analyses presented in [12] and [28]. We rewrite (41) as
+       behavior (for instance, overdamped). By imposing this upper
+                                                                                                                                                                               ¨˜x + Λ−1(t)D(t) ˙˜x + Λ−1(t)K(t) ˜x = ¯Fext.     (42)      bound to be below bμi, (38) can be modiﬁed into
+                                                                                                      D′(t)              K′(t)
+          arg minα,β,W, ¯U,Γ  h(α, β, W)
+                                             We deﬁne two operators ¯λ(·) and λ(·) that extract the largest and                              lα ≤α ≤uα
+                                                                        smallest eigenvalues from their arguments.                                lβ ≤β ≤uβ
+                                                             Theorem 2: Let D′(t) and K′(t) be symmetric, positive                                    lwi,j ≤wi,j ≤uwi,j                                                                        deﬁnite, and continuously differentiable matrices ∀t ≥0, the             W ∈T
+                                                                          origin of (41) is globally uniformly asymptotically stable (for                                 s.t.  det(WW ⊺−γiΛ) = 0
+                                                                               Fext = 0), and (41) is a passive map from Fext to  ˙˜x + δt˜x if            WW ⊺¯U = Λ ¯UΓ
+                                                   Y (t) = ˙K′(t) + δt ˙D′(t) −2δtK′(t) is negative deﬁnite (n.d.)                                    ¯U ⊺Λ ¯U = I
+                                                                            for δt = mint λ(D′(t)).                           χi(α, β, Γ) > 1
+                                                           The proof of Theorem 2 follows directly from [12, Th. 1] and                               fci(μ0i,max, ˙μ0i,max, α, β, W) ≤bμi.
+                                                                          [28, eqs. (12) and (13)].
+                                                               (40)                                                           Remark 7: Equation (42) assumes Λ(t) positive deﬁnite. This
+         Here, as mentioned before, the last inequality replaced the   always holds except in pathological situations, e.g., kinematic
+       maximization constraint. The additional constraint on the damp-   singularity. This brings back the requirement of positive deﬁ-
+       ing ratio χi, used for ensuring an overdamped behavior of the   niteness of D′(t) and K′(t) to that of D(t) and K(t).
+        ith closed-loop subsystem (37), is nonlinear.                   Remark 8: Theorem 2 provides a sufﬁcient-only condition
+         Minimization problem (40) is deterministic and, thus, much   to ensure the uniform asymptotic stability of the origin and
+       simpler than (35). There is a very wide literature on deterministic   the passivity of (7) [12], [28]. It might be possible to ﬁnd less
+       optimizations involving the types of constraint functions in (40);   conservative conditions for other choices of Lyapunov candidate
+        see, for example, [60], [61], [62], and [63]. Even though global  and storage function.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 10 =====
+          1290                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+         Theorem 2 can be reformulated in relation to the discrete-time
+                                                             Algorithm 1: Optimal Impedance Planning.
+         solutions of the optimization as follows.
+                                                                   Require:S, T         Given a newly planned impedance (Λn, Dn, Kn) [nth plan-
+                                                                      Ensure:Kout, Dout        ning iteration with optimization (35)] and the previous step
+                                                                  (K0, D0) ←InitializeImpedance(S)         solution (Λn−1, Dn−1, Kn−1), assuming the planning period T
+                                                                        repeat         to be relatively small, the newly computed impedance does not
+                                                       S ←GetBounds()       compromise the stability of the origin and the passivity of (7) if
+                                                        Λn ←GetMassMatrix()        the following is veriﬁed at each iteration:
+                                                                (Kn, Dn) ←SolveOptimization(Λn, S)          Condition 1:
+                                                                                                             if Stability/PassivityCheck(Λn, Kn, Dn) then
+                 (K′n −K′n−1)    (D′n −D′n−1)             Yd =        + δ          −2δK′n                      (Kout, Dout) ←OutputGains(Kn, Dn)                   T            T
+                                                                                     else
+          is n.d. for δ = minj λ(D′j) and j ∈{0, . . . , n −1}.                   (K⋆n, D⋆n)
+             If Condition 1 is not satisﬁed, we might want to modify                ←EnforceStability/Passivity(Λn, Kn, Dn, S)
+     Kn or Dn so that stability/passivity is ensured. To this end,               (Kout, Dout) ←OutputGains(K⋆n, D⋆n)
+      we introduce two scaling factors cKn, cDn > 0 to scale the         end if
+         variations ΔKn and ΔDn.                                          WaitForPeriod(T)
+         K⋆n = Kn−1 + cKnΔKn; ΔKn = Kn −Kn−1.                until StoppingCondition
+          D⋆n = Dn−1 + cDnΔDn; ΔDn = Dn −Dn−1.
+     We substitute these in Condition 1 to compute cKn and cDn that     According to inertia Λ, either optimization (16) or (40) is
+        guarantee a stable and passive closed-loop system. We apply   solved in a loop with a period T  in combination with the
+         triangle inequalities on the largest eigenvalue of the modiﬁed   respective methods for guaranteeing stability/passivity, shown
+        Yd.                                                                 in Sections V-B and VI-C. In the case of diagonally dominant
+                       ⋆      1            δ                               inertia, the closed-form solution provided by (23) is directly
+                    ¯λ(Y d ) ≤¯λ(  cKnΔKn +  δcDnΔDn             employed and (26) is utilized to ensure stability. On the contrary,                      T         T
+                                                                                                  if the closed-loop system has a nondiagonally dominant inertia,
+                 −2δ K′n−1 + cKnΔKn )            (43)   (40) is solved by using state-of-the-art numerical methods (e.g.,
+                                                                         the                                                                                      interior point method [66]). Condition 2 ensures stabil-                                   cDnδ               ≤cKn                            ¯λ(ΔKn) +                                           ¯λ(ΔDn)                                                                                   ity/passivity.                     T                                T
+                                                           The basic structure of the optimal impedance planner is
+                    −2δλ(K′n−1) −2cKnδλ(ΔKn).      (44)  shown in Algorithm 1. It requires two inputs: 1) the set S =
+          If Condition 1 is not met, to render the error dynamics stable and   {lki,j, uki,j, ldi,j, udi,j, l˜x0i , u˜x0i, l ˙˜x0i , u ˙˜x0i, bi} of bounds on
+        the closed-loop system passive, the variations of the stiffness   the stiffness and damping on the initial conditions and on the
+     ΔKn and damping ΔDn can be scaled respectively of factors   peak of the Cartesian error, and 2) the planner period T.
+       cKn and cDn that comply with                                             Initially, two matrices K0 and D0, which ensure compliance
+          Condition 2:                                              with the performance requirement, are initialized by the function
+               cKn          cDnδ                                 InitializeImpedance. At this point, the planner repeats in a loop
+                    ¯λ(ΔKn) +                                  ¯λ(ΔDn) −2δΘ ≤0            with period T as follows.              T                         T
+                                                                          1) The bounds in S are updated by GetBounds if any new
+        with Θ = λ(K′n−1) + cKnλ(ΔKn).                                                                      ones are speciﬁed by a higher level task planner.
+          Notice that the unknowns of the single inequality in Condi-                                                                          2) The current Cartesian mass matrix Λn is read using the
+         tion 2 are cKn and cDn. It should be noted that guaranteeing                                                                             function GetMassMatrix.
+         stability/passivity can undermine the observance of the perfor-                                                                          3) For the read inertia, according to its diagonal dominance,
+       mance requirement. Indeed, small scaling factors might make it                                                                               the function SolveOptimization ﬁnds optimal impedance
+        impossible to comply with the maximization constraint in (39).       (Kn, Dn) solving either (16), using (23) and (17), or (35)
+           It is not possible to guarantee that both the stability/passivity and                                                                by means of numerical methods on (40).
+        the performance requirement are always met using the proposed                                                                          4) Using  (26)  or  Condition  1,  based on Λn,  Stabil-
+       method. If the solution provided by optimization (40) does not                                                                              ity/PassivityCheck returns true if the update of the con-
+       comply with Condition 1, we limit ourselves to ensure only the                                                                                            troller gains with the new ones is guaranteed to preserve
+         stability/passivity using Condition 2.                                                                                         stability/passivity. Else, it returns false.
+                                                                          5)  If stability/passivity are not compromised, closed-loop
+                         VII. IMPEDANCE PLANNING
+                                                                   impedance is updated by OutputGains.
+           In this section, we outline our general algorithm. It chooses     6) Else,thefunctionEnforceStability/Passivityutilizeseither
+       one of the two methods, presented in Sections V and VI, for         the boundary of (26) as the new damping or Condition 2
+       computing the optimal impedance for the cases of diagonally         to restore stability/passivity. Also, this step is performed
+       dominant and nondiagonally dominant inertia.                       based on whether Λn is diagonally dominant.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 11 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1291
+
+
+
+                                                       TABLE I
+                                                PARAMETERS USED FOR EXPERIMENTAL VALIDATION
+
+
+
+
+
+          7) Then, the new stiffness K⋆n and damping D⋆n are used to  on [10]. To this end, we used an ATI Mini45 6-axis force/torque
+            update the controller gains.                               sensor [71] since the external force measurements provided by
+          8) Finally, the planner waits for the completion of the plan-   therobotweretoonoisytobefedbacktothecontroller(seeagain
+            ning period T.                                           Section II-A). We mounted a soft gripper [72] developed by QB
+        The choice of the planning period T should be a tradeoff   Robotics for grasping objects. The three impedance controllers
+      between small T to have a precise estimate of the derivatives   run on ROS at an average rate of ≈400 Hz for ANYmal and
+       of the impedance gains for guaranteeing stability/passivity and  ≈850 Hz for the Panda. To solve optimization (40), used in
+       high T for ensuring the convergence of the optimizations in   Algorithm 1, we used the interior-point method provided by
+       Algorithm 1. The set S is provided by a higher level reasoning  MATLAB. The main parameters used for validation are reported
+       or task planner, which, for instance, can change the bounds   in Table I.
+       based on the robot model on the information provided by a
+       vision system and on the required precision for the task being   A. Case: Diagonally Dominant Inertia
+       performed by the robot. An example of strategy that the higher
+                                                                    Since the closed-loop inertia of the torso of ANYmal is        level planner can adopt for the choice of the set S is provided in
+                                                                      diagonally dominant, Algorithm 1 chooses the method proposed
+      Appendix C.
+                                                                            in Section V. A planning period T = 0.0025 s is used. We set
+       An observation is due on why we do not always use the ap-
+                                                                        the parameters ˜x0i,max and ˙˜x0i,max as in Table I. These are the      proachpresentedinSectionVI.Themainreasonistheadvantage
+                                                   maximum position and velocity errors that we measured while
+       provided by the closed-form solution (23). Hence, whenever the
+                                                                walking the real robot on an uneven terrain with the ﬁxed gains
+        inertia is diagonally dominant, the method of Section V is to
+                                                            employed in [19]. The diagonal impedance limits lki, uki, ldi,      be preferred since it provides a faster solution, which is valid
+                                                             and udi are also reported in Table I.        for small tracking errors. Instead, solving optimization (40) in
+                                                                         1) Identiﬁcation Procedure: Initially, we found a mismatch
+       the case of nondiagonally dominant inertia might be more time
+                                                              between the simulated and the real closed-loop dynamics. This
+      consuming depending on the particular numerical optimization
+                                                         was caused by inaccuracies in the dynamic model used by the
+        tool (and its implementation), but the solution is more precise
+                                                             impedance controller. In particular, the translational damping of
+       than (23) and globally valid.
+                                                                        the system was much different from the expected one.
+                                                                 Hence, we estimated the intrinsic translational damping and
+                      VIII. EXPERIMENTAL VALIDATION                                                           mass of the system using a least squares approach. After zeroing
+      We validate the proposed impedance planner (Algorithm 1)   the damping gain, for several stiffness gains, we applied the fol-
+      on two different robots: the quadruped ANYmal B [3] and the   lowing displacements to the robot: ˜x0 = {10, 20, 35, 50} mm
+      7 DoF robotic arm Franka Emika Panda [70]. We modulate   along the x-axis, ˜x0 = {10, 20, 35, 50} mm along the y-axis,
+       the impedance of the torso of ANYmal using the controller  and ˜x0 = {50, 100, 150, 170} mm along the z-axis. For each
+        in [19]. The Panda robot is controlled using the noninertia shap-   of the tested stiffness values, we applied the displacements for
+       ing Cartesian impedance controller provided by Franka Emika   three times. The stiffness values we used are k = 800 N/m,
+        (similar to the one presented in [69]), which has been modiﬁed  k = 1000 N/m, and k = 1200 N/m.
+       only to receive varying stiffness and damping matrices. We    The identiﬁcation process resulted in ˜dx = 50.4885 Ns/m,
+       also implemented an inertia shaping impedance controller based    ˜dy = 64.4859 Ns/m, and ˜dz = 75.6533 Ns/m, while ˜mx, ˜my,
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 12 =====
+          1292                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+                                                              randomly combined wooden tiles (approximately 0.4 × 0.4 m)
+                                                                   with different inclinations ({π/36, π/18, π/12}rad).
+                                                              Toward the middle of the path, we change the task require-
+                                                              ments from b(1)i  to b(2)i  (see Table I) and then we reset them to the
+                                                                                          initial values. The tracking error and the varying impedance are
+                                                                        reported in Fig. 6. The unevenness of the terrain and the changes
+                                                                             in the support polygon are taken into account by the impedance
+                                                                          planner, which causes variations of the impedance gains. This
+                                                                     allows achieving the desired tracking performance and, hence, to
+                                                                keep balance. The values of the tracking error stay always within
+                                                                         the speciﬁed boundaries even when bi are tightened in the time
+                                                                               interval from t = 38 s to t = 53 s. Notice also that due to the
+           Fig. 4.   Experiments on ANYmal. ANYmal colliding with an unperceived   offset explained in Section VIII-A1, the damping coefﬁcients
+           obstacle. A ﬁxed high impedance produces high contact forces that trigger the   reach also values smaller than ldi.
+         emergency stop. Variable impedance, instead, increases robot compliance to
+          withstand the disturbance.
+                                                                     B. Case: Nondiagonally Dominant Inertia
+
+                                                           The Cartesian inertia (without inertia shaping) of the Panda
+                                                                       robot is nondiagonally dominant. Hence, Algorithm 1 chooses
+                                                                         the method proposed in Section VI to plan the impedance.
+                                         A planning period T = 0.03 s  is used. The planner input
+                                                                    parameters  are  reported  in Table  I. We  set  the parame-
+                                                                                   ters l˜x0i = −˜x0i,max, u˜x0i = ˜x0i,max and l ˙˜x0i = −˙˜x0i,max and
+                                                    u                                                                                                                                               ˙˜x0i = ˙˜x0i,max. The impedance limits lki,j, uki,j, ldi,j, and udi,j
+                                                                         are also reported. Refer to Appendix C for a possible method to
+                                                             compute the input set S of our planner.
+                                                                   For a fair evaluation, we perform two sets of experiments:
+                                                                         the ﬁrst with the inertia shaping controller, which gives us a
+                                                                         baseline for comparison, and the second with the noninertia
+                                                                   shaping controller. Each set consists of three tests with different
+                                                                      choices of impedance:
+                                                                          1) ﬁxed-low impedance;
+           Fig. 5.   Experiments on ANYmal. ANYmal engaging rough terrain aided by     2) ﬁxed-high impedance;
+          our impedance planning algorithm.                                       3) variable impedance.
+                                                                          In this last case, according to the controller, we use either
+                                                                Algorithm 1 or the method in [12] to guarantee stability while
+       and ˜mz were found to be approximately equal to the diagonal   switching between high and low impedance (which are the
+        elements of the matrix Λ in the default conﬁguration. These  same used for the ﬁxed impedance cases). We call this latter
+        identiﬁed damping values were used as an offset to the optimal   approach Standard Method. We wish to stress that the Standard
+       ones (23) in Algorithm 1.                                  Method, which switches between ﬁxed gains for complying with
+           2) Obstacle Interaction Experiment: In the ﬁrst experiment,   requirements on the tracking error and compliance, requires
+      we walk the robot along a path where it touches an obstacle   closed-loop decoupling through inertia shaping in order to apply
+        placed at approximately 0.6 m of height from the ground. We   established single DoF techniques.
+       perform the same test using ﬁxed-low (Klow, Dlow), ﬁxed-high     For both sets of experiments, the ﬁxed gains are chosen to be
+        (Khigh,Dhigh),andAlgorithm1usingboundariesb(1)i  .Thevalues   diagonal: the low and high stiffness matrices, Klow and Khigh,
+        of these parameters are reported in Table I. The ﬁxed impedance   contain the diagonal elements, respectively, of Kmin and Kmax
+        values are the same as in [19]. In Fig. 4, we show some photo  from Appendix C. The dampings Dlow and Dhigh are chosen to
+        sequences for the cases of high and variable impedance. The   ensure a critically damped behavior.
+       low-impedance case had similar behavior to the variable gains’   We introduce three metrics for quantitative performance eval-
+         scenario. In the case of high impedance, as expected, a large   uation. These are
+         interaction force causes the robot to stop. On the contrary, by                                              tf
+        varying the impedance using our planner, the robot withstands            M˜x =         ReLU(|˜xi| −bi) dt         (45)
+                                                                                                                                          i    t0        the reduced force exerted by the environment. This clearly shows
+        the beneﬁt of our approach.                                        for the compliance of tracking error ˜x with its bound b
+           3) Rough Terrain Experiment: In the second experiment,                                                                                                                                                                   tf
+      we walk ANYmal on rough terrain (see Fig. 5). We use the                  MFext =           |Fext,i| dt             (46)
+        locomotion planner proposed in [73]. The terrain consists of                                             i    t0
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 13 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1293
+
+
+
+
+
+         Fig. 6.   Experiment with ANYmal on rough terrain. (a) Margins bi are tightened at t = 38 s and later reset at t = 53 s. The tracking error is always maintained
+         within the boundaries. (b), (c) Algorithm 1 automatically computes impedance gains. (a) Translational tracking error. (b) Translational damping coefﬁcients.
+          (c) Translational stiffness coefﬁcients.
+
+
+
+                                                           The choice of this particular setup is motivated by its sim-
+                                                                                      plicity, which favors reproducibility and repeatability. These are
+                                                                                     critical for comparing the different approaches in the same con-
+                                                                               ditions. Additionally, with this setup, we emulate a worst-case
+                                                                          scenario, in which motion planning and sensing capabilities are
+                                                              weakened. This highlights the actual beneﬁts provided by the
+                                                                            controller and the choice of the impedance.
+                                                                 Photo sequences of the two sets of three experiments are
+                                                         shown in Figs. 8 and 9, respectively, for the cases of inertia
+                                                                  shaping and no inertia shaping. Results are shown in Figs. 10
+                                                             and 11 through plots of the controller gains, the external force,
+         Fig. 7.   Experimental setup for the case of nondiagonally dominant inertia.   the tracking errors, and the control torques. For the sake of space,
+        Franka Emika Panda robot mounts an ATI Mini45 force/torqe sensor and a QB   wedonotshowtheplotsoforientationtrackingerrors,whichhad
+        SoftClaw gripper. The object (  ) should be grasped and transported from the
+           initial (  ) to the goal (  ) position.                                       similar behavior to the translational ones. We also do not show
+                                                                        the tracking error along ˜x3 since interactions mostly happen in
+                                                                        the other two directions.
+                                                           The values of the metrics are reported in Table II. Also see the       measuring the minimization of the contact force, and
+                                                               Supplementary Material. In the following, we discuss the results
+                                                               tf
+              Mτ =           |τi| dt                (47)  and present relevant insights categorized based on the choice of
+                                                    i    t0                           impedance.
+                                                                         1) Fixed Low Impedance: Here, we discuss the results of the
+       measuring the minimization of the control torque. The lower the                                                           two tests using ﬁxed-low stiffness Klow and damping Dlow (see
+       value of these M(·) in the time interval [t0, tf], the better the   Table I). The blue lines in Figs. 10 and 11 show the evolution
+       performance of the corresponding gain choosing method.                                                                       of the relevant quantities for the inertia shaping and noninertia
+      We also use an additional binary metric Mtask related to the                                                                  shaping cases, respectively.
+        correct execution of the task                                                                         In both cases, the task is failed because of the reduced pre-
+                                   0,   if task failed                        cision. This is because low impedance does not compensate for
+                   Mtask =                                  .          (48)  model uncertainties in the controllers. Indeed, the object is not                                   1,   if task success
+                                                                  grasped (see Supplementary Material). However, the trajectory
+      A photo of the experimental setup and the manipulated objects    is tracked till the end despite the collisions with the obstacles
+         is provided in Fig. 7. The manipulandum is a piece of wood that   since interaction forces are not high. Because of the decoupling
+       has the shape of a rectangular cuboid and weighs approximately   performed by inertia shaping, Fig. 10(d) and (e) displays smaller
+       0.15 kg. The desired Cartesian trajectory of the gripper consists   tracking errors than in Fig. 11(d) and (e). Also, notice how
+       of an approach phase toward the grasp pose (red cross), a   the interaction forces are surprisingly very high (see blue lines
+       postgrasp phase, in which the grasped object is lifted, a moving   in Figs. 10(c) and 11(c), and Table II): this is caused by the
+       phase, where the robot moves to the other end of the table with   high tracking errors accumulated from the beginning of the task
+       the object grasped, and, ﬁnally, the release phase, when the   leading, in turn, to deeper interactions.
+       object is released in a target location (green tick). We place     2) Fixed High Impedance: Here, we discuss the ﬁxed high-
+        three heavy cans of pickle as obstacles in such a way that while  impedance experiments with the two controllers. We employ
+       tracking ideally the desired trajectory, the robot end-effector   stiffness Khigh and damping Dhigh (see Table I). The relevant
+        collides with all three cans.                                        quantities are plotted in yellow in Figs. 10 and 11.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 14 =====
+          1294                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+
+
+
+           Fig. 8.   Experiments using the inertia shaping controller in [10]. Fixed-low impedance reduces precision, causing task failure. Fixed-high gains, instead, produce
+          high external forces. TheStandard Methodattemptsto balance precision with compliance. (a) Lowdecoupled impedance reducesprecision and increasescompliance.
+           (b) High decoupled impedance increases precision and reduces compliance. (c) Standard Method alternates high and low impedance.
+
+
+
+
+
+           Fig. 9.   Experiments using the noninertia shaping controller (similar to [69]). Due to coupling, low gains cause high imprecision and high gains produce external
+           forces that violate the robot safety limits. In both cases, the task fails. Algorithm 1 sets the impedance required to properly balance tracking error reduction and
+         impedance minimization. (a) Low coupled impedance reduces precision and increases compliance. (b) High coupled impedance increases precision and reduces
+          compliance. (c) Algorithm 1 varies precision and compliance as required.
+
+
+         Both experiments display smaller tracking errors, which are     3) Variable Impedance (Standard Method/Algorithm  1):
+        reasonable since high controller gains compensate for model   In the following, we discuss experiments using the Stan-
+         uncertainties and improve tracking. Nevertheless, a stiffer robot   dard Method and compare  it with the proposed impedance
+        leads to higher contact forces during unforeseen collisions. This   planner.
+          is what happens at t ≈33 s [yellow line in Figs. 10(c) and 11(c)].    The red lines in Figs. 10 and 11 show the evolution of the
+           It is worth mentioning that due to coupling, slightly higher   relevant quantities for the two cases. Notice how, while the
+         external forces are generated in the case of avoidance of inertia   Standard Method acts directly by changing the gains with
+        shaping, triggering the safety stop of the Panda robot and causing  no guarantees on the performance requirements, Algorithm 1
+         task failure.                                                    automatically tunes the gains taking into account changes in the
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 15 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1295
+
+
+
+
+
+         Fig. 10.   Experiments with the Franka Emika Panda using the inertia shaping controller [10]. The impedance gains for the cases of low, high, and variable
+         (Standard Method) impedance are shown in (a) and (b). The inserts in (a) show how the Standard Method smooths sudden variations using [12] for guaranteeing
+           stability. The norm of the contact forces is plotted in (c). Notice that in real-world scenarios, the contact forces are not ideally impulsive. The tracking errors along
+           ˜x1 and ˜x2 together with the boundaries used by the impedance planner are shown in (d) and (e). The norm of the control torque is plotted in (f). (a) Frobenius norm
+         of stiffness matrices. (b) Frobenius norm of damping matrices. (c) Norm of external force. (d) Tracking error along ˜x1 . (e) Tracking error along ˜x2 . (f) Norm of
+         control torque.
+
+
+
+
+
+         Fig. 11.   Experiments with the Franka Emika Panda using the noninertia shaping controller [69]. The impedance gains for the cases of low, high, and variable
+        (Algorithm 1) impedance are shown in (a) and (b). Here, the damping for the ﬁxed impedance cases is computed with the critically damped condition, as traditionally
+         done. The norm of the contact forces is plotted in (c). For a fair comparison, the ﬁxed gains are the same as in the inertia shaping case. The tracking errors along ˜x1
+        and ˜x2 together with the boundaries used by the impedance planner are shown in (d) and (e). The norm of the control torque is plotted in (f). (a) Frobenius norm
+         of stiffness matrices. (b) Frobenius norm of damping matrices. (c) Norm of external force. (d) Tracking error along ˜x1 . (e) Tracking error along ˜x2 . (f) Norm of
+         control torque.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 16 =====
+          1296                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+
+                                                       TABLE II
+                                                     EXPERIMENTAL RESULTS AND OBSERVATIONS
+
+
+
+
+
+       bounds on the tracking error. Indeed, bi are relaxed from b(1)i   to    An additional insight emerging from the experiments is that
+         b(2)i  during the moving phase, in which impacts are foreseen and   using ﬁxed impedance does not always guarantee consistent re-
+                                                                                     sults: notwithstanding compliance, low impedance can produce
+        precision can be reduced. In case of Algorithm 1, impedance
+                                                                   high contact forces due to increased tracking errors; high gains
+        gains are varied both within the same phase due to the changes
+                                                                can produce task failures, despite increased precision, due to
+         in robot conﬁguration and across two phases because of
+                                                                        strong impacts.
+        the variation of the bounds. Tighter bounds produce higher
+                                                                                  Finally, the proposed planner is shown to be comparable in
+       impedance values, while loosening the bounds results in lower
+                                                                   terms of performance to a standard impedance varying method
+         stiffness and damping computed by the impedance planner.
+                                                                     using inertia shaping. More in detail, our method compares to
+        Notice, in both cases, the smooth variations of the impedance
+                                                                         the Standard Method as follows (cf., Table II).
+        caused by guaranteeing stability/passivity (see Section VI-C
+                                                                          1) The Standard Method has better tracking performance
+        and[12]). Wealsonotethat duringtheexperiments, optimization
+                                                                  M˜x, thanks to the decoupling of the inertia. Algorithm 1
+        (40) always converged to a feasible solution.
+                                                                            achieves comparable performance despite avoiding inertia
+           In addition, recall Remark 1: since, in our setup, the prop-
+                                                                             shaping.
+          erties of the object are known, the controllers compensate for
+                                                                          2) Decoupling reduces the external forces (see MFext) during        the constant load lifted by the gripper. However, if the loads
+                                                                         impacts in the case of the Standard Method, while coupled
+       were unknown, another practical and viable solution enabled
+                                                                                        inertia causes slightly higher contact forces when using       by Algorithm 1 would be to tighten the bounds bi during the
+                                                                      Algorithm 1.
+        postgrasp and moving phases. This would generate slightly
+                                                                          3) The feedback of external forces leads to higher values
+        higher impedance gains that counterbalance the model uncer-
+                                                                             of control torques (conﬁrmed by Mτ) for the Standard
+         tainty introduced by the constant load.
+                                                                    Method, despite smaller tracking errors. Algorithm 1
+          For both the variable impedance cases, results show better
+                                                                       keeps the control low by avoiding inertia shaping.
+        tracking performance with respect to the corresponding low
+                                                                          4) The Standard Method demands the use of precise (and
+       impedance cases, as the red lines in Fig. 10(d) and (e) and
+                                                                              often costly) force/torque sensors for performing the re-
+         Fig. 11(d) and (e) clearly indicate. The speciﬁed bounds are
+                                                                            quired inertia shaping. Our Algorithm does not require
+        observed except for the brief instants of time in which the
+                                                                                 costly sensors since no inertia shaping is required.
+        manipulator falls behind the planned trajectory as  it is col-
+                                                                 These observations are also summarized in the last column
+         liding compliantly with the obstacles with nonideal impulsive
+                                                                   block of Table II.
+        contact forces. Here, notice also how the forces in Figs. 10(c)
+                                                     By  autonomously  choosing  the minimum  closed-loop
+       and 11(c) have dynamics much slower than reaction time
+                                                              impedance that ensures compliance with some provided per-
+        of the control-loop (≈1 ms for the Franka Emika). Hence,
+                                                               formance requirement, Algorithm 1 attacks the hindrance of
+       impedance control will be able to properly set the desired
+                                                                  coupled inertia and reduces the entity of unexpected impacts
+        behavior.
+                                                                   while assuring that the required task is performed with sufﬁcient
+           In both the tests, the manipulation task is successfully com-
+                                                                   accuracy without requiring costly sensors.
+         pleted. Indeed, the robot never triggers a safety stop because
+        the measured external forces are kept low. Higher accuracy
+                                                                                         IX. CONCLUSION         in tracking the references w.r.t. the low gains case and lower
+       impedance w.r.t. the ﬁxed high impedance case produce smaller     In this article, we extended our previous work [13] by over-
+        contact forces (red lines in Figs. 10(c) and 11(c)].             coming its main limitation,  i.e., the assumption of diagonal
+         The evaluation clearly demonstrates the advantages of vari-   inertia. By building the top established methods in control theory
+        able impedance. Some additional experiments on a slightly  and optimization, we proposed a novel and general framework
+         different setup, using the noninertia shaping controller, are also   for planning the stiffness and damping matrices for impedance
+       shown in the Supplementary Material: these provide further   controllers. In contrast with traditional methods, we do not rely
+        support to our claims.                                   on the use of expensive sensors to shape the inertia.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 17 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1297
+
+
+          After introducing the background and performing a review of   as
+       the state-of-the-art, we presented our optimization-based solu-
+                                                                                                                          ¨μi + 2ξiωi ˙μi + ω2i  μi = 0.            (52)
+        tion to the impedance planning problem. Therein, we proposed
+        to minimize some cost related to the impedance of the closed-                            a1         a0
+       loop system subject to constraints on the tracking error and on                                                                  This system is said to be overdamped if ξi > 1. In this case, the
+       the controller gains. Subsequently, we discussed two possible                                                        modes of the system are real and distinct.
+       approaches to solve the minimization by distinguishing the cases                                                           The general form of the free response of (52), for initial
+       of diagonally dominant and nondiagonally dominant inertia.                                                                       conditions μi(0) = μ0i and ˙μi(0) = ˙μ0i, is provided by
+       In the former case, we provided an analytic formula, which
+      computes the optimal impedance. Instead, the latter case was                      μi(t) = θ1eλ1t + θ2eλ2t               (53)
+       addressed with numerical methods that produce the stiffness and                                                            where the coefﬁcients are given by
+      damping matrices that minimize the cost and comply with the
+       constraints.Mergingthesetwoapproaches,weoutlinedthebasic                                  a21 −4a0                                                                                            λ1,2 = −a1 ±
+       algorithm of our impedance planner. We validated it through                         2        2
+       extensive experiments on two different robotic platforms and                                 −˙μ0i      compared  it with typical ﬁxed impedance gain cases and a                    θ1 = −λ2μ0i                                                                                        λ1 −λ2
+       standard impedance choosing method with inertia shaping.
+                                                                                       λ1μ0i −˙μ0i
+        The validity and robustness of our method also with respect                    θ2 =                    .                    (54)
+        to the standard one was clearly shown. Notwithstanding the                         λ1 −λ2
+       avoidance of inertia shaping and without using force/torque    It is clear that (53) is valid independently of its boundedness,
+        sensors, our method displayed comparable performance to the  which holds only if the damping coefﬁcient ξi > 0 and the
+       standard approach.                                    undamped natural frequency ωi > 0. To compute the time of
+         Future works will focus on lifting the assumptions of neg-   peak response, it sufﬁces to differentiate (53) and equate to zero.
+        ligible Coriolis-like term and slowly-varying inertia. We will  We get
+       also explore the possibility of techniques that modulate the
+        kinetic energy of the robot to react to peak impact forces. In                              log  −θ1λ1θ2λ2
+        addition, based on some insights provided by the experiments                       tmax = −                    .               (55)                                                                                         λ1 −λ2
+      on the robots, we will also work on eventually making use of
+                                                               Hence, assuming tmax ≥0, the peak value of (53) is       the available sensors in the planning algorithm.
+                                                                        −  λ1              −  λ2
+                                                                                                                        λ1−λ2                       λ1−λ2
+                                                                                                                                                                                         .   (56)                           APPENDIX                                    μimax = θ1  −θ1λ1     + θ2  −θ1λ1                                                                               θ2λ2                θ2λ2
+       A. From Impulse Response to Free Response                                         A conservative upper bound can be found for (56) so that the
+        The combination of free and forced response of (12) is      new expression fci(μ0i, ˙μ0i, ·) is linear w.r.t. the initial states
+                                                                      μ0i and ˙μ0i
+                                                    t
+                                            ⎛           ⎞
+             ξ(t) = φ(t, t0)ξ(t0) +    φ(t, τ)B(τ) ν(τ)dτ.     (49)                                               λ1                λ2
+                                              t0                          ⎜  λ2λ1   λ1−λ2 −   λ2λ1   λ1−λ2 ⎟
+                                                                                          μimax ≤μ0i + ˙μ0i ⎜⎝       λ1 −λ2    ⎟⎠ .     (57)       Here, φ(t, τ) is the so-called state-transition matrix [53] and
+       ν(t) is impulsive with all impulses occurring at t0: ν(t) =
+           ¯ν 16 δd(t −t0), where 16 ≡[1, 1, 1, 1, 1, 1]⊺and δd(t) is the                                                                                                                  fci(μ0i, ˙μ0i,·)
+       Dirac delta function. We can apply the sifting property of Dirac
+        delta and (49) becomes                                                                C. Example of Bound Choosing Method
+                  ξ(t) = φ(t, t0)ξ(t0) + φ(t, t0)B(t0) ¯ν 16      (50)    ThesetS = {lki,j, uki,j, ldi,j, udi,j, l˜x0i , u˜x0i , l ˙˜x0i , u ˙˜x0i , bi}.
+                                                                                        Its ﬁrst four parameters depend on the maximum and minimum            = φ(t, t0) (ξ(t0) + B(t0) ¯ν 16) .          (51)
+                                                                            controller gains (Kmax, Kmin, Dmax, and Dmin). The remaining
+                                                     ξ′(t0)                           are related to the tracking error ˜x and its derivative ˙˜x.
+                                                           The below-mentioned procedure can be followed to choose
+      Hence, the impulse response from ξ(t0) is equivalent to the free                                                                 them.
+       response from ξ′(t0). Notice that, given the form of B in (12),                                                                         1) From the task-speciﬁc required precision, choose bi. For
+         ξ′ = [˜x′⊺˙˜x′⊺]⊺differs from ξ only for the ˙˜x′⊺. Hence, we justify                                                                                 instance, if the task regards grasping, bi is the needed
+      Remark 2.                                                                                 tolerance. Instead, if the controller regulates the CoM
+                                                                            of a walking robot, bi might be related to the physical
+       B. Free Response of Second-Order Linear System                        feasibility of the CoM trajectory.
+                                                                         2) Choose l˜x0i, u˜x0i, l ˙˜x0i, and u ˙˜x0i based on the maximum         Refactoring the second-order single degree of freedom differ-
+        ential (37) to draw attention to the damping ratio, we rewrite it         position and velocity errors, ˜xmax and ˙˜xmax, that occur
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 18 =====
+          1298                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+             while using the considered impedance controller with the     2) Choosing Kmin: Assuming model uncertainties only on
+           commonly used ﬁxed gains. For instance, l˜x0i = −|˜xmax|,   the dynamic parameters (since kinematic quantities are easier
+                  u˜x0i = |˜xmax|, l ˙˜x0i = −| ˙˜xmax|, and u ˙˜x0i = | ˙˜xmax|. Alter-   to identify), model them as multiplicative uncertainties, e.g.,
+                                                                         ˆG(q) = (I + Δ)G(q) is the estimated gravity torques with a                natively, l   and u   can also be chosen from an estimate                                              ˙˜x0i            ˙˜x0i                                                                                 relative error Δ.
+              of the maximum expected (impulsive) contact force by
+                                                                    Within the quasi-static assumption, the control law ˆτ using
+              leveraging Remark 2 (see also Appendix A).
+           3) Clearly, it should hold that the bounds bi on the tracking   the estimated model acts on the robot as follows:
+               error are above the bound on the initial error u˜x0i, i.e.,                                      0                                             >0+ C>0˙q + G = J⊺Fτ + ˆC ˙q + ˆG .         (63)                  u˜x0i ≤bi. Otherwise, the tracking error is not within the              B¨q
+            bounds at the initial instant.                                                                                                                                 ˆτ
+           4) Choose  Dmax  and  Dmin   to  enforce  a   critically
+                                                      1           1                Solving for Fτ gives Fτmin, an underestimate of the minimum
+           damped                      behavior:                           Dmax = 2Λ 2maxKmaxΛ 2max and Dmin =   necessary Fτ that would provide robustness to model uncertain-                     1                                1
+          2Λ minKminΛ2          min.2   Here, Λmax and Λmin are, respectively, the   ties
+          maximum and minimum Cartesian inertia w.r.t. some cost:
+                                                                                                        Fτmin = (J⊺max)†(−ΔGmax)              (64)               for instance, ∥Λ(q)∥F .
+           More in detail, we deﬁne the operator (·)max that applied   which, together with (59), yields the equality
+               to a matrix A(q) function of q ﬁnds
+                                                                        (J⊺max)†(−ΔGmax) = −Kmin˜xavg.          (65)
+                   q⋆= arg max ||A(q)||F .
+                                              q
+                                                                    Here, the unknown is Kmin and ˜xavg is an average tracking error.
+             Then, Amax = A(q⋆). The operator (·)min is deﬁned analo-   Also, (65) can be solved numerically.
+             gouslywiththeonlydifferencethatthenormisminimized.     In practice, if estimates of maximum and minimum interac-
+               Similarly, other matrices of the model can also be max-   tion forces are already provided, these can be directly used in-
+             imized/minimized. Notice that the matrices obtained by   stead of Fτmax and Fτmin to compute Kmax and Kmin, respectively.
+             applying the operators (·)min and (·)max lead to under or       It is worth mentioning that the presented procedure is ap-
+              overestimations of the matrix itself.                      proximate because Fτmin and Fτmax are not the actual mini-
+           5) Finally, choose Kmax and Kmin following the common  mum/maximum wrench capabilities of the robot. This is because
+               rationale of choosing Kmax so that control limits are not   of the under/overestimations performed during the procedure.
+              violated and Kmin high enough to compensate for model   Indeed, to properly translate joint capabilities, such as joint
+               uncertainties.                                            torque limits, to the Cartesian space (for instance, to max-
+       On the impedance control law (3)–(5), we assume quasi-static  imum/minimum wrenches), complicated techniques, such as
+        conditions: this yields                                              vertices enumeration, are required [74].
+                                                                 However, the procedure eases tuning by reducing the param-
+                           τ = J⊺(q)Fτ + G(q)                (58)                                                                               eters to be tuned to just the tracking error bound bi. All the other
+       and                                                         parameters are computed automatically from measurements or
+                                                             from the knowledge of the robot hardware or its model.
+                           Fτ = −K˜x.                    (59)      Finally, we stress that the above procedure is in no way a
+                                                                        required component of the proposed framework. It is just one of       The following approximate analysis can be performed.
+                                                      many possible ways to choose the set S.           1) Choosing Kmax: Scale the maximum allowed torque τmax
+        of a safety factor 0 < δs < 1. Inverting (58) and considering
+        a worst-case scenario, get the maximum admissible Cartesian                 ACKNOWLEDGMENT
+        force                                                 The authors would like to thank G. J. Pollayil and A. Palleschi,
+                         Fτmax = (J⊺max)†(δsτmax + Gmax).          (60)  from the University of Pisa, for their suggestions and help.
+        Here, Jmax and Gmax are, respectively, obtained by applying the                        REFERENCES
+        operator (·)max to the Jacobian and gravity torques. Notice that
+         Fτmax is an conservative estimate of the maximum allowed Fτ      [1] A.tionHentout,in industrialM. Aouache,collaborativeA. Maoudj,robotics:andA I.literatureAkli, “Human–robotreview of theinterac-decade
+         that would not violate τmax. From (59), (60) should match              2008–2017,” Adv. Robot., vol. 33, no. 15/16, pp. 764–799, 2019.
+                                                                                                 [2]  S. Shepherd and A. Buchstab, “Kuka robots on-site,” in Robotic Fabri-
+                                Fτmax = −Kmax˜xmax.                (61)         cation in Architecture, Art and Design. Berlin, Germany: Springer, 2014,
+                                                                                               pp. 373–380.
+        Equating (60) and (61) leads to                                              [3] M. Hutter et al., “ANYmal—A highly mobile and dynamic quadrupedal
+                                                                                                     robot,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2016, pp. 38–44.
+                (J⊺max)†(δsτmax + Gmax) = −Kmax˜xmax.       (62)     [4] C. Della Santina, M. G. Catalano, and A. Bicchi, Soft Robots. Berlin,
+                                                                               Germany: Springer, 2020, pp. 1–14.
+        Equality (62) can be solved numerically (recall that this is done     [5] M. W. Spong, “Modeling and control of elastic joint robots,” J. Dyn. Syst.,
+                                                                                         Meas., Control, vol. 109, no. 4, pp. 310–318, Dec. 1987.
+        only once ofﬂine) with the only unknown Kmax constrained to     [6] M. Moallem, R. V. Patel, and K. Khorasani, Flexible-Link Robot Manip-
+       be positive deﬁnite (e.g., using Cholesky decomposition).                 ulators. Berlin, Germany: Springer, 2000.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 19 =====
+       POLLAYIL et al.: CHOOSING STIFFNESS AND DAMPING FOR OPTIMAL IMPEDANCE PLANNING                                                        1299
+
+
+
+           [7]  S. Wolf et al., “Variable stiffness actuators: Review on design and compo-    [33]  T. Tsuji, K. Ito, and P. G. Morasso, “Neural network learning of robot
+               nents,” IEEE/ASME Trans. Mechatronics, vol. 21, no. 5, pp. 2418–2430,       arm impedance in operational space,” IEEE Trans. Syst., Man, Cybern., B
+              Oct. 2016.                                                                      (Cybern.), vol. 26, no. 2, pp. 290–298, Apr. 1996.
+           [8] B. Vanderborght et al., “Variable impedance actuators: A review,” Robot.    [34]  J. Buchli, F. Stulp, E. Theodorou, and S. Schaal, “Learning variable
+              Auton. Syst., vol. 61, no. 12, pp. 1601–1614, 2013.                           impedance control,” Int. J. Robot. Res., vol. 30, no. 7, pp. 820–833,
+           [9] N. Hogan, “Impedance control: An approach to manipulation: Part I—        2011.
+              Theory,” J. Dyn. Syst., Meas., Control, vol. 107, no. 1, pp. 1–7, Mar. 1985.    [35]  J. Xu and Z. Zhu, “Reinforced continual learning,” in Proc. 32nd Int. Conf.
+         [10] A.  Albu-Schaffer, C.  Ott, U.  Frese, and G.  Hirzinger,  “Cartesian        Neural Inf. Process. Syst., Red Hook, NY, USA, Curran Associates, 2018,
+             impedance control of redundant robots: Recent results with the DLR-         pp. 907–916.
+               light-weight-arms,” in Proc. IEEE Int. Conf. Robot. Automat., 2003, vol. 3,    [36] H.MehdiandO.Boubaker,“Impedancecontrollertunedbyparticleswarm
+               pp. 3704–3709.                                                               optimization for robotic arms,” Int. J. Adv. Robotic Syst., vol. 8, no. 5, p. 57,
+         [11]  F.  Ficuciello, A. Romano, L.  Villani, and B.  Siciliano, “Cartesian        2011. [Online]. Available: https://journals.sagepub.com/doi/full/10.5772/
+             impedance  control  of redundant manipulators  for human-robot co-        45692
+              manipulation,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2014,    [37] G. Gasparri et al., “Robust optimization of system compliance for physical
+               pp. 2120–2125.                                                                     interaction in uncertain scenarios,” in Proc. IEEE-RAS 16th Int. Conf.
+         [12] K. Kronander and A.  Billard, “Stability considerations for variable       Humanoid Robots, 2016, pp. 911–918.
+             impedance control,” IEEE Trans. Robot., vol. 32, no. 5, pp. 1298–1305,    [38]  J. Nakanishi, A. Radulescu, and S. Vijayakumar, “Spatio-temporal opti-
+              Oct. 2016.                                                                  mization of multi-phase movements: Dealing with contacts and switch-
+         [13]  F. Angelini et al., “Online optimal impedance planning for legged robots,”         ing dynamics,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2013,
+                in Proc. IEEE Int. Conf. Intell. Robots Syst., 2019, pp. 6028–6035.               pp. 5100–5107.
+         [14] B. Siciliano, L. Sciavicco, L. Villani, and G. Oriolo, Robotics: Modelling,    [39] D. J. Braun et al., “Robots driven by compliant actuators: Optimal con-
+             Planning and Control. London, U.K.: Springer, 2010.                                 trol under actuation constraints,” IEEE Trans. Robot., vol. 29, no. 5,
+         [15] A. Albu-Schaffer and G. Hirzinger, “Cartesian impedance control tech-         pp. 1085–1101, Oct. 2013.
+              niques for torque controlled light-weight robots,” in Proc. IEEE Int. Conf.    [40] M. Howard, D.  J. Braun, and S. Vijayakumar, “Transferring human
+              Robot. Automat., 2002, vol. 1, pp. 657–663.                                impedance behavior to heterogeneous variable impedance actuators,”
+         [16] H.-C. Lin, J. Smith, K. K. Babarahmati, N. Dehio, and M. Mistry, “A       IEEE Trans. Robot., vol. 29, no. 4, pp. 847–862, Aug. 2013.
+               projected inverse dynamics approach for multi-arm cartesian impedance    [41] D. Braun, M. Howard, and S. Vijayakumar, “Optimal variable stiffness
+                control,” in Proc. IEEE Int. Conf. Robot. Automat., 2018, pp. 1–5.                 control: Formulation and application to explosive movement tasks,” Auton.
+         [17] A. Dietrich et al., “Whole-body impedance control of wheeled mobile         Robots, vol. 33, no. 3, pp. 237–253, 2012.
+              manipulators,” Auton. Robots, vol. 40, no. 3, pp. 505–517, 2016.            [42] A.  Taherifar, G. Vossoughi, and A. Selk  Ghafari, “Optimal  target
+         [18] H.-O. Lim, S. A. Setiawan, and A. Takanishi, “Position-based impedance        impedance selection of the robot interacting with human,” Adv. Robot.,
+               control of a biped humanoid  robot,” Adv. Robot.,  vol. 18, no.  4,          vol. 31, no. 8, pp. 428–440, 2017.
+               pp. 415–435, 2004.                                                       [43]  T. Tsumugiwa, R. Yokogawa, and K. Hara, “Variable impedance control
+         [19] G. Xin, H.-C. Lin, J. Smith, O. Cebe, and M. Mistry, “A model-based         with regard to working process for man-machine cooperation-work sys-
+              hierarchicalcontrollerforleggedsystemssubjecttoexternaldisturbances,”         tem,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst. Expanding Societal
+                in Proc. IEEE Int. Conf. Robot. Automat., 2018, pp. 4375–4382.                Role Robot. Next Millennium, 2001, vol. 3, pp. 1564–1569.
+         [20] N. Hogan, “Impedance control of industrial robots,” Robot. Comput.-    [44]  T. Tsumugiwa, R. Yokogawa, and K. Hara, “Variable impedance control
+                 Integr. Manuf., vol. 1, no. 1, pp. 97–113, 1984.                                based on estimation of human arm stiffness for human-robot cooperative
+         [21] D. Surdilovic, “Contact transition stability in the impedance control,” in          calligraphic task,” in Proc. IEEE Int. Conf. Robot. Automat., 2002, vol. 1,
+              Proc. IEEE Int. Conf. Robot. Automat., 1997, vol. 1, pp. 847–852.                pp. 644–650.
+         [22] D. Surdilovic and Z. Cojbasic, “Robust robot compliant motion control    [45]  F. Ficuciello, L. Villani, and B. Siciliano, “Variable impedance control of
+              using intelligent adaptive impedance approach,” in Proc. IEEE Int. Conf.         redundant manipulators for intuitive human–robot physical interaction,”
+              Robot. Automat., 1999, vol. 3, pp. 2128–2133.                           IEEE Trans. Robot., vol. 31, no. 4, pp. 850–863, Aug. 2015.
+         [23] B.-H. Yang and H. Asada, “Progressive learning and its application to robot    [46] E. Spyrakos-Papastavridis, N. Kashiri, J. Lee, N. G. Tsagarakis, and D.
+             impedance learning,” IEEE Trans. Neural Netw., vol. 7, no. 4, pp. 941–952,        G. Caldwell, “Online impedance parameter tuning for compliant biped
+                 Jul. 1996.                                                                       balancing,” in Proc. IEEE-RAS 15th Int. Conf. Humanoid Robots, 2015,
+         [24] M. Uemura and S. Kawamura, “Resonance-based motion control method         pp. 210–216.
+                for multi-joint robot through combining stiffness adaptation and itera-    [47] E. Spyrakos-Papastavridis, P. R. Childs, and N. G. Tsagarakis, “Vari-
+                 tive learning control,” in Proc. IEEE Int. Conf. Robot. Automat., 2009,         able impedance walking using time-varying Lyapunov stability mar-
+               pp. 1543–1548.                                                                      gins,” in Proc. IEEE-RAS 17th  Int. Conf. Humanoid Robot., 2017,
+         [25]  T. Yamawaki, H. Ishikawa, and M. Yashima, “Iterative learning of variable         pp. 318–323.
+             impedance control for human-robot cooperation,” in Proc. IEEE/RSJ Int.    [48] E. Spyrakos-Papastavridis, N. Kashiri, P. R. Childs, and N. G. Tsagarakis,
+              Conf. Intell. Robots Syst., 2016, pp. 839–844.                                 “Online impedance regulation techniques for compliant humanoid balanc-
+         [26] Y. Li, G. Ganesh, N. Jarrassé, S. Haddadin, A. Albu-Schaeffer, and E.          ing,” Robot. Auton. Syst., vol. 104, pp. 85–98, 2018.
+              Burdet, “Force, impedance, and trajectory learning for contact tooling and    [49]  P. Balatti, D. Kanoulas, G. F. Rigano, L. Muratore, N. G. Tsagarakis, and
+               haptic identiﬁcation,” IEEE Trans. Robot., vol. 34, no. 5, pp. 1170–1182,        A. Ajoudani, “A self-tuning impedance controller for autonomous robotic
+              Oct. 2018.                                                                    manipulation,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2018,
+         [27] M. Bednarczyk, H. Omran, and B. Bayle, “Model predictive impedance         pp. 5885–5891.
+                control,” in Proc. IEEE Int. Conf. Robot. Automat., 2020, pp. 4702–4708.    [50]  P. Balatti, D. Kanoulas, N. Tsagarakis, and A. Ajoudani, “A method for
+         [28] M. Bednarczyk, H. Omran, and B. Bayle, “Passivity ﬁlter for variable        autonomous robotic manipulation through exploratory interactions with
+              impedancecontrol,”inProc.IEEE/RSJInt.Conf.Intell.RobotsSyst.,2020,         uncertain environments,” Auton. Robots, vol. 44, no. 8, pp. 1395–1410,
+               pp. 7159–7164.                                                           2020.
+         [29] E.Gribovskaya,A.Kheddar,andA.Billard,“Motionlearningandadaptive    [51] D. Bertsimas, D. B. Brown, and C. Caramanis, “Theory and applications
+             impedance for robot control during physical interaction with humans,” in         of robust optimization,” SIAM Rev., vol. 53, no. 3, pp. 464–501, 2011.
+              Proc. IEEE Int. Conf. Robot. Automat., 2011, pp. 4326–4332.               [52]  J. P. Hespanha, Linear Systems Theory. Princeton, NJ, USA: Princeton
+         [30] M. Li, H. Yin, K. Tahara, and A. Billard, “Learning object-level impedance         Univ. Press, 2018.
+               control for robust grasping and dexterous manipulation,” in Proc. IEEE Int.    [53] H. M. Moya-Cessa and F. Soto-Eguibar, Differential Equations: An Op-
+              Conf. Robot. Automat., 2014, pp. 6784–6791.                                    erational Approach. Princeton, NJ, USA: Rinton Press, 2011.
+         [31] C. Yang, G. Ganesh, S. Haddadin, S. Parusel, A. Albu-Schaeffer, and    [54]  S. Boyd, S. P. Boyd, and L. Vandenberghe, Convex Optimization. Cam-
+              E. Burdet, “Human-like adaptation of force and impedance in stable and         bridge, U.K.: Cambridge Univ. Press, 2004.
+               unstable interactions,” IEEE Trans. Robot., vol. 27, no. 5, pp. 918–930,    [55] A. O. Ignatyev, “Stability of a linear oscillator with variable parameters,”
+              Oct. 2011.                                                                           Elect. J. Differential Eq., vol. 1997, pp. 1–6, 1997.
+         [32] Y. Wu, F. Zhao, T. Tao, and A. Ajoudani, “A framework for autonomous    [56] V. Gabrel, C. Murat, and A. Thiele, “Recent advances in robust opti-
+             impedance regulation of robots based on imitation learning and optimal         mization: An overview,” Eur. J. Oper. Res., vol. 235, no. 3, pp. 471–483,
+                control,” IEEE Robot. Automat. Lett., vol. 6, no. 1, pp. 127–134, Jan. 2021.        2014.
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
+
+===== PDF PAGE 20 =====
+          1300                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 2, APRIL 2023
+
+
+
+          [57]  S. Leyffer, M. Menickelly, T. Munson, C. Vanaret, and S. M. Wild, “A                       Guiyang Xin (Member, IEEE) received the M.Sc.
+               survey of nonlinear robust optimization,” INFOR: Inf. Syst. Oper. Res.,                           degree in mechanical engineering from the China
+                 vol. 58, pp. 1–32, 2020.                                                                            University of Geosciences, Wuhan, China, in 2012,
+          [58]  T. Caughey and M. E. J. O’Kelly, “Classical normal modes in damped                         and the Ph.D. degree in mechanical engineering from
+                 linear dynamic systems,” J. Appl. Mech., vol. 32, pp. 583–588, 1965.                                 Central South University, Changsha, China, in 2018.
+          [59] D. J. Inman, Vibration With Control. Hoboken, NJ, USA: Wiley, 2017.                        He is currently an Associate Professor with the
+          [60] A.   G.   Nahapetyan,   “Bilinear   programmingBilinear   Program-                           Dalian University of Technology, Dalian, China.
+               ming,”  Encyclopedia  of  Optimization,  C. A.  Floudas  and  P. M.                      From 2018 to 2021, he was a Postdoctoral Re-
+                Pardalos,  Eds.  Boston, MA, USA:  Springer,  2009,  pp. 279–282,                             searcher with the  Institute of Perception, Action
+                 doi: 10.1007/978-0-387-74759-0_48.                                                       and Behaviour, University of Edinburgh, Edinburgh,
+          [61] M. F. Anjos and J. B. Lasserre, Handbook on Semideﬁnite, Conic and                         U.K. His research interests include legged robotics,
+               Polynomial Optimization, vol. 166. New York, NY, USA: Springer, 2011.   impedance control, optimization-based control, and teleoperation.
+          [62] A. Ruszczynski, Nonlinear Optimization. Princeton, NJ, USA: Princeton
+               Univ. Press, 2011.
+          [63]  J. Rosen, “The gradient projection method for nonlinear programming.                        Michael Mistry (Member, IEEE) received the Ph.D.
+                Part II. Nonlinear constraints,” J. Soc. Ind. Appl. Math., vol. 9, no. 4,                           degree in computer science from Stefan Schaal’s
+                pp. 514–532, 1961.                                                                   CLMC Lab, University of Southern California, Los
+          [64] H. D. Sherali and A. Alameddine, “A new reformulation-linearization                                                                                                            Angeles, CA, USA, in 2009.
+               technique for bilinear programming problems,” J. Glob. Optim., vol. 2,                      He was a Senior Lecturer in robotics with the
+                no. 4, pp. 379–410, 1992.                                                                   School of Computer Science, University of Birm-
+          [65] H. D. Sherali and C. H. Tuncbilek, “A global optimization algorithm for                                                                                                       ingham, a Postdoc with the Disney Research Lab,
+              polynomial programming problems using a reformulation-linearization                           Carnegie Mellon University, and a Researcher with
+                technique,” J. Glob. Optim., vol. 2, no. 1, pp. 101–112, 1992.                                         the ATR Computational Neuroscience Lab, Kyoto.
+          [66]  I.Pólik and T.Terlaky,“Interior point methodsfor nonlinear optimization,”                                                                                  He is currently a Professor in robotics with the School
+                 in Nonlinear Optimization. Berlin, Germany: Springer, 2010, pp. 215–276.                                                                                                                   of Informatics, University of Edinburgh, Edinburgh,
+          [67] N. I. Gould and S. Leyffer, “An introduction to algorithms for nonlin-   U.K., where he is also a member of the Edinburgh Centre for Robotics.
+                ear optimization,” in Frontiers in Numerical Analysis. Berlin, Germany:
+                Springer, 2003, pp. 109–197.
+          [68] N. S. Rau, Optimization Principles: Practical Applications to the Oper-
+                ation and Markets of the Electric Power Industry, vol. 16. Hoboken, NJ,
+            USA: Wiley, 2003.                                                                     Sethu Vijayakumar  is currently a Professor of
+          [69] C. Ott, Cartesian Impedance Control of Redundant and Flexible-Joint                              robotics with The University of Edinburgh, Edin-
+               Robots. Berlin, Germany: Springer, 2008.                                                          burgh, U.K., an Adjunct Faculty with the University
+          [70]  F. Emika, “The robot system—Franka Emika,” 2021, Accessed on: Dec.                             of Southern California, Los Angeles, CA, USA, and
+                12, 2021. [Online]. Available: https://www.franka.de/robot-system                                    the Founding Director with the Edinburgh Centre for
+          [71] ATI Industrial Automation, “F/T sensor Mini45,” 2021, Accessed on:                            Robotics, Edinburgh. He helps shape and drive the
+              Dec. 12, 2021. [Online]. Available: https://www.ati-ia.com/products/ft/                              national Robotics and Autonomous Systems agenda
+               ft_models.aspx?id=Mini45                                                                              in his recent role as the Programme Codirector for
+          [72] QB Robotics, “The QB SoftClaw,” 2021, Accessed on: Dec. 12, 2021.                                artiﬁcial intelligence (AI) with The Alan Turing Insti-
+                [Online].  Available:  https://qbrobotics.com/products/qb-softclaw/qb-                                  tute, the U.K.’s national institute for data science and
+                softclaw/                                                                                      AI. He is a Fellow of the Royal Society of Edinburgh,
+          [73]  P. Fankhauser, M. Bjelonic, C. D. Bellicoso, T. Miki, and M. Hutter,   a Judge on BBC Robot Wars, and the winner of the 2015 Tam Dalyell Prize for
+              “Robust rough-terrain locomotion with a quadrupedal robot,” in Proc.    excellence in engaging the public with science.
+            IEEE Int. Conf. Robot. Automat., 2018, pp. 1–8.
+          [74]  P. Chiacchio, Y. Bouffard-Vercelli, and F. Pierrot, “Evaluation of force
+                 capabilities for redundant manipulators,” in Proc. IEEE Int. Conf. Robot.
+               Automat., 1996, vol. 4, pp. 3520–3525.                                                    Antonio Bicchi (Fellow, IEEE) is a Scientist inter-
+                                                                                                                    ested in robotics and intelligent machines. He holds
+                                                                                                            a Chair in Robotics with the University of Pisa, Pisa,
+                         Mathew Jose Pollayil (Member, IEEE) received the                                    Italy, leads the Soft Robotics Laboratory at the Italian
+                                  B.S. degree in biomedical engineering and the M.S.                                 Institute of Technology in Genova, and is an Adjunct
+                                 degree (cum laude) in robotics and automation en-                             Professor with Arizona State University. His work
+                                   gineering from the University of Pisa, Pisa, Italy, in                           has been recognized with many international awards
+                              2014 and 2018, respectively, where he also recieved                         and has earned him four prestigious grants from the
+                                    the Ph.D. degree (cum laude) in robotics with the Re-                         European Research Council. He launched initiatives
+                                   search Center “E. Piaggio” and with the Dipartimento                          such as the WorldHaptics conference series, the IEEE
+                                      di Ingegneria dell’Informazione, in 2022.                                      Robotics and Automation Letters, and the Italian In-
+                           He is also an Afﬁliated Researcher with the Ital-    stitute of Robotics and Intelligent Machines.
+                                    ian Institute of Technology, Genoa, Italy. His main
+                                    research interests include nonlinear control of robots,
+         impedance planning, and motion planning of elastic quadrupeds.
+                                                                                       Manolo Garabini received the graduate degree in
+                                                                                                         mechanical engineering and the Ph.D. degree in
+                             Franco Angelini (Member, IEEE) received the B.S.                              robotics from the University of Pisa, Pisa, Italy, in
+                                 degree in computer engineering in 2013 and the M.S.                           2014.
+                                 degree (cum laude) in automation and robotics engi-                      He was the Principal Investigator in the THING
+                                   neering in 2016, and the Ph.D. degree (cum laude) in                          H2020EUResearchProjectfortheUniversityofPisa,
+                                     robotics in 2020, all from the University of Pisa, Pisa,                         and is currently the coordinator of the Dysturbance
+                                            Italy.                                                         H2020 Eurobench subproject and the NI H2020 EU
+                           He is currently an Assistant Professor with the                          Research Project. He is currently an Assistant Pro-
+                               Department of Information Engineering, University                              fessor with the University of Pisa. He contributed to
+                                    of Pisa. His main research interests include control of                             the realization of variable stiffness actuators and of
+                                       soft robotic systems, robotic environmental monitor-    the humanoid robot WALK-MAN. His research interests include the design,
+                                       ing, and impedance planning.                          planning, and control of soft adaptive robots.
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:26:54 UTC from IEEE Xplore. Restrictions apply.
