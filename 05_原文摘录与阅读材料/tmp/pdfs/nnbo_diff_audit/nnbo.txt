@@ -1,0 +1,927 @@
+        IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 10, OCTOBER 2025                                                                  6463
+
+
+
+
+         Neural-Network-Based Optimal Impedance Control
+                 for Robots in Physical Interaction
+                      With Soft Environments
+            Haiyi Kong , Guangzhu Peng , Guang Li , Senior Member, IEEE, and Chenguang Yang , Fellow, IEEE
+
+
+
+           Abstract—With the growing demand for robots in emerging                                                   I. I NTRODUCTION
+        fields, such as smart medical and home services, their ability
+                                                                                              MPEDANCE control, characterized by regulating the
+        to interact with soft environments has received increased atten-
+        tion. Nevertheless, an overlooked issue is that the inadequate
+        description of soft environments using a linear model may
+                                                                                          I   relation between contact position and force, has been
+                                                                                          extensively applied for robotic contact operations, such as
+        significantly diminish the accuracy of interaction control. In this               polishing and assembly in manufacturing [1], [2], [3], and
+        article, a neural-network-based impedance control framework is                    body scanning and surgery in medical applications [4], [5].
+        proposed for robots to physically interact with soft environments                 Recent developments have further enhanced its versatility
+        and optimize interaction performance. Specifically, a nonlinear
+        definition of soft environments is introduced based on the Hunt–
+                                                                                          by integrating it with advanced control strategies. Huang et
+        Crossley (HC) model, with parameter identification utilizing a                    al. [6] incorporated the impedance control into the model
+        data-driven technique. Regarding system performance evaluated                     predictive control (MPC) framework for real-time interactive
+        by a cost function, the determination of interaction behavior                     robotic tasks. By leveraging the ability of MPC to predict
+        described by the impedance model is transformed into an optimal                   future states and impedance control to adjust compliance, this
+        control problem. Moreover, to address model uncertainties, the
+                                                                                          strategy is capable of handling multiple unknown contacts.
+        original optimal control problem is redefined using a modified
+        cost function with a constructed auxiliary system. Then, a critic                 Liang et al. [7] combined force control with impedance control
+        network is employed to approximate the nonlinear optimal                          for an ultrasonic end effector interacting with soft environ-
+        solution, thereby avoiding complicated mathematical derivations.                  ments. Logothetis et al. [8] proposed a variable impedance
+        Finally, the effectiveness of the proposed impedance adaptation                   strategy for object manipulation. By changing the damping and
+        strategy is validated through both simulations and experiments.
+                                                                                          stiffness parameters based on the measured slippage velocity,
+        Numerical results indicate that both the convergent cost and
+        total cost are significantly reduced based on the proposed                        a stable grasp can be ensured. Furthermore, learning-based
+        method compared to the linear-model-based impedance control,                      control methods, particularly reinforcement learning, enable
+        particularly for materials with viscoelastic properties, achieving                robots to autonomously adjust impedance properties based
+        a reduction of up to 30%.                                                         on experiential data. Wang et al. [9] utilized Q-function-
+          Index Terms—Hunt–Crossley (HC) model, neural network                            based critic learning method to adapt the impedance model
+        (NN), optimal impedance control, soft environments.                               to a time-varying environment, achieving optimal interaction
+                                                                                          performance. Subsequent studies addressed more complex
+                                                                                          application scenarios. For example, Liu et al. [10] investigated
+                                                                                          the optimal interaction between manipulators and environ-
+           Received 11 February 2025; accepted 3 June 2025. Date of publication           ments with varying surface contours. The desired impedance
+        2 July 2025; date of current version 18 September 2025. This work was sup-
+        ported in part by the China Scholarship Council under Grant 202006150039;         model is learned by the output-feedback adaptive dynamic
+        in part by the Natural Science Foundation of Jiangsu Province under Grant         programming (OPFB ADP) method. Ye et al. [11] proposed
+        BK20220442; in part by the National Natural Science Foundation of China           an optimal impedance–admittance switching scheme using
+        under Grant 62203227; and in part by the Startup Foundation for Introducing
+        Talent of NUIST under Grant 2022r101. This article was recommended by             an iterative linear quadratic regulator (ILQR) to manage
+        Associate Editor Q. Wei. (Haiyi Kong and Guangzhu Peng contributed equally        interaction issues in environments with varying stiffness.
+        to this work.) (Corresponding author: Chenguang Yang.)                            More detailed information regarding the characteristics of the
+           Haiyi Kong is with the Department of Electrical and Electronic Engineering,
+        The University of Manchester, M13 9PL Manchester, U.K., and also with             environment, strengths, and weaknesses of the aforementioned
+        the Department of Computer Science, University of Liverpool, L69 3BX              impedance-based approaches can be found in Table I.
+        Liverpool, U.K. (e-mail: haiyi.kong@postgrad.manchester.ac.uk).                      In the aforementioned studies, the environment is gener-
+           Guangzhu Peng is with the School of Automation, Nanjing University
+        of Information Science and Technology, Nanjing 210044, China (e-mail:             ally assumed to be representable by a linear model. The
+        gz.peng@nuist.edu.cn).                                                            most commonly used linear models for describing environ-
+           Guang Li is with the Department of Electrical and Electronic Engineering,      ments in real-time interaction control are primarily limited
+        The University of Manchester, M13 9PL Manchester, U.K. (e-mail:
+        guang.li@manchester.ac.uk).                                                       to the Kelvin–Voigt (KV) model or the mass–spring–damper
+           Chenguang Yang is with the Department of Computer Science, University          system [12], [13], [14]. Studies [15], [16], [17] demonstrated
+        of Liverpool, L69 3BX Liverpool, U.K. (e-mail: cyang@ieee.org).                   the effectiveness of these linear models in stiff environments.
+           Color versions of one or more figures in this article are available at
+        https://doi.org/10.1109/TSMC.2025.3579017.                                        However, in soft-environment operations, physical disconti-
+           Digital Object Identifier 10.1109/TSMC.2025.3579017                            nuities and negative characteristics of the contact force arise
+                        2168-2216 
+                                  c 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence
+                               and similar technologies. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                               See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        6464                                               IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 10, OCTOBER 2025
+
+
+                                                                            TABLE I
+                                              C OMPARISON OF THE M ENTIONED I MPEDANCE -BASED C ONTROL A PPROACHES
+
+
+
+
+        due to the viscoelastic properties of soft materials [18]. These                     For optimal interaction, the interaction dynamics and
+        issues indicate that linear models are insufficient for accurately                performance index need to be developed first. Then, the
+        describing soft environments, potentially degrading control                       impedance model is updated by solving the optimal control
+        performance [19]. To address the limitations of linear mod-                       problem of the interaction system [28]. From a mathematical
+        els, Hunt and Crossley proposed a nonlinear model, known                          point of view, the solution to the optimal control problem is
+        as the Hunt–Crossley (HC) model, in which the damping                             derived by solving the underlying Hamilton–Jacobi–Bellman
+        coefficient is dependent on contact penetration [20]. The HC                      (HJB) equation [29]. However, it is generally difficult to
+        model can characterize the dynamics of both stiff and soft                        obtain the analytical solution for a nonlinear system. The
+        environments, and it has therefore been increasingly adopted                      adaptive dynamic programming (ADP) method offers an intu-
+        for the robotic interaction control [21]. Different from these                    itive approach to solving the optimal control problem. It can
+        existing studies, this article focuses on the nonlinear model and                 be implemented using neural networks (NNs), which possess
+        optimal interaction performance suitable for soft-environment                     powerful approximation capabilities to adaptively learn the
+        interactions.                                                                     solution of the HJB equation [30]. A typical structure in
+            The HC model retains a certain computational simplicity                       ADP is the actor–critic dual setup, where the actor and critic
+        despite it being nonlinear [22]. Typical HC model identifica-                     NNs parameterize the control policy and cost function, respec-
+        tion utilizes position and contact force data collected during                    tively [31]. The optimal solution is reached after the two NNs
+        the robot’s movements along an excitation trajectory [23].                        iteratively train each other successfully [32]. A single-critic
+        Since the computational complexity of the identification meth-                    network structure, which removes the action network from
+        ods significantly affects real-time robotic contact control,                      the architecture, is considered an improvement over the actor–
+        much research has focused on reducing the convergence                             critic structure [33]. It retains the power characteristics of the
+        time of model estimation to enhance control performance.                          actor–critic structure while reducing the computational load
+        The single-stage linearized logarithm identification (LLI)                        and eliminating the approximation error caused by the action
+        method proposed by Haddadi and Hashtrudi-Zaad [24] effec-                         network, making it more effective for online implementation.
+        tively shortens convergence time and is insensitive to initial                    Kong et al. [34] employed the critic-based learning algorithm
+        parameters, making it popularly used for HC model iden-                           to address the tracking control problem for a highly nonlin-
+        tification. Schindeler and Hashtrudi-Zaad [25] focused on                         ear and strongly coupled robot system subject to unknown
+        highly damped environment situations and produced a real-                         perturbations. Luo et al. [35] proposed a decentralized event-
+        time identification method involving a linearly parameterized                     triggered control method for interconnected nonlinear systems
+        polynomial approximation to indirectly identify the HC model.                     with unknown perturbations using the critic networks tech-
+        Subsequently, they extend the identification into a two-stage                     nique. To our knowledge, few interaction control strategies
+        strategy to achieve a more accurate estimation of the HC                          simultaneously address the nonlinear environmental dynamics
+        model parameters [23]. However, data-driven identification                        and model uncertainties, which motivates our work.
+        methods inevitably introduce noise into the system. Model                            In this article, we investigate optimal interaction con-
+        uncertainties, including modeling error and force measurement                     trol between robots and soft environments. Position-based
+        noise, should be considered in a complete HC model [26]. In                       impedance control, also known as admittance control [36], is
+        practice, model uncertainties are generally unknown, but the                      employed to achieve compliant robotic behavior. Considering
+        exact upper bound can be determined based on the ranges of                        that interaction performance heavily depends on the envi-
+        the parameter variations in specific problems [27].                               ronmental dynamics and the impedance model, we introduce
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        KONG et al.: NN-BASED OPTIMAL IMPEDANCE CONTROL FOR ROBOTS                                                                                                   6465
+
+
+
+        a nonlinear HC model to describe the soft environment,                               Remark 1: The HC model (1) can represent various soft
+        while the target impedance model is selected by minimiz-                          environments. For example, it can describe the reaction
+        ing a combined generalized force and position error metric.                       dynamics of rubber that demonstrates elastic behavior under
+        Specifically, the HC model is identified using a data-driven                      contact forces [12], and typically has a Young’s modulus in the
+        technique, after which the interaction dynamics is established                    range of 0.01–0.1 GPa. It is also suitable for deformable syn-
+        accordingly. Moreover, to address model uncertainties in                          thetic materials, such as polyurethane foam [23], which exhibit
+        practical application, an auxiliary system is constructed, and                    nonlinear compression and have Young’s modulus values
+        the interaction performance is evaluated using a modified cost                    around 10–100 kPa. Additionally, the model can effectively
+        function. Based on the optimal control technique, the target                      capture the viscoelastic response of biological tissues (e.g.,
+        impedance model is obtained by solving the optimal control                        skin or muscle) [18], which cannot be accurately approximated
+        problem. Given the nonlinear nature of the environmental                          using linear models, with typical stiffness ranging from 0.1 to
+        model, a single-critic network is introduced to iteratively learn                 100 kPa.
+        the control policy. In addition, the weight estimation error                         Remark 2: The environmental equilibrium position xe can
+        is guaranteed to be uniformly ultimately bounded (UUB) by                         be confirmed by incorporating a depth camera into the system.
+        incorporating the persistence of excitation (PE) assumption.                      Upon getting the depth image of the environment, three-
+        The main contributions are highlighted as follows.                                dimensional (3-D) point cloud technique can be employed to
+           1) A comprehensive representation of the environmental                         represent the environment into data points [37]. Then, xe is
+              dynamics, based on a nonlinear HC model and incor-                          obtained via taking the minimum Euclidean distance of the
+              porating a disturbance term, is developed for robotic                       current position with the data points.
+              interaction with soft environments. These enhance-                             To identify the parameters Be , Ke , and n, the manipulator is
+              ments improve the modeling accuracy in representing                         commanded to follow an excitation trajectory, and the data of
+              real-world scenarios, particularly when dealing with                        force, position, and velocity is collected. Then, a single-stage
+              viscoelastic materials that are inaccurate in linear                        linearized logarithmic identification method [24] is employed.
+              approximations.                                                             Considering the noises in practical operation, it is necessary
+           2) Model uncertainties, including modeling errors and force                    to add a term of model uncertainties  to ensure the integrity
+              measurement noise resulting from data-driven model                          of the environmental dynamics. Taking the natural logarithm
+              identification, are considered in the impedance adap-                       of (1)
+              tation strategy. In this context, an auxiliary control is                                                                             
+                                                                                                                               Be ẋ        
+              incorporated into the system to transform the original                            ln(f ) = ln Ke (x − xe )n (1 +       +              ) . (2)
+                                                                                                                               Ke      Ke (x − xe )
+              robust control problem into a generally optimal control
+                                                                                                             ∼
+                                                                                          Since ln(1 +  ) =  for | |  1, it can be assumed that
+              problem.
+           3) The desired impedance model to achieve a predefined                                              Be ẋ        
+                                                                                                                |    +              |  1.                  (3)
+              metric is obtained by solving the optimal control                                                 Ke     Ke (x − xe )
+              problem of the nonlinear interactive system, where a                        Then, (2) can be linearized as
+              single-critic network is employed to learn the optimal
+                                                                                                                                     Be ẋ        
+              solution online.                                                                  ln(f ) ∼
+                                                                                                       = ln(Ke ) + n ln(x − xe ) +         +              . (4)
+        The remainder of this article is organized as follows. In                                                                     Ke     Ke (x − xe )
+        Section II, we present the preliminaries, including important                        Remark 3: The velocity of the end effector of the manip-
+        system models, robust control strategy, and problem statement.                    ulator can be restricted to |ẋ|∞ < (0.1Ke /Be ). Hence, it is
+        The detailed of the impedance control design is explained                         sufficient to meet |(Be ẋ/Ke )|  1. On the other hand,  can
+        in Section III. The simulations and experimental studies                          be regarded as a zero-mean stochastic process, which satisfies
+        are provided in Sections IV and V. Section VI draws the                           the mathematical expectation of (/[Ke (x − xe )]) is zero.
+        conclusion.                                                                       Therefore, |([Be ẋ]/Ke ) + (/[Ke (x − xe )])| ≤ |([Be ẋ]/Ke )| +
+                                                                                          |(/[Ke (x − xe )])|  1.
+                                  II. P RELIMINARIES                                         Further, (4) can be parameterized as
+        A. System Modeling and Identification                                                                         yk = Tk ϕ + ˜k                               (5)
+          The contact dynamics of the environment can be modeled                          where k is the discrete-time index, yk = ln(fk ),               =    Tk
+        by the HC model [20] in the form of                                               [1, ẋk , ln(xk − xe )], ϕ = [ ln(Ke ), (Be /Ke ), n].          =    ˜k
+                          f = Be (x − xe )n ẋ + Ke (x − xe )n                    (1)     (k /[Ke (xk − xe )]) + ¯k denotes the noises and modeling error.
+                                                                                             To estimate the parameter ϕ, the exponentially weighted
+        where f denotes the interaction force, ẋ and x represent the                     recursive least squares (EWRLS) method [38] is employed
+        velocity and position of the end effector of the manipulator,                                                    k k+1
+        respectively, and xe is the equilibrium position of the envi-                                     k+1 =                                         (6)
+                                                                                                                    γ + Tk+1 k k+1
+        ronment. n is a constant, which is determined by the material
+        and geometric properties of the environment. Be and Ke are                                                  1                    
+                                                                                                          k+1 =       k − k+1 Tk+1 k                (7)
+        the damping and stiffness parameters related to the restitution                                             γ
+                                                                                                                                             
+        coefficient, respectively.                                                                        ϕ̂k+1 = ϕ̂k + k+1 yk+1 − Tk+1 ϕ̂k            (8)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        6466                                                  IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 10, OCTOBER 2025
+
+
+
+        where γ is a forgetting factor.  represents the adaption                         the robust control problem reduces to the optimal control
+        gain, and  denotes the covariance matrix. Therefore, the                         problem for the auxiliary system ẋ = A(x) + B(x)u. The cost
+        environmental parameters can be derived from                                      function can be simplified to
+                                                                                                         ∞
+                 K̂ek = eϕ̂k (1)    B̂ek = eϕ̂k (1) ϕ̂k (2)    n̂k = ϕ̂k (3)      (9)                        ζmax (x)2 + x 2 + u 2 dτ             (16)
+                                                                                                              0
+        where ϕ̂(i) is the ith element of vector ϕ̂.
+                                                                                          by setting      = 0 and δ = 1.
+
+        B. Robust Control for Nonlinear Systems                                           C. Impedance Control
+          The nonlinear system with model uncertainties can be                              Impedance control allows for compromise between force
+        expressed as                                                                      and position error, which can be expressed as
+                           ẋ = A(x) + B(x)u + k(x)w(x)                          (10)                                  f = I(x − xd ).                             (17)
+        where x ∈ Rς is the system state, u ∈ Rι is the control input,                    f is the interaction force, x is the system state, and xd is the
+        A(·) : Rς → Rς is the internal state dynamics, B(·) : Rς →                        desired position. I(·) represents the target impedance, which
+        Rς×ι is the input-to-state dynamics, and k(x)w(x) repre-                          can be in the form of a linear damping–spring system
+        sents unknown model uncertainties with w(·) : Rς → Rτ ,
+        k(·) : Rς → Rς×τ . Without loss of generality, we assume                                                     I(s) = Ba s + Ka                              (18)
+        that A(xs ) = 0 and w(xs ) = 0 can always be met at a                             where s is the Laplace variable, and Ba and Ka are the damping
+        certain state xs so that xs is an equilibrium position of the                     and stiffness parameters, respectively.
+        system. Using the orthogonal decomposition property, model                           Remark 4: The choice of a specific target impedance for
+        uncertainties k(x)w(x) can always be decomposed into the sum                      the optimal interaction depends on the interactive environment.
+        of an unmatched component and a matched component. Thus,                          Generally, for a damping–stiffness environment, only stiffness
+        we have                                                                           control is required, whereas a damping component needs to
+                                                                                        be added for a mass–damping–stiffness environment [40].
+                ẋ = A(x) + B(x)u + Iς − B(x)B(x)∗ k(x)w(x)
+                                                                                             Target impedance can be realized via position-based imple-
+                        + B(x)B(x)∗ k(x)w(x)                                     (11)     mentation. The control command fc is derived by
+        where Iς represents the unit matrix in the dimension of                                                      fc = C(s)(xr − x)                             (19)
+        ς . B(x)B(x)∗ k(x)w(x) is the matched component, and [Iς −
+        B(x)B(x)∗ ]k(x)w(x) is the unmatched component. (·)∗ repre-                       where C(s) is the inner-loop position controller, the reference
+        sents the pseudo-inverse operation. Accordingly, we can build                     position xr is a perturbation from xd and has
+        an auxiliary system                                                                                                         f
+                                                                                                                    xr = xd +         .                          (20)
+                ẋ = A(x) + B(x)u + Iς − B(x)B(x)∗ k(x)v(x)      (12)                                                              I(s)
+                                                                                          We assume that C(s) is accurate enough, so that limt→∞ x(t) =
+        where v is the auxiliary control input.                                           xr (t) for realizing target dynamics (17).
+          Assume there exists non-negative functions wmax (x) and
+        ζmax (x) that satisfy w(x) ≤ wmax (x) and B(x)∗ k(x)w(x) ≤
+                                                                                          D. Problem Formulation
+        ζmax (x), respectively. Then, a cost function can be designed as
+          ∞                                                                                We consider a single-point interaction of the manipulator
+                                                                                          end effector along one direction with a soft environment. The
+               ζmax (x)2 + 2 wmax (x)2 + δ 2 x 2 + u 2 + 2 v 2 dτ
+           0                                                                              desired position xd is given by a command generator
+                                                                                 (13)                             
+                                                                                                                    ṙ = r + α
+                                                                                                                                                    (21)
+        where and δ are designed parameters.                                                                        xd = r
+           Theorem 1 [39]: If one can find a solution (u0 (x), v0 (x))                    where r ∈ Rn is the state, and  ∈ Rn×n , α ∈ Rn , and
+        for the optimal control problem that minimizes the cost                            ∈ R1×n are constant parameters.
+        function (13) and satisfies                                                          For a general tracking control problem, the control objective
+                                                                                          is to enable the robot to precisely track the desired trajectory.
+                           2
+                               v0 (x) 2 ≤ δ 2 x 2       ∀x ∈ Rς                  (14)
+                                                                                          However, in the robotic control system for interaction with
+        for some δ < δ, then u0 (x) is also a robust controller for                       environments, contact inevitably occurs and may cause phys-
+        the nonlinear system (10) so that the system state is globally                    ical damage. On the other hand, although impedance control
+        asymptotically stable for the uncertainties w(x).                                 can effectively regulate the force in interactions and endow
+           In particular, when the uncertainties without the unmatched                    the robot with compliant behaviors to safely interact with
+        component, that is                                                                environments, it cannot satisfy the tracking control accuracy.
+                                                                                        Therefore, both the position tracking error and force should
+                          Iς − B(x)B(x)∗ k(x)w(x) = 0              (15)                   be considered at the same time in the control design. To cover
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        KONG et al.: NN-BASED OPTIMAL IMPEDANCE CONTROL FOR ROBOTS                                                                                                  6467
+
+
+
+        these two indexes, the cost function to evaluate the system
+        performance is designed as
+                                  ∞
+                      J̄(X(t)) =     eT Qe + f T Rf dτ          (22)
+                                          t
+
+        where e := x − xd represents the position tracking error. Q and
+        R are the weight indexes. From (22), it can be noted that the
+        performance of the system describes a tradeoff between the
+        position tracking error and the interaction force. As a result,
+        the control objective is to design a control policy to minimize
+        the cost function (22), which is actually solving a quadratic
+        regulation problem [41].
+            Remark 5: In practical implementations, the different units
+        of measurement result in different quantities of weight indexes
+                                                                                          Fig. 1.      Proposed control framework for optimal robot–environment
+        to achieve the desired system performance. Partial knowledge                      interaction.
+        of both the robot and the environment is often leveraged
+        to select their initial values. Subsequently, a trial-and-error
+        approach can be employed to refine the weights based on                           where ε = −(/[Be (x − xe )n ]) stands for the unknown model
+        system behavior.                                                                  uncertainty term introduced for integrality of the environmen-
+            Remark 6: The cost function (22) is designed in the demand                    tal dynamics.
+        of balancing position tracking accuracy eT Qe and the energy                         Putting the dynamics of the environment position and
+        efficiency f T Rf , with the desired force considered to be zero.                 the desired position together, an augmented system can be
+        In applications, such as robotic surgery, material handling, or                   constructed
+        human–robot collaboration, reducing excessive forces while
+                                                                                                     Ẋ(t) = F(X(t)) + G(X(t))f + Kε(X(t))            (24)
+        maintaining precise position tracking is critical to avoiding                                                          
+        damage to the environment or the robot itself [42].                                                  e                   −(Ke /Be ) − r − α
+                                                                                          where X(t) =          , F(X(t)) =                              ,
+            Remark 7: The total cost J̄(X(t)), as defined in (22), quan-                                    r                           +α
+                                                                                                                                        r
+        tifies the cumulative interaction effort over the entire process,                               (1/[Be (x − xe ) ])
+                                                                                                                        n                   1
+                                                                                          G(X(t)) =                          , and K =         , On is the
+        reflecting overall control efficiency and smooth adaptation.                                            On                         On
+        In contrast, the convergent cost limt→∞ J̄(X(t)) measures the                     zero vector in the dimension of n, and f is regarded as the
+        instantaneous cost after the system reaches steady state, cap-                    control input.
+        turing the quality of final regulation and long-term interaction                    Considering that the model uncertainties in the augmented
+        stability. These two key metrics are sufficient to provide a                      system (24) only contain the matched component
+        comprehensive evaluation of the interaction performance.                                                          
+                                                                                                              I1+n − GG∗ Kε = O1+n
+            In the next section, we will provide a detailed introduction to
+        how to achieve the objective by designing a robot impedance                       an auxiliary system is introduced
+        controller and implementing a position-based scheme.
+                                                                                                                 Ẋ(t) = F(X(t)) + G(X(t))f .                      (25)
+
+                             III. C ONTROLLER D ESIGN                                     Accordingly, a modified cost function J for the auxiliary
+                                                                                          system is designed as
+           In this section, the detailed control design for the optimal                                        ∞
+        interaction with a soft environment is given. First, we construct                           J(X(t)) =     eT Qe + f T Rf + ζε2 (X) dτ
+        an augmented system and transfer the adaption problem of                                               ∞
+                                                                                                                t
+        the impedance model into an optimal control problem. Next,
+                                                                                                            =     X T Q̃X + f T Rf + ζε2 (X) dτ (26)
+        the HJB equation of the optimization problem and the optimal                                                  t
+        control policy are derived. Then, to avoid the complex math-                                         
+                                                                                                            Q OTn
+        ematical calculation for the HJB solution, an NN-based critic                     where Q̃ =                   , On×n is a zero matrix in the
+        learning strategy is proposed and the convergence analysis of                                       On On×n
+                                                                                          dimension of n, ζε (X) is chosen to satisfy ε ≤ ζε (X). The
+        the NN is provided. Finally, the desired impedance model is
+                                                                                          analytical solution for the optimal control problem (25)-(26) is
+        obtained and realized through position-based implementation.
+                                                                                          an expression describing the relation between f and X, which
+        The whole system framework is shown in Fig. 1.
+                                                                                          is exactly the required impedance model.
+                                                                                             Remark 8: The auxiliary system is employed for compen-
+        A. Impedance Adaptation                                                           sating the uncertainties in the interactive dynamics. According
+           The HC model can be rewritten into a state-space form                          to Theorem 1, the optimal control for the auxiliary system (25)
+                                                                                          with cost function (26) can be considered as a robust
+                                     Ke         f                                         optimal control of a nonlinear system with model uncertain-
+                            ẋ = −      +               +ε                       (23)
+                                     Be   Be (x − xe )n                                   ties (24). Since the environmental uncertainties only contain
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        6468                                               IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 10, OCTOBER 2025
+
+
+                                                                                                             1
+        the matched component, the cost function can be designed                                  f ∗ (X) = − R−1 GT ∇φ(X)T W + ∇σ (X)                             (33)
+        as consisting of three terms, where X T Q̃X and f T Rf are the                                       2
+        costs for standard optimal control, and ζε2 (X) for the cost                      and the HJB equation satisfies
+        of uncertainties compensation. In this way, a desired control
+        policy not only achieving optimal interaction performance but                                                H X, f ∗ , W = 0.                             (34)
+        also stabilizing the system under model uncertainties can be                        However, the ideal weight W is unknown in practice. The
+        obtained.                                                                         approximate result of the cost function is
+
+        B. HJB Equation                                                                                              Ĵ(X) = Ŵ T φ(X)                             (35)
+           Assuming that the cost function (26) is continuous and                         where Ŵ is the weight vector for the current estimate. Taking
+        differentiable, and the considered optimal control policy f ∗ is                  the derivative of (35) yields
+        within the set of admissible control, i.e., f ∈ . Rewrite (26)
+        in the infinitesimal version                                                                               ∇ Ĵ(X) = ∇φ(X)T Ŵ.                            (36)
+
+                   (∇J)T (F + Gf ) + X T Q̃X + f T Rf + ζε2 = 0                  (27)     Similarly, we can get the approximate control policy
+                                                                                                                  1
+        with J(0) = 0, where ∇J = ∂J/∂X.                                                                f̂ (X) = − R−1 GT ∇φ(X)T Ŵ.            (37)
+          Define the Hamiltonian                                                                                  2
+                                                                                          Then, the approximate Hamiltonian can be expressed as
+           H(X, f , ∇J) = (∇J)T (F + Gf ) + X T Q̃X + f T Rf + ζε2 .(28)
+                                                                                          Ĥ X, f̂ , Ŵ = Ŵ T ∇φ F + Gf̂ + X T Q̃X + f̂ T Rf̂ + ζε2 . (38)
+        According to Bellman’s optimality principle, we have the HJB
+        equation                                                                            Define the approximation error of Hamiltonian σH :=
+                                                                                          Ĥ(X, f̂ , Ŵ) − H(X, f ∗ , W). Then, we have
+                               min H X, f , ∇J ∗ = 0.                            (29)
+                               f ∈
+                                                                                                  σH = Ŵ T ∇φ F + Gf̂ + X T Q̃X + f̂ T Rf̂ + ζε2 .                (39)
+        Supposing that the optimal control policy exists and is unique,
+        we have                                                                           The NN weight is chosen to minimize
+                                                                                                                                 1 T
+                             f ∗ = arg min H X, f , ∇J ∗                                                                E=        σ σH                             (40)
+                                          f ∈                                                                                   2 H
+                                   1
+                                = − R−1 GT ∇J ∗ .                                (30)     so that σH → 0, Ŵ → W.
+                                   2                                                        The updating law for the NN weight is designed as
+        By substituting (30) into (29) and solving this HJB equation,                                                     
+                                                                                                  ˙ =−      κ         ∂E
+        the optimal cost function J ∗ can be acquired, so the optimal                            Ŵ
+        control policy is also available based on (30). However,                                        1 + νT ν
+                                                                                                                 2
+                                                                                                                      ∂ Ŵ
+                                                                                                           κν                                        
+        the analytic solution of the nonlinear HJB equation (29) is
+                                                                                                    =−           2
+                                                                                                                     ν T Ŵ + X T Q̃X + f̂ T Rf̂ + ζε2 (41)
+        generally difficult to derive.                                                                  1 + νT ν
+
+        C. NN-Based Approximate of HJB Solution                                           where ν = ∇φ(F + Gf̂ ). κ is the learning factor. Define the
+                                                                                          weight estimation error W̃ := W − Ŵ. Then, the differential
+           Utilizing the approximation ability of NN, we can design a
+                                                                                          of the weight estimation error is
+        critic learning strategy to obtain the approximate HJB solution.
+        The optimal cost function J ∗ can be represented by                                           ˙ = −Ŵ˙ =       κν
+                                                                                                     W̃                       σ − ν T W̃
+                                                                                                                            2 a
+                                                                                                                                                  (42)
+                                                                                                                    1+ν ν T
+                              J ∗ (X) = W T φ(X) + σ (X)                         (31)
+                                                                                          where σa = ∇σ T (F + Gf̂ ) represents the residual error and
+        where φ(X) : R1+n → Rm represents the activation function,
+                                                                                          is assumed to be bounded σa ≤ ηa [35]. To guarantee the
+        W ∈ Rm is the ideal weight vector, m denotes the number
+                                                                                          convergence of Ŵ to W, we design a Lyapunov function
+        of hidden layer neurons, and σ (X) is the approximation error.
+                                                                                          candidate
+        Accordingly, its derivative can be represented by
+                                                                                                                     1 T
+                                   ∂φ(X) T        ∂σ (X)                                                                L=
+                                                                                                                         W̃ W̃.                                    (43)
+                         ∗
+                     ∇J (X) =                W+                                                                        2
+                                     ∂X             ∂X                                    Differentiating L with respect to time yields
+                              = ∇φ(X) W + ∇σ (X)
+                                        T
+                                                                 (32)
+                                                                                                                  κ W̃ T ν
+                                                                                                      L̇ = −                     ν T W̃ − σa
+        where ∇φ ∈ Rm×(1+n) , ∇σ ∈ R1+n . For constant m, σ and                                                 1 + νT ν
+                                                                                                                             2
+        ∇σ are bounded by constants on a compact set [31]. When
+        m → ∞, σ → 0, so ∇σ → 0. In this way, the optimal control                                              κ W̃ T νν T W̃        W̃ T νν T W̃ + σaT σa
+                                                                                                         ≤−                  2
+                                                                                                                               +κ                    2
+                                                                                                                                                             .     (44)
+        policy can be obtained by                                                                               1 + νT ν                2 1 + νT ν
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        KONG et al.: NN-BASED OPTIMAL IMPEDANCE CONTROL FOR ROBOTS                                                                                                  6469
+
+
+
+        Note that σa ≤ ηa and 1 + ν T ν ≥ 1, thus we have                                 Algorithm 1 Position-Based Implementation for Target
+                                                                                          Impedance
+                                       κ W̃ T νν T W̃        κ 2
+                          L̇ ≤ −                         +    η                           Input: maximum iteration Nmax , precision requirement
+                                2 1 + νT ν
+                                                    2        2 a                          ϑ, downhill factor ψ, loop sentence .
+                                κ                     κ                                   Output: reference position xr .
+                          ≤ − λmin ξ ξ T W̃ 2 + ηa2                  (45)
+                                2                     2                                   1: Initialize xr (0) ← x(0), ψ ← 1
+        where ξ = (ν/[1 + ν T ν]), λmin (ξ ξ T ) stands for the minimum                   2: Calculate S(xr (0)), ∇S(xr (0))
+                                                                                                                                 S(xr (0))
+        eigenvalue of ξ T ξ .                                                             3: Calculate xr (1) ← xr (0) − ψ ∇S(x       r (0))
+           It is obvious that if the inequalities                                         4: Calculate S(xr (1)), ∇S(xr (1))
+                                                                                          5: for i ← 1 to Nmax do
+                           λmin ξ ξ T > 0                                        (46)     6:      ← True
+                                                        ηa                                7:     while 
+                                   W̃ >                           ϒ            (47)
+                                                 λmin ξ ξ T                               8:           if |S(xr (i))| < |S(xr (i − 1))|
+                                                                                          9:                  ← False
+        hold, L̇ < 0 can be guaranteed. To satisfy λmin (ξ ξ T ) > 0,                     10:           else
+        we introduce the PE assumption: the signal ξ is persistently                      11:                ψ ← ψ/2
+                                                                                                                                             S(xr (i−1))
+        exciting over the interval [t, t + T] with T > 0, i.e., the                       12:                xr (i) ← xr (i − 1) − ψ ∇S(x         r (i−1))
+        condition                                                                         13:           end if
+                             t+T                                                         14:           Calculate S(xr (i)), ∇S(xr (i))
+                    υ1 Im ≤       ξ (τ )ξ T (τ ) dτ ≤ υ2 Im      (48)                     15: end while
+                                   t
+                                                                                          16: if |xr (i) − xr (i − 1)| < ϑ
+        is met for all t, where υ1 > 0 and υ2 > 0 are constants.                          17:           break
+        Therefore, the weight estimation error W̃ is UUB and the                          18: end if
+        ultimate bound is ϒ.                                                              19: end for
+
+        D. Reference Generation via NN-Based Admittance Model
+         Regarding the optimal control policy implemented by
+        NN (37), we can expand it to yield                                                   According to (51), we can obtain the reference position xr
+                     ⎡    ⎤T ⎡                 ⎤T ⎡     ⎤T                                since f , xe , and xd are available.
+                       G1      ∇φ11 · · · ∇φ1M      Ŵ1                                      Let
+                   1 ⎢ . ⎥ ⎢ .                 ⎥ ⎢      ⎥
+            f̂ = − ⎣ .. ⎦ ⎣ .. · · · ... ⎦ ⎣ ... ⎦         (49)                                                    ∇φ11 Ŵ1 + · · · + ∇φm1 Ŵm
+                  2R                                                                                S(x) = f̂ +                                = 0.                (52)
+                       GN      ∇φN1 · · · ∇φNM      ŴM                                                                  2RBe (x − xe )n
+
+        where N = 1 + n, M = m, Gi and Ŵi denote the ith                                 To solve (52), we employ the Newton Downhill method [43].
+        element of vector G and Ŵ, respectively, and ∇φij repre-                         The detailed procedure is shown in Algorithm 1. Upon get-
+        sents the (i, j)th element of matrix ∇φ. Substituting GT =                        ting xr , we use it as the position command to control the
+        [ (1/[Be (x − xe )n ]) On ] into (49) further yields                              manipulator, which can realize optimal interaction with the
+                                                                                          soft environment.
+                            ∇φ11 Ŵ1 + · · · + ∇φm1 Ŵm
+                        f̂ = −                          .       (50)
+                                   2RBe (x − xe )n                                                             IV. S IMULATION S TUDIES
+        Since ∇φij is related to the component of system state X, we                         In this section, simulation studies are given to verify the
+        can always rewrite (50) into the expression of                                    effectiveness of the proposed strategy under model uncertain-
+                                                                                          ties. The end effector of the manipulator is commanded to
+                            f̂ = (x − xe )−n (K1 x − K2 xd )                     (51)
+                                                                                          move along the X-axis and interact with the environment. The
+        where K1 and K2 stand for the corresponding gains. This                           command generator is designed as r(0) = 0.08,  = −1,
+        expression describes the relation among the interaction force                     α = 0.03, and  = 1. Only the interaction force in the
+        f , desired position xd , and current position x. One can see                     X direction is considered and regulated using the proposed
+        that (51) has a similar form of (17), so the desired impedance                    optimal impedance control. The environmental parameters are
+        model is obtained.                                                                set based on an actual soft object: Ke = 1149 N/m, Be = 567
+            Different from the typical impedance model which has the                      N/m, n = 1.2, and xe = 0.01 m. Assume the model uncertainty
+        implicit condition that the environmental equilibrium position                    is ε = 1000e sin(r). For the NN setting, the activation function
+        retains zero, (51) includes the equilibrium position of the envi-                 is selected as [ X12 X1 X2 X22 ]T . The initial NN weights are
+        ronment. This kind of expression reflects that it emphasizes the                  chosen as Ŵ(0) = [ 20 20 20 ]T , and the learning factor is
+        relation between the motion penetration and the consequent                        κ = 5. To meet the PE condition, we add an exploration
+        reaction force, which is more general for contact operations.                     noise ℵ to the control input during the adaptive learning stage,
+        Besides, this relation is nonlinear, which is in accordance                       where ℵ(t) = cos(2.4t) sin3 (2.4t) + sin2 (1.12t) + sin5 (t) +
+        with the nonlinear environmental model. Hence, (51) can be                        sin2 (t) cos(t) + sin2 (1.2t) cos(0.5t) + sin2 (2t) cos(0.1t). In the
+        regarded as a variant of the traditional impedance model.                         simulation, the position control is under an ideal case: x ≡ xr ,
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        6470                                               IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 10, OCTOBER 2025
+
+
+
+
+                                                (a)
+                                                                                                                                  (a)
+
+
+
+
+                                               (b)
+
+                                                                                                                                  (b)
+
+
+
+
+                                               (c)
+                                                                                                                                  (c)
+
+
+
+
+                                              (d)
+
+        Fig. 2.    Interaction under model uncertainties (Q = 500 000, R = 1).                                                    (d)
+        (a) Evolution of environmental equilibrium position, desired position, and
+        actual position. (b) Convergence of the NN weights. (c) Interaction force.        Fig. 3. Interaction under model uncertainties (Q = 1 000 000, R = 1).
+        (d) Cost function.                                                                (a) Evolution of environmental equilibrium position, desired position, and
+                                                                                          actual position. (b) Convergence of the NN weights. (c) Interaction force.
+                                                                                          (d) Cost function.
+
+        and the sampling time is 0.001 s. The initial position of the
+        end effector is given by x(0) = 0.011, and the environmental
+        position is xe = 0.01. For comparison, we also introduce the                      second case leading to a larger interaction force as shown in
+        control method developed by Ref. [44] to learn the optimal                        Figs. 2(c) and 3(c). Figs. 2(b) and 3(b) display the updating
+        impedance model for interaction. Two cases are conducted.                         process of the NN weights. Figs. 2(d) and 3(d) depict the
+        In the first case, the weight indexes are set as Q = 500 000,                     variation of the cost value. To better compare the interaction
+        R = 1. In the second case, the weights are Q = 1 000 000,                         performance, the costs for the interaction are summarized in
+        R = 1.                                                                            Table II. One can see that both methods successfully reduce
+           Simulation results are presented in Figs. 2 and 3. Figs. 2(a)                  the cost to a stable value. The proposed method explicitly
+        and 3(a) illustrate the complete trajectories of the interaction                  accounting for uncertainties in the optimization process using
+        process. The final position of the end effector is stabilized                     a modified cost function performs superior, which achieves
+        between the environmental position and the desired position.                      smaller convergent cost and total cost in both cases. The
+        A larger value of the performance index Q is expected to result                   impedance model obtained by solving the standard cost
+        in a smaller position tracking error, which is why the end                        function also performs acceptable. This is because of the
+        effector exhibits larger penetration with the environment in the                  inherent ability of the NN-based controller to resist certain
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        KONG et al.: NN-BASED OPTIMAL IMPEDANCE CONTROL FOR ROBOTS                                                                                                  6471
+
+
+                                     TABLE II                                                                      TABLE III
+            C OMPARISON OF C OSTS FOR I NTERACTION U SING THE P ROPOSED                   E NVIRONMENTAL PARAMETERS IN THE HC M ODEL AND THE KV M ODEL
+                              M ETHOD AND R EF. [44]
+
+
+
+
+                                                                                                                       TABLE IV
+                                                                                                   C OMPARISON OF F ORCE E RRORS U SING THE HC M ODEL
+                                                                                                                  AND THE KV M ODEL
+
+
+
+
+                        (a)
+                                                                                          A. Environment Identification
+                                                                                            We command the end effector of the manipulator to inter-
+                                                                                          act with the environment following an excitation trajectory
+                                                                                          and collect the movement data. The excitation trajectory is
+                                                                                          specified by
+                                                                                                                    
+                                                                                              xc (t) = 0.9 − 0.025 ∗ 2 sin(0.01π t) + 0.25 sin(1.6π t)
+                                                                                                                                         
+                                                                                                       + 0.1 sin(4.2π t) + 0.01 sin(4π t) .           (53)
+
+                        (b)                                    (c)                        Employing the EWRLS method, we obtain the approximated
+                                                                                          environmental parameters in the HC model. The same iden-
+        Fig. 4. Experimental setup. (a) Silicone foam. (b) Sponge. (c) Franka robot.      tification process is applied to the KV model, which is
+                                                                                          expressed as
+
+        disturbances. It is proven that explicitly handling the model                                             f = Ge (x − xe ) + Ce ẋ.                        (54)
+        uncertainties using the proposed method can further improve
+                                                                                          The identification results for the silicone foam and sponge
+        the interaction performance.
+                                                                                          using the HC model and KV model are given in Table III. As
+                                                                                          we can see, the estimated damping and stiffness parameters
+                              V. E XPERIMENTAL S TUDIES                                   in the HC model for these two objects are similar, whereas
+           To support the proposed strategy for practical interaction,                    the sponge has a higher n value of 2, showing its prominently
+        we conduct experiment studies on two different environments:                      damping characteristic [12]. A consistent conclusion can be
+        1) silicone foam and 2) sponge, as shown in Fig. 4(a) and (b).                    seen in the estimation results for the KV parameters. The
+        The silicone foam used in the experiments has moderate                            sponge has relatively lower stiffness and higher damping
+        stiffness and high resilience, with a Shore A hardness of                         compared to the silicone foam, suggesting that it possesses
+        approximately 40. In comparison, the sponge is softer and                         weaker elastic properties than the silicone foam.
+        displays a bit longer restitution time due to its viscoelastic                       To verify the effectiveness of these two representations for
+        properties, making it slightly slower to recover after defor-                     soft environments, we estimate the interaction forces based on
+        mation. Under identical penetration conditions, the silicone                      the identified models, respectively, and compare them with the
+        foam generates a larger reaction force than the sponge. The                       measurements from the force sensor. The results are displayed
+        employed robot platform is a seven-degree-of-freedom Franka                       in Fig. 5. One can see that the force derived from the HC
+        robot, whose end effector is designed by the user for point                       model closely aligns with the measurements of the force
+        interaction with objects. A force sensor is attached to the end                   sensor. In contrast, the force from the KV model exhibits
+        effector to collect the real-time contact force. Throughout the                   a substantial deviation from the sensor readings, especially
+        process, we control the end effector of the manipulator to move                   during the recovery phase. To better evaluate the accuracy of
+        along the Z-axis of the robot base frame OB . To highlight the                    the model descriptions, we introduce three evaluation metrics:
+        interaction performance, we focus only on the contact force                       1) mean error (ME); 2) absolute error (AE); and 3) maximum
+        that occurs in the Z direction. The whole experimental setup                      error (MaxE). The results for the force estimation error are
+        is given in Fig. 4(c). For comparison, we also develop the                        summarized in Table IV. It is obvious that the HC model
+        soft-environment interaction using the strategy proposed by                       consistently outperforms the KV model in all metrics in terms
+        Ref. [45], where the environment was described by the KV                          of force estimation for soft environments, making it a more
+        model.                                                                            reliable choice for precise contact control applications.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        6472                                                      IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 10, OCTOBER 2025
+
+
+                    30
+                                                     18.8
+
+                    25                               18.4
+                                                        18
+                    20                                       14.02     14.06   14.1
+         Force(N)
+
+
+
+
+                    15
+
+                    10
+
+                     5
+
+                     0
+                         0           5                            10                       15
+                                              Time(s)
+
+                                               (a)
+                                                                                                                                     (a)
+                    20                                       11
+
+                                                             10
+
+                    15                                        9
+                                                                  7.55 7.6 7.65 7.7 7.75
+         Force(N)
+
+
+
+
+                    10
+
+
+
+                    5
+
+
+
+                    0
+                         0           5                            10                       15
+                                              Time(s)                                                              (b)                                    (c)
+
+                                               (b)                                              Fig. 6. Interaction with silicone foam (Q = 500 000, R = 1). (a) Evolution of
+                                                                                                the environmental equilibrium position, desired position, reference position,
+        Fig. 5. Comparison of estimated force in HC and KV models. (a) Silicone                 and actual position. (b) Interaction force. (c) Cost function.
+        foam. (b) Sponge.
+
+
+
+        B. Optimal Interaction With Soft Environments                                           adaptation process, which quickly decay as the parameters
+           In this section, we will further investigate the interaction                         converge. In both cases, the proposed method achieves a lower
+        performance of the proposed method in practical operation.                              convergent cost, indicating that the obtained impedance model
+        For comparative analysis, we consider two baseline con-                                 is more effective in ensuring the desired interaction behavior.
+        trollers: one employs the nonlinear optimal control method                              The control performance of the proposed method is more
+        proposed in Ref. [44], which does not account for model                                 pronounced in the second case, where the weight for the
+        uncertainties, and the other is based on the KV model from                              tracking error is larger. This leads to greater penetration into
+        Ref. [45]. The control system is established using the identified                       the environment, resulting in larger reaction forces. However,
+        models presented in Section V-A. In the experiment, we                                  the compared method based on the KV model struggles to
+        enforce the end effector of the manipulator to interact with                            handle large penetrations due to its limited force-estimation
+        silicone foam and sponge, respectively. The end effector of the                         capacity as the result shown in Fig. 5(a), leading to poorer
+        manipulator initially maintains slight contact with the object.                         interaction performance. Similar results are observed for the
+        Within the interaction process, the velocity of the end effector                        method from Ref. [44], as it does not adequately address model
+        is limited to ẋ ≤ (0.1Ke /Be ) to meet the conditions of the HC                        uncertainties. To provide a more quantitative comparison, we
+        model.                                                                                  summarize the costs in Table V, which shows that both the
+           The first scenario is to interact with the silicone foam. The                        convergent cost and total cost are consistently lower using the
+        environmental equilibrium position is identified using the 3-D                          proposed method. Specifically, the proposed method achieves
+        point cloud technique, which is obtained as xe = 0.08669.                               a 1.42% cost reduction compared to Ref. [44] and 4.25%
+        We design the command generator: r(0) = 0.01669,  = −1,                                compared to Ref. [45] in the first case. In the second case, it
+        α = −0.05,and  = 1. The exploration noise is designed                                 achieves a 4.55% reduction compared to Ref. [44] and 8.82%
+        as ℵ(t) = 10    i=1 (0.1/i) sin(k ∗ i). The activation function is                      compared to Ref. [45], demonstrating its superior interaction
+        selected as [ X12 X1 X2 X22 ]T . Two case studies with different                        performance and cost efficiency.
+        weight settings of the cost function are considered. In the first                          The second group of experiments focuses on evaluating
+        case, Q = 500 000, R = 1. The NN is initialized as κ = 5                                the interaction performance with the sponge. The command
+        and Ŵ(0) = [ 30 30 30 ]T . In the second case, Q = 1500 000,                           generator is configured with parameters set to r(0) = 0.025,
+        R = 1, κ = 5, and Ŵ(0) = [ 250 250 250 ]T .                                             = 1, α = 0.02, and  = 1. The environmental equilibrium
+           The results are presented in Figs. 6 and 7, where Figs. 6(a)                         position is identified as xe = 0.075. The exploration noise
+        and 7(a) illustrate the actual position of the end effector during                      and the activation function remain consistent with previous
+        interaction, Figs. 6(b) and 7(b) depict the interaction force,                          settings. Similarly, we design two case studies. In the first
+        and Figs. 6(c) and 7(c) show the associated cost functions. As                          case, the cost weights are given by Q = 100 000 and R = 1.
+        observed, the reference and actual positions exhibit oscillations                       The NN is initialed with weights Ŵ(0) = [ 10 10 10 ]T and
+        during the interaction regulation phase due to the online                               learning rate κ = 1. In the second case, the cost weights are
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        KONG et al.: NN-BASED OPTIMAL IMPEDANCE CONTROL FOR ROBOTS                                                                                                  6473
+
+
+
+
+                                                                                                                               (a)
+                                             (a)
+
+
+
+
+                                                                                                                     (b)                             (c)
+
+                                                                                           Fig. 8. Interaction with sponge (Q = 100 000, R = 1). (a) Evolution of the
+                                                                                           environmental equilibrium position, desired position, reference position, and
+                             (b)                                     (c)                   actual position. (b) Interaction force. (c) Cost function.
+
+        Fig. 7. Interaction with silicone foam (Q = 1500 000, R = 1). (a) Evolution
+        of the environmental equilibrium position, desired position, reference position,
+        and actual position. (b) Interaction force. (c) Cost function.
+
+                                       TABLE V
+                   C OSTS OF THE I NTERACTION W ITH S ILICONE F OAM
+
+
+
+
+                                                                                                                                     (a)
+
+
+
+                                         TABLE VI
+                        C OSTS OF THE I NTERACTION W ITH S PONGE
+
+
+
+
+                                                                                                               (b)                                     (c)
+
+                                                                                           Fig. 9. Interaction with sponge (Q = 1 000 000, R = 1). (a) Evolution of
+                                                                                           the environmental equilibrium position, desired position, reference position,
+                                                                                           and actual position. (b) Interaction force. (c) Cost function.
+
+
+
+                                                                                           Ref. [44] and Ref. [45], achieving lower-cost performance. A
+                                                                                           summary of the quadratic costs for the interaction is provided
+        Q = 1000 000, R = 1. The NN is designed as initial weights                         in Table VI, revealing that both the convergent cost and total
+        Ŵ(0) = [ 60 60 60 ]T and the learning rate κ = 5.                                 cost in the proposed method are significantly smaller than
+           Figs. 8(a) and 9(a) illustrate the trajectory evolution.                        those of the compared methods. Specifically, compared to
+        Fig. 8(b) and (b) display the interaction force. The variation of                  Ref. [44], the proposed method reduces the convergent cost
+        costs is depicted in Figs. 8(c) and 9(c). Under the control of                     by 3.05% in the first case and by 10.12% in the second
+        the proposed method, the end effector is adjusted to a position                    case. When compared to Ref. [45], it achieves a 19.95%
+        closer to the environmental surface compared to those in                           reduction in the first case and a 29.65% reduction in the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        6474                                               IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 10, OCTOBER 2025
+
+
+
+        second case. The improvement is particularly evident when                         [10] X. Liu, S. S. Ge, F. Zhao, and X. Mei, “Optimized impedance adaptation
+        compared to the first group of experiments, primarily due                              of robot manipulator interacting with unknown environment,” IEEE
+                                                                                               Trans. Control Syst. Technol., vol. 29, no. 1, pp. 411–419, Jan. 2021.
+        to the viscoelastic properties of the sponge. The presence of                     [11] D. Ye, C. Yang, Y. Jiang, and H. Zhang, “Hybrid impedance and admit-
+        significant model uncertainties and the inability of the KV                            tance control for optimal robot–environment interaction,” Robotica,
+        model to sufficiently represent the soft environment results in                        vol. 42, no. 2, pp. 510–535, 2024.
+        inadequate impedance models and ultimately lead to degraded                       [12] A. Haddadi and K. Hashtrudi-Zaad, “Real-time identification of Hunt–
+                                                                                               Crossley dynamic models of contact environments,” IEEE Trans. Robot.,
+        interaction performance.                                                               vol. 28, no. 3, pp. 555–566, Jun. 2012.
+                                                                                          [13] J. Park and Y. Choi, “Input-to-state stability of variable impedance
+                                   VI. C ONCLUSION                                             control for robotic manipulator,” Appl. Sci., vol. 10, no. 4, p. 1271, 2020.
+                                                                                          [14] X. Zhang, J. Zhang, G. Xiong, Y. Gao, and Y. Feng, “Research on adap-
+           In this article, we propose a novel NN-based optimal                                tive fuzzy impedance control of human-massage robot interaction based
+        impedance control strategy for robots to achieve optimal                               on Kelvin-Voigt modeling,” IEEE Access, vol. 12, pp. 89562–89572,
+                                                                                               2024.
+        interaction with soft environments. In regard to the nonlinear
+                                                                                          [15] J. Cui, M. Lai, Z. Chu, and F. Sun, “Experiment on impedance
+        properties of soft environments, we develop an HC model to                             adaptation of under-actuated gripper using tactile array under unknown
+        describe the environmental dynamics. Then, the environmental                           environment,” Sci. China Inf. Sci., vol. 61, pp. 1–14, Nov. 2018.
+        parameters are identified using the collected interactive data.                   [16] Y. Lin, Z. Chen, and B. Yao, “Unified motion/force/impedance control
+                                                                                               for manipulators in unknown contact environments based on robust
+        To achieve accurate control, the unknown model uncertainties                           model-reaching approach,” IEEE/ASME Trans. Mechatronics, vol. 26,
+        are also considered in the design of the impedance controller,                         no. 4, pp. 1905–1913, Aug. 2021.
+        wherein we introduce an auxiliary system and a modified cost                      [17] X. Yu, S. Liu, S. Zhang, W. He, and H. Huang, “Adaptive neural
+        function. To avoid mathematically solving the nonlinear HJB                            network force tracking control of flexible joint robot with an uncertain
+                                                                                               environment,” IEEE Trans. Ind. Electron., vol. 71, no. 6, pp. 5941–5949,
+        equation of the optimal control problem, NN is employed to                             Jun. 2024.
+        adaptively learn the approximate HJB solution. Finally, the                       [18] A. Achhammer, C. Weber, A. Peer, and M. Buss, “Improvement of
+        desired impedance model is obtained and realized via the                               model-mediated teleoperation using a new hybrid environment esti-
+                                                                                               mation technique,” in Proc. IEEE Int. Conf. Robot. Autom., 2010,
+        position-based implementation, where the reference position is                         pp. 5358–5363.
+        acquired using the Newton Downhill method. In the future, we                      [19] Z. Feng, W. Liang, J. Ling, X. Xiao, K. K. Tan, and T. H. Lee,
+        will focus on studying the optimal interaction control without                         “Adaptive robust impedance control for an ear surgical device with
+                                                                                               soft interaction,” IEEE/ASME Trans. Mechatronics, vol. 27, no. 3,
+        prior identification of the environmental dynamics, which will                         pp. 1784–1795, Jun. 2022.
+        offer greater flexibility for practical contact operations. In                    [20] K. H. Hunt and F. R. E. Crossley, “Coefficient of restitution interpreted
+        addition, more complex environments would be considered,                               as damping in vibroimpact,” J. Appl. Mech., vol. 42, no. 2, pp. 440–445,
+        specifically, those with time-varying parameters or subject to                         1975.
+                                                                                          [21] D. Budolak and A. Leonessa, “Guaranteed parameter estimation of
+        abrupt changes. These cases present significant challenges for                         Hunt–Crossley model with Chebyshev polynomial approximation for
+        traditional control models. Our goal is to develop adaptive                            teleoperation,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst. (IROS),
+        strategies that can handle such complexities effectively.                              2020, pp. 7330–7335.
+                                                                                          [22] N. Diolaiti, C. Melchiorri, and S. Stramigioli, “Contact impedance
+                                                                                               estimation for robotic systems,” IEEE Trans. Robot., vol. 21, no. 5,
+                                      R EFERENCES                                              pp. 925–935, Oct. 2005.
+         [1] Y. Ding, J. Zhao, and X. Min, “Impedance control and parameter               [23] R. Schindeler and K. Hashtrudi-Zaad, “Online identification of envi-
+             optimization of surface polishing robot based on reinforcement learn-             ronment Hunt–Crossley models using polynomial linearization,” IEEE
+             ing,” Proc. Inst. Mech. Eng. B, J. Eng., vol. 237, nos. 1–2, pp. 216–228,         Trans. Robot., vol. 34, no. 2, pp. 447–458, Apr. 2018.
+             2023.                                                                        [24] A. Haddadi and K. Hashtrudi-Zaad, “A new method for online parameter
+         [2] X. Zhao, Y. Chen, L. Qian, B. Tao, and H. Ding, “Human–robot                      estimation of Hunt–Crossley environment dynamic models,” in Proc.
+             collaboration framework based on impedance control in robotic assem-              IEEE/RSJ Int. Conf. Intell. Robots Syst., 2008, pp. 981–986.
+             bly,” Engineering, vol. 30, pp. 83–92, Nov. 2023.                            [25] R. Schindeler and K. Hashtrudi-Zaad, “Polynomial linearization for
+         [3] H. Ochoa and R. Cortesão, “Impedance control architecture for robotic-            real-time identification of environment Hunt–Crossley models,” in Proc.
+             assisted mold polishing based on human demonstration,” IEEE Trans.                IEEE Haptics Symp. (HAPTICS), 2016, pp. 173–178.
+             Ind. Electron., vol. 69, no. 4, pp. 3822–3830, Apr. 2022.                    [26] A. Haddadi and K. Hashtrudi-Zaad, “Online contact impedance identifi-
+         [4] G. Zhao, C. Zeng, W. Si, and C. Yang, “A human-robot collaboration                cation for robotic systems,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots
+             method for uncertain surface scanning,” CAAI Trans. Intell. Technol.,             Syst., 2008, pp. 974–980.
+             pp. 1–12, May 2023.                                                          [27] F. Lin and W. Zhang, “Robust active damping of vibration systems
+         [5] T. Wang, Z. Sun, A. Song, P. Xiong, and P. X. Liu, “Sliding                       with uncertainties,” in Proc. Amer. Control Conf. (ACC), 1994,
+             mode impedance control for dual hand master single slave teleoper-                pp. 2424–2428.
+             ation systems,” IEEE Trans. Intell. Transport. Syst., vol. 23, no. 12,
+                                                                                          [28] M. Matinfar and K. Hashtrudi-Zaad, “Optimization-based robot compli-
+             pp. 25500–25508, Dec. 2022.
+                                                                                               ance control: Geometric and linear quadratic approaches,” Int. J. Robot.
+         [6] W.-C. Huang, A. Aydinoglu, W. Jin, and M. Posa, “Adaptive contact-
+                                                                                               Res., vol. 24, no. 8, pp. 645–656, 2005.
+             implicit model predictive control with online residual learning,” in Proc.
+             IEEE Int. Conf. Robot. Autom. (ICRA), 2024, pp. 5822–5828.                   [29] V. Nevistic and J. A. Primbs, Constrained Nonlinear Optimal Control: A
+         [7] W. Liang, Z. Feng, Y. Wu, J. Gao, Q. Ren, and T. H. Lee, “Robust force            Converse HJB Approach, California Inst. Technol., Pasadena, CA, USA,
+             tracking impedance control of an ultrasonic motor-actuated end-effector           1996, pp. 96–021.
+             in a soft environment,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst.    [30] F. L. Lewis and D. Vrabie, “Reinforcement learning and adaptive
+             (IROS), 2020, pp. 7716–7722.                                                      dynamic programming for feedback control,” IEEE Circuits Syst. Mag.,
+         [8] M. Logothetis, G. C. Karras, K. Alevizos, and K. J. Kyriakopoulos, “A             vol. 9, no. 3, pp. 32–50, 3rd Quart., 2009.
+             variable impedance control strategy for object manipulation considering      [31] K. G. Vamvoudakis and F. L. Lewis, “Online actor–critic algo-
+             non–rigid grasp,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst.               rithm to solve the continuous-time infinite horizon optimal control
+             (IROS), 2020, pp. 7411–7416.                                                      problem,” Automatica, vol. 46, no. 5, pp. 878–888, 2010.
+         [9] C. Wang, Y. Li, S. S. Ge, and T. H. Lee, “Optimal critic learning for        [32] D. Vrabie and F. Lewis, “Neural network approach to continuous-
+             robot control in time-varying environments,” IEEE Trans. Neural Netw.             time direct adaptive optimal control for partially unknown nonlinear
+             Learn. Syst., vol. 26, no. 10, pp. 2301–2310, Oct. 2015.                          systems,” Neural Netw., vol. 22, no. 3, pp. 237–246, 2009.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+        KONG et al.: NN-BASED OPTIMAL IMPEDANCE CONTROL FOR ROBOTS                                                                                                  6475
+
+
+
+        [33] R. Padhi, N. Unnikrishnan, X. Wang, and S. Balakrishnan, “A single                                    Guangzhu Peng received the M.Eng. degree in
+             network adaptive critic (SNAC) architecture for optimal control syn-                                  pattern recognition and intelligent systems from the
+             thesis for a class of nonlinear systems,” Neural Netw., vol. 19, no. 10,                              School of Automation Science and Engineering,
+             pp. 1648–1660, 2006.                                                                                  South China University of Technology, Guangzhou,
+        [34] L. Kong, W. He, C. Yang, and C. Sun, “Robust neurooptimal control for                                 China, in 2018, and the Ph.D. degree in computer
+             a robot via adaptive dynamic programming,” IEEE Trans. Neural Netw.                                   science from the Faculty of Science and Technology,
+             Learn. Syst., vol. 32, no. 6, pp. 2584–2594, Jun. 2021.                                               University of Macau, Macau, China, in 2021.
+        [35] Q. Luo, S. Xue, and D. Liu, “Adaptive critic designs for decentralised                                   His current research interests include robotics,
+             robust control of nonlinear interconnected systems via event-triggering                               human–robot interaction, and intelligent control.
+             mechanism,” Int. J. Syst. Sci., vol. 53, no. 5, pp. 1031–1047, 2022.
+        [36] M. Schumacher, J. Wojtusch, P. Beckerle, and O. Von Stryk, “An
+             introductory review of active compliant control,” Robot. Auton. Syst.,
+             vol. 119, pp. 185–200, Sep. 2019.
+        [37] Z. Gojcic, C. Zhou, J. D. Wegner, L. J. Guibas, and T. Birdal, “Learning
+             multiview 3D point cloud registration,” in Proc. IEEE/CVF Conf.
+             Comput. Vis. Pattern Recognit., 2020, pp. 1759–1769.
+        [38] K. J. Åström and B. Wittenmark, Adaptive Control. Chelmsford, MA,                                     Guang Li (Senior Member, IEEE) received the
+             USA: Courier Corp., 2008.                                                                             Ph.D. degree in electrical and electronics engi-
+        [39] F. Lin, “An optimal control approach to robust control design,” Int. J.                               neering, specializing in control systems, from The
+             Control, vol. 73, no. 3, pp. 177–186, 2000.                                                           University of Manchester, Manchester, U.K., in
+        [40] S. S. Ge, Y. Li, and C. Wang, “Impedance adaptation for optimal robot–                                2007.
+             environment interaction,” Int. J. Control, vol. 87, no. 2, pp. 249–263,                                 He is currently a Professor with the School
+             2014.                                                                                                 of Engineering, The University of Manchester.
+        [41] B. D. Anderson and J. B. Moore, Optimal Control: Linear Quadratic                                     His research interests include constrained optimal
+             Methods. Chelmsford, MA, USA: Courier Corp., 2007.                                                    control, model predictive control, adaptive robust
+        [42] Y. Li and S. S. Ge, “Human–robot collaboration based on motion                                        control, and control applications, including renew-
+             intention estimation,” IEEE/ASME Trans. Mechatronics, vol. 19, no. 3,                                 able energies and energy storage.
+             pp. 1007–1014, Jun. 2014.
+        [43] R. Fletcher and T. L. Freeman, “A modified Newton method for
+             minimization,” J. Optim. Theory Appl., vol. 23, pp. 357–372, Nov. 1977.
+        [44] T. Bian and Z.-P. Jiang, “Reinforcement learning and adaptive optimal
+             control for continuous-time nonlinear systems: A value iteration
+             approach,” IEEE Trans. Neural Netw. Learn. Syst., vol. 33, no. 7,                                       Chenguang Yang (Fellow, IEEE) received the
+             pp. 2781–2790, Jul. 2022.                                                                               B.Eng. degree in measurement and control from
+        [45] H. Huang, C. Yang, and C. L. P. Chen, “Optimal robot–environment                                        Northwestern Polytechnical University, Xi’an,
+             interaction under broad fuzzy neural adaptive control,” IEEE Trans.                                     China, in 2005, and the Ph.D. degree in control
+             Cybern., vol. 51, no. 7, pp. 3824–3835, Jul. 2021.                                                      engineering from the National University of
+                                                                                                                     Singapore, Singapore, in 2010.
+                                                                                                                       He performed postdoctoral studies in human
+                                                                                                                     robotics with Imperial College London, London,
+                                                                                                                     U.K., from 2009 to 2010. He holds the Chair in
+                                                                                                                     Robotics with the Department of Computer Science,
+                                                                                                                     University of Liverpool, Liverpool, U.K., where he
+                                                                                          is leading the Robotics and Autonomous Systems Group. He was leading the
+                                 Haiyi Kong received the M.Eng. degree in con-            Robot Teleoperation Group, Bristol Robotics Laboratory, Bristol, U.K. His
+                                 trol engineering from the School of Automation           research interests lie in robot control and learning, human–robot interaction,
+                                 Science and Engineering, South China University          and intelligent system design.
+                                 of Technology, Guangzhou, China, in 2017. She               Prof. Yang was awarded the U.K. EPSRC UKRI Innovation Fellowship
+                                 is currently pursuing the Ph.D. degree in electrical     and an individual EU Marie Curie International Incoming Fellowship. As the
+                                 and electronic engineering with The University of        lead author, he won the IEEE Transactions on Robotics Best Paper Award in
+                                 Manchester, Manchester, U.K.                             2012 and the IEEE Transactions on Neural Networks and Learning Systems
+                                    She is also a visiting student with the Department    Outstanding Paper Award in 2022. He was the President of the Chinese
+                                 of Computer Science, University of Liverpool,            Automation and Computing Society in the U.K. He is the Corresponding
+                                 Liverpool, U.K. Her current research interests           Co-Chair of the IEEE Technical Committee on Collaborative Automation
+                                 include robotics, robot–environment interaction, and     for Flexible Manufacturing. He is a member of the European Academy of
+                                 optimal control.                                         Sciences and Arts.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:37 UTC from IEEE Xplore. Restrictions apply.
+
