@@ -1,0 +1,886 @@
+R15 Contact-Wrench Preview 文献系统映射与阻抗控制融合方案
+版本：2026-09-08
+目标 venue：IEEE Transactions on Robotics；以 IJRR 的理论/能力范围作上界
+状态：LITERATURE-TO-METHOD CONVERGED / HARDWARE AND DATA GATES OPEN
+
+======================================================================
+0. 执行结论
+======================================================================
+
+本轮支持继续推进，但必须把“sensing 创新”改写为“已有 sensing 机制在新物理对象
+上的迁移及其形成的新控制能力”。
+
+已有文献已经充分建立：
+
+1. 六维 wrench + 已知接触几何可以恢复硬点接触位置；
+2. 对 soft-finger/有限接触区，wrench 可以恢复接触压力质心、合力以及法向自旋矩；
+3. 对可变形表面，可把力—变形模型加入几何修正或迭代优化；
+4. contact wrench 的时间序列可以做顺序变化检测；
+5. intrinsic contact sensing 已经与连续表面探索、法向力调节和扫描速度控制结合；
+6. 机器人超声已经使用 F/T、moment、压力分布、组织估计、variable impedance/
+   admittance、QP、MPC 和 passivity。
+
+所以不能声称：
+
+- 首次由 F/T 估计 contact point/centroid；
+- 首次发现 moment 含空间信息；
+- 首次把 intrinsic contact sensing 用于连续 surface exploration；
+- 首次在机器人超声中使用 moment、VIC、MPC 或 energy tank；
+- 首次同时调扫描速度与接触控制。
+
+当前仍可形成的第一核心创新是：
+
+  Finite-patch intrinsic wrench preview：
+  将已有 intrinsic contact sensing 所恢复的“当前接触质心”重新解释为固定超声
+  探头有限接触斑内部的压力一阶矩；在扫描方向已知时，从该质心相对探头任务中心
+  的偏移和合力变化，恢复尚未到达任务中心的材料转变距离与对比，并把它变成
+  阻抗重构的剩余时间预算。
+
+这里的新对象不是 contact point，而是
+
+  upcoming material-transition state =
+  {distance-to-probe-center, contrast, transition width/uncertainty}。
+
+这里的新能力不是更准确地解释当前接触，而是
+
+  before-center-crossing impedance reconfiguration under sensing/actuation delay and
+  gain-rate limits。
+
+建议选用的控制骨架是：
+
+  body-frame task-space variable admittance
+  + preview-conditioned finite-horizon gain/reference governor
+  + passivity/energy safety filter。
+
+原因：RealMan 属于位置接口为主的工业协作臂，task-space admittance 可由外部 F/T
+生成位姿修正，硬件适配性高；finite-horizon governor 能自然消费边界距离形成的
+preview time，并显式处理 gain slew、通信/求解延迟和到达截止时间；energy/passivity
+只承担安全支持，不作为创新。
+
+若 RealMan 最终证实可以高频在线发布并验证 Cartesian K/D，则同一上层 governor
+可直接驱动 physical impedance。若只能流式发布位姿，则必须在论文中称为 variable
+admittance/apparent impedance，并测量 rendered mechanics，不能把软件参数直接称为
+真实 Cartesian stiffness。
+
+======================================================================
+1. 调研范围、检索轴与证据边界
+======================================================================
+
+本轮是 mechanism-oriented systematic mapping，不冒充完成了 PRISMA/meta-analysis。
+检索截止 2026-09-08，围绕以下有向链进行：
+
+A. force/torque -> contact location/centroid/normal/torsional moment；
+B. soft/deformable contact -> corrected intrinsic contact sensing；
+C. wrench time series -> contact/change/texture/slip detection；
+D. intrinsic sensing -> continuous surface exploration/control；
+E. robotic ultrasound -> force/moment/pressure distribution/anatomical sensing；
+F. ultrasound/contact tasks -> variable impedance/admittance/passivity/predictive gains；
+G. exact-chain search：finite patch wrench moment -> future material boundary ->
+   before-arrival impedance reconfiguration。
+
+证据优先级：出版商全文/作者稿和正式 DOI > 机构元数据/摘要 > arXiv。负面检索结论
+只写为“在本轮有界检索中未发现”，不能当作绝对 novelty certificate。投稿前仍需在
+IEEE Xplore、Scopus、Web of Science、Google Scholar 做引用链前向/后向核验。
+
+======================================================================
+2. Contact-wrench sensing：已有方法到底解决了什么
+======================================================================
+
+2.1 Salisbury/Bicchi：hard contact 的 wrench-axis 几何
+-----------------------------------------------------
+
+问题：已知传感器/手指表面几何时，由远置六维 F/T 求接触点。
+
+机制：对无 contact spin torque 的硬点接触，测量 wrench (f,m) 等价为一条沿 f 的
+wrench axis：
+
+  r(lambda) = r0 + lambda f，
+  r0 = (f x m)/||f||^2                    （符号随 wrench convention）
+
+将该直线与已知凸传感器表面 S(r)=0 求交，并利用作用力朝向排除另一交点。输出是
+接触点和接触力。
+
+解决：hard-finger/point-contact localization。
+假设：单接触；工具几何已知；可忽略接触法向自旋矩；凸表面保证解选择。
+可迁移：wrench 变换、力矩臂、表面约束、解析初值。
+不可直接迁移：超声是分布式软接触，wrench-axis 点不等于完整压力分布。
+
+关键文献：
+- Salisbury, Interpretation of Contact Geometries from Force Measurements, ISRR 1984。
+- Bicchi, Intrinsic Contact Sensing for Soft Fingers, ICRA 1990。
+- Bicchi, Salisbury, Brock, Contact Sensing from Force Measurements, IJRR 1993。
+
+2.2 Bicchi soft-finger：contact centroid 而非任意 pressure field
+-----------------------------------------------------------
+
+问题：有限接触区存在压力分布、摩擦和绕接触法向的 spin torque 时，如何由聚合
+wrench 得到有意义的全局接触量。
+
+机制：定义 contact centroid c，把分布式接触等效为作用于 c 的合力 p 加沿局部
+法向 n(c) 的自旋矩 q：
+
+  f = p，
+  m = c x p + q，
+  S(c)=0，
+  q parallel n(c)。
+
+一般形式是非线性平衡方程。ICRA 1990 给出：
+
+- 将 soft contact 当 hard contact 的 wrench-axis 近似及其误差分析；
+- 对凸二次曲面/椭球 soft finger 的精确闭式解；
+- 接触斑尺度应相对局部曲率半径较小等条件。
+
+解决：contact centroid、合力分解和 normal spin torque，不恢复任意压力场。
+可迁移：把超声探头接触斑的 F/M 解释为零阶/一阶空间矩；明确只能辨识低维状态。
+禁止误用：6D wrench 只有六个聚合量，不能无先验恢复任意二维刚度/压力图。
+
+2.3 Liu et al. 2015：可变形橡胶表面的实时 intrinsic contact sensing
+---------------------------------------------------------------
+
+问题：刚性几何假设在覆盖软橡胶层的 fingertip 上产生 contact-location 偏差。
+
+算法：把六维平衡、椭球表面和橡胶变形关系组成非线性方程，以数值非线性最小二乘
+（Levenberg–Marquardt 路线）求接触位置、normal/tangential force 和 local torque。
+
+报告能力：158--242 Hz 实时估计；输出包含 contact location、摩擦/法向力方向和幅值、
+局部力矩；用于 manipulation/surface exploration。
+
+可迁移：
+- 探头罩/耦合层变形不能只当固定刚体 offset；
+- 可把 calibrated force--indentation law 放进 observation model；
+- 闭式/快速解作为迭代估计初值。
+
+不能直接迁移：其未知量仍是“接触在哪里”，而不是“接触斑内部哪一侧的材料属性
+正在改变”。
+
+2.4 Ciotti et al. ICRA 2019：deformation-aware ITS 的双路径
+---------------------------------------------------------
+
+问题：Intrinsic Tactile Sensing 对 rigid surface 有效，但 deformable surface 的实际
+几何随载荷变化。
+
+算法：
+
+1. closed-form correction：依据 force--deformation 特性，把名义几何缩小为受载后的
+   等效几何，再运行标准 ITS；
+2. iterative correction：联合软表面变形、F/T equilibrium 和几何约束最小化残差；
+3. hybrid：闭式解为 iterative method 提供初值。
+
+报告：组合方法收敛低于 1 ms、contact error 低于 1 mm，并实现 ROS toolbox。
+
+这是最适合直接迁移的算法形态：
+
+  fast centroid/ratio estimate
+  -> deformation-aware constrained refinement。
+
+但目标域必须把 surface-deformation model 改为 probe-footprint pressure kernel 与材料
+transition model，而不是原封不动套椭球 fingertip。
+
+2.5 Eberman & Salisbury IJRR 1994：wrench time-series change detection
+----------------------------------------------------------------
+
+问题：在不知道上层 manipulation context 时，如何从 noisy contact signals 检出
+impact、slip、texture 和 contact-condition change。
+
+算法：用 autoregressive signal model 表征近似平稳片段，再用 generalized sequential
+likelihood-ratio variants 检测统计结构变化并分段。
+
+可迁移：为材料边界“进入接触斑”的 onset detector 提供成熟顺序检验；可以控制
+false-alarm，而不是任意选 moment threshold。
+
+局限：它只检出变化/分段，不输出边界距离和未来阻抗 deadline。因此只能作为本方法
+的 detector/baseline，不能代替 finite-patch inverse model。
+
+2.6 Kutsuzawa & Hayashibe IJRR 2026：contact position 与未知工具形状联合估计
+-------------------------------------------------------------------------
+
+问题：传统 F/T contact localization 通常要求已知 tool surface；未知或高维工具形状
+时会失效。
+
+算法：particle filter；每个粒子携带 contact state 和高维 grid-shape parameters，
+通过 force observations 和接触几何一致性更新。
+
+可迁移：
+- 当 probe cover/contact geometry 不确定时用 posterior/set 而非单点；
+- 粒子/多模型可表达 boundary direction、contrast sign 或 transition width 的歧义。
+
+不建议第一版直接迁移完整高维形状粒子滤波：超声探头几何本来可标定，目标状态仅
+2--4 维；高维 PF 会造成不必要复杂度。优先小型 constrained MHE/EKF。
+
+======================================================================
+3. 已有 sensing-control 闭环：最接近的新颖性攻击者
+======================================================================
+
+3.1 Sun & Liu, Autonomous Robots 2020
+-------------------------------------
+
+这是 source-domain strongest prior，必须正文正面比较。
+
+它解决：动态/不规则物体上的连续 haptic surface exploration，同时保持 normal force
+并控制 exploration velocity。
+
+信息流：
+
+  6D F/T
+  -> Liu/Ciotti intrinsic contact sensing
+  -> current contact point + normal/tangential forces
+  -> next surface-following point
+  -> fuzzy normal-force adjustment + PID velocity loop。
+
+算法细节：
+
+- 由已知椭球 fingertip surface 和 wrench equilibrium 解当前 contact point；
+- contact point normal 决定局部推进方向；
+- fuzzy logic 根据当前 normal-force condition 调整控制步长/动作；
+- PID 根据测得速度调 exploration step size；
+- 高层控制约 100 Hz。
+
+作者自己的 failure evidence 对本研究非常重要：
+
+- varying stiffness/complex geometry 产生 dramatic force changes；
+- 当前控制不能足够快地消除这些变化，误差积累；
+- 100 Hz 高层循环可能不足以适应快速几何/刚度变化；
+- 实验主要是 point contact；作者仅说明若由 tactile array 实时得到 contact location，
+  框架可扩展到 surface contact。
+
+它没有：
+
+- 从固定有限 probe footprint 内的 centroid shift 反演尚未到中心的 stiffness boundary；
+- distance-to-boundary/contrast state；
+- preview deadline；
+- 预先完成 variable impedance/admittance transition。
+
+因此本研究应当被表述为对其已报告 failure 的机制级推进：
+
+  current-contact reactive exploration
+  -> within-footprint future-material preview
+  -> deadline-aware mechanical reconfiguration。
+
+3.2 其他触觉闭环
+----------------
+
+- Li et al., RSS 2013 用 tactile array 提取 2D contact position、force、contact region
+  和 edge orientation，再经 selection-matrix/PID tactile servoing。说明 contact feature
+  到控制闭环已成熟，但依赖分布式阵列，且控制当前 tactile pattern。
+- Ho et al., T-RO 2011 使用 soft fingertip 的 force/moments 研究滑动和 incipient slip，
+  说明 moment 可带来及时事件信息；但事件是当前 slip/contact state，不是未来材料边界。
+- Ota et al., ICRA 2024 融合 tactile/force 估计 extrinsic contact patch，用于稳定放置；
+  说明 patch estimation 已有强 prior，但传感器与任务关系不同。
+
+结论：创新不能落在“contact feature enters controller”，必须落在 future-material
+state、可观测性和 deadline-to-impedance relation。
+
+======================================================================
+4. 机器人超声领域：已有工作和剩余 failure
+======================================================================
+
+4.1 F/T / moment 已经怎么用
+--------------------------
+
+1. Jiang et al., TIE 2021：通过小幅 probe rotations 与测得 force 建立机械模型，估计
+   surface normal 并使探头正交。解决几何姿态，不估材料边界。
+
+2. Bao et al., TIM 2023：集成 force/torque measurement、constant-force mechanism 和
+   online adjustment，实现安全扫描和深度调节。wrench 主要用于监测/当前调节。
+
+3. Piedra et al., IJRR 2026：explicit force and moment control，显著降低动态力跟踪
+   phase lag，并以 moment 优化 full probe orientation。它是低层 force/moment control
+   的 strongest comparator，但没有把 moment residual 解释为 future material preview。
+
+4. Gilbertson & Anthony, EMBC 2013：instrumented probe 记录临床六轴 forces/torques，
+   说明信号量级可测，但目标是人因/设计参数，不是 preview control。
+
+所以绝对不能写“首次在 ultrasound 中使用 torque/moment”。
+
+4.2 pressure/contact distribution 已经怎么用
+-------------------------------------------
+
+Mousavi et al., IJCARS 2013 在 TRUS probe 上使用 pressure sensor array，以 pressure
+pattern similarity 优化探头重定位，使术前/术中 deformation 一致。它证明分布式
+压力模式对探头状态有价值，也构成反事实：若允许新增 tactile array，材料边界信息
+可能更直接。
+
+本研究差异：只利用已有 wrist F/T 的低阶矩，不新增阵列；输出是边界相对任务中心
+的 preview state，不是复现已记录 pressure pattern。
+
+4.3 force signal 已经怎么用于 anatomy
+--------------------------------------
+
+Tirindelli et al. 2020 的 Force--Ultrasound Fusion 在脊柱连续扫描中利用横向 force
+peaks 与超声图像，经 1D CNN/temporal convolution 检出椎体等级。它证明扫描 force
+trace 含空间解剖信息，但数据在扫描后/当前位置分类，未使用 contact moment、有限
+接触斑 inverse model 或 pre-transition impedance action。
+
+4.4 现有软接触控制
+------------------
+
+- Wang et al., T-ASE 2024：在任意 Cartesian body frame 下构造 6-DoF admittance，
+  用 closed-form task-space error mapping 和 hybrid law，在 position-controlled
+  cobot 上实现 compliant motion 与 6D force regulation。它是 RealMan 适配的首选
+  low-level execution skeleton。
+
+- Beber et al., ICRA 2024：离线逐点动态触诊，Hunt--Crossley/least squares 得到
+  viscoelastic parameters，经 GPR 建图；在线 QP 选 variable impedance，energy tank
+  保证 passivity/contact-loss safety。它是 tissue-informed VIC 的最近 target prior。
+
+- Fu et al., TIM 2024：current force error -> online QP physical stiffness，energy tank
+  保证 passivity；在静止/扫描、不同材料和坡面上验证。它关闭“QP+VIC+medical contact”。
+
+- Fu et al., T-RO 2025：把 active compliant force regulation、shared control 和
+  global energy tank 组成完整 medical-contact system。它关闭“medical VIC+passivity”。
+
+- Thelenberg & Ott, ECC 2024：MPC 在 finite horizon 内平滑执行 time-varying K/D，
+  用 terminal constraint 避免直接 gain switching 造成非被动/不稳定。它关闭
+  “finite-horizon physical gain planning”。
+
+- Hammoud et al., RA-L 2021：在 uncertain contact location 下 risk-sensitive optimal
+  control 生成接触前后的 feedback-gain schedules。它关闭“before-contact gains”。
+
+- Poignonec et al., RAS 2026：把 variable admittance parameter dynamics、state/control
+  constraints 和 explicit passivity inequality 共同放入 NMPC。它是 preview 融合的
+  strongest generic control shell。
+
+- DOSMAC, CEP 2026：把 stiffness/surface-position/model mismatch 并成 disturbance，
+  observer + sliding-mode admittance 做快速事后补偿。它是 reactive robust baseline。
+
+4.5 尚未闭合的完整链
+--------------------
+
+本轮有界全文/摘要检索未发现单篇完成：
+
+  standard wrist F/T
+  -> fixed finite ultrasound footprint centroid/moment residual
+  -> unknown upcoming material boundary distance + contrast
+  -> remaining time before probe-center encounter
+  -> gain-rate/latency-aware impedance completion before encounter。
+
+这是 relation-level residual，不是任一模块的原子 novelty。
+
+======================================================================
+5. 迁移矩阵：什么拿来用，什么必须重推导
+======================================================================
+
+来源机制                         可直接复用                 目标域必须新增
+----------------------------------------------------------------------
+hard-contact wrench axis          wrench transform/解析初值   分布式软接触模型
+soft-finger contact centroid      F/M 零阶/一阶矩解释        centroid -> boundary state
+deformable ITS                    变形修正+迭代 refinement   probe kernel/gel/tissue model
+sequential GLR change detection   onset/FAR 控制             多变量 whitened F+M statistic
+particle/Bayesian localization    posterior/set semantics     低维 b,q,width 状态
+Sun--Liu ICS exploration          自然扫描+contact feedback   future而非current，K deadline
+Wang 6D admittance                position-arm executor       gains由preview governor发布
+Beber/Fu QP+tank                  gain bounds/passivity        pre-crossing reachability
+Thelenberg/Poignonec horizon      gain dynamics/terminal set   boundary distance给定deadline
+Piedra explicit F/M control       strongest low层 comparator  sensing-control冲突处理
+
+真正的新推导有且只有四项：
+
+1. 固定 probe footprint 下，材料空间转变如何改变 pressure centroid；
+2. F+M 对 boundary distance/contrast 的可观测条件与噪声下最早可靠时间；
+3. contact moment 同时用于姿态与材料感知时的可分离条件；
+4. boundary posterior 如何变成 gain-reconfiguration deadline/viability constraint。
+
+其他组件全部明确作为已有算法复用，不包装创新。
+
+======================================================================
+6. 第一核心创新：Finite-Patch Intrinsic Wrench Preview
+======================================================================
+
+6.1 它不是新传感器
+-----------------
+
+传感器仍是标准 flange/wrist six-axis F/T。contact centroid/CoP 计算仍采用标准
+intrinsic sensing：先将传感器 wrench 变换到 probe-face center P，扣除 gravity、
+tool inertia、cable bias 和已标定 offset：
+
+  W_P = Ad^{-T}_{T_SP}(W_S - W_gravity - W_dynamic - W_bias)。
+
+令 probe local z 为接触法向、x 为扫描方向、y 为横向。若已转到接触平面原点，且
+法向压力占主导：
+
+  c_x = -M_y/F_z，
+  c_y =  M_x/F_z。
+
+这只是标准 CoP/contact-centroid feature，不作为贡献。
+
+6.2 新的 observation object
+--------------------------
+
+在同一正常力、姿态、曲率和速度条件下建立 homogeneous-contact baseline：
+
+  [F0,M0] = h0(F_d, delta, theta_pose, curvature, v, temperature)。
+
+使用 residual：
+
+  y = [Delta F_n, Delta M_y]^T
+    = [F_n-F0, M_y-M0]^T。
+
+接触斑 xi in [-a,a] 内，用经标定的非负 pressure kernel w(xi) 和平滑转变函数
+H_lambda 表示即将进入的新材料：
+
+  Delta p(xi) = q w(xi) H_lambda(xi-b)，
+  Delta F_n = q A0(b,lambda)，
+  Delta M_y = q A1(b,lambda)，
+
+  A0 = integral[-a,a] w(xi)H_lambda(xi-b) dxi，
+  A1 = integral[-a,a] xi w(xi)H_lambda(xi-b) dxi。
+
+b>0 表示边界尚在 probe center 前方；q 是当前 preload/indentation 下的 effective
+mechanical contrast，不强行解释为完整 Young modulus；lambda 是 transition width。
+
+输出不是精确 tissue map，而是：
+
+  z_preview = {b interval, q interval, lambda/model class, confidence}。
+
+6.3 标准算法怎样迁移
+-------------------
+
+建议 estimator 保持集中：
+
+Stage A：multivariate sequential GLR/CUSUM
+  对 whitened residual [Delta F_n, Delta M_y/a] 检出边界进入，显式给 false-alarm rate。
+
+Stage B：closed-form/ratio initializer
+  uniform-kernel step boundary 时，ell=a-b：
+
+    Delta F=q ell，
+    Delta M=q(a ell-ell^2/2)，
+    ell=2(a-Delta M/Delta F)，
+    b=a-ell。
+
+Stage C：deformation-aware constrained MHE
+  以 Stage B 为初值，在短窗口内优化 b,q,lambda 和少量 nuisance states：
+
+    min sum ||y_i-h(z_i,u_i)||^2_{R^{-1}}
+        + process/baseline regularization，
+
+    b_{i+1}=b_i-v_i Delta t+w_b，
+    q_{i+1}=q_i+w_q，
+    0<=b_i<=a_i，q_i in Q，lambda_i in Lambda。
+
+这对应 Ciotti 的“快速近似 -> deformation-aware refinement”，以及 Eberman 的
+sequential change detection；MHE 只是满足约束和不确定性输出的标准实现。
+
+6.4 必须给出的可观测性结果
+-------------------------
+
+对 sharp boundary：
+
+  J = [[A0, -q w(b)],
+       [A1, -q b w(b)]]，
+
+  det J = q w(b) A0(b)[mu(b)-b]，
+  mu=A1/A0。
+
+当 q!=0、boundary 已进入非零面积、w(b)>0 且 affected support 非退化时，b,q 局部
+可辨识。仅 F 单时刻不可分离 q 与 b；F history 在已知速度和固定 step model 下最终
+可以追上，所以必须比较最强 causal F-history estimator，而不是 straw-man instantaneous F。
+
+创新成立的实验判据：在同一 false-alarm/miss-rate 下，F+M estimator 的 reliable
+boundary estimate 比最强 F-history baseline 提前，并且提前量改变控制可行性/动作。
+
+======================================================================
+7. 一个不可回避的新问题：moment sensing 与姿态控制冲突
+======================================================================
+
+材料边界垂直于扫描方向 x 时，主要 preview signature 是 pitch moment M_y。但 M_y
+也会由以下因素产生：
+
+- probe pitch/normal misalignment；
+- local surface slope/curvature；
+- tangential friction acting through gel/cover thickness；
+- cable wrench、sensor-frame offset、tool inertia；
+- pressure kernel 随 preload 改变；
+- 控制器主动转动 probe 以使 M_y -> 0。
+
+Piedra 2026 一类 explicit moment controller 若带宽很高，会把材料引起的 centroid
+shift 当作姿态误差消除。这样不仅 confound estimation，还会主动抹去 preview signal。
+
+因此方法必须选择并验证以下至少一种 separation mechanism：
+
+A. Geometry-referenced separation（首选）
+   用 RGB-D/robot path 给 surface normal，orientation loop 跟踪几何 normal；材料
+   estimator 使用扣除已知 pose/curvature response 后的 M_y residual。
+
+B. Bandwidth separation
+   orientation loop 低于 preview-estimator 有效频带，并对角速度/姿态变化设 slew limit；
+   不能把所有高频 M_y 都送入姿态控制。
+
+C. Closed-loop observation model
+   将已知 orientation command/state 放入 h(z,u)，联合估计 material moment；用于
+   geometry sensor 不可用时，但模型和验证负担更高。
+
+第一版推荐 A+C 的轻量版本：现有扫描轨迹/RGB-D 提供 normal prior，MHE 中将实际
+pitch angle、angular velocity 和法向力作为已知输入，保留一个 bounded geometry
+residual state。材料预瞄使用 M_y residual；低层姿态控制不得直接高带宽归零该 residual。
+
+必须做 identifiability control：
+
+- homogeneous material + changing slope；
+- flat surface + changing material；
+- slope and material simultaneous；
+- both scan directions；
+- orientation loop on/off or low/high bandwidth。
+
+若二者不能分离，第一核心创新不成立，而不是换一个更复杂网络掩盖。
+
+======================================================================
+8. 选择的控制框架及理由
+======================================================================
+
+8.1 主框架：position-based task-space variable admittance
+-------------------------------------------------------
+
+采用 Wang et al. T-ASE 2024 类 arbitrary body-frame 6D admittance 作为 low-level
+execution skeleton：
+
+  M_a(k) ddot e + D_a(k) dot e + K_a(k)e = W_d-W_P，
+
+其中 e 为 nominal scan pose 与 command pose 的 6D body-frame error，admittance 输出
+pose/twist correction 给 RealMan 的 position/velocity interface。
+
+结构化参数：
+
+- normal z：variable d_n,k_n（必要时 fixed m_n）；
+- tangential x/y：保持路径精度和 friction margin 的固定/缓变参数；
+- roll/yaw：维持 imaging orientation；
+- pitch y：由 geometry-referenced orientation loop 控制，避免直接消除 material M_y。
+
+首版只优化确有必要的 normal damping/stiffness 与 scan speed，不在线优化完整 6x6
+matrix，避免 overdesign。若实验显示切向滑移是主要 failure，再引入 k_t/d_t。
+
+8.2 为什么不直接选其他方案
+--------------------------
+
+- 纯 fuzzy/PID：可复现 Sun--Liu，但不能表达 preview deadline、gain-rate 和 robust
+  crossing constraint。
+- 纯 reactive QP VIC：Fu/Beber 已覆盖，而且边界到达后才调 K，正是要解决的 failure。
+- full risk-sensitive DDP：Hammoud 已覆盖 future contact gains，且对 RealMan/超声首版
+  计算负担过大。
+- full generic NMPC for all 6D gains：Poignonec 已给出成熟 shell；若全部照搬只会造成
+  组合工程。目标只需一个小型 preview governor。
+- explicit torque-level force control：Piedra 性能强，必须做 baseline；但 RealMan 是否
+  开放 torque interface 尚未确认，且它不直接提供阻抗重构。若硬件允许，可作为 inner
+  executor 的替代实现，而不改变上层 preview contribution。
+
+8.3 新增层：Preview-Conditioned Impedance/Admittance Governor
+-----------------------------------------------------------
+
+令 eta=[k_n,d_n]^T 是要发布的 normal apparent-impedance parameters，u_eta 是其变化率；
+当前 preview posterior 给出保守边界距离 b^- 和未来材料集合 Theta^+。定义未来材料
+下满足 force peak、contact retention、settling 和 actuator constraints 的 safe gain set：
+
+  Z_safe(Theta^+) = {eta | closed-loop transition constraints hold
+                           for all theta in Theta^+}。
+
+每个慢层周期求一个小型 finite-horizon QP/SQP：
+
+  min sum_j [ ||F_pred,j-F_d||_Q^2
+              +||eta_j-eta_nom(Theta_j)||_R^2
+              +||u_eta,j||_S^2
+              +rho_v(v_j-v_ref)^2 ]
+
+  s.t.
+      eta_{j+1}=eta_j+Delta t u_eta,j，
+      eta_min<=eta_j<=eta_max，
+      |u_eta,j|<=u_eta,max，
+      0<v_min<=v_j<=v_ref，
+      b_{j+1}=b_j-v_j Delta t，
+      F_min<=F_pred,j(theta)<=F_max for theta in Theta，
+      friction/contact constraints，
+      eta_{j_cross} in Z_safe(Theta^+)，
+      energy/passivity budget >= E_min。
+
+j_cross 是 probe center 预计越过边界的时刻。优化器只执行 first move。
+
+这里的核心不是“又一个 MPC”，而是首次让 standard contact-centroid sensing 产生的
+material boundary distance 成为 gain-transition terminal deadline。
+
+8.4 Preview-to-reconfiguration viability condition
+---------------------------------------------------
+
+在 gain box/rate bounds 下，当前 eta 到 future safe set 的最短重构时间为：
+
+  T_gain = min_{eta^+ in Z_safe} max_i |eta_i^+-eta_i|/u_eta,max,i。
+
+加上 sensing、filter、estimation、solve、network、inner-loop settling 的 P99 上界：
+
+  T_req = T_sense+T_filter+T_est+T_solve+T_network+T_gain+T_settle。
+
+保守可用时间：
+
+  T_avail = b^-/v。
+
+预先完成重构的必要条件是：
+
+  T_avail >= T_req + T_margin。
+
+若不满足，最大安全推进速度为：
+
+  v_safe <= b^-/(T_req+T_margin)。
+
+这条关系把 sensing 与 control 变成不可拆的 scientific object：没有 b，无法知道
+deadline；没有 gain-rate/latency，preview 只是感知展示；没有 safe set，提前量不产生
+可验证的控制收益。
+
+8.5 passivity 的角色
+-------------------
+
+variable gain 可能注入能量。采用已有 energy tank/passivity filter：
+
+  E_{k+1}=E_k+Delta t(P_diss-P_var-P_loss)，
+  E_k>=E_min。
+
+对于 variable stiffness，P_var 至少包含 0.5 e^T dot(K_a)e；damping contribution
+按具体离散实现处理。若 preview optimizer 的 first move 超出可用能量，则投影/缩放
+到 passive set，并重新检查能否在 deadline 前到达 Z_safe；若不能，必须减速或停止。
+
+passivity 不是创新，但它使“提前改 gains”在患者接触中可执行。
+
+======================================================================
+9. 完整在线信息流
+======================================================================
+
+Fast loop（robot/F/T rate）：
+
+1. timestamp-align wrench and pose；
+2. gravity/tool inertia/cable compensation；
+3. transform wrench to probe-face center；
+4. low-level body-frame admittance/force-position execution；
+5. record command and applied/rendered response。
+
+Estimator loop：
+
+6. compute standard contact centroid/CoP；
+7. subtract homogeneous geometry/pose baseline；
+8. sequential GLR tests boundary-entry hypothesis；
+9. closed-form b,q initializer；
+10. constrained MHE returns b interval, q interval, model confidence；
+11. reject as material preview if geometry/friction nuisance explains signal equally well。
+
+Governor loop：
+
+12. compute T_avail and future robust safe-gain set；
+13. solve preview-conditioned gain/speed horizon；
+14. pass first move through energy/passivity and hardware projection；
+15. publish eta_applied and v_applied, not merely eta_requested；
+16. on low confidence: keep conservative current gains and slow down；
+17. on infeasible/timeout/contact loss: stop tangential scan, enter safe normal-force/contact mode
+    or withdraw according to verified platform behavior。
+
+======================================================================
+10. 理论贡献应如何组织
+======================================================================
+
+T1. Finite-patch material-transition observability
+    给出 F+M 对 b,q 的局部可观测条件、degenerate cases 和 Fisher-information/noise
+    threshold；同时证明 F-history 在理想模型下最终可辨识，避免夸大 moment。
+
+T2. Geometry--material separability
+    给出已知/有界 pose-curvature nuisance 下 material state 可辨识的 sufficient condition；
+    若两者 sensitivity columns 共线，则声明不可辨识并触发 conservative fallback。
+
+T3. Preview-to-reconfiguration viability
+    证明在 gain-rate、P99 delay 和 future safe set 下，预先完成重构的必要/充分或保守
+    sufficient condition；由此得到 scan-speed bound。
+
+T4. Closed-loop safety
+    复用 passivity/energy tank，证明 governor + safety projection 不破坏 low-level
+    passivity；不要虚构“整个患者-机器人绝对稳定”。
+
+其中 T1--T3 是本论文需要的新理论深度，T4 是已有理论的正确集成。
+
+======================================================================
+11. 实验与 strongest baselines
+======================================================================
+
+11.1 sensing baselines（相同 raw logs、相同 false-alarm rate）
+------------------------------------------------------------
+
+B0. instantaneous F threshold；
+B1. best causal F-history GLR/change-point/MHE；
+B2. standard instantaneous CoP/ratio；
+B3. proposed F+M deformation-aware MHE；
+B4. pressure film/array or known boundary as oracle（若可用，不进入 deployment）。
+
+指标：boundary-entry detection time、distance/contrast error、false alarm、miss rate、
+reliable lead time、condition number/Fisher information、cross-condition generalization。
+
+11.2 control baselines
+--------------------
+
+C0. robust fixed admittance/impedance；
+C1. current-force reactive variable gain（Fu/Beber-style）；
+C2. strong reactive disturbance-observer/sliding-mode admittance；
+C3. explicit force/moment controller or RealMan strongest available force mode；
+C4. oracle-boundary preview governor；
+C5. F-history preview governor；
+C6. proposed F+M preview governor。
+
+指标：first-hit peak force、undershoot/contact loss、settling time、slip margin、path and
+orientation error、US image quality/confidence、gain completion before crossing、speed loss、
+solver deadline miss、energy/tank intervention、rendered impedance error。
+
+11.3 decisive ablations
+----------------------
+
+- remove moment；
+- remove deformation correction；
+- remove geometry nuisance state；
+- preview estimator retained but no preview control；
+- preview control with oracle state；
+- no rate/deadline constraint；
+- no passivity projection；
+- orientation-loop bandwidth low/high；
+- sharp/graded boundary、different contact widths、forces、speeds、directions、curvature。
+
+论文必须显示两级增益：
+
+  sensing gain：F+M 比 best F-history 更早可靠；
+  decision gain：这段额外时间真的使 gain transition 可行并降低 task failure。
+
+只证明第一层不足以支撑 T-RO 控制论文。
+
+======================================================================
+12. 第一核心创新点的最终表述
+======================================================================
+
+中文：
+
+  提出有限接触斑内生 wrench 预瞄机制：复用 intrinsic contact sensing 的接触质心
+  恢复原理，将连续超声扫描中由空间材料转变引起的合力—力矩不对称映射为边界到
+  探头任务中心的距离和有效力学对比；进一步证明该预瞄在何种接触几何、噪声与
+  nuisance 条件下可观，并将其转化为受延迟和阻抗变化速率约束的重构 deadline。
+
+英文候选：
+
+  We introduce finite-patch intrinsic wrench preview, which reinterprets the contact
+  centroid recovered by established intrinsic contact sensing as an endogenous preview
+  of an upcoming material transition within a fixed ultrasound-probe footprint. The
+  resulting distance/contrast belief supplies a physical deadline for completing
+  rate-limited impedance reconfiguration before the probe's imaging center reaches the
+  transition.
+
+注意：投稿前未完成 exhaustive search 时，不使用 “the first”。
+
+建议论文标题候选：
+
+  Using Contact to See Ahead: Wrench-Derived Material Preview for Rate-Limited
+  Impedance Reconfiguration in Robotic Ultrasound
+
+======================================================================
+13. 当前 verdict 与立即执行顺序
+======================================================================
+
+Verdict：CONDITIONAL GO。
+
+这条路线已经比“重新设计一个 F+M estimator”更成熟，也比泛化的 uncertainty/MPC
+故事更聚焦。其顶会顶刊潜力来自：
+
+- source-domain 成熟 sensing mechanism 的合法迁移；
+- target-domain 新的可观状态；
+- 由 published failure 直接导出的控制需要；
+- observability -> deadline -> executable mechanics 的闭环理论关系；
+- 不新增昂贵 tactile array 的系统能力提升。
+
+但有三个 kill gates：
+
+G1. F+M 是否在 loaded real data 上优于 best F-history，而非只优于 instantaneous F；
+G2. geometry/orientation moment 与 material moment 是否可分离；
+G3. RealMan 是否能在 T_avail 内真正改变 rendered admittance/impedance，而不是只改变
+    一个无法验证的 controller parameter。
+
+立即顺序：
+
+1. 获取 RealMan 型号/API/控制模式和现有 raw F/T+pose logs；
+2. 在 homogeneous flat/slope 数据上识别 geometry baseline 和 loaded covariance；
+3. 用 sharp stiffness boundary 做 B0--B3 离线因果回放；
+4. 只有 G1/G2 通过后实现 preview governor；
+5. 用 command-response identification 测 T_req 与 rendered mechanics；
+6. 再做 C0--C6 控制实验。
+
+在 G1/G2 前不开发 full NMPC、不训练大网络、不扩展完整二维 tissue map。
+
+======================================================================
+14. 关键主文献与链接
+======================================================================
+
+[ICS-1] A. Bicchi, Intrinsic Contact Sensing for Soft Fingers, ICRA 1990.
+https://doi.org/10.1109/ROBOT.1990.126117
+
+[ICS-2] A. Bicchi, J. K. Salisbury, D. L. Brock, Contact Sensing from Force
+Measurements, IJRR 12(3), 1993.
+https://doi.org/10.1177/027836499301200304
+
+[ICS-3] B. Eberman, J. K. Salisbury, Application of Change Detection to Dynamic
+Contact Sensing, IJRR 13(5), 1994.
+https://doi.org/10.1177/027836499401300501
+
+[ICS-4] H. Liu et al., Finger Contact Sensing and the Application in Dexterous Hand
+Manipulation, Autonomous Robots 39(1), 2015.
+https://doi.org/10.1007/s10514-015-9425-4
+
+[ICS-5] S. Ciotti et al., Soft Tactile Sensing: Retrieving Force, Torque and Contact
+Point Information from Deformable Surfaces, ICRA 2019.
+https://doi.org/10.1109/ICRA.2019.8794087
+
+[ICS-6] T. Sun, H. Liu, Adaptive Force and Velocity Control Based on Intrinsic Contact
+Sensing During Surface Exploration of Dynamic Objects, Autonomous Robots 44, 2020.
+https://doi.org/10.1007/s10514-019-09896-7
+
+[ICS-7] K. Kutsuzawa, M. Hayashibe, Simultaneous Estimation of Contact Position and
+Tool Shape with High-Dimensional Parameters Using Force Measurements and Particle
+Filtering, IJRR, 2026.
+https://doi.org/10.1177/02783649251379515
+
+[TACTILE-1] Q. Li et al., A Control Framework for Tactile Servoing, RSS 2013.
+https://doi.org/10.15607/RSS.2013.IX.045
+
+[US-1] S. R. Mousavi et al., Towards Ultrasound Probe Positioning Optimization During
+Prostate Needle Biopsy Using Pressure Feedback, IJCARS 8, 2013.
+https://doi.org/10.1007/s11548-013-0898-3
+
+[US-2] Z. Jiang et al., Automatic Force-Based Probe Positioning for Precise Robotic
+Ultrasound Acquisition, IEEE TIE 68(11), 2021.
+https://doi.org/10.1109/TIE.2020.3036215
+
+[US-3] M. Tirindelli et al., Force-Ultrasound Fusion: Bringing Spine Robotic-US to the
+Next Level, 2020.
+https://arxiv.org/abs/2002.11404
+
+[US-4] J. Wang et al., Task Space Compliant Control and Six-Dimensional Force
+Regulation Toward Automated Robotic Ultrasound Imaging, IEEE T-ASE 21(3), 2024.
+https://doi.org/10.1109/TASE.2023.3282974
+
+[US-5] L. Beber et al., A Passive Variable Impedance Control Strategy With
+Viscoelastic Parameters Estimation of Soft Tissues for Safe Ultrasonography,
+ICRA 2024.
+https://doi.org/10.1109/ICRA57147.2024.10610167
+
+[US-6] J. Fu et al., Optimization-Based Variable Impedance Control of Robotic
+Manipulator for Medical Contact Tasks, IEEE TIM 73, 2024.
+https://doi.org/10.1109/TIM.2024.3372209
+
+[US-7] J. Fu et al., Human-Inspired Active Compliant and Passive Shared Control
+Framework for Robotic Contact-Rich Tasks in Medical Applications, IEEE T-RO 41, 2025.
+https://doi.org/10.1109/TRO.2025.3548493
+
+[US-8] A. Piedra et al., Explicit Force-Based Control Strategies for Compliant
+Robot-Assisted Ultrasound Imaging, IJRR, 2026.
+https://doi.org/10.1177/02783649261441635
+
+[CONTROL-1] B. Hammoud et al., Impedance Optimization for Uncertain Contact
+Interactions Through Risk Sensitive Optimal Control, IEEE RA-L 6(3), 2021.
+https://doi.org/10.1109/LRA.2021.3068951
+
+[CONTROL-2] P. Thelenberg, C. Ott, On Handling Variable Stiffness Parameters in
+Compliance Control via MPC, ECC 2024.
+https://doi.org/10.23919/ECC64448.2024.10591005
+
+[CONTROL-3] T. Poignonec et al., NMPC-Based Variable Admittance Control with
+Passivity Constraints, Robotics and Autonomous Systems 202, 2026.
+https://doi.org/10.1016/j.robot.2026.105483
+
+[CONTROL-4] Observer-Based Sliding Mode Admittance Control for Ultrasound Robot
+Force-Tracking in Complex Interaction Environments, CEP 169, 2026.
+https://doi.org/10.1016/j.conengprac.2026.106764
