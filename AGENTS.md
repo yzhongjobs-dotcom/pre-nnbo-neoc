@@ -5,6 +5,8 @@ subsequent completed research change to:
 https://github.com/zyanzhi90-dot/pre-nnbo-neoc
 
 1. Start from `00_基线与变更记录.md` and the user's latest research objective.
+   Read `01_项目推进复盘与后续研究依据_2026-10-14.md` for the completed
+   historical audit, selective reuse and the corrected next research workflow.
    Preserve the reference snapshot under `00_基线快照_2026-10-14/`.
 2. Develop the idea from the field state, strongest-prior failure mechanisms and
    domain taste. Existing modules may be reused. Do not shrink the question to
