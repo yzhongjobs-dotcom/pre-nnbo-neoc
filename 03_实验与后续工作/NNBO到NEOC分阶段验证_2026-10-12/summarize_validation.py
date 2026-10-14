@@ -1,0 +1,115 @@
+"""Write a bounded stage-1 report and check deterministic failure reproduction."""
+from pathlib import Path
+import hashlib
+import json
+
+HERE=Path(__file__).resolve().parent
+a=json.loads((HERE/'results_run1.json').read_text(encoding='utf-8'))
+b=json.loads((HERE/'results.json').read_text(encoding='utf-8'))
+aa={k:v for k,v in a.items() if k!='duration_seconds'}
+bb={k:v for k,v in b.items() if k!='duration_seconds'}
+assert aa==bb
+(HERE/'reproducibility.json').write_text(json.dumps({
+    'stage1_metrics_exact_match':True,'status':b['status'],
+    'wallclock_excluded':True,'stage2_executed':False,'stage3_executed':False},indent=2),encoding='utf-8')
+rows='\n'.join(f"| {r['initialization']} | {r['max_node_residual']:.3g} | {r['jacobian_condition']:.1f} | {r['holdout_min_force_N']:.3f} | {r['max_holdout_relative_residual']:.3f} |" for r in b['root_attempts'])
+r=b['root_attempts'][1]
+rc=b['diagnostic_rollouts']['force_admissible_root']
+lc=b['diagnostic_rollouts']['frozen_source_learned']
+report=f'''# NNBO → NEOC 分阶段验证：停在共同策略质量
+
+## Material Passport
+
+- Origin Skill: academic-research-suite / experiment-agent
+- Origin Mode: run + implementation check + reproducibility
+- Origin Date: 2026-10-12
+- Verification Status: REPRODUCED，固定设置的根、残差、分支及诊断闭环指标重跑完全一致
+- Status: {b['status']}
+- Python {b['python']}，NumPy {b['numpy']}，SciPy {b['scipy']}
+- 单次主要计算约 {b['duration_seconds']:.2f} s，退出码 0；正常退出不代表验收通过。
+
+## 1. 本轮做到了哪一步
+
+用户授权顺序是：共同锚点与策略质量 → NEOC 与强求解基线比较 → 空间预瞄。
+
+已完成第一步的数值构造和检查，**未通过共同策略质量条件，因此未执行第二、三步**。没有 NEOC 参数更新耗时、直接接受率或预瞄控制收益结果。
+
+本次与之前 R15 的失败不同：之前是五状态配置实例的初始根没有求出；这次用更小的原 NNBO 表示，方程可以求到精确节点根，但节点外质量不足。原文连续学习运行成功也不保证这个固定根合格。
+
+## 2. 固定问题与选择
+
+保留已复现的原文 HC 力输入动力学、X=(e,r)、Q=500000/R=1、三项 critic φ=(e²,er,r²) 和已声明紧扰动上界。保留原文无约束 Hamiltonian 极小化 f=-G^T∇V/2，不在求解后裁剪力。
+
+定义固定的三个 Hamiltonian 配置方程 F_i(W)=H(X_i,f(W),W)=0。节点通过固定候选域的基评估矩阵列主元 QR 选择，具体为 (压入量δ,r)：
+
+```text
+(0.006, 0.080)
+(0.020, 0.080)
+(0.020, 0.030)
+```
+
+候选域 δ∈[0.006,0.020] m、r∈[0.030,0.080] m，9×9 候选网格；256 个独立网格中点用于检查，不参与求根。
+
+求解初值分别为原文 W=(20,20,20)、已运行 NNBO 的末端权重和零权重，用同一个方程诊断分支影响。最终权重没有继续在线学习，也不称为新的全局最优权重。矩阵表达、解析 Jacobian 与差分核对通过。
+
+接受检查是节点残差<10^-8、单点 Jacobian 条件数<10^8、检查点的接触力非负、最大归一化 HJB 残差≤0.1。其中相对残差定义为 |H|/(1+Qe²+Rf²+ζ²)，不是控制误差百分比。阈值是本轮局部工程筛选，不是理论证书、预注册研究或期刊门槛。
+
+## 3. 结果
+
+| 初值 | 最大节点残差 | Jacobian 条件数 | 检查点最小力 N | 最大相对 HJB 残差 |
+|---|---:|---:|---:|---:|
+{rows}
+
+从原文初值/零初值得到的分支在检查域内产生负接触力，价值函数二次型也有负特征值，不符合这里的压缩接触和非负代价解释。
+
+从训练权重出发得到的力非负分支为 W≈(563.19,0,168474.03)，节点残差约 {r['max_node_residual']:.3g}，Jacobian 条件数约 {r['jacobian_condition']:.1f}。但独立检查的最大归一化 HJB 残差约 {r['max_holdout_relative_residual']:.3f}，RMS 约 {r['rms_holdout_relative_residual']:.3f}，远未通过质量筛选。
+
+**小节点残差证明求解了这三个方程，不证明在整个接触域内准确解了 HJB。** 换初值可以换根，但不能据此声称找到可执行的近最优分支。不同分支由同一固定方程得到，不是不同方法的速度比较。
+
+## 4. 同一短时闭环的诊断
+
+仅诊断力非负根与冻结 NNBO 训练权重；不是 NEOC 比较，也不把后者当作真实最优策略。使用相同实际动力学与扰动，从 x0=0.022 m、r0=0.040 m 出发，3 s，无探索、权重冻结。
+
+| 策略 | 位置误差 RMSE mm | 3 s 有限累计代价 |
+|---|---:|---:|
+| 力非负的节点精确根 | {rc['tracking_rmse_m']*1000:.3f} | {rc['finite_3s_cost']:.3f} |
+| 冻结原 NNBO 训练权重 | {lc['tracking_rmse_m']*1000:.3f} | {lc['finite_3s_cost']:.3f} |
+
+根策略的累计代价高约 {b['diagnostic_root_cost_increase_over_frozen_learned_fraction']*100:.2f}%。两条诊断轨迹都维持接触并位于选定根检查域内。这个单一诊断不确定谁是最优，却进一步说明“更精确地回到配置点根”没有自动改善实际策略。
+
+## 5. 可以定位什么，尚不能定位什么
+
+可以确认：这组三项表示和固定节点的根精度与域内策略质量脱节；原文在线学习得到的权重也不是该固定方程的根。NEOC 即使准确更新同一根，也不能自动消除这种配置误差。
+
+不能据此证明所有基、节点或 NEOC 都无效，不能证明根唯一，也未独立证明当前局部筛选足以保证真实近最优性。未通过当前实例的筛选不等于当前整个 idea 已被否定。
+
+另一个问题是原文无限时域指标与持续接触的含义。名义静态模型下，在最后目标 r=0.03 m 上保持零位置误差，需要 HC 接触力约 {b['zero_error_contact_equilibrium']['required_force_N']:.3f} N，因此该平衡点运行代价仍约 {b['zero_error_contact_equilibrium']['running_cost']:.3f}。常规收敛的持续接触平衡没有同时零跟踪误差和零力；非零稳态运行代价的无限积分不有限。
+
+这说明不能未经处理就把原文的无限时域表达当作有限且可认证的最优价值。这里仅检查了静态平衡含义，不是对所有可能非收敛轨迹的不存在性定理，也不是已审计否定原论文全部结论。R15 当前正文使用有限时域，不能将这个来源问题直接归为 R15 已有的硬伤。
+
+## 6. 下一步边界
+
+当前停止于第一步。下一项必要决策是：为本轮验证明确一个代价含义正确、域内表示质量可检查的共同问题，再处理表示/节点；不是增加 NEOC 校正次数或先加预瞄。
+
+可考虑沿 R15 现有有限时域定义构造小型接触载体，重新核验 critic，而不是把原文在线学习直接提升为无限时域精确根。**本次没有自动切换时域、增加网络或改写主方法来追求通过结果。** 若这些改造成为较大前置工作，应先由用户完善 idea/验证定义，再推进后两步。
+
+## 7. 文件与运行
+
+- [验证范围](验证范围.md)、[运行脚本](run_staged_validation.py)、[冻结配置](config.json)。
+- [完整结果](results.json)、[第一次结果](results_run1.json)、[复现记录](reproducibility.json)。
+- [固定节点](fixed_nodes.csv)、[独立检查点](holdout_nodes.csv)；各初值对应 `holdout_*.csv`。
+- [根策略诊断轨迹](rollout_force_admissible_root.csv)、[冻结训练权重诊断轨迹](rollout_frozen_source_learned.csv)。
+- [结果整理脚本](summarize_validation.py)。
+
+```powershell
+python -X utf8 run_staged_validation.py
+python -X utf8 summarize_validation.py
+```
+
+运行条件及结论只覆盖这个固定的小实例。源 NNBO 复现、R15 正文、附录和八项证明均未修改。
+'''
+(HERE/'README.md').write_text(report,encoding='utf-8')
+manifest={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in HERE.iterdir()
+          if p.is_file() and p.name!='artifact_manifest.json'}
+(HERE/'artifact_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+print('Stage-1 stop reproduced; report written.')
