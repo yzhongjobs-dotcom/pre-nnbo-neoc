@@ -1,0 +1,644 @@
+R15 有限接触斑 F+M 预瞄机制：Novelty、理论成立条件与 RealMan 可行性审计
+版本：2026-09-08
+状态：CORE HYPOTHESIS NOT YET ACCEPTED；等待真实硬件数据执行 go/no-go test
+
+======================================================================
+0. 结论先行
+======================================================================
+
+必须修正原来的强表述：
+
+  F+M 不会比 F 更早“接触”空间刚度边界。在理想无噪声模型中，边界进入探头前缘
+  时，Delta F 和 Delta M 同时开始非零。
+
+F+M 可能提供的真实优势是：
+
+  在一个时刻内，F+M 可以把“进入接触斑的边界长度/距离”和“力学变化幅度”分开；
+  F 单时刻只能看到二者乘积，必须等待扫描运动产生多个 F 历史样本，才能从时间斜率
+  进一步分离。因此 F+M 可能缩短可用状态估计延迟，而不是改变物理信息到达时刻。
+
+这一区别决定 idea 是否成立。最终要证明的不是
+
+  moment changes earlier than force，
+
+而是
+
+  under the real sensor noise and nuisance dynamics, F+M reaches a reliable
+  boundary-distance/contrast estimate earlier than the best F-history estimator,
+  leaving a positive end-to-end control margin before center crossing。
+
+当前 verdict：
+
+- Novelty：CONDITIONAL POSITIVE。wrench moment/CoP/contact localization/early slip
+  均不是新概念；定向顶会顶刊检索尚未发现“标准 flange F/T 的 F+M -> 软材料边界
+  相对位置/对比 -> 探头中心预瞄 -> rate-limited speed/impedance scheduling”的闭环。
+- Theory：成立条件可清楚写出；理想模型下 F+M 的瞬时可观性严格强于 F-only，
+  但 F-history 最终可恢复同一变量，因此优势是 finite-time/noise-conditioned，而不是
+  无限时域结构可辨识性的绝对提升。
+- RealMan feasibility：INDETERMINATE / HIGH-RISK。官方数据量化和 5 ms UDP 周期允许
+  尝试，但公开 ±0.5%FS accuracy 不能支持微小 moment claim；必须用 loaded raw data
+  测得噪声、漂移、cross-axis coupling、接触斑宽度和控制延迟。
+- 是否值得继续：值得做一个低成本、两阶段 kill test；在通过前不值得继续开发完整
+  MPC/VIC。第一阶段只需静态/匀质扫描数据；第二阶段才需要已知软硬边界数据。
+
+======================================================================
+1. Novelty audit：已有工作做到哪里
+======================================================================
+
+1.1 已有顶会顶刊明确覆盖的能力
+
+A. Wrench moment 用于 intrinsic contact sensing / contact localization
+
+Bicchi, ICRA 1990 已系统讨论从 force/torque 和工具几何恢复接触量，并指出 hard-finger
+与 soft-finger 下可恢复量不同。因此不能声称“首次由 F/T moment 获得接触位置”。
+DOI: 10.1109/ROBOT.1990.126117
+
+Kutsuzawa & Hayashibe, IJRR 2026 用 particle filtering 从 force signals 同时估计
+contact position 与高维 tool shape，并明确回顾了 force/torque contact-position
+estimation 传统。因此“由 wrench 做接触状态估计”已经是成熟研究线。
+DOI: 10.1177/02783649251379515
+
+B. Moment 提供早期接触事件信息
+
+Ho et al., T-RO 2011 的 soft fingertip 同时测量一维力与二维力矩，用于 sliding contact、
+texture recognition 和 timely incipient-slip detection。因此不能把“moment 能比普通
+力反馈提供更及时的接触事件信息”作为宽泛创新。
+DOI: 10.1109/TRO.2010.2103470
+
+C. Contact patch / CoP 用于 tactile servoing 和稳定控制
+
+Li et al., RSS 2013 的 tactile servoing framework 从压力阵列计算 overall force、CoP
+和接触区域，并控制 contact position、force 与 edge orientation。Ota et al., ICRA
+2024 用 tactile + force observation 估计 extrinsic contact patch 以支持稳定放置。
+因此 contact-patch moments、CoP 和 closed-loop tactile control 都不是新概念。
+
+D. 顶刊已做 dense contact field reconstruction
+
+iFEM2.0, T-RO 2025 从 vision-based tactile sensor 重建 dense 3-D contact force field。
+它说明若论文只是“更精细恢复压力分布”，会直接进入高分辨触觉重建强 prior 的范围。
+DOI: 10.1109/TRO.2024.3502197
+
+E. 机器人超声已经使用 F/T、moment、pose/force adjustment
+
+Bao et al., TIM 2023 的超声机器人测量 Fz、Mx、My 并用于安全监测/在线调整；SAPM
+也测量力与力矩并做自适应姿态；Piedra et al., IJRR 2026 已做 explicit force and
+moment control 与 probe alignment。因此不能声称“首次在超声中使用 moment”。
+
+F. Pressure-distribution feedback 已进入超声
+
+至少 2013 年已有 TRUS pressure-sensor array + optimization 用压力模式做 probe
+positioning；另有 acoustically transparent pressure sensor 用于 elastography。
+因此不能声称“首次考虑超声探头压力分布”。
+
+1.2 本轮未发现被覆盖的完整关系
+
+定向检索尚未找到顶会顶刊工作同时完成：
+
+1. 连续软接触扫描中的未知空间 stiffness/compliance transition；
+2. 不使用压力阵列，仅用标准 flange 6-axis F/T 的 aggregated F+M；
+3. 从接触斑零阶/一阶矩恢复 boundary-to-center distance 与 effective contrast；
+4. 把接触斑前缘到任务中心的距离解释为 endogenous preview distance；
+5. 用该距离约束 scan speed 和真实 feedback-mechanics reconfiguration time；
+6. 在任务中心越界前完成控制重构。
+
+故可暂时保留的 narrow novelty claim 是：
+
+  finite-patch wrench moments as endogenous material-transition preview for
+  rate-limited contact-control reconfiguration。
+
+它不是 novelty certificate。仍需最终全文审计：intrinsic contact sensing、robotic
+palpation、rolling/finite-footprint contact sensing、ultrasound pressure feedback、
+automated fiber placement roller control、tactile material-boundary detection。
+
+1.3 最危险的 novelty 边界
+
+- 如果已有工作用 F/T CoP 在连续滑动中定位 stiffness boundary，则 sensing claim
+  基本被覆盖，剩余只有 ultrasound/control timing 应用增量，可能不足 T-RO。
+- 如果已有工作虽不说“stiffness boundary”，但其 contact-location particle filter
+  数学上直接覆盖本模型，则 T1 只能作为应用化特例，不能做理论主贡献。
+- 如果 F-history estimator 在真实数据中与 F+M 同时或更早达到可靠检测，则 moment
+  机制失去必要性；此时只能退化为 finite-patch force-history preview，创新性需重审。
+
+======================================================================
+2. 理论验证：F+M 何时真正增加可观信息
+======================================================================
+
+2.1 最小模型
+
+沿扫描方向定义探头中心 s_c(t)，局部坐标 xi in [-a,a]，a 为当前有效半接触宽度。
+组织边界位于 s_b，边界尚在中心前方时 b=s_b-s_c in (0,a)。新区域进入前缘的长度为
+
+  ell = a-b in (0,a)。
+
+设经过 geometry、gravity、tool lever-arm 和 homogeneous-contact baseline 补偿后，
+材料变化引起的局部增量压力为
+
+  Delta p(xi) = q w(xi) 1{xi >= b}，
+
+其中 q 是当前工作点的 effective pressure/stiffness contrast，w(xi)>0 是已知或有界的
+contact weighting kernel。则
+
+  Delta F = q A_0(b)，
+  Delta M = q A_1(b)，
+
+  A_0(b)=integral_b^a w(xi) dxi，
+  A_1(b)=integral_b^a xi w(xi) dxi。
+
+2.2 F-only 的瞬时歧义
+
+单个 Delta F 只有一个方程，却包含 q 和 b 两个未知量。对任意可行 b，都可以取
+
+  q = Delta F/A_0(b)
+
+产生相同合力。因此单时刻 F-only 不能区分：
+
+- 边界较远、对比较大；
+- 边界较近、对比较小。
+
+这两个状态可能具有相同当前 F，却有不同 remaining preview time 和不同重构紧迫性。
+
+2.3 F+M 的瞬时局部可观性
+
+令受影响区域的压力质心
+
+  mu(b)=A_1(b)/A_0(b)。
+
+因为 w>0，mu(b) 是区间 [b,a] 上 xi 的加权平均，并满足 mu(b)>b。其导数为
+
+  d mu/db = w(b)[mu(b)-b]/A_0(b) > 0
+
+（在 w(b)>0 且 b<a 时）。因此 ratio Delta M/Delta F=mu(b) 对 b 单调；可先恢复 b，
+再由 Delta F/A_0(b) 恢复 q。
+
+观测映射 h(q,b)=[qA_0(b),qA_1(b)] 的 Jacobian 为
+
+  J = [[A_0, -q w(b)],
+       [A_1, -q b w(b)]]，
+
+其 determinant 为
+
+  det J = q w(b) A_0(b)[mu(b)-b]。
+
+因此在下列条件同时满足时局部满秩：
+
+- q != 0；
+- boundary 已进入 patch，A_0(b)>0；
+- boundary 处 kernel 非零，w(b)>0；
+- 受影响区域不是零长度，mu(b)>b；
+- F/M reference frame 和 kernel 已知，或其不确定性没有增加同维度的自由变量。
+
+2.4 Uniform-kernel 解析式
+
+若 w=1，ell=a-b，则
+
+  Delta F = q ell，
+  Delta M = q(a ell-ell^2/2)，
+
+  ell = 2(a-Delta M/Delta F)，
+  b = 2 Delta M/Delta F-a，
+  q = Delta F/ell。
+
+det J 与 q ell^2/2 成正比。ell -> 0 时 determinant 二次趋零：边界刚进入前缘时虽有
+物理信号，但 q 与 b 的分离极度病态。这说明“刚一接触就获得高质量 preview”不成立。
+
+2.5 重要反例：F-history 最终也可辨识
+
+若 scan speed v 已知、q 和 a 在短窗口内近似常数、uniform kernel 且 boundary 为 step，
+
+  ell(t)=v(t-t_entry)，
+  Delta F(t)=qv(t-t_entry)。
+
+两个以上无噪声 F 样本给出 slope qv 和 intercept，因而 F history 也能恢复 q 与
+t_entry/b。故不能宣称 F+M 在无限时域 structural identifiability 上严格优于 F。
+
+正确比较对象必须是：
+
+  best causal F-history estimator
+  versus
+  best causal F+M-history estimator，
+
+在相同 false-alarm、noise、filtering 和 model class 下比较 earliest reliable estimate。
+
+2.6 Noise-conditioned 可观性
+
+设测量 residual y=[Delta F,Delta M]^T 的协方差为 R，包括传感噪声和 homogeneous-scan
+nuisance。局部 Fisher information 为
+
+  I(q,b)=J^T R^{-1}J。
+
+只有当 I 的最小特征值超过任务所需阈值，F+M 才是 practical observable。不能只看
+det J 非零。
+
+转变检测可用 joint Mahalanobis SNR：
+
+  SNR_FM^2 = [Delta F,Delta M] R^{-1} [Delta F,Delta M]^T。
+
+在给定 false-alarm alpha 和 detection probability 1-beta 下，最早满足检测阈值的
+ell 定义 ell_det。必须满足 ell_det<a，才能在中心越界前检测。
+
+对 uniform kernel，直接 ratio estimator 的一阶误差近似为
+
+  Var(ell_hat) approximately
+  4/Delta F^2 [sigma_M^2
+               +(Delta M/Delta F)^2 sigma_F^2
+               -2(Delta M/Delta F)Cov(F,M)]。
+
+当 Delta F 接近零时误差发散，故实现应使用 joint MHE/GLRT，不能逐点计算 M/F。
+
+2.7 “M 比 F 更早可用”的必要检测条件
+
+在前缘附近 ell 很小时，uniform kernel 给出
+
+  Delta M approximately a Delta F。
+
+因此 moment channel 的 force-equivalent noise 为
+
+  sigma_M,eq = sigma_M/a。
+
+若忽略相关性与模型误差，moment 有机会提高早期检测的必要但不充分条件约为
+
+  sigma_M/a < sigma_F。
+
+更真实的条件应使用 residual covariance：
+
+  incremental information gain
+  = I_FM-I_F
+
+在边界距离方向上必须显著为正。若 M 的 loaded noise、bias drift 或 geometry residual
+使 sigma_M,eq >= sigma_F，M 可能不增加、甚至降低稳健性。
+
+2.8 Preview 对控制有用的充分条件
+
+检测时边界到中心的保守距离为 b_lower>0，扫描速度为 v，则
+
+  T_available = b_lower/v。
+
+控制所需总时间为
+
+  T_required = T_filter + T_estimator + T_solver + T_network
+               + dist(K_applied,A_new)/Kdot_applied,max。
+
+idea 对控制有用至少要求
+
+  T_available(P99 lower bound) > T_required(P99 upper bound) + margin。
+
+更严格地，还需 F+M 相对 F-history 的信息时间增益
+
+  Delta T_info = t_reliable,F - t_reliable,F+M
+
+大于引入 M channel/estimator 后的额外计算和滤波延迟，并足以改变真实动作或约束结果。
+如果二者虽然统计上有差异，但都早已满足 T_required，则 moment 没有 decision-level
+必要性；如果二者都晚于 T_required，则 moment 也救不了 Method。
+
+======================================================================
+3. 理论成立所需假设与退化条件
+======================================================================
+
+3.1 最小必要假设
+
+A1. 有限前向接触宽度：a 必须相对扫描速度和控制延迟足够大。
+A2. 边界尺度：transition width 不应远大于 patch；缓慢梯度只产生局部 slope，未必
+    存在可定位 boundary。
+A3. 对比度：effective q 必须使 joint residual 在中心越界前超过任务阈值。
+A4. 已知扫描方向和速度：否则空间距离不能由时间/patch coordinate 对齐。
+A5. 接触核可标定：w 或其不确定集合必须由 probe geometry、preload、indentation
+    范围支持。
+A6. 几何可分：surface slope/curvature、probe tilt 和 material asymmetry 的 residual
+    signatures 必须独立，或 geometry nuisance 有足够窄的外部 bound。
+A7. Wrench reference 正确：sensor-to-probe transform、tool CoM、gravity 和 cable load
+    必须补偿；moment 必须表达在 probe-face center。
+A8. 准静态或动态模型有效：若 viscoelastic relaxation、respiration 和 controller
+    transients 与 spatial transition 同频，需加入动态状态，不能用静态 ratio。
+A9. 单边连续接触：partial contact、rocking 或 gel pockets 不得与 stiffness boundary
+    完全同构；否则只能输出 UNKNOWN。
+A10. 可执行控制权限：机器人必须允许足够快地改变 actual force/impedance response，
+     否则 sensing preview 不会变成控制能力。
+
+3.2 必然退化的情形
+
+- a -> 0：退化为点接触，无空间预瞄；
+- q -> 0：没有可检测力学变化；
+- ell -> 0：F 和 M 都趋零，inverse problem 病态；
+- boundary 已过中心 b<=0：只有事后信息，不再是 preview；
+- transition width >> 2a：只能估局部梯度，边界距离定义失效；
+- unknown tilt/curvature 与 q,b 同时自由变化：两通道不足以估计多个 nuisance；
+- moment saturation/quantization/crosstalk 主导；
+- scan direction 与有效 moment axis 错配；
+- frictional stick-slip 产生同量级 M 且无独立模型；
+- filter 为降低 moment noise 引入的 group delay 吃掉全部 preview gain。
+
+======================================================================
+4. 真实系统数量级审计
+======================================================================
+
+4.1 RealMan 公开边界
+
+以 RM75 六维力版本公开规格为例：
+
+- F/T range：200 N / 7 N·m；
+- accuracy：±0.5%FS；
+- UDP six_force_sensor 数值粒度：0.001 N / 0.001 N·m；
+- Gen-4 UDP report cycle：默认 5 ms，可配置为 5 ms 的整数倍，即理论最高 200 Hz。
+
+注意：±0.5%FS 对 moment 等于 ±0.035 N·m，不能直接解释为短时增量噪声；通过局部
+zeroing/baseline subtraction 可能去除大量固定 bias。真正决定可行性的是 loaded
+repeatability、短时 Allan deviation、temperature drift 和 cross-axis coupling，官方
+公开页没有提供这些关键量。
+
+4.2 传感器对比揭示的风险
+
+公开商业传感器的 nominal torque performance 差异很大：
+
+- Robotiq FT300-S：Mx/My signal noise 约 0.005 N·m，mounted recommended threshold
+  约 0.02 N·m，100 Hz；对 a=10 mm 等效为 0.5 N noise / 2 N threshold，通常不适合
+  检测微小空间 moment。
+- ATI Nano25 SI-125-3：Tx/Ty nominal resolution 约 1/1320 N·m = 7.6e-4 N·m；
+  对 a=10 mm 等效约 0.076 N，与其 Fz nominal resolution 0.0625 N 同量级，moment
+  不会天然明显优于 F，但可能提供第二个独立方程。
+- RealMan UDP 0.001 N·m 数值粒度：对 a=5/10/15 mm 分别等效 0.20/0.10/0.067 N。
+  这只是 quantization lower bound，不是实际 noise。
+
+因此不能笼统说“六维 F/T 足够”。同样的算法在高端小量程传感器上可能成立，在
+大范围工业 F/T 上可能完全不可见。
+
+4.3 预期信号量级
+
+前缘附近 Delta M approximately a Delta F。示例：
+
+- a=5 mm，Delta F=0.2 N -> Delta M about 0.001 N·m；
+- a=10 mm，Delta F=0.5 N -> Delta M about 0.005 N·m；
+- a=15 mm，Delta F=1.0 N -> Delta M about 0.015 N·m。
+
+第二、三个信号对部分传感器可见，但第一个对 RealMan 仅一个数值 count。更严重的是：
+
+- 5 N preload 下 1 mm 未补偿 lateral offset 就产生 0.005 N·m；
+- probe/holder 重力矩会远大于 transition residual；
+- cable motion、surface tilt 和 robot acceleration 可产生同量级动态 moment。
+
+因此真实可行性取决于 differential residual，而不是 full-scale accuracy 或静态分辨率。
+
+4.4 Contact width / scan speed / preview time
+
+最大几何预瞄时间为
+
+  T_preview,max = a/v，
+
+因为只有前半 patch（b>0）属于中心越界前信息。不能把完整 2a/v 当作预瞄时间。
+
+示例矩阵：
+
+                 v=5 mm/s     v=10 mm/s    v=15 mm/s
+  a=2 mm           0.40 s        0.20 s        0.13 s
+  a=5 mm           1.00 s        0.50 s        0.33 s
+  a=10 mm          2.00 s        1.00 s        0.67 s
+
+但有效 T_available=(a-ell_det)/v，小于上述上限。若 filtering/MHE 需要 100 ms、网络
+与求解 20 ms、actual response 重构 300 ms，则 a=5 mm、v=15 mm/s 的 0.33 s 几何
+上限已经不够；即使 signal 可见，控制机制仍不可行。
+
+4.5 RealMan control-authority 风险
+
+官方文档支持 6-axis force/position hybrid modes，并允许设置 mass/damping/stiffness；
+也提供周期性 pass-through trajectory + force-position compensation。当前公开 API 页面
+不能证明用户程序可在扫描过程中以所需频率直接更新并验证 Cartesian K_applied。
+
+因此必须确认：
+
+- 你的型号/固件是否开放在线 M/B/K 更新；
+- 更新命令最小周期、平滑器和最大约 15 cycles lag 是否适用；
+- 是否只能更新 target force/pose 而不能更新 K；
+- command K 与真实闭环 response 之间如何标定。
+
+若不能在线发布 K，原 Method 的“actual impedance scheduling”在该平台上不闭合。
+可做 outer-loop admittance/pose compensation，但那是另一种执行结构，必须重新定义
+claim，不能把软件参数称为真实 rendered impedance。
+
+======================================================================
+5. 需要用户提供的数据
+======================================================================
+
+5.1 一次性硬件/接口信息（先提供，决定日志如何读）
+
+H1. RealMan 精确型号、控制器代际、firmware、SDK/API 版本。
+H2. F/T 是 RealMan 内置还是外置；制造商、型号、calibration/range/resolution、
+    sample rate、内部 filter、输出单位。
+H3. 原始数据接口：TCP query、UDP active report、ROS topic 或独立 DAQ；实际 timestamp
+    来源和是否与 robot pose 同钟。
+H4. 可用控制模式：position、velocity、force-position hybrid、spring/impedance、
+    torque；M/B/K 是否可在线更新及最大频率。
+H5. 超声探头型号、接触面照片/尺寸、曲率半径、扫描方向相对探头轴。
+H6. F/T sensor frame 到 probe-face-center 的 6D transform；probe+holder 质量、CoM；
+    是否有线缆固定和重力补偿。
+H7. 典型 desired force、scan speed、control loop period、已有 filter 参数。
+H8. phantom/组织信息：材料、厚度、支撑底板、可用软硬区域及其 force-indentation
+    曲线；若无 Young's modulus，重复压入曲线即可。
+
+5.2 现有日志最低字段
+
+每条样本至少包含：
+
+  timestamp_raw，
+  Fx,Fy,Fz,Mx,My,Mz_raw，
+  Fx,Fy,Fz,Mx,My,Mz_after_zero/filter（若有），
+  TCP position x,y,z，
+  TCP quaternion，
+  commanded pose/velocity/force，
+  control mode，
+  commanded M/B/K（若有），
+  scan trial id，
+  surface/material label，
+  known boundary coordinate（边界试验）。
+
+最好同时记录 robot/controller timestamp 和 host-receive timestamp，以估计 jitter。
+不要只提供画图后的均值或经过未知低通的曲线。
+
+5.3 第一阶段：无需制作软硬边界即可完成的 noise/nuisance audit
+
+D0. No-contact stationary：
+- 60–120 s raw 6D wrench；
+- 至少 3 个典型扫描姿态；
+- robot disabled/holding 两种状态，如安全允许；
+- 输出频率设为可用最高值。
+
+D1. Loaded stationary on homogeneous phantom：
+- 目标法向力 3/5/8/10 N 或你的安全范围；
+- 每档保持 30–60 s；
+- 每个姿态至少 5 次重复；
+- 记录 creep、temperature、zeroing 时刻。
+
+D2. Homogeneous straight scans：
+- 速度 1/2/5/10/15 mm/s 中可安全实现的档位；
+- 正反两个方向；
+- 至少 10 repeats；
+- 平面与一个已知缓曲面；
+- 保持相同 force/control setting。
+
+该阶段估计：quantization、PSD、Allan deviation、loaded sigma_F/sigma_M、F–M covariance、
+pose/cable-dependent bias、homogeneous false-alarm envelope。若在匀质材料上 M residual
+的 P99 已接近或超过预期 transition moment，idea 直接高风险。
+
+5.4 Contact-width measurement
+
+在每个典型 preload 下测量沿扫描方向的真实接触长度 2a：
+
+- 压力敏感膜/可转印薄膜；或
+- 可移除染色/印迹并垂直拍照；或
+- 若已有透明 phantom，从侧面/底部成像；
+- 每个 force 至少 5 repeats。
+
+必须测“承载压力的接触区域”，不能使用 probe housing/array nominal width 代替。
+
+5.5 第二阶段：已知软硬 transition kill test
+
+D3. Step/ramp boundary scans：
+- 至少 3 个 stiffness ratios；
+- sharp step + 2 个 transition widths；
+- 3 个 force levels、3 个 speeds、双向扫描；
+- 每个 cell 至少 10 repeats；
+- ground-truth boundary coordinate；
+- 初期固定 control parameters，不允许 controller 因信号而改变动作。
+
+目的是公平比较 observation，不是展示控制效果。
+
+D4. Actuation/latency identification：
+- position/force command step 与 chirp；
+- 如果 K 可在线改，多个 K step/ramp；
+- 记录 command send、controller receive/ack、pose/wrench response；
+- 至少估计 P50/P95/P99 total delay、settling time、Kdot_applied,max。
+
+======================================================================
+6. 收到数据后的判定流程
+======================================================================
+
+6.1 Sensor gate
+
+- 从 D0/D1 计算真实 loaded covariance R、bias drift 和 frequency-dependent noise；
+- 把 sigma_M/a 转成 force-equivalent noise，与 sigma_F 比较；
+- 检查 M 是否主要由 pose、cable 或 acceleration 解释；
+- 若 transition-scale M < homogeneous P99 residual，判为 FAIL 或需要更好传感器。
+
+6.2 Information gate
+
+用相同训练数据、相同 false-alarm rate 比较：
+
+B0. instantaneous F threshold；
+B1. optimal causal F-history change-point/MHE；
+B2. instantaneous/joint F+M；
+B3. causal F+M MHE。
+
+输出：
+
+- earliest detection location/time；
+- boundary-distance MAE/credible interval；
+- contrast estimation error；
+- false alarm / missed detection；
+- Delta T_info = t_B1 - t_B3；
+- leave-one-speed/material/force-out generalization。
+
+若 B3 不稳定地早于 B1，F+M 的核心必要性 FAIL。
+
+6.3 Control-value gate
+
+计算每次 trial：
+
+  T_margin = b_lower/v - T_required,P99。
+
+只有在以下条件同时成立时进入完整 Method 开发：
+
+G1. 至少在论文目标 operating envelope 内，B3 在中心越界前达到指定 detection/
+    estimation reliability；
+G2. B3 相对 B1 有稳定正的 Delta T_info，且不是一个采样周期内的偶然差异；
+G3. T_margin>0，并对 noise/latency uncertainty 保持正值；
+G4. 提前量会改变 feasible K/speed action 或减少 matched controller 的 transition loss；
+G5. 无需不可部署的新压力阵列或离线组织地图。
+
+推荐更严格的工程门槛：T_margin 至少大于一个完整控制更新周期并保留 20–30% 时间
+裕量；统计上对每个核心环境报告 bootstrap confidence interval，而不是只报均值。
+
+6.4 三种结果及路线处理
+
+RESULT A — GO：
+F+M 显著早于最佳 F-history，且 T_margin>0。继续 CPP-IC；这时 T1–T3 具有真实物理和
+实验支撑。
+
+RESULT B — PIVOT：
+finite patch 的 F history 本身已有预瞄，但 M 无独立优势。放弃“wrench moment 是
+核心创新”，改为 finite-footprint change-point preview；重新审 novelty，可能需要
+加入低成本 distributed sensing 或另找更强机制。
+
+RESULT C — STOP：
+边界在中心前不可可靠检测，或 preview 被 filtering/actuation latency 吃完，或 strongest
+force controller 已无 meaningful transition failure。停止该 idea，不继续堆 MPC、
+passivity 或 theorem。
+
+======================================================================
+7. 当前是否值得继续发展
+======================================================================
+
+值得继续到“传感机制 kill test”，但不应立即进入完整 T-RO Method 实现。
+
+理由：
+
+1. 理想模型给出了真实的瞬时 rank gain，而不是纯直觉；
+2. 已有顶刊证明 moment 对滑动接触早期事件、contact location 和 patch state 有价值；
+3. 本轮没有找到相同的 ultrasound material-transition preview control 闭环；
+4. RealMan 可提供最高约 200 Hz 同步 6D data，时间采样不构成先验否决；
+5. 但 0.001 N·m 数值粒度、±0.5%FS accuracy、未知 loaded noise、有限 a 与 online K
+   权限使可行性风险很高；这些都能用低成本数据在进入复杂控制前判死活。
+
+研究上最健康的下一步不是“完善算法”，而是先用 D0–D3 回答一个二元问题：
+
+  在固定 false-alarm 与真实 nuisance 下，F+M 是否比最佳 F-history 提前得到足够精确
+  的 boundary distance，并留下正的 end-to-end actuation margin？
+
+只有答案为是，这个 idea 才值得按 T-RO 路线继续。
+
+======================================================================
+8. 本轮主要证据链接
+======================================================================
+
+1. Bicchi, Intrinsic Contact Sensing for Soft Fingers, ICRA 1990.
+   https://ieeexplore.ieee.org/document/126117/
+
+2. Ho et al., Development and Analysis of a Sliding Tactile Soft Fingertip
+   Embedded With a Microforce/Moment Sensor, T-RO 2011.
+   https://doi.org/10.1109/TRO.2010.2103470
+
+3. Li et al., A Control Framework for Tactile Servoing, RSS 2013.
+   https://roboticsproceedings.org/rss09/p45.pdf
+
+4. Ota et al., Tactile Estimation of Extrinsic Contact Patch for Stable
+   Placement, ICRA 2024.
+   https://arxiv.org/abs/2309.14552
+
+5. Kutsuzawa & Hayashibe, Simultaneous Estimation of Contact Position and
+   Tool Shape with High-Dimensional Parameters Using Force Measurements and
+   Particle Filtering, IJRR 2026.
+   https://doi.org/10.1177/02783649251379515
+
+6. iFEM2.0, Dense 3-D Contact Force Field Reconstruction and Assessment for
+   Vision-Based Tactile Sensors, T-RO 2025.
+   https://doi.org/10.1109/TRO.2024.3502197
+
+7. Piedra et al., Explicit Force-Based Control Strategies for Compliant
+   Robot-Assisted Ultrasound Imaging, IJRR 2026.
+   https://doi.org/10.1177/02783649261441635
+
+8. Bao et al., A Novel Ultrasound Robot with Force/Torque Measurement and
+   Control for Safe and Efficient Scanning, TIM 2023.
+   https://pubmed.ncbi.nlm.nih.gov/37323850/
+
+9. RealMan RM75 official specifications.
+   https://www.realman-robotics.com/en/products/rm75.html
+
+10. RealMan Gen-4 UDP active report documentation.
+    https://develop.realman-robotics.com/en/robot4th/json/udpConfig/
+
+11. RealMan force-position hybrid control documentation.
+    https://develop.realman-robotics.com/en/robot4th/json/motionConfig/
+
+12. ATI Nano25 official specifications.
+    https://www.ati-ia.com/products/ft/ft_models.aspx?id=Nano25
+
+13. Robotiq FT300-S official manual.
+    https://assets.robotiq.com/website-assets/support_documents/document/FT300-S_Sensor_Manual_general_PDF_20210831.pdf

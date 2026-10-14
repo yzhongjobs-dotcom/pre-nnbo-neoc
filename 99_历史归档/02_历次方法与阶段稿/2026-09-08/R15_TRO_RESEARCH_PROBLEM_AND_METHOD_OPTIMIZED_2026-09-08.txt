@@ -1,0 +1,805 @@
+R15 研究问题与技术路线优化稿：有限接触斑内生预瞄控制
+版本：2026-09-08
+目标 venue：IEEE Transactions on Robotics（T-RO）
+参考上界：IJRR；当前不声称已经达到 IJRR 的普适理论范围
+状态：METHOD-DESIGN CONVERGED / EMPIRICAL VALIDATION PENDING
+
+======================================================================
+0. 最终判断
+======================================================================
+
+保留既定研究边界：
+
+- 连续机器人超声扫描；
+- 无患者特异的离线逐点触诊或预先力学地图；
+- 未知、空间变化、可变形的软组织接触；
+- 机器人必须维持力、接触、滑移、执行器和交互能量约束；
+- 研究对象仍是实际可执行的法向—切向反馈力学，而不是只输出理想力或抽象策略。
+
+但必须替换旧版核心矛盾。旧版把 scientific delta 压在“只辨识会改变阻抗
+决策的不确定性”上。该表述不能支撑 T-RO 级创新：decision relevance、dual
+control、task-oriented information gathering 和 safe SysID 均已有强 prior；继续增加
+regret、certificate 或 branch MPC 只会把一个局部增量做重。
+
+本稿锁定的领域主线是：
+
+  online/adaptive impedance or robust force control
+  for continuous scanning over spatially varying soft tissue。
+
+沿该主线递归追问后，尚未解决的主要 failure 是：
+
+  当探头从一种组织力学区域连续驶入另一种区域时，点接触/集中参数控制器只有在
+  新组织已经改变接触响应后才能估计或补偿；而受限于感知、求解、低层执行和阻抗
+  变化速率，新的安全反馈力学必须在探头任务中心到达该区域前完成准备。于是系统
+  往往先经历一次 first-hit force peak、接触松脱或滑移风险，再完成“在线适应”。
+
+根因不是估计器不够复杂，而是现有方法把具有有限空间长度的探头—组织接触斑压缩
+成位于探头中心的单点/单刚度/合力通道，丢掉了接触斑内部的空间次序。超声探头的
+前缘实际上先接触即将到达中心的组织；该区域引起的压力质心偏移和接触力矩，是
+不需要额外 probing 的内生机械预瞄。
+
+由此形成新的 paper-level mechanism：
+
+  finite contact patch
+  -> force–moment asymmetry
+  -> upcoming boundary distance/contrast set
+  -> available preview time
+  -> scan-speed / executable-impedance co-design
+  -> transition-safe continuous scan。
+
+该机制把“有限接触斑”从建模误差变成预瞄传感器，把“在线适应”从事后反应变成
+有可用时间条件的事前重构。创新不来自模块组合，而来自一条此前主线没有利用的
+物理—信息—控制关系。
+
+======================================================================
+1. 苏格拉底式 failure ladder：为什么问题停在这里
+======================================================================
+
+Q1. 固定阻抗能否完成连续扫描？
+
+能完成均匀、缓变且已由保守包络覆盖的接触；不能同时在软区保持跟踪、在硬区限制
+瞬态载荷并在切向维持足够的路径刚度与滑移裕度。若一个固定 K 对全包络都近似最优，
+本研究没有必要，必须停止。
+
+Q2. 离线逐点触诊 + 空间插值 + 在线 VIC 是否解决？
+
+它可提前知道路径上的力学变化，因此能够事前调节 K；但代价是患者特异的独立
+触诊阶段，地图会受姿态、预载、时间变化和组织运动影响而失配。Beber et al.
+ICRA 2024 属于此类边界：其组织参数来自离线点式动态触诊/拟合并经空间插值，
+而不是扫描中在线估计。
+
+Q3. 在线参数估计 + MPC/VIC 是否解决离线负担？
+
+它解决“当前未知”，但没有解决“即将进入的新区域未知”。Xue et al., RAS 2025
+在未知软环境中在线估计接触模型并做 adaptive robust passive MPVIC；这仍是接触响应
+出现后的局部更新。若空间参数存在突变，中心点模型存在不可消除的适应时序滞后。
+
+Q4. disturbance observer / sliding-mode / explicit force control 是否已经解决？
+
+它们显著改善扰动出现后的力跟踪。DOSMAC 把刚度、表面位置和模型误差并为 lumped
+disturbance；DO-MPAC 用 ESO + predictive admittance；Piedra et al., IJRR 2026
+用 explicit force/moment control 把高频力跟踪相位滞后大幅压低。因此，“更快跟踪
+合力”不能作为本研究贡献。
+
+剩余 failure 是：这些方法主要把接触看成法向集中扰动或把力矩用于姿态/对齐，
+没有把接触斑中由空间力学异质性产生的合力—力矩不对称解释成“中心尚未到达区域”
+的距离和力学对比，也没有把可用预瞄时间与扫描速度、阻抗重构时间联立。
+
+如果 matched explicit force control 在相同机器人、相同带宽、相同速度和相同约束下
+已经使所有过渡风险消失，则本研究的任务收益被证伪；不能靠换指标回避。
+
+还必须纳入 Min et al. 2026 的 adaptive speed-regulated impedance control：该方法已
+根据 force-tracking error 在线调节轨迹速度。因此，“同时调速度和阻抗”也不能作为
+创新。剩余区别必须是：由 contact-patch spatial moment 恢复边界距离/对比，并以
+remaining preview time 而不是已经发生的 force error 约束速度和 K 的重构时序。
+
+Q5. generic dual control / active probing 是否解决？
+
+它能主动制造信息，但在这里不是第一选择。未接触的组织不能通过接触动作直接辨识；
+额外微激励还会增加扫描扰动。更关键的是，探头的自然连续运动已经让前缘先遇到
+未来区域。若被动利用该物理预瞄已足够，增加 branch belief MPC 或独立 probing
+属于 overdesign。
+
+Q6. 外部 RGB-D surface preview 是否解决？
+
+它预瞄几何和法向，不能直接提供皮下/表层等效刚度、粘性或摩擦转变；几何预瞄是
+分离几何力矩与材料力矩所需的辅助信息，不是本问题本身的答案。
+
+Q7. 因此最深且仍可操作的 failure 是什么？
+
+不是“估计不准”，而是：
+
+  causal adaptation-lag under spatial contact transitions。
+
+即接触力学只有通过接触可观，而安全、平顺的反馈力学又需要在任务中心进入新区域
+前完成切换。现有点接触表征把可用的空间预瞄折叠掉，从而把一个本可提前处理的
+扰动人为变成纯反应式扰动。
+
+======================================================================
+2. 最终研究问题
+======================================================================
+
+2.1 纯问题表述（论文主问题，不能写入方法答案）
+
+在无患者特异离线力学地图的连续机器人超声扫描中，当未知组织力学沿扫描路径发生
+空间转变，而接触感知、控制求解和实际阻抗重构均具有延迟/速率限制时，如何避免
+“先发生过渡载荷或接触失败、后完成在线适应”的因果滞后，并在不中断诊断扫描的
+条件下维持力、接触、滑移和交互稳定性约束？
+
+2.2 一般化控制问题
+
+对于具有有限接触足迹的连续软接触任务，能否从当前接触斑的聚合 wrench 中恢复
+即将到达任务中心的空间力学转变，并根据剩余预瞄时间共同调节任务推进速度与实际
+反馈力学，使 rate-limited controller 在转变到达前进入相应的鲁棒可行集合？
+
+2.3 目标能力
+
+机器人不做独立触诊，不假设完整未来刚度图，也不通过专门激励打断扫描；它利用
+正在发生的自然滑动接触，在探头中心到达软硬边界前判断：
+
+- 边界还有多远；
+- 转变对未来接触响应的方向和有界幅度是什么；
+- 当前速度是否留下足够的估计、求解和阻抗重构时间；
+- 应保持速度并平滑改 K，还是减速/保守切换/撤离。
+
+======================================================================
+3. Source mechanism 及迁移合法性
+======================================================================
+
+3.1 来源 A：wheelbase / road-preview suspension control
+
+车辆预瞄悬架用前轮已经测得的路面扰动，为后轮尚未遭遇的同一扰动提供时间提前量；
+preview time 决定前馈补偿是否来得及。迁移的不是汽车模型或 LQ 参数，而是关系：
+
+  upstream contact response
+  -> downstream encounter preview
+  -> rate-limited mechanical reconfiguration。
+
+目标域对应关系：
+
+  front wheel              -> probe leading-edge strip
+  rear wheel/task point    -> probe center / imaging reference point
+  wheelbase                -> usable half contact-patch length
+  vehicle speed            -> ultrasound scan speed
+  suspension reconfigure   -> rendered impedance transition
+  road disturbance         -> spatial tissue-mechanics transition。
+
+关键差异也正是目标域创新：这里没有两个轮子或外部前视传感器；需要先证明单个柔性
+接触斑的聚合合力与力矩包含足以恢复前缘转变的空间信息。
+
+3.2 来源 B：contact wrench / center-of-pressure / contact-patch estimation
+
+面接触的 wrench 是压力分布的低阶矩。合力给出零阶矩，绕切向轴的力矩给出一阶矩；
+二者可得到压力中心。腿式机器人用 CoP 判断支撑，操作研究用 tactile + wrench 估计
+外部接触斑。迁移到本任务后，CoP 不只表示姿态是否垂直，而表示“接触斑哪一侧的
+等效支撑正在改变”。
+
+3.3 迁移后的新机制
+
+本研究不声称 preview control 或 CoP 本身新。新 relation 是：
+
+  使用超声探头有限接触斑的 wrench moments，在自然连续扫描中恢复未知空间力学
+  边界的相对位置与对比；再把由接触斑宽度和扫描速度产生的 preview-time budget
+  写入实际阻抗切换和安全约束。
+
+这不是“把 A 算法用于 B 应用”。若去掉 contact-patch observability 和 preview-time
+feasibility 两条目标域推导，汽车预瞄控制不能直接工作，普通 CoP 控制也不能回答
+应何时、以多快速度切换何种反馈力学。
+
+======================================================================
+4. 核心物理模型：从点接触改为有限斑低阶场模型
+======================================================================
+
+4.1 坐标与接触场
+
+令 s_c(t) 为探头任务中心沿表面的弧长位置，v(t)=dot{s}_c(t)>0。令 xi 为探头局部
+扫描方向坐标，当前接触斑为
+
+  P(t) = {s_c(t)+xi | xi in [-a_t,a_t]}。
+
+a_t 由探头曲率、压入量和接触状态决定，在线只要求一个经标定/估计的区间
+[a_lower,a_upper]，不假设精确常数。
+
+采用可实时计算的局部 foundation model，而不是完整 FEM：
+
+  p(xi,t) = Phi(delta_0(t)+alpha(t)xi,
+                delta_dot_0(t)+alpha_dot(t)xi,
+                theta(s_c(t)+xi,t)) + r_p(xi,t)，
+
+其中 p 是法向压力，theta 是只在局部窗口内定义的等效接触属性，alpha 表示几何/
+姿态引起的压入梯度，r_p 属于经实验校准的有界余项。
+
+测得的法向合力和俯仰力矩（变换到探头面中心后）为
+
+  F_n(t) = integral_{-a_t}^{a_t} p(xi,t) dxi，
+  M_y(t) = integral_{-a_t}^{a_t} xi p(xi,t) dxi。
+
+这两个量分别是压力场的零阶和一阶空间矩。切向合力用于约束摩擦/滑移；本论文的
+核心可辨识性 claim 只针对法向空间转变，避免把无法验证的全参数辨识塞入主方法。
+
+4.2 最小解析 witness：为什么 F + M 提供内生预瞄
+
+考虑经过几何补偿后的局部均匀压入 delta>0。探头从左向右运动，一个刚度跳变
+Delta k 在前缘进入接触斑。令 ell in (0,2a) 是新区域已经进入接触斑的长度，则
+
+  Delta F = delta Delta k ell，
+  Delta M = delta Delta k (a ell - ell^2/2)。
+
+因此在 Delta F != 0 时：
+
+  ell = 2(a - Delta M/Delta F)，
+  Delta k = Delta F/(delta ell)。
+
+映射 (Delta k,ell) -> (Delta F,Delta M) 的 Jacobian determinant 为
+
+  - delta^2 Delta k ell^2 / 2，
+
+在非零转变进入非零长度后局部可逆。相比之下，仅有 Delta F 时，无穷多个
+(Delta k,ell) 产生相同合力：控制器不知道这是“较远但很硬”的边界，还是“很近但
+较弱”的边界，也就不知道剩余切换时间。
+
+该 witness 不作为真实组织的最终模型。它证明要追求的结构性事实，并给 nonlinear
+MHE / set-membership estimator 提供可检验的可观条件。
+
+4.3 必须处理的混淆项
+
+力矩不只来自材料异质性，还来自：
+
+- 表面曲率和探头姿态误差；
+- F/T sensor 到探头面的 lever arm；
+- 粘性和组织运动；
+- 切向摩擦、线缆载荷与机器人动力学残差；
+- 接触斑宽度随压入和刚度变化。
+
+因此算法不能把 M_y 的变化直接称为刚度边界。几何由 RGB-D/机器人姿态给出有界
+先验，lever arm 离线标定，空载/匀质扫描得到传感残差包络；剩余材料转变只以集合
+形式发布。若几何残差集合与材料转变集合无法分离，系统必须输出 UNKNOWN 并减速或
+保持保守阻抗，而不能伪造 preview。
+
+======================================================================
+5. Method：Contact-Patch Preview Impedance Control（CPP-IC）
+======================================================================
+
+整个 Method 只保留四个不可删除模块。
+
+5.1 M1 — Wrench-moment residualizer and patch state
+
+输入：probe-frame 6-axis wrench、机器人 pose/velocity、表面几何预瞄、当前阻抗与
+参考运动。
+
+先把 wrench 变换到探头面中心，去除已标定重力/线缆项，并用几何接触模型得到
+W_geom 区间。构造
+
+  y_patch = [F_n,M_y] - W_geom，
+
+以及可选的切向 slip margin。状态不估计完整组织参数场，只维护局部 transition
+descriptor：
+
+  zeta = [r_b, Delta q_n, a, mode]，
+
+其中 r_b=s_b-s_c 是边界相对任务中心的距离，Delta q_n 是在当前工作点影响闭环
+接触斜率的有效变化，mode in {no-transition, entering, exiting, unknown}。
+
+必要性：没有 r_b 就没有 preview time；没有 Delta q_n 就无法判断是否需要重构；
+完整 E、c、mu 场对本 claim 不必要。
+
+5.2 M2 — Set-valued patch-preview observer
+
+在长度约为一个接触斑的滑动窗口上求解 bounded-error moving-horizon problem：
+
+  Z_t = {zeta_{t-L:t} |
+         wrench residuals, pose, geometry and patch dynamics are consistent
+         with calibrated noise/remainder bounds}。
+
+优先采用低维多假设/区间 MHE，而非 GP 全场、Bayesian belief tree 或神经隐状态。
+输出是：
+
+- boundary-distance interval R_t；
+- effective-transition interval Delta Q_t；
+- detection confidence 不是概率分数，而是集合是否与 no-transition hypothesis 分离；
+- remaining preview-time interval
+
+    T_prev = R_t / v_t。
+
+若集合未分离，控制器只能使用 union uncertainty。
+
+5.3 M3 — Preview-feasibility governor and impedance scheduler
+
+动作最小化为
+
+  u_h = [v, k_n, k_t, d_n, d_t]。
+
+不额外优化 probing action；正常路径方向不变，只允许速度 governor 在 preview 不足
+时减速。阻尼优先由目标 damping ratio 和有效质量导出，若独立优化不能带来可验证
+收益，则把 d_n,d_t 从 decision vector 删除。
+
+对每个候选未来中心位置，observer 给出接触斜率集合 Q_i。控制器求一个短时域
+robust QP/SOCP：
+
+  min sum_i (w_f |F_i-F_d|^2
+             + w_x |e_path,i|^2
+             + w_s v_i^2 slipRisk_i
+             + w_K ||K_i-K_{i-1}||^2
+             + w_v |v_i-v_nom|^2)
+
+  subject to, for all q in Q_i:
+
+    F_min <= F_i(q) <= F_max，
+    contact maintained，
+    |F_t,i| <= mu_lower F_n,i - margin，
+    robot torque/velocity limits，
+    K_min <= K_i <= K_max，
+    ||K_i-K_{i-1}|| <= Delta K_max，
+    preview-feasibility constraint，
+    passivity publication constraint。
+
+核心不是目标函数，而是 preview-feasibility constraint：
+
+  T_prev_lower
+  >= tau_est + tau_solve + tau_comm + tau_render(K_current,K_target)。
+
+其中 tau_render 由真实低层 gain rate/communication dynamics 测得，而不是假设 K
+瞬时生效。等价地，速度上界为
+
+  v <= r_lower /
+       (tau_est+tau_solve+tau_comm+tau_render)。
+
+若新旧区域的鲁棒可行 K 集合相交，保持共同 K，不必减速或切换；若不相交，则在
+中心越界前完成平滑重构；若预瞄时间不足，则减速；仍不可行时发布预验证的低速/
+withdraw action。
+
+这条速度—阻抗时间耦合是 Method necessity 的一部分：只优化 K 无法突破物理切换
+速率，只减速又无法为不同接触区选择合适的反馈力学。
+
+5.4 M4 — Applied-impedance publication with exact energy accounting
+
+旧版只对 k_n/k_t 的变化计能量，在曲面扫描中不正确：接触基 R=[t_1,t_2,n]
+旋转也会改变世界坐标中的 K。
+
+本稿采用离散发布，并对完整矩阵变化计能量。每次发布前构造
+
+  K^- = R^- diag(k_t^-,k_t^-,k_n^-) R^{-T}，
+  K^+ = R^+ diag(k_t^+,k_t^+,k_n^+) R^{+T}。
+
+在同一物理误差 e 上，储能跳变量为
+
+  Delta V_K = 1/2 e^T (K^+ - K^-) e。
+
+只有当 tank 可支付 max(Delta V_K,0) 且保留 E_min 时才发布 K^+；否则沿当前 K 到
+候选 K 的线段回缩，或降低速度等待耗散补充。该式同时计入 gain change 与 basis
+rotation，不再漏掉 moving-frame power。参考轨迹/显式力前馈的供能必须单独记账，
+不能混入“passive impedance”结论。
+
+optimizer command 不是 applied K。实验必须记录控制接口确认的 K_applied、延迟和
+饱和；所有 preview feasibility 使用 K_applied dynamics 标定值。
+
+======================================================================
+6. 必须形成的理论主干
+======================================================================
+
+理论不以六个松散 certificate 堆数量。只保留三条主结果和一条实现闭合结果。
+
+T1. Finite-patch transition observability
+
+在明确的 patch/contact 假设下，证明零阶—一阶 wrench moments 对局部边界位置与
+有效接触对比的映射局部单射，并给出噪声、几何误差、a 不确定时的 interval error
+bound。还必须给出退化条件：Delta q=0、ell=0、F_n 过小、几何/材料假设集合重叠、
+转变宽度远大于 patch 等。
+
+技术价值：证明不是“力矩做 feature”，而是目标变量何时可恢复、何时不可恢复。
+
+T2. Force-only / point-contact ambiguity and transition-loss lower bound
+
+构造两类 patch transitions，它们在允许的 force-only observation tolerance 内产生
+相同合力观测，但具有不同边界距离/对比，且在给定 K-rate 与 actuator limits 下要求
+不相交的 pre-transition admissible action sets。证明任何只基于该 observation class
+的 causal controller 必须对二者发布相同行为，因此至少一个环境产生正的最坏情况
+transition loss 或违反约束。
+
+该结论必须基于 policy-induced observation histories，而不能像旧版 Theorem 3 那样
+固定与 policy 无关的 P_i。若 force history/derivative 已足以区分所构造环境，则必须
+收窄 observation class 或放弃该 lower bound；不能靠文字绕过。
+
+技术价值：给出 wrench moment 的 necessity 条件，而不是宣称所有 force controller
+都失败。
+
+T3. Preview-time sufficiency for pre-transition feasibility
+
+定义每个接触模式的 robust admissible set A_j 和实际阻抗转移时间 tau_render。
+证明若：
+
+- true transition 包含于 observer 集合；
+- T_prev_lower 大于完整计算/通信/执行预算；
+- 从当前 applied K 到 A_j 存在满足 rate、energy 和 actuator constraints 的路径；
+- governor 保证预测模型余项的 tube bound；
+
+则中心到达边界前 applied K 进入 A_j，且过渡阶段的 force/contact/slip constraints
+满足。若条件不成立，算法返回 low-speed/withdraw，而不是无定义动作。
+
+技术价值：把“预瞄更好”升级为可验证的能力边界，并自然推出速度 governor。
+
+T4. Passivity across gain-and-frame updates（实现闭合）
+
+在每个固定 K 区间证明标准阻抗端口的耗散性；在更新时用完整 Delta V_K 扣减 energy
+tank，证明总 storage 在零外部供能时不增加。定理范围只覆盖 impedance rendering；
+不把 reference motion、患者主动运动或临床安全包含在 passivity claim 中。
+
+======================================================================
+7. Scientific Delta：相对强主线究竟新增了什么
+======================================================================
+
+相对 Beber ICRA 2024：
+
+  从 offline palpation map 提供未来组织参数，变为扫描中由有限接触斑自身生成局部
+  力学预瞄；删除独立触诊阶段，同时保留“在到达前调 K”的关键能力。
+
+相对 Xue RAS 2025 online MPVIC：
+
+  从当前点模型的 contact-after-estimation，变为 boundary-before-center 的空间预瞄；
+  新增的是可观关系与 preview-time feasibility，不是更复杂的参数估计器。
+
+相对 DOSMAC / DO-MPAC：
+
+  从把空间刚度变化并入已发生的 lumped disturbance，变为从 wrench moments 恢复
+  upcoming transition，并在扰动作用于任务中心前调节速度和反馈力学。
+
+相对 adaptive speed-regulated impedance control：
+
+  不以已经出现的 force error 反应式降速；先从有限接触斑恢复 transition distance，
+  再由 end-to-end mechanics-reconfiguration time 推出速度可行域。故 novelty 不在
+  speed + impedance 的组合，而在 spatial previewability 与 timing guarantee。
+
+相对 Piedra IJRR 2026：
+
+  不与其竞争“更快显式力跟踪”。它把 force/moment 用于直接调节和 probe alignment；
+  本稿检验同一 wrench 的空间矩是否能提供未知材料边界的提前量，并处理 rate-limited
+  mechanics reconfiguration。Piedra 必须作为 matched strongest baseline。
+
+相对 generic preview control：
+
+  generic preview 假设未来扰动可测；本稿的核心困难是从单个柔性接触斑的聚合 wrench
+  建立未来中心接触的可观性及不确定时间预算。
+
+相对 generic active/dual identification：
+
+  不增加探测动作，不优化抽象信息增益；利用任务自然运动与接触几何产生的 endogenous
+  preview。旧版 decision-relevant dual mechanism 不再作为主贡献。
+
+一句话 scientific claim：
+
+  A finite ultrasound contact patch can be used as an endogenous mechanical
+  preview sensor: its wrench moments make an upcoming tissue transition
+  observable early enough to co-govern scan speed and rate-limited rendered
+  impedance before the probe task center encounters that transition.
+
+======================================================================
+8. Complexity alignment：为什么现在的复杂度合理
+======================================================================
+
+删除旧版下列结构：
+
+- Bayesian performance belief + deterministic safety set 双轨；
+- decision cell / Gamma_R gate；
+- shared-prefix branch MPC；
+- 专门 information action rho；
+- generic task-regret dual-control bound；
+- 全局空间 GP/contact map；
+- 六个相互松散的 theorem/certificate；
+- 若普通 tube + fallback 足够，则不使用复杂 predecessor tree。
+
+保留四模块的删除测试：
+
+1. 删除 finite-patch model：无法从 wrench 解释空间先兆，创新消失；
+2. 删除 set observer：无法对几何/材料混淆与噪声给出可信 preview；
+3. 删除 speed–impedance scheduler：preview 不转化为 rate-limited 可执行能力；
+4. 删除 applied-K energy gate：曲面 frame rotation 和 K 切换下理论不闭合。
+
+Method 形态是一个 contact observer + 一个短时域 robust scheduler + 一个低层发布门，
+属于 T-RO 样本中可接受的 compact Type-S/Type-F 混合，而不是用系统栈掩盖小增量。
+
+不得为了“技术深度”再加入大模型、强化学习、全 belief-space POMDP、独立主动探测、
+多层 safety shield 或数字孪生，除非新的实验 failure 证明四模块无法解决根因。
+
+======================================================================
+9. Feasibility 与实验闭环
+======================================================================
+
+9.1 最小硬件
+
+- 可命令 Cartesian impedance/torque 的 7-DoF 机械臂；
+- 安装在探头后的 6-axis F/T sensor；
+- 线阵或凸阵超声探头；
+- 可选 RGB-D，只用于未来表面几何和法向，不用于组织力学标签；
+- 具有可交换软硬插入块、斜坡和曲率的 tissue phantom；
+- 可选运动平台模拟呼吸。
+
+核心路线不要求压力阵列、不要求 RF channel access、不要求离线患者力学地图。若仅靠
+标准 6-axis wrench 无法在真实噪声下分离边界，则可行性 verdict 为 FAIL，不能把
+新增定制触觉阵列悄悄改成默认条件。
+
+9.2 先做的三项 kill test
+
+K1. Observable preview：
+在 robot stationary/known-speed scan 下，验证 Delta F、Delta M 对边界距离与对比的
+恢复误差；与 F-only、F-history、F+pose MHE 比较。若 moment 不增加有效 preview time
+或不降低错误模式混淆，停止该路线。
+
+K2. Time budget：
+实测 sensor filtering、estimator、solver、communication 和 K_applied transition 的
+P95/P99 延迟，检验
+
+  r_detect / v > tau_total
+
+是否在临床合理扫描速度和真实 contact width 下成立。若只能把速度降到失去任务意义
+才成立，停止该路线。
+
+K3. Capability gain：
+在 matched sensing/hardware 下对比 IJRR explicit force control、DO-MPAC/DOSMAC、
+online MPVIC、fixed robust K。若 strongest baseline 已满足全部 transition constraints
+且 CPP-IC 不改善过渡成功率/峰值/失触/滑移或速度，则 Method necessity 不成立。
+
+9.3 初步数量级可行性（仅用于决定是否值得做 K1/K2，不是证据闭合）
+
+公开机器人超声实验已经覆盖约 10 mm/s（adaptive speed-regulated impedance）和
+15 mm/s（连续 sweep）量级；公开系统存在 100 Hz 六维 F/T acquisition，也有 1 kHz
+robot/force loop。若真实可用前向接触半宽仅为 5–15 mm，则几何上限 preview time
+约为 0.33–1.5 s（对应 15–10 mm/s），在数量级上可能覆盖 filtering + low-dimensional
+MHE/QP + gain ramp，但必须用实际探头压痕测得，不能使用外壳尺寸代替接触宽度。
+
+一个 0.5 N 的增量合力若引起 5 mm 的压力中心偏移，对应约 2.5e-3 N·m moment；某些
+公开超声机器人 F/T 配置报告 1e-4 N·m 分辨率。该比值只说明 benchtop test 值得做，
+实际线缆载荷、几何残差和滤波噪声可能远大于名义分辨率。
+
+9.4 正式实验因子
+
+环境：
+
+- stiffness ratio、transition width、boundary angle；
+- surface curvature 与几何误差；
+- viscoelastic rate、patient motion；
+- lubrication/friction；
+- scan direction and speed；
+- linear vs convex probe / different patch widths。
+
+主指标：
+
+- effective preview time and boundary-distance error；
+- center-crossing 前 K_applied 是否进入目标可行集；
+- transition peak force、force undershoot/contact loss duration；
+- tangential slip events / path error；
+- maintained scan speed and completion rate；
+- energy-tank intervention and applied-vs-commanded K mismatch；
+- ultrasound confidence/image continuity 作为下游结果，不作为机制成立的唯一证据。
+
+必须报告失败模式：geometry/material confusion、false transition、missed boundary、
+preview too short、solver timeout、tank-denied update、contact-patch collapse。
+
+9.5 Ablation
+
+- F only vs F+M；
+- point contact vs finite patch model；
+- reactive update vs preview scheduling；
+- K-only vs speed–K co-governor；
+- gain-only tank accounting vs full matrix/frame accounting；
+- point estimate vs bounded set observer。
+
+======================================================================
+10. T-RO / IJRR 经验标尺验收
+======================================================================
+
+10.1 Problem value
+
+PASS：删除离线触诊负担，并解决空间变化环境中在线方法的 first-hit adaptation lag；
+该 failure 直接影响持续接触、安全和扫描不中断能力。
+
+10.2 Scientific delta / novelty
+
+DESIGN-LEVEL PASS, PRIOR-VALIDATION OPEN：
+
+delta 是新的目标域关系“contact-patch wrench moment -> endogenous spatial preview ->
+speed/impedance time feasibility”，不是已有工具的并列组合，也不靠缩小成 decision gate。
+当前定向检索未发现机器人超声工作闭合该关系；但在正式 claim 前仍需对 contact-patch
+stiffness sensing、ultrasound pressure sensing 和 tactile preview 做全文级检索。
+
+10.3 Method necessity
+
+CONDITIONAL PASS：
+
+- T1/T2 证明何时 moment 提供 F-only 没有的边界位置/对比信息；
+- T3 证明为何 preview 必须与 speed 和 K-rate 联立；
+- matched explicit force control 是强 falsifier。
+
+只有当 K1–K3 通过后才能升级为 PASS。
+
+10.4 Technical depth
+
+PASS AT DESIGN TARGET：
+
+- distributed contact mechanics to wrench moments；
+- structural/local observability and degeneracy；
+- policy/observation-class-correct lower bound；
+- preview-time constrained robust control；
+- rate-limited applied mechanics；
+- gain-and-frame exact energy accounting。
+
+技术深度集中在一个机制链上，不由模块数量制造。
+
+10.5 Theory correctness
+
+CONDITIONAL PASS：已删除旧版固定 observation distribution 的错误 regret bound，并
+修复 rotating contact frame 漏能量问题。仍需用真实 nonlinear patch model、传感
+残差和 applied-K interface 完成 assumptions-to-experiment closure。
+
+10.6 Complexity alignment
+
+PASS：四个模块分别对应 observability、uncertainty closure、preview execution 和
+passivity publication；复杂度低于旧 DRDI-MPC，scientific delta 反而更大、更物理。
+
+10.7 Feasibility
+
+CONDITIONAL PASS：标准 F/T + robot pose 即可实现，但 contact width 和真实 latency
+是否留下足够 preview time 是决定性 kill test。
+
+10.8 Evidence readiness
+
+OPEN：当前只完成问题/方法设计和理论命题。没有真实硬件结果前不得写“达到 T-RO
+发表标准”，只能写“方法形态与 T-RO reference distribution 对齐且关键门可测试”。
+
+10.9 Venue verdict
+
+T-RO：该路线在 T1–T4 闭合、K1–K3 通过并完成强对照后具有合理的 T-RO scientific
+delta 与技术深度；这是本轮应推进的主路线。
+
+IJRR：若进一步形成对一般有限足迹软接触任务的 observability/previewability 理论，
+跨两类 probe/contact geometry 验证，并证明相对最强显式力控制存在显著 capability
+jump，可向 IJRR 靠近；当前不应扩大 claim。
+
+10.10 与经验标尺样本的 pairwise alignment
+
+相对 Wijayarathne T-RO 2023：该文的深度来自 robot–deformable-contact coupled model、
+force/motion joint prediction 和可实时求解结构。本稿不能只做一个超声 heuristic；
+对应深度必须由 distributed patch model、observability、preview feasibility 和实时
+solver 共同支撑。二者的模块数不必相同，但“新物理关系进入优化并在真机执行”的
+闭环粒度应相当。
+
+相对 Beber ICRA 2024：仅删除 offline palpation 并加 online estimator，更像 conference
+increment。本稿达到 T-RO 潜力的原因必须是额外建立“finite patch creates endogenous
+preview”及其可观/时序理论，并展示跨边界速度—安全 envelope 的能力提升。
+
+相对 Piedra IJRR 2026：Piedra 用较集中机制产生显著 force-control capability jump，
+说明顶刊不奖励模块堆叠。本稿应以相同原则验收：若 moment preview 不能在 matched
+explicit controller 上产生清晰的 transition-safe capability jump，理论再多也不够。
+
+相对 Lachner IJRR 2025/2026：其贡献是纠正物理 stiffness consistency 的根本问题。
+本稿的 full-matrix/frame energy accounting 是 correctness debt，不是独立 novelty；
+不能把借用该原则修补 passivity 当作第二个贡献。
+
+======================================================================
+11. Claim–Evidence Matrix（设计阶段）
+======================================================================
+
+C1. 点/合力式在线适应在空间转变处存在事后响应 failure。
+证据：Xue RAS 2025、DOSMAC 2026、DO-MPAC 2026 的模型/观测结构；需要全文公式复核。
+反证：高带宽 explicit force control 在 matched transition test 中已无实际 failure。
+
+C2. F+M 可恢复 F-only 不能瞬时分离的 boundary distance/contrast。
+证据：T1 analytic witness + nonlinear calibration + K1。
+反证：真实 geometry/friction/viscosity 使集合长期不可分，或 F-history 同样快且稳。
+
+C3. contact-patch preview 使阻抗能在中心越界前完成重构。
+证据：T3 + applied-K logs + K2/K3。
+反证：preview shorter than end-to-end latency；commanded K 未真实执行。
+
+C4. speed–K co-governor 比 reactive K-only 或 speed-only 更好。
+证据：matched ablation across stiffness ratio/speed；报告 feasibility/success envelopes。
+反证：一个固定速度或固定 K 已覆盖全部环境，或额外自由度不改善 action order。
+
+C5. passivity 在曲面 frame/gain 更新下成立。
+证据：T4 + tank/applied K energy traces。
+反证：参考运动、内环或离散实现存在未记账能量通道。
+
+======================================================================
+12. Non-regression rules
+======================================================================
+
+1. 不把“decision-relevant uncertainty”恢复成主创新；它至多用于 observer 状态降维。
+2. 不宣称首次 online identification、首次 MPC+VIC、首次 preview control 或首次 CoP。
+3. 不把普通 force tracking improvement 当核心贡献。
+4. 不假设 K 瞬时生效；所有结论基于 K_applied 和实测 tau_render。
+5. 不忽略 contact frame rotation 的储能变化。
+6. 不把 wrench moment 的任何变化都解释为 stiffness；必须维护 geometry/material
+   ambiguity set 和 UNKNOWN 分支。
+7. 不估计不可辨识的完整 E/c/mu 场；只估计支撑 preview decision 的最小 descriptor。
+8. 不用额外 probing 掩盖内生 preview 不够；若 preview 不够，减速或证伪路线。
+9. 不回避 Piedra explicit force control、DO-MPAC、Xue MPVIC、fixed robust K。
+10. 不因“尚未发现完全相同论文”宣布 novelty；必须完成全文级 strongest-prior audit。
+
+======================================================================
+13. 当前最可信的文献锚点
+======================================================================
+
+Target-domain mainline：
+
+1. Wijayarathne et al., Real-Time Deformable-Contact-Aware Model Predictive
+   Control for Force-Modulated Manipulation, T-RO 2023.
+   DOI: 10.1109/TRO.2023.3286070
+
+2. Beber et al., A Passive Variable Impedance Control Strategy with
+   Viscoelastic Parameters Estimation of Soft Tissues for Safe
+   Ultrasonography, ICRA 2024.
+   DOI: 10.1109/ICRA57147.2024.10610167
+   Full-text correction: patient-specific mechanical parameters are obtained
+   through offline pointwise dynamic palpation/model fitting and interpolation;
+   do not cite this paper as online tissue identification.
+
+3. Xue et al., Model Predictive Variable Impedance Control Towards Safe
+   Robotic Interaction in Unknown Disturbance-Rich Environments, RAS 2025.
+   DOI: 10.1016/j.robot.2025.104961
+
+4. Piedra et al., Explicit Force-Based Control Strategies for Compliant
+   Robot-Assisted Ultrasound Imaging, IJRR 2026.
+   DOI: 10.1177/02783649261441635
+
+5. Li et al., Observer-Based Sliding Mode Admittance Control for Ultrasound
+   Robot Force-Tracking in Complex Interaction Environments, CEP 2026.
+   DOI: 10.1016/j.conengprac.2026.106764
+
+6. Autonomous Robotic Ultrasound Scanning on Complex Surfaces: Automatic
+   Trajectory Generation and Disturbance Observer-Based Model Predictive
+   Admittance Control, CEP, online 2026 / issue 2027.
+   DOI: 10.1016/j.conengprac.2026.107240
+
+7. Min et al., Adaptive Speed-Regulated Impedance Control for Robotic
+   Ultrasound Scanning: Reducing Constant-Force Tracking Errors, 2026.
+   DOI: 10.4271/2026-99-0751
+
+Source-mechanism anchors：
+
+8. Theunissen et al., Preview-Based Techniques for Vehicle Suspension
+   Control: A State-of-the-Art Review, Annual Reviews in Control 2021.
+   DOI: 10.1016/j.arcontrol.2021.03.010
+
+9. Li, Lam, Cheung, Multi-Objective Control for Active Vehicle Suspension
+   with Wheelbase Preview, Journal of Sound and Vibration 2014.
+   DOI: 10.1016/j.jsv.2014.06.017
+
+10. Elandt et al., A Pressure Field Model for Fast, Robust Approximation of
+   Net Contact Force and Moment Between Nominally Rigid Objects.
+   arXiv:1904.11433
+
+11. Ota et al., Tactile Estimation of Extrinsic Contact Patch for Stable
+    Placement, ICRA 2024.
+    arXiv:2309.14552
+
+Boundary prior：
+
+12. Pressure-array feedback for TRUS probe positioning existed at least in
+    2013 (PubMed 23645369). Therefore the claim cannot be “first pressure
+    distribution feedback in ultrasound”; the claim is continuous endogenous
+    mechanical preview from standard aggregated wrench and its coupling to
+    rate-limited scan-speed/impedance control.
+
+======================================================================
+14. 下一步执行顺序
+======================================================================
+
+P0. 用真实 probe geometry、contact width、scan speed 和 controller latency 做 K2
+    数值可行性预算；这是路线生死门。
+
+P1. 在 1D foundation + step/ramp stiffness field 上完整推导 T1/T2，包括 force-history
+    comparator、noise 和 geometry nuisance；不能只保留本稿的理想 witness。
+
+P2. 设计 K1 benchtop kill test，用现有 6-axis F/T 验证 moment 是否提供独立而稳定的
+    preview information。
+
+P3. 只有 P0–P2 通过后，构造 M3 robust QP 与 T3；避免在物理机制未成立前堆 MPC。
+
+P4. 实测 K_applied dynamics，完成 T4 和 publication gate。
+
+P5. 完成 contact-patch/tactile-preview/ultrasound-pressure-feedback 的全文 strongest-prior
+    audit，再冻结标题与 novelty claim。
+
+本稿因此完成的是：从既定领域问题出发，抓住一条强主线的未解主要矛盾，给出根因、
+同构 source mechanism、目标域新关系、最小 Method、理论主干、复杂度解释、可行性
+kill tests 与 venue-level falsifiers。它不以 prior 防守生成问题，但允许 prior 和实验
+推翻方案。

@@ -1,0 +1,2679 @@
+R15_CURRENT_ROUTE_CODEX_HANDOFF_2026-09-10
+============================================================
+用途：交接给 Codex，从研究问题开始，对“空间预瞄 + T-RO-style 接触模型迁移 + NNBO 最优阻抗 + ANEOC”整条路线从头梳理、重新推导、审计并完善。
+目标 venue：IEEE Transactions on Robotics (T-RO)；IJRR 仅作为更高参考上界。
+状态：CURRENT ROUTE HANDOFF / NOT FINAL PROOF
+日期：2026-09-10
+
+重要说明
+============================================================
+
+这份文件不是要求 Codex 维护旧版本公式，也不是把几个已有算法直接拼接成一个系统。
+它的任务是保存当前已经收敛出来的“有效研究问题、物理机制、方法主线、已核实先验、已完成候选推导、待闭合接口、失败边界和禁止回退项”，让 Codex 可以从零重新检查。
+
+Codex 必须遵守以下原则：
+
+1. 正确性与可行性优先于保留现有路线。
+   若重新推导发现结构性矛盾，必须修改路线，而不是硬修公式。
+
+2. 当前真正的 paper-level 主线是：
+      有限接触斑产生内生空间预瞄
+      -> 提前恢复即将到达的接触变化
+      -> 用更适合连续超声扫描的 T-RO-style 法向/切向接触动力学描述未来环境
+      -> 重新定义 NNBO 型 HJB 最优阻抗问题
+      -> 用 ANEOC 沿参数相关 HJB/critic 解分支提前运输最优解
+      -> 在探头任务中心进入新组织之前完成实际可执行阻抗重构。
+
+3. 当前路线绝不是：
+      普通 future prediction
+      + trajectory adaptation
+      + reactive impedance tuning
+      + 一个额外 safety layer。
+   Scientific Delta 必须落在一个新的物理—信息—控制机制上，而不是模块数量。
+
+4. 需要严格区分：
+   [SOURCE-VERIFIED] 已从原论文/已审计文件核实的事实；
+   [DERIVED-CANDIDATE] 当前已经推导出、但 Codex 仍需独立复核的数学结构；
+   [OPEN] 尚未理论闭合；
+   [KILL CONDITION] 若不满足则路线需要删除、简化或更换。
+
+5. 不允许把历史中已经被否决的 idea 恢复成主创新。
+   本文件末尾有明确的“已否决/禁止回退路线”。
+
+============================================================
+0. 一句话总路线
+============================================================
+
+当前最终要重新闭合的路线为：
+
+    finite ultrasound contact patch
+    -> leading-edge force/moment asymmetry
+    -> endogenous spatial preview
+    -> future boundary distance + future policy-relevant contact change
+    -> T-RO-style cylinder-plane normal/tangential contact dynamics
+    -> re-derived NNBO HJB optimal impedance
+    -> single-critic representation
+    -> ANEOC predictor-corrector of the moving HJB/critic solution
+    -> preview-time / gain-rate / actuator / passivity feasibility
+    -> future optimal impedance is applied before the probe task center crosses the transition.
+
+用四个连续问题表达：
+
+    空间预瞄：何时/哪里会变？
+    接触模型：未来接触动力学将怎样变？
+    NNBO：针对这个未来环境，最优可执行阻抗应该是什么？
+    ANEOC：怎样在有限预瞄时间内快速把当前最优解迁移到未来最优解？
+
+如果四个问题不能形成同一数学链，就说明方法仍是拼接，必须继续重构。
+
+============================================================
+1. 研究场景与冻结研究边界
+============================================================
+
+应用：连续机器人超声扫描（continuous robotic ultrasound scanning）。
+
+冻结边界：
+
+- 无患者特异的离线逐点触诊/完整力学地图；
+- 未知、空间变化、可变形软组织；
+- 探头沿表面连续滑动，而不是单点压入；
+- 实际任务包含法向力、路径跟踪、持续接触、切向滑移/摩擦、机器人执行器限制；
+- 最终输出必须是机器人低层实际能够执行的法向—切向反馈力学/阻抗，而不是只输出理想 force、抽象 policy 或 future trajectory；
+- 目标 contact geometry 使用 cylinder-plane Hertz（圆柱–平面 Hertz）作为目标场景基础；
+- 不回退为经验线性接触模型；
+- T-RO 2023 的 contact-model 思想用于建立法向变形 + 切向滑动/摩擦 + robot/contact coupled dynamics，但其球形 Hertz 几何不能原样复制；
+- 当前重点先完成理论闭合，实验随后验证。
+
+
+1.1 研究问题所依赖的物理事实前提与已有支撑
+------------------------------------------------------------
+
+只保留当前路线真正依赖、且已有明确依据的事实前提：
+
+A. 人体软组织不能一般地视为固定、均匀、纯弹性环境。
+已有 soft-tissue interaction 文献明确指出，软组织通常具有 viscoelastic、
+nonlinear、inhomogeneous 特性；因此机器人扫描过程中使用单一固定环境参数
+并不是一般成立的假设。
+
+支撑：
+Moreira et al.,
+"Viscoelastic model based force control for soft tissue interaction and its application in physiological motion compensation",
+Computer Methods and Programs in Biomedicine, 2014,
+DOI: 10.1016/j.cmpb.2014.01.017.
+
+B. 人体接触环境具有时间变化/状态变化来源。
+呼吸、心搏等 physiological motion 会改变 tool-tissue interaction；
+因此即使探头空间位置附近不发生明显材料边界切换，
+实际接触状态、压入量、相对运动和等效接触响应也可能随时间变化。
+
+支撑：
+Moreira et al., 2014,
+DOI: 10.1016/j.cmpb.2014.01.017.
+
+注意：
+当前文件不把“某一具体肌肉主动收缩必然产生某个确定刚度变化规律”
+写成既定事实；除非后续提供针对该具体 claim 的直接 biomechanics / elastography 证据。
+在当前 Method 中只需要更弱且已有支撑的前提：
+    effective contact mechanics can vary with physiological state/motion.
+
+C. 连续扫描会跨越空间上不同的局部接触条件。
+软表面扫描文献和当前 strongest-prior 已将 varying stiffness/material、
+geometry、friction 作为实际需要适应的环境变化；
+因此沿扫描方向从一个局部组织区域进入另一区域时，
+局部 effective contact parameter eta(s) 发生变化是合理目标场景。
+
+支撑：
+Beber et al.,
+"A Passive Variable Impedance Control Strategy With Viscoelastic Parameters Estimation of Soft Tissues for Safe Ultrasonography",
+ICRA 2024,
+DOI: 10.1109/ICRA57147.2024.10610167.
+其工作直接使用 soft-tissue viscoelastic parameter estimation 并据此进行 tissue-aware stiffness decision。
+
+Xue et al.,
+"Model Predictive Variable Impedance Control Towards Safe Robotic Interaction in Unknown Disturbance-Rich Environments",
+Robotics and Autonomous Systems, 2025, 189:104961,
+DOI: 10.1016/j.robot.2025.104961.
+其工作直接处理 unknown/varying soft environment、在线环境参数估计和 variable impedance。
+
+D. 探头在软组织表面滑动时，不能只考虑一维法向弹簧。
+连续滑动会同时产生 normal deformation、tangential interaction/friction，
+而有限接触区域会形成分布式 pressure/traction，最终表现为 net force/moment。
+因此当前路线保留 normal + tangential + finite-contact/wrench 信息不是装饰性复杂化。
+
+支撑：
+Wijayarathne et al.,
+"Real-Time Deformable-Contact-Aware Model Predictive Control for Force-Modulated Manipulation",
+IEEE T-RO, 2023,
+DOI: 10.1109/TRO.2023.3286070.
+其模型明确耦合法向 deformable contact、sliding friction 和 robot dynamics。
+
+Elandt et al.,
+"A Pressure Field Model for Fast, Robust Approximation of Net Contact Force and Moment Between Nominally Rigid Objects",
+arXiv:1904.11433.
+其工作支撑 pressure distribution -> resultant force/moment 这一接触力学关系。
+
+E. “环境变化需要阻抗变化”不是本文的新发现。
+已有 robotic ultrasound / soft-environment control 已直接证明：
+估计 tissue/environment mechanics 后在线调整 stiffness / impedance 是已有可行机制。
+
+支撑：
+Beber et al., ICRA 2024, DOI: 10.1109/ICRA57147.2024.10610167.
+Xue et al., RAS 2025, DOI: 10.1016/j.robot.2025.104961.
+Fu et al.,
+"Optimization-Based Variable Impedance Control of Robotic Manipulator for Medical Contact Tasks",
+IEEE TIM, 2024,
+DOI: 10.1109/TIM.2024.3372209.
+
+因此当前论文不能把：
+    varying tissue -> adapt impedance
+作为 Scientific Delta。
+真正需要证明的是：
+    future spatial contact change
+    -> future eta
+    -> fast transport of the parameter-dependent optimal HJB solution
+    -> future executable impedance before task-center encounter.
+
+
+============================================================
+2. 最终研究问题：从 failure 出发，而不是从方法出发
+============================================================
+
+2.1 Application-level research question
+------------------------------------------------------------
+
+在没有患者特异离线力学地图的连续机器人超声扫描中，当未知组织力学沿扫描方向发生空间变化，并且感知、估计、最优控制求解、通信和实际阻抗重构都存在延迟与速率限制时：
+
+    如何利用探头自身有限接触斑中已经发生、但任务中心尚未遭遇的接触信息，
+    在任务中心进入新的组织力学区域之前，
+    提前得到并安全实施适合该未来区域的最优法向—切向阻抗，
+    从而减少或避免 first-hit force peak、接触松脱、滑移和路径偏差？
+
+2.2 Generalized control problem
+------------------------------------------------------------
+
+对于具有有限接触足迹的连续软接触机器人任务：
+
+    能否从当前接触斑的聚合 wrench（尤其零阶力和一阶力矩）中恢复即将到达任务参考点的空间接触变化，
+    将该 future-contact information 映射成会改变最优闭环交互律的参数变化，
+    并在有限 preview time 内运输参数相关 HJB 的最优 critic/最优阻抗解，
+    使 rate-limited applied impedance 在转变真正作用于任务中心之前进入相应的可执行安全区域？
+
+2.3 根 failure：causal adaptation lag
+------------------------------------------------------------
+
+传统在线控制器的时序通常是：
+
+    新组织已经作用于任务中心
+    -> measured force / interaction dynamics 已经变化
+    -> estimator 识别新参数
+    -> controller/optimizer 更新
+    -> impedance 开始重构
+    -> 新 feedback mechanics 才生效。
+
+总滞后：
+
+    tau_adapt
+    = tau_sensor
+    + tau_filter
+    + tau_est
+    + tau_solve
+    + tau_comm
+    + tau_render.
+
+因此即使最终估计正确、控制器也足够稳定，系统仍可能在更新完成前先经历：
+
+    force overshoot / undershoot,
+    contact loss,
+    slip,
+    path deviation,
+    image interruption.
+
+研究问题真正针对的是“先失败/先产生过渡损失，再适应”的因果时序，而不是简单提高 estimator accuracy。
+
+2.4 为什么这是有限接触斑问题
+------------------------------------------------------------
+
+点接触或探头中心模型将整个 contact patch 压缩成：
+
+    current point state + total force.
+
+但真实探头有非零空间长度。
+沿扫描方向，leading edge 会先于 task center 接触新的材料/组织区域。
+
+因此存在一个天然的物理时间窗：
+
+    leading edge 已经进入新环境，
+    task center 仍位于旧环境。
+
+如果这个信息可从标准 6-axis F/T sensor 的 wrench 中恢复，则“未来未知”并非完全不可测，而是被点接触建模主动丢失。
+
+这就是当前主线的核心 scientific mechanism。
+
+
+这里已有文献只支撑两个基础事实：
+    1) finite/distributed contact can produce measurable resultant force and moment；
+    2) contact patch information can in principle be inferred from contact measurements。
+它们并不自动证明“单个标准 F/T sensor 足以预瞄人体组织边界”。
+后者仍是本研究必须自己建立的 observability / identifiability 结果。
+
+基础支撑：
+Elandt et al., arXiv:1904.11433.
+Ota et al., ICRA 2024, arXiv:2309.14552.
+
+============================================================
+3. Strongest-prior / failure ladder：已有方法解决到哪里
+============================================================
+
+本节目的不是宣称“没人做过”，而是明确哪些能力已经存在，剩余 failure 在哪里。
+
+3.1 Fixed impedance
+------------------------------------------------------------
+
+固定 K/D 可以覆盖均匀或缓变环境，也可以用保守参数提高 robustness。
+但如果软区、硬区、切向约束和路径精度要求需要明显不同的 feedback mechanics，一个固定阻抗可能过软或过硬。
+
+[KILL CONDITION]
+如果一个 fixed robust impedance 在目标环境包络内已经近似最优并满足全部过渡约束，则本研究没有必要。
+
+3.2 Offline palpation / mechanics map + VIC
+------------------------------------------------------------
+
+相关工作可以先做组织参数采样/拟合/空间插值，然后扫描时提前调节阻抗。
+这解决了 future knowledge，但需要额外 patient-specific offline palpation，并存在姿态、预载、组织运动、时间变化导致 map mismatch 的问题。
+
+代表：
+Beber et al.,
+"A Passive Variable Impedance Control Strategy with Viscoelastic Parameters Estimation of Soft Tissues for Safe Ultrasonography",
+ICRA 2024,
+DOI: 10.1109/ICRA57147.2024.10610167.
+
+当前已核实：该类未来组织参数来自离线点式动态触诊/拟合/插值，不能把它误写成扫描中在线空间预瞄。
+
+3.3 Online estimator + VIC / MPVIC
+------------------------------------------------------------
+
+已有方法已经做：
+- unknown/varying environment estimation；
+- MPC / variable impedance；
+- constraint handling；
+- passivity / safety；
+- online feedback mechanics adjustment。
+
+代表：
+Xue et al.,
+"Model Predictive Variable Impedance Control Towards Safe Robotic Interaction in Unknown Disturbance-Rich Environments",
+Robotics and Autonomous Systems, 2025,
+DOI: 10.1016/j.robot.2025.104961.
+
+因此以下不能作为创新：
+    "online environment estimation + variable impedance"
+    "prediction + impedance"
+    "MPC + uncertainty + impedance"
+
+剩余问题是：很多 current-point estimator 需要新环境已经影响当前 interaction response 后才能更新，因此对 sharp spatial transition 仍存在 adaptation-lag。
+
+3.4 Predictive / optimal impedance 已有强先验
+------------------------------------------------------------
+
+Haninger, Hegeler, Peternel,
+"Model Predictive Impedance Control With Gaussian Processes for Human and Environment Interaction",
+RAS 2023,
+DOI: 10.1016/j.robot.2023.104431.
+
+已存在：
+- future interaction model；
+- uncertainty；
+- MPC；
+- impedance changes as decisions；
+- safety/contact stability。
+
+Pollayil et al.,
+"Choosing Stiffness and Damping for Optimal Impedance Planning",
+IEEE T-RO 2023,
+DOI: 10.1109/TRO.2022.3216078.
+
+已存在：
+- online Cartesian stiffness/damping planning；
+- gain bounds；
+- tracking-error constraints；
+- analytic/numerical optimal impedance selection。
+
+因此“未来模型 + 最优阻抗”本身不能成为 Scientific Delta。
+
+3.5 Explicit force control / disturbance observer
+------------------------------------------------------------
+
+高带宽 explicit force control、disturbance observer、sliding-mode/admittance 等已经显著改善“扰动发生以后”的 force tracking。
+
+代表：
+Piedra et al.,
+"Explicit Force-Based Control Strategies for Compliant Robot-Assisted Ultrasound Imaging",
+IJRR 2026,
+DOI: 10.1177/02783649261441635.
+
+Li et al.,
+"Observer-Based Sliding Mode Admittance Control for Ultrasound Robot Force-Tracking in Complex Interaction Environments",
+Control Engineering Practice 2026,
+DOI: 10.1016/j.conengprac.2026.106764.
+
+"Autonomous Robotic Ultrasound Scanning on Complex Surfaces: Automatic Trajectory Generation and Disturbance Observer-Based Model Predictive Admittance Control",
+Control Engineering Practice,
+online 2026 / issue 2027,
+DOI: 10.1016/j.conengprac.2026.107240.
+
+所以：
+    "更快 force tracking"
+不能是当前核心贡献。
+
+[KILL CONDITION]
+如果 matched high-bandwidth explicit force controller 在相同机器人、传感、速度、组织转变、执行限制下已经消除所有 first-hit transition failures，则空间预瞄的任务必要性被削弱或否决。
+
+3.6 Adaptive scan speed 已存在
+------------------------------------------------------------
+
+已有研究已经根据 force-tracking error 调整 scanning speed。
+因此：
+    "同时调速度和阻抗"
+不是创新。
+
+当前需要区分的是：
+    reactive speed change after force error
+vs.
+    speed feasibility derived from boundary distance / remaining preview time before center encounter.
+
+代表：
+Min et al.,
+"Adaptive Speed-Regulated Impedance Control for Robotic Ultrasound Scanning: Reducing Constant-Force Tracking Errors",
+2026,
+DOI: 10.4271/2026-99-0751.
+
+3.7 Generic preview control 已存在
+------------------------------------------------------------
+
+车辆预瞄悬架等领域早已使用：
+    upstream disturbance measurement
+    -> downstream preview
+    -> rate-limited mechanical reconfiguration.
+
+代表：
+Theunissen et al.,
+"Preview-Based Techniques for Vehicle Suspension Control: A State-of-the-Art Review",
+Annual Reviews in Control 2021,
+DOI: 10.1016/j.arcontrol.2021.03.010.
+
+Li, Lam, Cheung,
+"Multi-Objective Control for Active Vehicle Suspension with Wheelbase Preview",
+Journal of Sound and Vibration 2014,
+DOI: 10.1016/j.jsv.2014.06.017.
+
+所以不能声称：
+    "first preview control".
+
+目标域真正新增的问题是：
+generic preview 通常假设未来扰动已经可测；
+本研究首先要证明：
+    一个单独柔性接触斑的聚合 wrench 是否真的包含未来 task-center contact transition 的可恢复空间信息。
+
+3.8 Contact wrench / pressure moment prior
+------------------------------------------------------------
+
+接触力与力矩是压力分布的低阶空间矩，这一事实本身不是新贡献。
+
+相关支撑：
+Elandt et al.,
+"A Pressure Field Model for Fast, Robust Approximation of Net Contact Force and Moment Between Nominally Rigid Objects",
+arXiv:1904.11433.
+
+Ota et al.,
+"Tactile Estimation of Extrinsic Contact Patch for Stable Placement",
+ICRA 2024,
+arXiv:2309.14552.
+
+已有 ultrasound pressure-distribution feedback 至少可追溯至 2013（PubMed 23645369）。
+因此不能声称：
+    "first pressure feedback in ultrasound".
+
+当前 claim 应限定为：
+    continuous endogenous mechanical preview from standard aggregated wrench,
+    and its coupling to future optimal impedance adaptation under rate limits.
+
+============================================================
+4. 空间预瞄：从有限接触斑到 future-contact information
+============================================================
+
+4.1 坐标
+------------------------------------------------------------
+
+令被保护的 task reference point 沿表面的弧长位置：
+
+    s_c(t)
+
+本文将该 reference point 简记为 task center；它必须在实验中固定定义为 probe footprint
+几何中心、控制作用点或指定 acoustic reference line 之一，不等同于整个有限宽度成像孔径。
+因此本文主张的是“边界到达该 reference point 前的预瞄”，而不是“任何接触或图像影响
+发生前的预瞄”。
+
+扫描速度：
+
+    v_s(t) = dot{s_c}(t) > 0.
+
+令 probe-local scanning coordinate 为：
+
+    xi in [-a_t, a_t].
+
+当前接触斑：
+
+    P(t) = {s_c(t) + xi | xi in [-a_t, a_t]}.
+
+a_t 取决于 probe curvature、indentation、contact state。
+工程上不能把外壳尺寸直接当真实 contact width；需要通过模型/标定给出 [a_lower, a_upper]。
+
+假设扫描方向指向 +xi，
+leading edge = +a_t，
+task center = 0。
+
+当材料/组织边界 s_b 满足：
+
+    0 < r_b := s_b - s_c < a_t
+
+时：
+
+    leading edge 已经进入 future region，
+    center 尚未进入 future region.
+
+这就是 endogenous spatial preview interval。
+
+4.2 Distributed local contact field
+------------------------------------------------------------
+
+一般写为：
+
+    p(xi,t)
+    = Phi(
+        delta(xi,t),
+        dot{delta}(xi,t),
+        theta(s_c(t)+xi,t)
+      )
+      + r_p(xi,t).
+
+其中：
+- p：法向压力；
+- theta：局部 contact/material descriptor；
+- delta：局部压入；
+- r_p：未建模项/有界 remainder。
+
+该式是在线 observer 使用的 calibrated finite-footprint / local-foundation surrogate。
+homogeneous cylinder-plane contact 只用于 nominal footprint、量级与 kernel 标定；跨异质
+边界时，pressure coupling、contact-width change、finite-length 和黏弹性效应必须进入
+r_p 的标定界，不能把下述最小解析 witness 误称为精确 heterogeneous Hertz 反演。
+
+六维 F/T 传感器经坐标变换后可提供：
+
+    F_n(t) = integral_{-a_t}^{a_t} p(xi,t) dxi
+
+    M_y(t) = integral_{-a_t}^{a_t} xi p(xi,t) dxi.
+
+因此：
+    F_n = zero-order spatial moment
+    M_y = first-order spatial moment.
+
+切向 F_t / M 等信息用于摩擦、slip 和 nuisance separation。
+
+4.3 最小解析 witness：为什么 F + M 比 F-only 多一个空间维度
+------------------------------------------------------------
+
+考虑一个简化局部均匀压入 witness。
+新区域从 leading edge 进入 contact patch 的长度为 ell。边界位于整个 patch 内时
+ell in (0,2a_t)；本文的 pre-reference preview 阶段严格对应 ell in (0,a_t)，此时
+
+    r_b = a_t - ell > 0.
+
+令其有效局部接触斜率/刚度变化为 Delta q。
+
+则可构造：
+
+    Delta F = c_delta * Delta q * ell
+
+    Delta M = c_delta * Delta q * (a_t*ell - ell^2/2).
+
+因此在 Delta F != 0 时：
+
+    Delta M / Delta F = a_t - ell/2
+
+从而：
+
+    ell = 2(a_t - Delta M/Delta F)
+
+并进一步：
+
+    Delta q = Delta F / (c_delta * ell).
+
+映射：
+    (Delta q, ell) -> (Delta F, Delta M)
+
+的 Jacobian determinant 为：
+
+    det J = -c_delta^2 * Delta q * ell^2 / 2,
+
+在非零 transition 且 ell>0 时非零。
+这说明在该最小模型下存在局部可逆性。
+
+而 F-only：
+    Delta F = c_delta Delta q ell
+
+只有一个标量观测，却有 Delta q 与 ell 两个未知量；
+无法瞬时区分：
+    "边界更近但变化小"
+和
+    "边界更远但变化大".
+
+注意：
+这个 witness 只证明结构上值得寻找 local observability，
+不能直接等同于真实人体组织模型，也不意味着任意 pressure/material field 可由两个
+moments 唯一恢复。最终 theorem 必须限定在单个局部 step/ramp、已知扫描方向、受限
+boundary orientation、非退化接触和有界 remainder 的低维 transition family 内。
+
+上述 F-only 结论也只针对单时刻观测。已知扫描运动下，F-history / dF/ds 可能逐渐
+分离 Delta q 与 ell；因此最终验收必须比较 matched F-history、F+pose history 与
+F+M+pose history，并证明 moment 带来更早的可靠分离、更好的 observability
+conditioning 或更窄的 R_b 区间，不能预设所有 force-only controller 必然失败。
+
+4.4 从 ell 得到 preview time
+------------------------------------------------------------
+
+根据精确几何定义将 ell 转成边界相对于 task center 的距离。
+若边界局部近似垂直于 scanning direction：
+
+    r_b = a_t - ell.
+
+若 boundary orientation 未知，则 r_b 必须由 footprint geometry、F_n/M_x/M_y 和
+短时运动历史联合给出集合映射；仅凭单时刻 F_n/M_y 不声称同时唯一恢复
+Delta q、r_b、transition width 与 orientation。
+
+剩余预瞄时间：
+
+    T_prev = r_b / v_s.
+
+该式适用于预瞄窗口内恒速或速度变化可忽略的情形；变速时应以保守速度轨迹到达
+r_b 的时间定义 T_prev，而不是无条件使用当前瞬时速度。
+
+在存在不确定区间时必须使用：
+    R_b = [r_lower, r_upper]
+
+和：
+    T_prev_interval.
+
+对 safety/feasibility 应使用保守下界：
+
+    T_prev_lower = r_lower / v_s.
+
+4.5 空间预瞄 observer 不能输出虚假的 full-ID
+------------------------------------------------------------
+
+真实力矩还受到：
+
+- probe orientation / surface curvature；
+- sensor lever arm；
+- contact width variation；
+- viscoelasticity；
+- tissue motion；
+- tangential friction；
+- cable load；
+- robot dynamics residual；
+- boundary angle / finite transition width；
+
+等因素影响。
+
+所以：
+    M_y 变化 != stiffness boundary
+必须作为硬规则。
+
+observer 应使用：
+- robot pose；
+- geometry prior（可由 RGB-D/表面重建提供）；
+- calibrated wrench offsets；
+- measured F_n, M_y, F_t；
+- indentation / relative velocity；
+- a short temporal/spatial history；
+
+构造 set-valued / bounded-error estimate，而不是单点自信输出。
+
+推荐输出：
+
+    Zeta_future
+    = {
+        R_b,
+        Delta Q_n,
+        contact mode / transition hypothesis,
+        optional transition-width / orientation interval,
+        T_prev_interval,
+        uncertainty bounds
+      }.
+
+其中 Delta Q_n 是当前工作点附近的 effective normal contact-response contrast。
+空间预瞄模块不提前声称它等于完整材料参数或下游最优控制参数 eta；两者如何映射
+留给后续接口单独推导。
+
+当 |Delta F| 接近噪声界时，Delta M/Delta F 病态。闭式比值只用于解释、初始化和
+单元测试；最终 observer 应在原始 F/M history 上做 bounded-error MHE / set-membership
+拟合，并显式维护 a_t、bias、geometry 和 remainder uncertainty。
+
+若 geometry/material hypotheses 在当前噪声下不可分：
+    mode = UNKNOWN
+
+控制器必须保守处理，而不是伪造 future stiffness。
+
+现有支撑的边界必须保持清楚：Elandt et al.（arXiv:1904.11433）支撑 distributed
+pressure/traction -> resultant force/moment；Ota et al.（ICRA 2024，arXiv:2309.14552）
+支撑由 contact measurements 推断 extrinsic contact-patch information。二者均不直接
+证明“超声探头聚合 wrench moments -> 未来软组织边界距离”；该映射及其适用条件仍是
+本模块必须通过 observability theorem、误差界和 matched F-history kill test 建立的
+scientific delta。
+
+============================================================
+5. 当前最重要 OPEN 接口：preview 输出什么参数，才能自然接入 HJB/ANEOC？
+============================================================
+
+这是整条融合路线最关键的理论接口。
+
+旧 preview 稿只需要：
+    boundary distance + effective transition contrast.
+
+旧 ANEOC/NNBO 稿使用：
+    HC full parameter theta = [Ke, Be, n] 等。
+
+现在不能机械写成：
+
+    F + M
+    -> full T-RO contact parameter vector theta_future
+
+因为在有限短窗口内，完整 E、viscosity、friction、geometry 等参数未必结构可辨识。
+
+当前建议重新定义一个最小的、与 optimal policy 直接相关的未来接触 descriptor：
+
+    eta = T(theta_contact, geometry, operating point).
+
+要求 eta 满足：
+
+1. eta 足以确定/近似确定 HJB 使用的局部 closed-loop model：
+      f0(x; eta), G_I(x; eta)
+   或至少确定其对 optimal impedance 的一阶影响；
+
+2. 只有会显著改变 future optimal impedance 的方向才需要被 preview observer 分辨；
+
+3. eta 的维度应尽可能低；
+   不为了“模型完整”去估计对 policy 不必要或不可辨识的完整组织参数；
+
+4. preview observer 输出：
+      eta_hat_future
+   或集合：
+      Eta_future_set.
+
+于是：
+
+    Delta eta
+    = eta_future - eta_current.
+
+ANEOC 对 eta 而不是旧 HC theta 求解：
+
+    dW*/deta.
+
+[OPEN]
+Codex 必须从新的 cylinder-plane normal/tangential contact dynamics 与 HJB 结构出发，
+严格定义 eta 的最小充分形式。
+不允许预设 eta 一定等于某一组材料参数。
+
+可比较两条路线：
+
+A. Full/partial physical parameter route:
+   用 MHE / set-membership 从 F/M/history 恢复一个可辨识 contact parameter subset，
+   再进入 HJB。
+
+B. Policy-sufficient descriptor route（当前更值得优先验证）：
+   直接定义进入 local closed-loop/HJB 且改变 optimal impedance 的低维 effective contact descriptor，
+   避免 full-ID requirement。
+
+若 B 可严谨闭合，它更符合当前研究问题。
+
+============================================================
+6. Contact model replacement：NNBO 的 HC -> T-RO-style cylinder-plane normal/tangential model
+============================================================
+
+6.1 原 NNBO 的接触模型与数学便利性 [SOURCE-VERIFIED]
+------------------------------------------------------------
+
+关键论文：
+Haiyi Kong, Guangzhu Peng, Guang Li, Chenguang Yang,
+"Neural-Network-Based Optimal Impedance Control for Robots in Physical Interaction With Soft Environments",
+IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2025,
+DOI: 10.1109/TSMC.2025.3579017.
+
+原文使用 Hunt-Crossley (HC) soft-environment model。
+在其 controller derivation 中，HC model 被改写为：
+
+    x_dot
+    = -Ke/Be
+      + f / [Be (x-xe)^n]
+      + epsilon.
+
+随后将 position tracking state 与 command generator 合并为 augmented system：
+
+    X_dot
+    = F(X)
+      + G(X) f
+      + K_epsilon(X).
+
+原文明确：
+    "f is regarded as the control input."
+
+构造 matched-uncertainty auxiliary system：
+
+    X_dot = F(X) + G(X) f.
+
+并设计无限时域 cost：
+
+    J
+    = integral [
+        X^T Q_tilde X
+        + f^T R f
+        + zeta_epsilon^2
+      ] dt.
+
+Hamiltonian：
+
+    H
+    = grad J^T (F+Gf)
+      + X^T Q_tilde X
+      + f^T R f
+      + zeta_epsilon^2.
+
+HJB 最优 action：
+
+    f*
+    = -1/2 R^{-1} G^T grad J*.
+
+然后：
+    J*(X) ≈ W^T phi(X) + sigma(X)
+
+single critic 逼近 value function，得到：
+
+    f_hat
+    = -1/2 R^{-1} G^T grad phi(X)^T W_hat.
+
+最后原论文利用 HC 特定的 G(X) 和 basis 结构，将 force policy 重写为：
+
+    f_hat
+    = (x-xe)^(-n) (K1 x - K2 xd)
+
+并称其具有 nonlinear impedance form，
+再通过 Newton Downhill 解 reference position x_r，实现 position-based impedance/admittance。
+
+所以 NNBO 原始逻辑链是：
+
+    HC model
+    -> X_dot = F + G f
+    -> f as HJB action
+    -> HJB
+    -> single critic W
+    -> optimal interaction-force policy f*
+    -> HC-specific algebraic nonlinear impedance relation
+    -> position reference realization.
+
+6.2 为什么不能只把 HC 换掉，其余原公式不动
+------------------------------------------------------------
+
+T-RO 2023 接触建模的核心结构不同。
+
+关键论文：
+Wijayarathne et al.,
+"Real-Time Deformable-Contact-Aware Model Predictive Control for Force-Modulated Manipulation",
+IEEE Transactions on Robotics, 2023,
+DOI: 10.1109/TRO.2023.3286070.
+
+已核实其主干包含：
+- deformable contact；
+- sliding friction；
+- robot/contact coupled dynamics；
+- force-motion optimization；
+- real-time MPC。
+
+其 contact force 更自然地作为 contact state/dynamic quantity，
+机器人真实 control input 是 torque / robot motion command，
+而不是把 contact force 当完全独立可任意指定的 actuator input。
+
+尤其纯 Hertz elastic relation 不具有 HC 中 dissipative term 提供的同一 relative-degree structure。
+
+所以：
+    "HC -> T-RO"
+不能是机械替换。
+
+必须重新推导：
+- state；
+- input；
+- contact dynamics；
+- HJB；
+- critic residual；
+- optimal-policy-to-impedance mapping；
+- executable realization.
+
+结论：
+    换模型不会自动产生不可消除的数学矛盾，
+    但下游 NNBO 推导必须大幅重做。
+
+6.3 固定目标几何：cylinder-plane Hertz
+------------------------------------------------------------
+
+R15 的目标 probe/contact geometry 冻结为：
+    cylinder-plane Hertz.
+
+不允许：
+- 回退经验线性模型；
+- 直接把 T-RO sphere-plane Hertz 常数/指数无审查复制过来。
+
+应重新从 cylinder-plane geometry 推 normal contact law：
+
+    F_n = h_n(delta, dot{delta}; eta_n)
+
+以及必要的 derivative / effective contact stiffness。
+
+然后构建 tangential/sliding law：
+
+    F_t = h_t(F_n, v_t, delta; eta_t)
+
+或对应的 contact-state dynamics。
+
+[OPEN]
+Codex 必须从可信 contact mechanics 文献重新确认 cylinder-plane 的准确形式、适用假设、有限长度/平面应变效应、单位和边界条件。
+不能使用未核实的简单 sphere Hertz 3/2 次幂作为 cylinder-plane 最终公式。
+
+6.4 T-RO-style 要吸收的不是某条公式，而是结构
+------------------------------------------------------------
+
+当前需要迁移的物理结构：
+
+    normal deformation dynamics
+    + tangential/sliding friction
+    + robot/contact coupling
+    + force state / contact dynamics
+    + actual manipulator constraints.
+
+一般写成：
+
+    x_contact_dot = f_c(x_contact, robot motion, eta)
+
+    M(q) q_ddot
+    + C(q,q_dot)q_dot
+    + g(q)
+    = tau - J(q)^T F_e.
+
+构建最小 Markov state：
+
+    x
+    = [
+        q,
+        q_dot,
+        contact deformation / force states,
+        task error,
+        possibly command-generator states
+      ].
+
+[OPEN]
+最小 state 必须重新推导，不能为了方便直接堆入全部变量。
+
+============================================================
+7. 新 NNBO：从“force-as-control”改为“optimal executable impedance”
+============================================================
+
+7.1 为什么要重新定义 HJB action
+------------------------------------------------------------
+
+当前最终研究目标是：
+    actual normal/tangential impedance.
+
+因此比继续保持原 NNBO：
+    f = HJB control
+    -> 再把 f 解释成 impedance
+
+更自然的路线是直接令：
+
+    u_I
+    = [
+        k_n,
+        k_t,
+        d_n,
+        d_t
+      ]^T
+
+或相对于安全/工作点 baseline 的：
+
+    Delta u_I = u_I - u_I0
+
+成为 HJB decision variable。
+
+这样：
+
+    contact force = physical state/output
+    impedance = control policy
+
+避免 T-RO force-state 与 NNBO force-control 的语义冲突。
+
+这是当前最重要的 [DERIVED-CANDIDATE]，
+需要 Codex 从真实 robot + impedance renderer + contact dynamics 重新验证。
+
+7.2 可执行阻抗 law
+------------------------------------------------------------
+
+在 contact frame 中定义，例如：
+
+    K_c = diag(k_t, k_t, k_n)
+    D_c = diag(d_t, d_t, d_n).
+
+世界坐标：
+
+    K_world = R_c K_c R_c^T
+    D_world = R_c D_c R_c^T.
+
+Cartesian impedance wrench 可以写为：
+
+    F_cmd
+    = F_ff
+      + K_world e_x
+      + D_world e_v.
+
+通过 Jacobian 映射到 torque：
+
+    tau
+    = tau_dyn
+      + J^T F_cmd
+
+或等价低层 interface。
+
+如果对固定当前 state/reference，
+K,D 的元素线性进入 commanded wrench，
+那么有希望将闭环局部模型整理成：
+
+    x_dot
+    = f0(x; eta)
+      + G_I(x; eta) Delta u_I.        (CANDIDATE-1)
+
+但注意：
+contact force state、robot acceleration、frame dependence、saturation、inner loop dynamics 等可能使真正 closed-loop 对 u_I 非 affine。
+
+因此必须实际展开验证，而不能直接假设。
+
+7.3 如果 control-affine + quadratic action 成立
+------------------------------------------------------------
+
+定义 cost：
+
+    J(x0; u_I, eta)
+    = integral_0^infinity [
+        q(x; eta)
+        + Delta u_I^T R_I Delta u_I
+      ] dt.
+
+q 可包含：
+- force regulation；
+- path tracking；
+- slip margin penalty；
+- sustained-contact penalty；
+- smooth interaction state penalty。
+
+HJB：
+
+    0
+    = min_Delta_uI {
+        q
+        + Delta u_I^T R_I Delta u_I
+        + grad V^T [f0 + G_I Delta u_I]
+      }.
+
+若 action interior 且 R_I > 0：
+
+    Delta u_I*
+    = -1/2 R_I^{-1} G_I^T grad V*.
+
+于是：
+
+    u_I*
+    = u_I0
+      - 1/2 R_I^{-1} G_I^T grad V*.
+
+这会直接给出最优 executable impedance，而不需要原 NNBO 的 Eq.(50)-(51) force-to-impedance algebraic reinterpretation。
+
+[OPEN]
+Codex 必须验证：
+- infinite-horizon formulation 是否有正确 contact equilibrium；
+- steady nonzero contact force 不应导致 cost 发散；
+- action bounds 是否导致 constrained HJB 而非闭式 interior optimum；
+- K,D positivity / damping relation / passivity constraints 如何进入；
+- normal/tangential variables 是否可同时这样参数化。
+
+7.4 如果系统对 impedance 非 control-affine
+------------------------------------------------------------
+
+不能为了保留 closed-form policy 而伪造 affine structure。
+
+可选处理：
+
+A. 重新参数化，使 admissible impedance increment 近似 affine；
+B. 保持：
+       x_dot = f_cl(x, u_I; eta)
+   HJB：
+       u_I*
+       = argmin_{u_I in U_I} H(x,u_I,grad V,eta)
+   single critic 仍估计 V，
+   每个 state 只做低维 Hamiltonian minimization；
+C. 若直接 overparameterized K,D 不自然，使用物理低维参数：
+       k_n, k_t, damping ratio
+   而不是所有矩阵元素。
+
+核心原则：
+    single critic 可以保留，
+    但 NNBO 原闭式 action 不是必须保留的遗产。
+
+============================================================
+8. Single critic：真正从 NNBO 继承什么
+============================================================
+
+NNBO 最值得迁移的是：
+
+    optimal interaction problem
+    -> HJB
+    -> value function approximation with one critic
+    -> policy recovered analytically / by Hamiltonian minimization.
+
+定义：
+
+    V*(x; eta)
+    ≈ W*(eta)^T phi(x)
+      + approximation error.
+
+则：
+
+    grad V*
+    ≈ grad phi(x)^T W*(eta).
+
+如果存在闭式 optimal impedance：
+
+    u_I*(x,eta)
+    ≈ u_I0
+       - 1/2 R_I^{-1}
+         G_I(x,eta)^T
+         grad phi(x)^T W*(eta).
+
+否则：
+
+    u_I*
+    = argmin_{u_I in U_I}
+      H(x,u_I,grad phi^T W,eta).
+
+critic 的计算目标可写成 HJB residual：
+
+    delta_H(x; W, eta).
+
+在固定 collocation/test stack 上形成有限维 root：
+
+    F_HJB(W, eta) = 0.
+
+必须始终区分：
+
+- exact HJB solution V*；
+- finite-basis projected/Galerkin solution W_N*；
+- online iterate W.
+
+不能把一个有限维 Bellman residual root 自动当作 exact HJB solution。
+
+============================================================
+9. ANEOC：为什么是当前主线必要的 fast adaptation mechanism
+============================================================
+
+9.1 问题
+------------------------------------------------------------
+
+若环境固定：
+    eta = constant
+找到 W*(eta) 即可。
+
+连续扫描中：
+    eta_current -> eta_future.
+
+因此：
+    W*(eta_current)
+    -> W*(eta_future).
+
+最笨策略：
+    future region 被中心碰到以后重新训练/重新求 HJB.
+
+warm start：
+    用旧 W* 作为新求解初值。
+
+但 warm start 没有利用 solution branch 本身对 eta 的导数。
+
+ANEOC / neighboring-extremal continuation 的核心是：
+    直接计算 moving optimum 的 tangent，
+    在参数变化时先沿 tangent 预测，
+    再 correct 到新 root。
+
+9.2 Root formulation
+------------------------------------------------------------
+
+设 finite-dimensional HJB/Galerkin root：
+
+    F_HJB(W*(eta), eta) = 0.
+
+对 eta 求导：
+
+    F_W dW*/deta
+    + F_eta
+    = 0.
+
+若：
+
+    F_W nonsingular
+
+则隐函数定理给：
+
+    C_eta
+    := dW*/deta
+    = - F_W^{-1} F_eta.              (ANEOC-1)
+
+9.3 Predictor
+------------------------------------------------------------
+
+空间预瞄得到：
+
+    Delta eta
+    = eta_future - eta_current.
+
+当前：
+
+    W_k ≈ W*(eta_current).
+
+predict：
+
+    W_pred
+    = W_k
+      + C_eta Delta eta.             (ANEOC-2)
+
+若 solution map locally C2：
+
+    W*(eta + Delta eta)
+    = W*(eta)
+      + C_eta Delta eta
+      + O(||Delta eta||^2).
+
+因此 ideal predictor error：
+
+    O(||Delta eta||^2)
+
+而 stale solution 的 branch displacement 一般是：
+
+    O(||Delta eta||).
+
+这就是 ANEOC 相对 stale/warm-start 具有理论意义的地方。
+
+9.4 Corrector
+------------------------------------------------------------
+
+predictor 仍未精确满足 future HJB root：
+
+    F_HJB(W_pred, eta_future) != 0.
+
+因此用 Newton / safeguarded corrector：
+
+    W_{j+1}
+    = W_j
+      - alpha_j
+        F_W(W_j,eta_future)^{-1}
+        F_HJB(W_j,eta_future).
+
+直到：
+    residual <= epsilon_H
+
+并通过 conditioning / admissibility / execution gates。
+
+物理直觉：
+
+    predictor：
+      沿 W*(eta) 曲线在参数方向的切线，
+      先走到新最优点附近；
+
+    corrector：
+      再从切线近似点回到真正的新 HJB root。
+
+9.5 ANEOC 文献支撑
+------------------------------------------------------------
+
+旧理论稿使用：
+
+Rai, Mou, Anderson,
+"Neighboring Extremal Optimal Control Theory for Parameter-Dependent Closed-loop Laws",
+Automatica 184, 112693, 2026,
+DOI: 10.1016/j.automatica.2025.112693.
+
+以及：
+
+Xu, Molloy, Gould,
+"Revisiting Implicit Differentiation for Learning Problems in Optimal Control",
+NeurIPS 2023,
+arXiv:2310.14468.
+
+这些文献用于：
+- parameter-dependent optimal solution sensitivity；
+- implicit differentiation；
+- local solution continuation。
+
+
+它们支撑的是数学机制，不支撑当前具体 ultrasound contact model 的正确性。
+因此当前路线仍必须对新的 cylinder-plane contact dynamics 和新的
+F_HJB(W,eta)=0 独立验证：
+    F_W nonsingularity,
+    local differentiability of W*(eta),
+    predictor remainder,
+    corrector convergence basin.
+
+注意：
+旧 HC-specific derivative 不能原样复制。
+必须从新的 F_HJB(W,eta) 重算 F_eta、F_W、C_eta。
+
+============================================================
+10. 空间预瞄 + ANEOC：真正需要形成的核心创新链
+============================================================
+
+传统 ANEOC：
+    eta(t) 已经变化
+    -> estimator 得到 Delta eta
+    -> transport W*.
+
+ANEOC 的关键适用条件不是笼统的“环境必须缓慢变化”，
+而是参数更新必须处于可连续跟踪的 local regular branch / trust region 内。
+较大的总变化可在分支保持规则时通过 homotopy substeps 跟踪；
+若发生 branch switch、active-set jump、contact loss、friction-mode jump
+或 F_W 近奇异，则局部 continuation 不再成立。
+
+当前 R15 要做的是：
+
+    leading edge 先接触 future region
+    -> wrench spatial asymmetry
+    -> estimate future transition before task-center encounter
+    -> obtain eta_future / Eta_future_set
+    -> compute Delta eta
+    -> use HJB branch tangent C_eta
+    -> predict future critic W_pred
+    -> correct to W_future*
+    -> convert W_future* to future optimal impedance u_I_future*
+    -> render that impedance before task center crosses the transition.
+
+核心数学链：
+
+    [F_n, M_y, F_t, pose, contact history]
+          |
+          v
+    spatial-preview observer
+          |
+          +--> R_b / boundary distance
+          |
+          +--> Eta_future_set or eta_future_hat
+          |
+          v
+    Delta eta
+          |
+          v
+    C_eta = -F_W^{-1}F_eta
+          |
+          v
+    W_pred = W_current + C_eta Delta eta
+          |
+          v
+    HJB corrector
+          |
+          v
+    W_future*
+          |
+          v
+    future optimal impedance
+          |
+          v
+    rate/passivity-safe applied impedance
+          |
+          v
+    center crosses boundary.
+
+这才是四部分合成一个 scientific mechanism 的方式。
+
+============================================================
+11. Preview-time feasibility：为什么还必须调扫描速度
+============================================================
+
+仅仅提前算出 K* 不等于来得及执行。
+
+end-to-end time：
+
+    tau_total
+    = tau_filter
+      + tau_preview_est
+      + tau_HJB/ANEOC
+      + tau_comm
+      + tau_render.
+
+必须满足：
+
+    T_prev_lower
+    >= tau_total.                     (TIME-1)
+
+其中：
+
+    T_prev_lower
+    = r_b_lower / v_s.
+
+因此得到 scan-speed upper bound：
+
+    v_s
+    <= r_b_lower / tau_total.         (TIME-2)
+
+含义：
+
+- 如果 preview 足够长：
+      保持 nominal speed，
+      提前平滑改变 impedance；
+
+- 如果 preview 不够：
+      减速增加时间预算；
+
+- 如果减速后仍不可行：
+      保持 verified conservative impedance / withdraw / fallback。
+
+这不是“再加一个 speed controller”。
+它是由有限接触斑 preview geometry 与真实 computation/render latency 必然推出的 feasibility condition。
+
+============================================================
+12. 实际阻抗不是 command：必须闭合 applied impedance
+============================================================
+
+必须区分：
+
+    u_I_command
+vs.
+    u_I_applied.
+
+真实低层有：
+- gain update rate；
+- communication delay；
+- actuator saturation；
+- low-level controller bandwidth；
+- contact-frame rotation；
+- filtering；
+- inner-loop tracking error。
+
+所有 preview-time 结论都必须使用：
+    measured / identified u_I_applied dynamics
+
+而不是假设：
+    K command 一发出立即生效。
+
+例如：
+
+    ||K_dot|| <= Kdot_max.
+
+从 K_current 到 K_target 至少需要：
+
+    tau_render
+    >= ||K_target-K_current|| / Kdot_max
+
+（实际应按矩阵/分量约束和低层 dynamics 准确建模）。
+
+============================================================
+13. Variable impedance 的 energy/passivity closure
+============================================================
+
+固定 impedance 的标准 dissipativity/passivity 不能自动扩展到随时间切换的 K。
+
+elastic storage：
+
+    V_K = 1/2 e^T K e.
+
+一次离散 K 更新：
+
+    K^- -> K^+.
+
+在同一物理误差 e 上：
+
+    Delta V_K
+    = 1/2 e^T (K^+ - K^-) e.
+
+对于曲面超声扫描，contact frame R_c 也变化：
+
+    K^-_world
+    = R^- diag(k_t^-,k_t^-,k_n^-) R^{-T}
+
+    K^+_world
+    = R^+ diag(k_t^+,k_t^+,k_n^+) R^{+T}.
+
+所以必须计算：
+
+    Delta V_K
+    = 1/2 e^T
+      (K^+_world - K^-_world)
+      e.
+
+不能只记录 scalar gain difference，
+否则会漏掉 rotating contact frame 产生的 storage change。
+
+可使用 energy tank / equivalent safe publication gate：
+仅当正能量注入能够被 account 后才发布新 K；
+否则：
+- 沿 old -> candidate K 回缩；
+- 延长 transition；
+- 减速；
+- 保持 incumbent。
+
+注意：
+reference motion / feedforward force 的供能必须单独记账，
+不能全部归入“passive impedance”。
+
+============================================================
+14. 不确定 future descriptor 时，ANEOC 不能只吃一个点估计
+============================================================
+
+空间预瞄很可能输出：
+
+    Eta_future_set
+
+而不是唯一 eta_future。
+
+需要 Codex 检查以下可能结构：
+
+1. conservative representative:
+   对 uncertainty set 选 worst-case / robust target；
+
+2. first-order transported policy set:
+   对 e_eta in C_eta，
+   用：
+      Delta W ≈ C_eta e_eta
+   计算 possible future policy/impedance spread；
+
+3. only publish when:
+   preview uncertainty + critic error + corrector error + execution error
+   小于允许的 policy / safety budget；
+
+4. 如果 future descriptor ambiguity 会导致彼此不相容的 future impedance requirements，
+   则不应硬运输一个策略，应减速/保持 robust incumbent。
+
+这与旧 DSI 思想在数学上有一定相似性，
+但注意：
+    decision-sufficient uncertainty
+已经不再是当前 paper-level 主创新。
+它最多作为 future-preview uncertainty 的辅助判据，
+不能重新把论文主问题拉回“只辨识与决策相关的不确定性”。
+
+============================================================
+15. 需要 Codex 重新推导的理论主干
+============================================================
+
+以下不是 optional polish，而是当前 Method 真正的理论闭合任务。
+
+T1. Finite-patch future-transition observability
+------------------------------------------------------------
+
+目标：
+证明在声明的 contact/geometry assumptions 下，
+当前 finite contact patch 的 zero/first wrench moments 对：
+
+    future boundary distance
+    + policy-relevant contact change
+
+具有 local observability / set identifiability。
+
+至少包含：
+- step transition；
+- finite-width/ramp transition；
+- geometry nuisance；
+- noise/remainder；
+- varying contact width；
+- force-history comparator。
+
+必须给 degeneracy：
+
+    Delta eta = 0
+    ell = 0
+    F too small
+    transition width >> patch
+    geometry/material hypotheses overlap
+    boundary orientation degeneracy
+    contact patch collapse.
+
+T2. Force-only / point-contact information limitation
+------------------------------------------------------------
+
+需要严格比较：
+    F-only current/history
+vs.
+    F + M (+ pose/history).
+
+不能轻率宣称“force controller 一定不知道边界”，因为 force history / derivative 可能也带空间信息。
+
+应构造 policy-consistent observation histories：
+如果两个 future transitions 在 F-only tolerance 内难以区分，却要求不同 pre-transition actions，那么 force-only causal controller 至少对其中一个存在 transition loss。
+
+如果该 lower bound 无法成立，就收窄 claim，不得硬保。
+
+T3. T-RO-style cylinder-plane contact model closure
+------------------------------------------------------------
+
+完整推：
+- cylinder-plane normal contact；
+- derivative / dynamic state form；
+- tangential friction；
+- sliding/stick regime assumptions；
+- robot/contact coupled dynamics；
+- minimal Markov state；
+- valid domain and singularities。
+
+T4. Executable-impedance HJB
+------------------------------------------------------------
+
+证明/判断：
+- impedance 参数能否作为真实 HJB action；
+- control-affine 是否真实成立；
+- constrained Hamiltonian 如何处理；
+- equilibrium / incremental cost 如何定义；
+- nonzero steady contact force 下 infinite-horizon cost 是否有限；
+- normal/tangential impedance positivity / damping constraints；
+- exact action-to-low-level-controller mapping。
+
+T5. Single-critic approximation
+------------------------------------------------------------
+
+从 T4 新 HJB 推：
+- reduced HJB operator；
+- critic basis；
+- Bellman/Hamiltonian residual；
+- learning/root formulation；
+- local admissibility；
+- exact-vs-Galerkin comparator；
+- critic approximation error。
+
+T6. Parameter/descriptor-dependent HJB sensitivity
+------------------------------------------------------------
+
+从新：
+
+    F_HJB(W,eta)=0
+
+推：
+
+    C_eta
+    = -F_W^{-1}F_eta.
+
+必须明确：
+- F_W 是什么；
+- 可逆/conditioning 条件；
+- eta 对 dynamics / cost / constraints 的导数；
+- action saturation / active-set switch 时是否失去 smooth branch；
+- tangent approximation error。
+
+T7. ANEOC predictor-corrector local theorem
+------------------------------------------------------------
+
+证明：
+- predictor second-order local error；
+- corrector contraction；
+- trust-region；
+- homotopy substep；
+- branch re-anchor；
+- failure semantics。
+
+T8. Preview-time sufficiency
+------------------------------------------------------------
+
+如果：
+- true future transition contained in observer set；
+- T_prev_lower >= end-to-end compute/render budget；
+- current K -> future admissible impedance exists under rate/energy/actuator limits；
+- model-error tube valid；
+
+则证明：
+    task center reaches transition 前，
+    K_applied enters target admissible region
+    and transition constraints remain satisfied.
+
+如果条件不成立：
+    algorithm returns reduced-speed / conservative / withdraw
+而不是 undefined action。
+
+T9. Stability / passivity under transported variable impedance
+------------------------------------------------------------
+
+需要至少明确：
+- frozen eta 时 HJB-optimal closed-loop stability；
+- critic/policy approximation error 对 UUB/ISS 的影响；
+- eta(t) slowly varying / preview jump 的影响；
+- gain transition energy accounting；
+- execution error；
+- contact frame rotation。
+
+============================================================
+16. 关键数学 hard-boundary / route failure conditions
+============================================================
+
+以下条件必须显式写在主定理范围外或作为 gate。
+
+H1. Contact establishment/loss
+------------------------------------------------------------
+
+Hertz-type derivative 在 delta -> 0 附近可能奇异/退化。
+ANEOC 主 theorem 建议先限定：
+
+    delta >= delta_min > 0
+    sustained contact.
+
+separation / impact / re-contact：
+    hybrid fallback / re-anchor
+而不是强行纳入同一个 smooth HJB branch。
+
+H2. Friction nonsmoothness
+------------------------------------------------------------
+
+经典 sliding direction：
+
+    n_v = v / ||v||
+
+在 ||v|| -> 0 时不光滑。
+
+选择：
+- main theorem 限定 sliding regime ||v|| >= v_min；
+- 或用 smooth regularization；
+- 或显式 hybrid stick/slip modes。
+
+不能无说明地对 friction-switch point 做 C2 sensitivity。
+
+H3. HJB solution branch
+------------------------------------------------------------
+
+ANEOC 只在 local regular branch 成立。
+
+需要：
+    F_W nonsingular
+    local solution map differentiable
+    action remains admissible/interior or fixed active set.
+
+如果参数变化频繁跨 branch / active-set：
+    local continuation 可能不是正确主方法。
+
+H4. Preview transition size
+------------------------------------------------------------
+
+如果：
+
+    ||Delta eta|| > trust-region
+
+必须：
+- homotopy substeps；
+- re-anchor；
+- 或直接重新求 HJB。
+
+不能为了维护 ANEOC claim 无限细分而掩盖“环境变化不是 local”。
+
+H5. Corrector
+------------------------------------------------------------
+
+如果：
+- residual 不下降；
+- conditioning 太差；
+- Newton-Kantorovich gate fail；
+- stability margin <=0；
+
+candidate 不发布。
+
+H6. Preview observability
+------------------------------------------------------------
+
+若标准 6-axis F/T 在实际 noise / cable / geometry nuisance 下不能稳定恢复 useful preview：
+
+    route FAIL or sensing/task must change.
+
+不能加入越来越复杂 online learning 来掩盖物理信息本身不存在。
+
+H7. Time budget
+------------------------------------------------------------
+
+若真实：
+    contact width / scan speed
+导致：
+    T_prev <= tau_total
+
+且必须把速度降到失去临床/任务意义才能成立，
+则当前 spatial-preview adaptation capability 不成立。
+
+H8. ANEOC necessity
+------------------------------------------------------------
+
+如果：
+    full HJB re-solve / retraining
+在相同硬件上的 P95/P99 runtime 与 ANEOC predictor-corrector 相当，
+则 ANEOC 工程必要性被否决。
+
+H9. Optimal impedance necessity
+------------------------------------------------------------
+
+如果最强 fixed robust K / explicit force control / standard MPVIC 已经达到相同 transition-safe performance，
+则 optimal-impedance/HJB 复杂度需要删减。
+
+============================================================
+17. 当前路线中的“已验证事实”与“不能预设的候选”
+============================================================
+
+17.1 [SOURCE-VERIFIED]
+------------------------------------------------------------
+
+A. NNBO 2025：
+- 使用 HC nonlinear environment；
+- 建立 augmented interaction dynamics；
+- 把 interaction force f 作为 HJB control；
+- quadratic tracking/force cost；
+- f* = -1/2 R^-1 G^T grad J*；
+- single critic approximate HJB/value function；
+- critic policy 最终通过 HC-specific algebraic form 得到 nonlinear impedance relation；
+- Newton Downhill 求 reference position。
+
+B. T-RO 2023：
+- deformable contact；
+- normal contact physics；
+- sliding friction；
+- robot/contact coupled dynamics；
+- real-time force-motion predictive control。
+
+C. Existing preview literature：
+- upstream measurement can provide downstream preview；
+- preview time constrains achievable rate-limited reconfiguration。
+
+D. Contact wrench：
+- resultant force/moment are low-order moments of contact pressure distribution。
+
+E. Existing impedance literature：
+- optimal/predictive impedance；
+- online MPVIC；
+- uncertainty/safety/passivity；
+都已有 strong prior。
+
+F. ANEOC / implicit differentiation：
+- parameter-dependent root/optimal solution can locally be differentiated；
+- predictor based on tangent can remove first-order branch displacement under smooth regularity。
+
+17.2 [DERIVED-CANDIDATE]
+------------------------------------------------------------
+
+以下是当前值得继续推的候选，但 Codex 必须独立验证：
+
+1. 用 finite-patch wrench preview 恢复：
+      boundary distance + future policy-relevant eta.
+
+2. 用 T-RO-style normal+tangential contact replacing HC 后，
+   HJB/critic framework 仍可成立，但全部 model-specific equations 重推。
+
+3. 直接令 executable impedance u_I 成为 HJB action，
+   解决 "T-RO force is state vs NNBO force is action" 的语义冲突。
+
+4. 如果 closed-loop 对 u_I affine：
+      u_I*
+      = u_I0 - 1/2 R_I^-1 G_I^T grad V*.
+
+5. 新 HJB finite-dimensional root：
+      F_HJB(W,eta)=0.
+
+6. ANEOC：
+      C_eta=-F_W^-1 F_eta
+      W_pred=W+C_eta Delta eta
+      correct -> W*(eta_future).
+
+7. 用 T_prev 将 sensing/ANEOC/render 与 scan speed 联立。
+
+17.3 [OPEN]
+------------------------------------------------------------
+
+必须重新解决：
+
+- cylinder-plane contact exact model；
+- future descriptor eta 最小定义；
+- eta 是否从 standard F/T + history 可恢复；
+- impedance action 是否 affine；
+- constrained HJB；
+- normal/tangential HJB dimension；
+- exact critic basis / learning scheme；
+- policy uncertainty set；
+- stability theorem；
+- full execution/passivity integration；
+- preview observer -> eta -> HJB 的端到端 error propagation。
+
+============================================================
+18. 当前最重要的 Scientific Delta 应该落在哪里
+============================================================
+
+不能写成：
+
+    "我们把 T-RO、NNBO、ANEOC、preview 组合起来."
+
+也不能写：
+
+    "我们第一次做 predictive variable impedance."
+
+当前最有希望的 paper-level relation 是：
+
+    A finite ultrasound contact patch is used as an endogenous mechanical preview sensor.
+    Its spatial wrench asymmetry makes an upcoming local contact transition observable
+    before that transition reaches the task center.
+    The previewed policy-relevant contact change is then used to transport a
+    parameter-dependent HJB/critic optimal-impedance solution along its neighboring
+    extremal branch, under an explicit preview-time budget, so the rate-limited
+    applied impedance can be reconfigured before center encounter.
+
+中文：
+
+    利用超声探头有限接触斑前缘先于任务中心进入新组织这一物理事实，
+    从聚合 wrench 的空间矩中恢复即将到达的接触变化；
+    再把该未来变化直接作用于参数相关 HJB 最优阻抗解分支，
+    通过 ANEOC 在有限预瞄时间内提前运输并校正最优 critic/阻抗，
+    使实际 rate-limited impedance 在中心到达边界前完成重构。
+
+真正新增的是：
+
+    spatial previewability
+    + moving optimal-impedance solution transport
+    + pre-transition execution timing
+
+形成的一条不可约关系。
+
+============================================================
+19. 历史中已经被否决/禁止回退的 idea
+============================================================
+
+以下内容可以作为背景/失败经验，但不得恢复成当前主创新或主方法，除非重新审计发现当前路线失败且有新证据。
+
+19.1 旧 DRDI-MPC / decision-relevant dual-control 主线
+------------------------------------------------------------
+
+旧版本将核心创新放在：
+    "只辨识那些会改变阻抗决策的不确定性"
+以及：
+    decision relevance
+    dual control
+    information action
+    branch MPC
+    regret/certificate.
+
+后来判断：
+- decision relevance、dual control、task-oriented information gathering、safe SysID 已有强 prior；
+- 为此增加 belief branch / certificate 会导致复杂度上升而 Scientific Delta 仍不够；
+- 已由更物理的 finite-patch endogenous preview 问题替代。
+
+因此：
+    decision-sufficient uncertainty
+只能作为 observer/state reduction 或 uncertainty gate 辅助，
+不能再作为 paper 主创新。
+
+19.2 "只在 T-RO prediction 后加 impedance selection Pi(K)"
+------------------------------------------------------------
+
+否决原因：
+- 容易退化成“prediction + one extra gain selection layer”；
+- Pi(K) 与原 objective/J 可能重复；
+- Method necessity 不足；
+- Scientific Delta 容易成为拼接；
+- predictive/optimal impedance prior 已经很强。
+
+所以禁止把当前方法重新写成：
+
+    future contact prediction
+    -> Pi(K)
+    -> choose K.
+
+19.3 普通 future prediction / trajectory adaptation / reactive impedance
+------------------------------------------------------------
+
+明确禁止将路线退化为：
+- future prediction；
+- trajectory adaptation；
+- reactive impedance tuning。
+
+这些不是当前核心新能力。
+
+19.4 旧 Route A：普通 variable impedance MPC
+------------------------------------------------------------
+
+仅把 K 放进 MPC decision vector 的路线已有强 prior，
+不足以单独支撑目标 venue innovation。
+
+可作为 baseline / simpler competitor，
+不能作为最终 Scientific Delta。
+
+19.5 旧 Route B 的直接 NNBO 迁移版本
+------------------------------------------------------------
+
+曾经考虑：
+    直接用 NNBO optimal force -> impedance mapping
+去做新场景。
+
+其中一个问题是：
+原 NNBO Eq.(50)-(51) 的 force-to-impedance relation 强依赖 HC model，
+模型替换后 mapping 不再自然唯一。
+
+当前路线的修正是：
+    不保留 HC-specific mapping；
+    优先重新定义 HJB action 为 executable impedance，
+或重新求新的 policy-to-impedance realization。
+
+19.6 Route C：learning residual
+------------------------------------------------------------
+
+曾考虑在主模型后加 learning residual。
+被否决/搁置原因：
+- 容易成为方法堆叠；
+- 不能解释主要 failure；
+- 增加 validation debt；
+- 当前没有必要证据。
+
+19.7 Generic active probing / branch belief MPC
+------------------------------------------------------------
+
+旧 DS-ANEOC-NNBO 稿包含：
+- finite probe library；
+- DSI gate；
+- information authority；
+- active probe。
+
+当前空间预瞄路线的首选原则是：
+    natural scan motion already provides leading-edge preview.
+
+所以不能默认再加主动 probing。
+若 endogenous preview 不够：
+    首先减速 / fallback / route falsification，
+而不是用更多 probing 掩盖问题。
+
+只有未来实验明确证明：
+    passive preview 存在 information insufficiency，
+且低扰动 probing 有必要，
+才可作为后续扩展，而不是当前主线。
+
+19.8 大型 POMDP / global GP map / digital twin / 多层 shield
+------------------------------------------------------------
+
+当前没有 failure 证明这些复杂模块必要。
+禁止为了“技术深度”随意加入。
+
+============================================================
+20. 推荐 Codex 使用的主要原始资料/文件
+============================================================
+
+A. 当前空间预瞄问题与方法基础
+------------------------------------------------------------
+
+文件：
+    R15_TRO_RESEARCH_PROBLEM_AND_METHOD_OPTIMIZED_2026-09-08.txt
+
+重点内容：
+- causal adaptation lag；
+- finite contact patch；
+- force/moment spatial moments；
+- boundary-distance/contrast witness；
+- preview-time feasibility；
+- speed/K scheduling；
+- passivity/applied-K；
+- strongest baselines；
+- non-regression rules。
+
+注意：
+该文件当时的 downstream method 使用 robust scheduler/QP；
+当前要把其“空间预瞄问题 + 物理机制”保留，
+但 downstream optimal impedance solver 改为新的 NNBO/ANEOC 主线后重新推导。
+不能简单把旧 robust scheduler 与 NNBO/ANEOC 全部同时保留。
+
+B. NNBO + ANEOC 数学基础
+------------------------------------------------------------
+
+文件：
+    R15_FINAL_METHOD_DS_ANEOC_NNBO_THEORY_CLOSED_2026-09-09.txt
+
+可迁移内容：
+- HJB root viewpoint；
+- critic/Galerkin branch distinction；
+- implicit differentiation；
+- C_theta = -A_W^-1 B_theta；
+- predictor-corrector；
+- trust region；
+- conditioning/Kantorovich gate；
+- critic/reference/execution error bookkeeping；
+- branch failure semantics；
+- derivative consistency tests。
+
+必须删除/重写的内容：
+- HC-specific model；
+- HC-specific theta derivatives；
+- DSI 作为主创新；
+- active probing 主线；
+- 原 force-as-HJB-action / Eq.(50)-(51) mapping；
+- 与新 spatial preview 不兼容的研究问题。
+
+C. NNBO 原论文
+------------------------------------------------------------
+
+Kong et al.,
+"Neural-Network-Based Optimal Impedance Control for Robots in Physical Interaction With Soft Environments",
+IEEE TSMC:S, 2025,
+DOI: 10.1109/TSMC.2025.3579017.
+
+必须从原文复核：
+- Eq.(23)-(30)；
+- augmented dynamics；
+- HJB；
+- single critic；
+- Eq.(37)；
+- Eq.(50)-(52)；
+- position-based implementation；
+- PE/critic convergence assumptions。
+
+D. T-RO 2023 原论文
+------------------------------------------------------------
+
+Wijayarathne et al.,
+"Real-Time Deformable-Contact-Aware Model Predictive Control for Force-Modulated Manipulation",
+IEEE T-RO 2023,
+DOI: 10.1109/TRO.2023.3286070.
+
+必须从原文复核：
+- Hertz contact relation；
+- normal force dynamics；
+- sliding friction；
+- friction derivative；
+- robot dynamics；
+- state/control semantics；
+- contact force as state；
+- model assumptions/domain。
+
+E. Strongest-prior package
+------------------------------------------------------------
+
+文件：
+    R15_Strongest_Prior_Research_Package_2026-09-07.txt
+
+用于：
+- baseline；
+- novelty boundary；
+- simpler alternatives；
+- overdesign check。
+
+============================================================
+21. Codex 从头重推时的强制执行顺序
+============================================================
+
+不要先写完整 Method。
+按以下顺序逐 Gate 前进。
+
+STEP 1 — Re-freeze research problem
+------------------------------------------------------------
+
+只看场景与 strongest prior，
+重新确认：
+    causal adaptation lag at spatial transitions
+是否确实是重要、尚未被 strongest baseline 消除的 failure。
+
+如果不是：
+    停止当前路线。
+
+STEP 2 — Re-derive finite-patch observability
+------------------------------------------------------------
+
+从：
+    actual probe geometry
+    + distributed contact field
+    + wrench integrals
+开始。
+
+先证明：
+    F+M 是否真的比 F/history-only 提供稳定的 future boundary information。
+
+不能跳到 controller。
+
+STEP 3 — Define minimal future descriptor eta
+------------------------------------------------------------
+
+从：
+    what changes the future optimal impedance?
+反推 observer 必须输出什么。
+
+禁止先定义一堆 physical parameters 再强迫 estimator 全部辨识。
+
+STEP 4 — Derive cylinder-plane T-RO-style contact dynamics
+------------------------------------------------------------
+
+从接触力学原理重新推。
+完成：
+    normal + tangential + robot coupling
+    -> minimal Markov dynamics.
+
+做单位、极限、符号和数值 sanity check。
+
+STEP 5 — Derive executable impedance closed-loop model
+------------------------------------------------------------
+
+明确 low-level impedance controller 接口。
+
+展开：
+    u_I -> commanded wrench -> torque -> robot motion
+    -> deformation/contact state -> actual force.
+
+检查 u_I 是否 control-affine。
+
+STEP 6 — Re-formulate optimal control / HJB
+------------------------------------------------------------
+
+设计与实际任务一致的 cost。
+
+特别检查：
+- sustained nonzero contact equilibrium；
+- force tracking vs position tracking；
+- infinite-horizon cost convergence；
+- constrained action；
+- normal/tangential coupling。
+
+STEP 7 — Re-derive single critic
+------------------------------------------------------------
+
+从新的 HJB operator 重新得到：
+    value approximation；
+    critic residual/root；
+    policy extraction；
+    admissibility；
+    approximation error。
+
+STEP 8 — Re-derive ANEOC w.r.t. eta
+------------------------------------------------------------
+
+严格推：
+    F_HJB(W,eta)=0
+    -> F_W
+    -> F_eta
+    -> C_eta
+    -> predictor
+    -> second-order remainder
+    -> corrector
+    -> branch/trust-region gates.
+
+STEP 9 — Couple preview and ANEOC
+------------------------------------------------------------
+
+证明 observer 的 eta_future uncertainty 如何传播到：
+    W_future
+    policy
+    impedance.
+
+不是只画 block diagram。
+
+STEP 10 — Derive preview-time execution theorem
+------------------------------------------------------------
+
+将：
+    boundary-distance uncertainty
+    + computation latency
+    + ANEOC runtime
+    + K rate
+    + communication
+    + passivity
+统一进 pre-transition feasibility condition。
+
+STEP 11 — Stability/passivity/error closure
+------------------------------------------------------------
+
+形成单一 error ledger：
+- preview estimation error；
+- contact model error；
+- critic approximation；
+- tangent approximation；
+- corrector residual；
+- low-level impedance realization；
+- applied-K delay；
+- force/path tracking residual。
+
+避免重复计数。
+
+STEP 12 — Run falsification / simpler-method test
+------------------------------------------------------------
+
+至少比较：
+- fixed robust impedance；
+- reactive online impedance；
+- Xue-style MPVIC；
+- matched explicit force control；
+- standard NNBO retrain；
+- NNBO warm start；
+- NNBO + ANEOC without preview；
+- preview + re-solve without ANEOC；
+- full proposed method。
+
+每增加一个组件必须解释：
+    删除它以后哪个明确 failure 无法解决？
+
+如果删除后能力不变：
+    删除组件。
+
+============================================================
+22. Codex 强制数学检查
+============================================================
+
+每一层公式都至少做：
+
+D1. Dimension/unit check
+------------------------------------------------------------
+所有 contact coefficients、force、velocity、HJB cost、K/D 的量纲一致。
+
+D2. Symbol/sign check
+------------------------------------------------------------
+尤其：
+- indentation direction；
+- normal direction；
+- friction direction；
+- center/boundary/leading-edge coordinate；
+- moment sign。
+
+D3. Analytic derivative vs autodiff vs centered finite difference
+------------------------------------------------------------
+对：
+- contact dynamics derivatives；
+- F_eta；
+- F_W；
+- C_eta；
+- policy derivative；
+全部至少三层核对。
+
+D4. Limiting cases
+------------------------------------------------------------
+必须检查：
+- Delta eta -> 0；
+- preview distance -> 0；
+- scan speed -> 0；
+- K rate -> infinity；
+- friction -> 0；
+- tangential velocity -> 0；
+- homogeneous tissue；
+- very wide transition；
+- contact loss boundary。
+
+D5. Root/branch conditioning
+------------------------------------------------------------
+记录：
+    sigma_min(F_W)
+    condition(F_W)
+    HJB residual
+    Newton residual reduction.
+
+D6. End-to-end latency
+------------------------------------------------------------
+最终理论不能只用 algorithm complexity，
+必须测/估：
+    P95/P99/max tau_total.
+
+============================================================
+23. 当前应该争取的最小充分论文结构
+============================================================
+
+理想情况下，最终论文不应成为巨大系统栈。
+建议核心只保留：
+
+M1. Finite-patch preview observer
+    输出 future boundary + eta set。
+
+M2. T-RO-style optimal impedance model
+    cylinder-plane normal/tangential contact + new NNBO HJB/single critic。
+
+M3. Previewed ANEOC continuation
+    future eta drives critic/impedance branch predictor-corrector。
+
+M4. Execution feasibility gate
+    preview time + K-rate + actuator + passivity + fallback。
+
+如果某部分不解决独立、必要 failure，应进一步合并或删除。
+
+============================================================
+24. 当前最准确的完成度判断
+============================================================
+
+已经相对清楚：
+- 研究问题；
+- spatial-preview mechanism；
+- F/M moment 的最小可观 witness；
+- strongest-prior novelty boundary；
+- NNBO 原算法结构；
+- ANEOC 隐式 sensitivity / predictor-corrector 原理；
+- 换 T-RO contact model 后不能照搬 NNBO downstream formula；
+- 没有发现仅因 contact-model replacement 就必然产生不可消除的数学硬矛盾；
+- preview-time 与 actual K-rate 必须联立。
+
+尚未完整理论闭合：
+- cylinder-plane T-RO-style contact dynamics；
+- preview -> future eta 的最小充分映射；
+- new robot/contact/impedance Markov state；
+- executable impedance as HJB action 是否严格成立；
+- new HJB；
+- new critic equations；
+- new F_eta / ANEOC tangent；
+- full preview uncertainty -> optimal impedance error bound；
+- stability/passivity/pre-transition theorem；
+- exact experimental kill tests。
+
+所以 Codex 的任务不是“润色当前最终方法”，而是：
+
+    从 research problem 开始，
+    把上述 OPEN 接口全部重新推到可证明/可实现，
+    并允许在发现错误时修改路线。
+
+============================================================
+25. 一句话 Definition of Done
+============================================================
+
+只有当以下链条每个箭头都有明确数学对象、条件、误差界或失败语义时，才算理论闭合：
+
+    finite contact patch
+    -> observable future transition
+    -> policy-relevant future contact descriptor eta
+    -> valid cylinder-plane normal/tangential dynamics
+    -> well-posed executable-impedance HJB
+    -> single-critic optimal policy
+    -> differentiable parameter-dependent solution branch
+    -> ANEOC future-solution transport
+    -> rate/passivity-feasible applied impedance
+    -> center-crossing-before-transition safety/performance guarantee.
+
+任何一个箭头只能靠“直觉上应该可以”连接，都不能称为 Final Method。
+
+============================================================
+26. 交接给 Codex 的最终任务指令
+============================================================
+
+请不要默认本文件的候选推导正确。
+
+以本文件冻结的研究问题、有效物理机制、原始论文和 strongest prior 为起点，对整条路线做一次从零的独立推导与审计：
+
+1. 重新确认研究问题与 strongest prior 后的真正 gap；
+2. 从 finite contact patch pressure/wrench mechanics 推导 spatial preview observability；
+3. 定义最小 policy-relevant future contact descriptor eta；
+4. 基于 cylinder-plane Hertz + tangential sliding 重建 T-RO-style contact model；
+5. 建立真实 robot/contact/impedance closed-loop Markov dynamics；
+6. 判断 executable impedance 是否适合作为 HJB action；若不适合，寻找最小必要重参数化；
+7. 重新建立 cost、HJB 和 single-critic optimal impedance；
+8. 对新的 eta-dependent HJB root 重推 ANEOC sensitivity、predictor、corrector；
+9. 闭合 spatial preview -> eta -> W* -> K*/D* 的误差传播；
+10. 联立 preview time、solver latency、communication、gain-rate、actuator 和 passivity；
+11. 给出 stability/admissibility/fallback 条件；
+12. 对全部解析导数做 autodiff + centered finite difference consistency check；
+13. 对 strongest baseline / simpler method 做 necessity test；
+14. 若发现结构性错误，直接修改路线；禁止为了保留“空间预瞄+T-RO+NNBO+ANEOC”的表面形式而硬修；
+15. 最终输出一套最小充分、数学正确、工程可实现、创新点不可约、符合 T-RO 方法深度的 Final Method。
+
+最重要的非回退规则：
+
+    不回到旧 DRDI-MPC / decision-relevant dual-control 主创新；
+    不回到 prediction + Pi(K)；
+    不把普通 predictive impedance 当创新；
+    不恢复 generic active probing / branch MPC，除非新 failure 明确证明必要；
+    不照搬 NNBO HC-specific force-to-impedance mapping；
+    不照搬 T-RO sphere Hertz 到 cylinder-plane；
+    不假设 K command = K applied；
+    不把 F/M 一次性解释为完整组织参数；
+    不隐藏 contact loss / friction switch / branch switch；
+    不用复杂度掩盖 Method necessity 不足。
+
+============================================================
+27. 文献清单（按当前作用分类）
+============================================================
+
+[Original contact/dynamics backbone]
+1. Wijayarathne et al.
+   Real-Time Deformable-Contact-Aware Model Predictive Control for Force-Modulated Manipulation.
+   IEEE Transactions on Robotics, 2023.
+   DOI: 10.1109/TRO.2023.3286070.
+   用途：deformable contact + sliding friction + robot/contact coupling。
+   注意：模型结构可迁移，sphere-specific Hertz geometry 不能直接用于 cylinder-plane。
+
+[Optimal impedance / NNBO]
+2. Kong, Peng, Li, Yang.
+   Neural-Network-Based Optimal Impedance Control for Robots in Physical Interaction With Soft Environments.
+   IEEE Transactions on Systems, Man, and Cybernetics: Systems, 2025.
+   DOI: 10.1109/TSMC.2025.3579017.
+   用途：HC -> HJB -> single critic -> optimal interaction policy -> nonlinear impedance realization。
+   注意：HC-specific downstream mapping 必须重推。
+
+[ANEOC / sensitivity]
+3. Rai, Mou, Anderson.
+   Neighboring Extremal Optimal Control Theory for Parameter-Dependent Closed-loop Laws.
+   Automatica, 184, 112693, 2026.
+   DOI: 10.1016/j.automatica.2025.112693.
+   用途：parameter-dependent closed-loop optimal-law sensitivity / neighboring extremal transport。
+
+4. Xu, Molloy, Gould.
+   Revisiting Implicit Differentiation for Learning Problems in Optimal Control.
+   NeurIPS 2023.
+   arXiv:2310.14468.
+   用途：implicit differentiation / solution-map derivative support。
+
+[Ultrasound / online impedance strongest prior]
+5. Beber et al.
+   A Passive Variable Impedance Control Strategy with Viscoelastic Parameters Estimation of Soft Tissues for Safe Ultrasonography.
+   ICRA 2024.
+   DOI: 10.1109/ICRA57147.2024.10610167.
+   用途：offline palpation/map boundary。
+
+6. Xue et al.
+   Model Predictive Variable Impedance Control Towards Safe Robotic Interaction in Unknown Disturbance-Rich Environments.
+   Robotics and Autonomous Systems, 2025.
+   DOI: 10.1016/j.robot.2025.104961.
+   用途：online estimator + MPVIC + passivity/safety strongest prior。
+
+7. Piedra et al.
+   Explicit Force-Based Control Strategies for Compliant Robot-Assisted Ultrasound Imaging.
+   IJRR, 2026.
+   DOI: 10.1177/02783649261441635.
+   用途：matched high-bandwidth explicit force-control falsifier。
+
+8. Li et al.
+   Observer-Based Sliding Mode Admittance Control for Ultrasound Robot Force-Tracking in Complex Interaction Environments.
+   Control Engineering Practice, 2026.
+   DOI: 10.1016/j.conengprac.2026.106764.
+   用途：reactive observer/force-tracking boundary。
+
+9. Autonomous Robotic Ultrasound Scanning on Complex Surfaces:
+   Automatic Trajectory Generation and Disturbance Observer-Based Model Predictive Admittance Control.
+   Control Engineering Practice, online 2026 / issue 2027.
+   DOI: 10.1016/j.conengprac.2026.107240.
+   用途：disturbance-observer predictive admittance boundary。
+
+10. Min et al.
+    Adaptive Speed-Regulated Impedance Control for Robotic Ultrasound Scanning:
+    Reducing Constant-Force Tracking Errors.
+    2026.
+    DOI: 10.4271/2026-99-0751.
+    用途：reactive speed+impedance prior；证明 speed adaptation 本身不是 innovation。
+
+[Predictive / optimal impedance]
+11. Haninger, Hegeler, Peternel.
+    Model Predictive Impedance Control With Gaussian Processes for Human and Environment Interaction.
+    Robotics and Autonomous Systems, 2023.
+    DOI: 10.1016/j.robot.2023.104431.
+    用途：future model + uncertainty + MPC + impedance prior。
+
+12. Pollayil et al.
+    Choosing Stiffness and Damping for Optimal Impedance Planning.
+    IEEE Transactions on Robotics, 2023.
+    DOI: 10.1109/TRO.2022.3216078.
+    用途：direct stiffness/damping optimization prior / simpler competitor。
+
+13. Anand, Gravdahl, Abu-Dakka.
+    Model-Based Variable Impedance Learning Control for Robotic Manipulation.
+    Robotics and Autonomous Systems, 2023.
+    DOI: 10.1016/j.robot.2023.104531.
+    用途：learn model -> predict response -> adapt impedance 已成熟。
+
+14. Roveda et al.
+    Q-Learning-Based Model Predictive Variable Impedance Control for Physical Human-Robot Collaboration.
+    Artificial Intelligence, 2022.
+    DOI: 10.1016/j.artint.2022.103771.
+    用途：learning + MPC + predictive VIC 已成熟。
+
+[Spatial preview source mechanism]
+15. Theunissen et al.
+    Preview-Based Techniques for Vehicle Suspension Control: A State-of-the-Art Review.
+    Annual Reviews in Control, 2021.
+    DOI: 10.1016/j.arcontrol.2021.03.010.
+    用途：upstream measurement -> downstream preview -> reconfiguration。
+
+16. Li, Lam, Cheung.
+    Multi-Objective Control for Active Vehicle Suspension with Wheelbase Preview.
+    Journal of Sound and Vibration, 2014.
+    DOI: 10.1016/j.jsv.2014.06.017.
+    用途：wheelbase-preview mechanism analogy。
+
+[Contact patch / wrench moments]
+17. Elandt et al.
+    A Pressure Field Model for Fast, Robust Approximation of Net Contact Force and Moment Between Nominally Rigid Objects.
+    arXiv:1904.11433.
+    用途：pressure field -> resultant force/moment。
+
+18. Ota et al.
+    Tactile Estimation of Extrinsic Contact Patch for Stable Placement.
+    ICRA 2024.
+    arXiv:2309.14552.
+    用途：contact-patch inference from contact measurements。
+
+19. Prior ultrasound pressure-distribution feedback:
+    PubMed 23645369 (2013).
+    用途：限制 novelty claim；不能宣称 first pressure-distribution feedback。
+
+
+============================================================
+28. 独立候选替代路线：学习 eta -> W*(eta) 的 solution map
+============================================================
+
+该 idea 与当前 ANEOC 主线必须分开审计，不能混写成同一个贡献。
+
+当前主线（Idea 1）：
+    eta_k -> eta_(k+1)
+    -> P_eta = dW*/deta = -F_W^{-1}F_eta
+    -> W_pred = W_k + P_eta Delta eta
+    -> HJB/Newton corrector
+    -> W*(eta_(k+1)).
+
+它是 analytic local continuation。
+优势是结构可解释、局部 predictor remainder 可写为 O(||Delta eta||^2)；
+限制是必须处在可微、条件良好的同一 local solution branch 上。
+
+候选替代（Idea 2）：
+直接学习参数到最优 critic 的映射：
+
+    W_psi(eta) ≈ W*(eta).
+
+可同时监督函数值和导数，例如：
+
+    L
+    = ||W_psi(eta)-W*(eta)||^2
+      + lambda ||∂W_psi/∂eta - P_eta||^2.
+
+在线时：
+
+    eta_future
+    -> W_psi(eta_future)
+    -> HJB residual / admissibility check
+    -> preferably Newton/HJB corrector
+    -> W*(eta_future).
+
+它的潜在作用是：
+不需要从当前 eta 沿小步局部 continuation 才能得到远处 eta 的初值，
+因此在线推理可能更快，并减弱对“小 Delta eta”的依赖。
+
+但它并没有无条件消除第一条路线的限制，而是把主要风险改成：
+- training-domain coverage；
+- OOD/generalization error；
+- multiple HJB branches / active-set discontinuities；
+- learned W 不满足 HJB root；
+- stability/admissibility certification；
+- 离线生成 W*(eta)、P_eta 数据的成本。
+
+因此不能预设 Idea 2 优于 Idea 1。
+当前冻结主线仍是 Idea 1；Idea 2 作为独立 alternative/extension，
+只有在以下两点同时成立时才值得替换或增强主线：
+
+1. 目标场景中的 parameter jump 确实频繁超出 ANEOC local trust region，
+   从而构成实际 bottleneck；
+2. derivative-informed W_psi 在目标 eta 域内能以更低在线代价达到
+   足够小的 HJB residual，并可通过 corrector / stability / execution gate。
+
+Codex 必须针对 Idea 2 单独检索 strongest prior，至少覆盖：
+    parametric HJB/value-function learning,
+    solution-map/operator learning,
+    hypernetwork/parameter-conditioned critic,
+    Sobolev/derivative-informed training,
+    meta-learning for optimal-control solution initialization.
+
+在 strongest-prior 与必要性审计完成前，
+Idea 2 不属于当前 Final Method。
+
+============================================================
+28.1 候选扩展：ANEOC sensitivity 驱动的 decision-oriented parameter reduction
+============================================================
+
+可利用 ANEOC 已有灵敏度：
+
+    P_eta = dW*/deta = -F_W^{-1}F_eta
+
+继续传播到最终阻抗或任务性能：
+
+    dK*/deta = (∂K*/∂W) P_eta + ∂K*/∂eta,
+
+或考察：
+
+    dJ*/deta.
+
+据此只保留那些会显著改变 W*、K* 或 task performance 的接触参数，
+形成 decision-oriented reduced eta；弱相关参数可降权或忽略。
+
+该方案只作为候选 parameter reduction / estimation weighting，
+不恢复旧的 dual-control / decision-relevant uncertainty 主线。
+是否采用取决于它能否显著降低辨识维度和计算量，而不损失最优阻抗决策质量。
+
+============================================================
+29. 最终语义冻结
+============================================================
+
+研究问题：
+    不是“人体刚度变化时做最优组合控制”，
+    而是“空间变化软接触下，利用有限接触斑提前获得 future contact change，
+    并在 task-center encounter 前快速求得并执行 future optimal normal/tangential impedance”。
+
+参数：
+    不默认只等于 stiffness，也不默认必须 full-ID。
+    优先定义真正进入新 HJB 并改变 optimal impedance 的最小 descriptor eta。
+
+空间预瞄：
+    F/M/contact-patch/pose/history -> future boundary + eta_future.
+    EKF/MHE/set-membership 只是 estimator 选择，不是核心贡献。
+
+NNBO：
+    固定 eta 时求 parameter-dependent HJB optimum；
+    single critic 表示 value/HJB solution。
+    换成 T-RO-style cylinder-plane contact 后，原 HC-specific downstream formulas 必须重推。
+
+ANEOC：
+    不是重新多次求 HJB，
+    而是沿 local W*(eta) solution branch 做 tangent predictor，
+    再用少量 HJB/Newton corrector 回到新 root。
+
+核心能力：
+    不是普通“实时调阻抗”，而是：
+    spatial preview + fast optimal-solution transport + pre-transition execution.
+
+限制：
+    不是简单“只适用于缓慢变化环境”，
+    而是“只对可在 regular local branch / trust region 内连续跟踪的变化有理论保证”。
+    超出时必须 homotopy、re-anchor、full re-solve 或 fallback。
+
+============================================================
+END OF HANDOFF
+============================================================

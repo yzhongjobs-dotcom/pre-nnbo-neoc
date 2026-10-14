@@ -1,0 +1,1008 @@
+DS-ANEOC-NNBO FINAL METHOD
+Decision-Sufficient Adaptive Neighboring-Extremal Neural Optimal Impedance Control
+理论闭合与工程发布版，2026-09-09
+
+======================================================================
+0. 状态、中心论点与结论
+======================================================================
+
+文档状态：Method-level frozen version。本文已把研究问题、机制、局部理论、在线算法、
+失败回退和复杂度闭合为同一个方法。实验优势、运行时间分布和跨材料泛化仍须由实验支持，
+不由本文件预先宣称。
+
+中心论点：在持续接触的未知缓慢时变软环境中，完整 Hunt-Crossley 参数可能无法由当前
+交互历史识别，但控制器只需要排除会改变 frozen-parameter HJB 最优交互律的参数歧义；
+同一个闭环 HJB policy tangent 既能检验这种 decision sufficiency，又能预测—校正地运输
+NNBO 的单 critic，因而只在决策信息不足时施加有限、预验证的探测，并只发布通过可采纳性
+与位置参考实现验收的策略。
+
+最终判定：
+
+  Problem fit                         PASS
+  Method fit / necessity              PASS, subject to stated killer conditions
+  Mathematical closure                PASS under explicit local assumptions and gates
+  Engineering executability           PASS for the stated continuous-contact domain
+  Scientific strength                 venue-competitive method hypothesis; evidence pending
+
+“数学闭合”在这里指：每个结论都有明确对象、假设、可计算门和失败语义；它不表示一般非线性
+HJB 存在全局光滑解，也不表示尚未完成的实验已经证明优势。
+
+======================================================================
+1. 冻结的研究问题、比较对象与范围
+======================================================================
+
+1.1 研究问题
+
+给定有限、带噪的接触数据和缓慢变化的软环境，如何：
+
+  (i) 不要求完整恢复所有 HC 参数，只确认当前数据是否足以唯一确定任务相关的
+      frozen-optimal interaction-force policy；
+  (ii) 当参数估计移动时，沿闭环 HJB 解分支运输 NNBO 的单 critic，而不是继续执行旧 critic
+       或从头训练；
+  (iii) 把估计歧义、切线近似、Galerkin、校正器和位置内环误差放入同一个可执行策略界，
+        并用该界决定是否允许发布策略。
+
+1.2 正确 comparator
+
+对于固定环境参数 theta，比较对象是 frozen-parameter infinite-horizon HJB optimum：
+
+  V*(X,theta) = inf_u integral_0^infinity l(X(t),u(t),theta) dt,
+  pi*(X,theta) = argmin_f H(X,f,V_X*,theta).                 (1)
+
+当 theta(t) 的未来轨迹未知时，不声称求得预知未来的非自治全局最优控制。在线目标是跟踪
+pi*(.,theta(t))，并给出有限时域性能分解。
+
+1.3 主理论域
+
+  theta in Theta，Theta 为已知紧集；theta(t) 分段 C1，||theta_dot|| <= v_theta；
+  delta_min <= delta <= delta_max，delta_min>0；
+  接触持续建立，HC 模型在该紧集上至少 C2；
+  HJB 最优 action 位于输入约束内部；
+  只讨论一个局部、可采纳且 regular 的 HJB/Galerkin solution branch。
+
+接触建立、分离、冲击、摩擦切换、多接触 active-set 切换以及饱和最优解不在主定理内。
+这些事件触发保持最近已验证策略或预构造 baseline/withdraw 行为。
+
+1.4 术语边界
+
+HJB 的决策变量是 interaction force。本文只在位置参考根存在、唯一并且实际力误差进入
+统一误差界后，称其为“position-based nonlinear impedance realization”。不把一个抽象
+force optimum 无条件称为可执行的 optimal impedance。
+
+======================================================================
+2. NNBO-specific 模型与全部参数导数
+======================================================================
+
+2.1 无量纲 HC 模型
+
+令 delta=x-x_e，并选固定标尺 delta_0>0，定义 bar_delta=delta/delta_0。使用
+
+  f = bar_delta^n (K_e + B_e x_dot) + epsilon_f,
+  theta = [kappa,b,n]^T,
+  K_e=exp(kappa),  B_e=exp(b).                               (2)
+
+bar_delta 无量纲，因此关于 n 的导数 log(bar_delta) 在量纲上成立。K_e、B_e 是相对于
+delta_0 的等价 HC 系数；这只是重参数化，不改变接触物理。
+
+令 e=x-x_d，命令生成器为
+
+  r_dot = Gamma r + alpha,
+  x_d = Psi r.                                               (3)
+
+持续接触下的无折扣 infinite-horizon regulation 必须围绕可行接触平衡点定义。假设 Gamma
+Hurwitz 且可逆，取 r_s=-Gamma^(-1)alpha，并由任务指定
+delta_s in [delta_min,delta_max]。令
+
+  e_s=x_e+delta_s-Psi r_s,
+  X=[tilde e;tilde r]=[e-e_s;r-r_s],
+  bar_delta_s=delta_s/delta_0,
+  bar_delta=bar_delta_s+(tilde e+Psi tilde r)/delta_0,
+  f_s(theta)=exp(kappa)bar_delta_s^n.                        (3a)
+
+f_s 是维持所选稳态压入量的可行接触力。定义增量 action u=f-f_s(theta)。NNBO 辅助系统为
+
+  X_dot=F(X,theta)+G(X,theta)u,
+
+  F=[ a(rho^n-1)-Psi Gamma tilde r ; Gamma tilde r ],
+  G = [ exp(-b) bar_delta^(-n) ; 0 ],
+  a = exp(kappa-b),
+  rho=bar_delta_s/bar_delta.                                  (4)
+
+此时 F(0,theta)=0、u=0 对应持续接触平衡。实际执行模型按测得 force 写为
+
+  X_dot=F(X,theta)+G(X,theta)[f_app-f_s(theta)]+d(X,t).       (5)
+
+d 只汇总在测得实际作用力 f_app 之外、未被 HC 主模型覆盖的状态动态和模型失配；其界
+必须单独标定。位置/force 内环造成的输入实现误差只进入第 9 节的 e_ref，避免在 d 与 e_pi
+中重复计数。
+
+阶段代价保持 NNBO 的 tracking/force trade-off，但在可行接触平衡附近使用增量力：
+
+  l(X,f,theta)=q(X,theta)
+       +[f-f_s(theta)]^T R[f-f_s(theta)],
+  q=X^T Q_tilde X+zeta_epsilon(X,theta)^2,
+  R=R^T>0,  zeta_epsilon(0,theta)=0.                          (6)
+
+该平移是数学闭合所必需：若 delta_s>0 且仍对绝对 f^T Rf 做无折扣无限时域积分，则稳态
+f_s 非零，cost 通常发散。若应用坚持把绝对力趋零作为目标，则必须另行建立 finite-horizon
+HJB/NEOC，或允许系统退出持续接触域；不得套用本文的 infinite-horizon identity 或式 (63)。
+
+若 zeta_epsilon 是可微的参数相关不确定性包络，则
+
+  q_theta_j = 2 zeta_epsilon partial_theta_j zeta_epsilon.   (7)
+
+若工程实现把该包络在 continuation block 内冻结，则 block 内 q_theta=0；包络更新只能在
+重锚时发生，并计入第 8.4 节的 branch jump。两种语义不得混用。
+
+2.2 解析导数
+
+固定平移状态 X 后，令 c=rho^n。式 (4) 给出
+
+  F_kappa = [ a(c-1); 0 ],
+  F_b     = [ -a(c-1); 0 ],
+  F_n     = [ a c log(rho); 0 ],
+
+  G_kappa = 0,
+  G_b     = -G,
+  G_n     = -log(bar_delta) G,                               (8)
+
+  f_s,kappa=f_s,
+  f_s,b=0,
+  f_s,n=f_s log(bar_delta_s).                               (8a)
+
+定义 A=G R^(-1)G^T，则
+
+  A_theta_j=G_theta_j R^(-1)G^T+G R^(-1)G_theta_j^T.         (9)
+
+这些导数直接进入 HJB sensitivity、Galerkin tangent 和 DSI；禁止用未说明对象的通用
+“model gradient”替代。
+
+2.3 精确非线性观测与原始信息
+
+第 i 个接触样本 z_i=(bar_delta_i,x_dot_i) 的均值模型是
+
+  h_i(theta)=bar_delta_i^n[exp(kappa)+exp(b)x_dot_i].        (10)
+
+其 Jacobian 行向量为
+
+  Phi_i = [ bar_delta_i^n exp(kappa),
+            bar_delta_i^n exp(b)x_dot_i,
+            h_i(theta)log(bar_delta_i) ].                   (11)
+
+在线估计器采用带遗忘的 iterated Gauss-Newton/EWRLS，并直接线性化式 (10)。这避免原始
+log-force 回归在小力和加性噪声下产生的变换偏差，同时仍保留 NNBO 的低维 EWRLS 结构。
+
+======================================================================
+3. 精确闭环 HJB-NEOC
+======================================================================
+
+本节先令 d=0。以实际 force 为 Hamiltonian 的 action 变量：
+
+  H(X,f,p,theta)=p^T[F+G(f-f_s)]+q+(f-f_s)^T R(f-f_s).
+
+记 p=grad_X V* 和 A=G R^(-1)G^T。消去内部最优 action 后，
+
+  0 = p^T F + q - (1/4)p^T A p,                             (12)
+
+  pi*(X,theta)=f_s(theta)-(1/2)R^(-1)G^T p.                 (13)
+
+对 theta_j 定义 xi_j=partial_theta_j V*。对式 (12) 求导并使用 Hamiltonian stationarity，
+得到
+
+  grad_X xi_j^T F_cl + g_j = 0,
+
+  F_cl=F-(1/2)A p,
+  g_j=p^T F_theta_j+q_theta_j-(1/4)p^T A_theta_j p.          (14)
+
+若 frozen-optimal 闭环指数稳定且 xi_j(0,theta)=0，则沿 y_dot=F_cl(y,theta)，y(0)=X，
+
+  xi_j(X,theta)=integral_0^infinity g_j(y(t),theta)dt.       (15)
+
+最优策略导数为
+
+  P_j(X,theta)=partial_theta_j pi*
+    =f_s,theta_j
+      -(1/2)R^(-1)[G_theta_j^T p+G^T grad_X xi_j].           (16)
+
+将各列组成 P_theta。若 solution map 在局部 C2，则对 ||Delta theta||<=r_pi，
+
+  pi*(X,theta+Delta theta)
+    =pi*(X,theta)+P_theta(X,theta)Delta theta+r_pi(X),
+
+  ||R^(1/2)r_pi||_rho <= (L_pi,2/2)||Delta theta||^2.        (17)
+
+推导核对：式 (14) 中 grad xi 的系数恰为 F-(1/2)Ap=F_cl；f_s,theta 只在实际 force policy
+导数式 (16) 中显式出现，它对 reduced HJB 的影响已经包含在平移 drift F_theta 中。因此这里
+求的是闭环最优律的
+neighboring-extremal sensitivity，而不是 open-loop trajectory KKT sensitivity。
+
+======================================================================
+4. 可验证的单-critic Galerkin 分支
+======================================================================
+
+4.1 近似空间与三个不同对象
+
+固定归一化基 phi:Omega_X->R^m，要求 phi(0)=0、grad phi(0)=0。主一维 NNBO 实例沿用
+原论文的三项二次 critic：令 bar_e=tilde e/e_0、bar_r=tilde r/r_0，
+
+  phi(X)=[bar_e^2,bar_e bar_r,bar_r^2]^T,  m=3.              (18a)
+
+若命令生成器为多维，则使用 X 的全部归一化二次上三角单项式。只有式 (28a)-(28d) 的
+full-residual gate 失败时，才沿有限、预先声明的 basis ladder 增加同一 critic 的高阶项，
+并把 basis capacity 作为消融报告；ladder 全部失败则 fallback，不增加第二网络。m、最高
+次数和归一化范围在正式比较前冻结。定义
+
+  V_W(X)=W^T phi(X),
+  p_W=grad phi(X)^T W,
+  pi_W=f_s(theta)-(1/2)R^(-1)G^T p_W,
+
+  delta_H(X;W,theta)
+    =p_W^T F+q-(1/4)p_W^T A p_W.                            (18)
+
+始终区分 exact HJB solution V*、固定 basis/test stack 的 Galerkin root V_N* 和在线 iterate
+V_W。
+
+4.2 残差自适应 Petrov-Galerkin root
+
+在 block b 内冻结 collocation stack
+
+  D_b={(X_i,omega_i)}_(i=1)^N_D,  omega_i>0,
+
+并在已验证 anchor (W_b,theta_b) 定义
+
+  z_i = grad phi(X_i)[F+G(pi_W-f_s)]_(W_b,theta_b) in R^m,
+  partial_W delta_H(X_i;W_b,theta_b)=z_i^T,
+  Z_b=[z_1^T;...;z_N_D^T],  Omega=diag(omega_i).             (19)
+
+block 内 Z_b、D_b 和 Omega 保持固定，Galerkin 方程为
+
+  r_b(W,theta)=Z_b^T Omega delta_b(W,theta)=0,               (20)
+
+其中 delta_b 堆叠各 delta_H。其 Jacobian 是
+
+  A_W(W,theta)=Z_b^T Omega Z(W,theta),
+  B_theta(W,theta)=Z_b^T Omega partial_theta delta_b.        (21)
+
+在 anchor 上 A_W=Z_b^T Omega Z_b。因而以下门是数据可检验条件，而不是一句“假设可逆”：
+
+  N_D>=m,
+  lambda_min(Z_b^T Omega Z_b)>=mu_0>0.                       (22)
+
+若 A_W 在半径 r_W,r_theta 的邻域内 Lipschitz，且
+
+  L_A(r_W+r_theta)<=mu_0/2,                                 (23)
+
+则该邻域内 sigma_min(A_W)>=mu_0/2。
+
+式 (21) 中参数偏导保持 W、Z_b 和状态栈固定，并逐样本使用
+
+  partial_theta_j delta_H
+   =p_W^T F_theta_j+q_theta_j-(1/4)p_W^T A_theta_j p_W.      (21a)
+
+第一个 block 的 anchor 由 NNBO 的已知可采纳初始 critic/offline policy iteration 给出。数值
+上先用该 candidate 构造 Z_b，再求式 (20)；若更新后的 W 使 Z 变化超过 epsilon_Z，则刷新
+Z 后重求，直至 root、Z consistency 和式 (22) 同时通过。随后整个 block 冻结最终 Z_b。
+
+4.3 Newton-Kantorovich root gate
+
+对重锚初值 W_0，计算
+
+  eta_N=||A_0^(-1)r_b(W_0,theta_b)||,
+  h_N=L_A||A_0^(-1)||eta_N.                                 (24)
+
+只有 h_N<=1/2、相应 Kantorovich 球位于已验证邻域、Newton 迭代保持可采纳，且终止残差
+||r_b||<=epsilon_H 时，才接受该 root。否则不存在可发布的新 anchor。由逆函数定理和
+Kantorovich 定理，该门给出局部 root 的存在、局部唯一性与 Newton 收敛域；式 (22)-(24)
+同时排除了瞬时 rank-one Bellman 更新被误称为可逆 HJB operator 的问题。
+
+4.4 Galerkin-NEOC tangent
+
+在固定 block 对式 (20) 隐式求导：
+
+  C_theta=D_theta W_N*(theta)=-A_W^(-1)B_theta.              (25)
+
+一次分解 A_W 后只需解 p=3 个右端。近似 policy tangent 为
+
+  P_hat_j(X)=f_s,theta_j
+       -(1/2)R^(-1)[G_theta_j^T p_W
+                +G^T grad_X(phi^T C_theta(:,j))].           (26)
+
+若 ideal projected operator 与计算 operator 的误差分别不超过 epsilon_A、epsilon_B，
+则标准线性系统扰动给出
+
+  ||C_theta-C_theta^proj||
+   <=||A_W^(-1)||(epsilon_B+epsilon_A||C_theta^proj||).      (27)
+
+再将 value-gradient basis 逼近误差、式 (27) 和 HC 模型误差传播到任务状态范数，得到可标定
+常数 epsilon_P，使
+
+  ||R^(1/2)(P_theta-P_hat_theta)e||_rho
+    <=epsilon_P||e||,  e in B(0,r_theta).                    (28)
+
+epsilon_P 不得设为零；其数值由第 14 节的残差、区间界和有限差分检查给出。
+
+4.5 exact-HJB comparator 的 a posteriori gate
+
+collocation root 本身只保证 Galerkin 正确。为使式 (28) 真正相对于 exact HJB，而非只相对
+Galerkin branch，定义 full reduced-HJB operator
+
+  H_op(V,theta)=grad V^T F+q-(1/4)grad V^T A grad V.         (28a)
+
+其在 V_W 处的 Frechet derivative 为 transport operator
+
+  L_W v=grad v^T[F-(1/2)A grad V_W].                        (28b)
+
+在 Omega_X 对 candidate 闭环正不变、且满足 v(0)=0 的加权 C1 空间中，用式 (52) 的指数
+衰减率沿 characteristics 构造 L_W 的右逆并得到 ||L_W^(-1)||<=kappa_H。令 full-domain
+residual norm 为 epsilon_full，L_W 的
+局部 Lipschitz 常数为 L_H，并计算
+
+  eta_H=kappa_H epsilon_full,
+  h_H=kappa_H L_H eta_H.                                   (28c)
+
+只有 h_H<=1/2 且相应 function-space Kantorovich ball 保持内部最优与可采纳时，才声称附近
+存在 exact local HJB branch，并使用
+
+  ||V*-V_W||_C1<=2 eta_H.                                  (28d)
+
+对式 (14) 的 sensitivity transport operator做同样的 residual/inverse-bound 检查，得到
+epsilon_P 和 epsilon_G。epsilon_full 由覆盖网格加 H_op 的已知 Lipschitz remainder 上界，
+kappa_H 由已验证闭环衰减常数给出。若式 (28a)-(28d) 未通过，算法仍可相对 Galerkin branch
+运行，但论文必须把 comparator 降为 Galerkin policy，不能使用 exact-HJB near-optimal claim。
+
+======================================================================
+5. 数据置信、结构零空间与决策信息严格分离
+======================================================================
+
+5.1 原始数据几何
+
+只用实际观测 Jacobian 定义 raw information：
+
+  I_data,t=sum_i varpi_i Phi_i^T Sigma_i^(-1)Phi_i,
+  varpi_i=lambda_f^(t-i)>=0.                                (29)
+
+结构不可见方向由 ker(I_data,t) 给出。数值实现使用阈值零空间
+
+  K_tau=span{v_j:lambda_j(I_data,t)<=tau_I},                (30)
+
+并报告 tau_I 扫描。先验 precision Lambda_prior、Levenberg damping 和 ridge 只用于数值估计
+或统计收缩，禁止加入式 (29) 后再宣称物理可辨识。
+
+5.2 局部置信/信任集合
+
+估计器输出 theta_hat_t。定义
+
+  C_t={e:
+       theta_hat_t+e in Theta,
+       e^T I_data,t e <= beta_data,t^2,
+       (theta_hat_t+e-theta_0)^T Lambda_prior
+         (theta_hat_t+e-theta_0) <= beta_prior,t^2,
+       ||e||<=r_theta}.                                     (31)
+
+theta_0 是独立先验中心。beta_data 覆盖测量噪声与式 (10) 在 r_theta 内的二阶线性化余项；
+具体地，对 whitened stacked residual r_hat=y-h(theta_hat)，若噪声范数以声明概率不超过
+beta_noise，且观测 Hessian remainder 不超过 epsilon_h,2，则可取
+
+  beta_data>=||r_hat||+beta_noise+epsilon_h,2.               (31a)
+
+这由 Phi e=[h(theta_hat+e)-h(theta_hat)]-remainder 和三角不等式保证真实 e 落入数据椭球。
+beta_prior 只表达独立先验。若数据集合和先验集合分别以 1-alpha_data、1-alpha_prior 覆盖
+真实参数，则交集至少以 1-alpha_data-alpha_prior 覆盖；论文必须声明该联合覆盖率。
+高斯模型可由校准后的 chi-square quantile 给 beta_data；确定性模型可由有界噪声的
+set-membership residual 给出。覆盖率必须通过 held-out residual calibration 检查。
+
+r_theta 取以下半径的最小值：
+
+  r_theta=min(r_HJB,r_DSI,r_adm,r_ref,r_model).              (32)
+
+它分别保证局部 HJB branch、policy Taylor 余项、可采纳性、参考根和 HC 模型有效。集合为空
+表示估计器/噪声模型矛盾，触发重锚或 fallback，不能解释为“信息充分”。
+
+======================================================================
+6. 含近似切线与二阶余项的鲁棒 DSI
+======================================================================
+
+6.1 可执行任务分布
+
+采用固定加权状态栈
+
+  S_rho,b={(X_s,w_s)}_(s=1)^N_rho,  w_s>0, sum_s w_s=1,
+  rho_hat_b=sum_s w_s delta_(X_s).                           (33)
+
+S_rho,b 在 continuation block 内冻结。它来自任务轨迹的滚动 buffer、参考轨迹网格或二者
+的固定混合；采样规则和权重预先声明。对相关的 Lipschitz 函数族 f，要求有可估计的 quadrature/
+occupancy discrepancy epsilon_rho：
+
+  |E_rho f-sum_s w_s f(X_s)|<=epsilon_rho.                  (34)
+
+用于式 (39) 时，f 专指所有 e in C_t 对应的 squared R-weighted policy-separation integrand，
+epsilon_rho,t 是对该函数族一致成立的非负上界。
+
+状态栈更新是 branch event，必须按第 8.4 节重锚，不能在同一证明中悄然改变 M_t。
+
+6.2 决策度量与结构判据
+
+计算
+
+  M_hat_t=sum_s w_s P_hat_theta(X_s)^T R P_hat_theta(X_s).  (35)
+
+若可获得 exact tangent，则一阶结构 DSI 是
+
+  ker(I_data,t) subseteq ker(M_true,t).                     (36)
+
+它精确表达“数据看不见的参数方向不改变任务相关最优动作”。在有限维 PSD 情形，式 (36)
+等价于存在有限 gamma 使 M_true<=gamma I_data。该等价只用于结构解释，不作为含 epsilon_P
+时的鲁棒数值门。
+
+6.3 鲁棒 decision-loss 上界
+
+由式 (17) 和 (28)，对任意 e in C_t，真实 frozen-optimal policy 的参数分离满足
+
+  ||R^(1/2)[pi*(theta_hat+e)-pi*(theta_hat)]||_rho
+   <=sqrt(e^T M_hat_t e)+epsilon_P||e||
+      +(L_pi,2/2)||e||^2.                                  (37)
+
+令
+
+  a_t=epsilon_P+(L_pi,2/2)r_theta,
+  M_bar_t(eta)=(1+eta)M_hat_t+(1+1/eta)a_t^2 I, eta>0.       (38)
+
+由 Young 不等式，式 (37) 的平方不超过 e^T M_bar_t e。定义
+
+  L_DSI,t=sup_(e in C_t) e^T M_bar_t e + epsilon_rho,t.     (39)
+
+p=3，因此式 (39) 是一个小型 QCQP；在线可枚举 active constraints 或使用经验证的
+semidefinite/interval upper bound。仅当
+
+  C_t 非空且 L_DSI,t<=epsilon_D^2                         (40)
+
+时，数据对当前任务是鲁棒 decision-sufficient。epsilon_D 是允许由环境歧义造成的
+R-weighted policy-error budget，不含 critic 和内环误差。
+
+式 (38)-(40) 是核心修正：epsilon_P 和二阶余项产生的各向同性项即使落在 I_data 的零空间
+也不会被删除，因此不会把近似 tangent 的数值零空间当成物理结论。
+
+6.4 局部不可能性边界
+
+若存在单位向量 v 和 s<=r_theta，使 theta_hat+/-sv 均在数据置信集合内，且两者在噪声与
+观测二阶余项范围内不可区分，则
+
+  D_v:=||R^(1/2)[pi*(theta_hat+sv)-pi*(theta_hat-sv)]||_rho
+   >=2s sqrt(v^T M_hat_t v)-2epsilon_P s-L_pi,2 s^2.         (41)
+
+当式 (41) 右端为正时，任何只依赖同一历史的 deterministic controller 对这两个环境输出
+相同策略。由三角不等式，它至少在一个环境中的 R-weighted policy error 不小于 D_v/2，
+相应 action-gap 不小于 D_v^2/4。这个结论说明信息缺失不能由更快 critic 或更强 corrector
+修复，也给出了触发探测的必要性证据。
+
+======================================================================
+7. 有限、预验证的 decision-targeted probe
+======================================================================
+
+7.1 探测库
+
+取消在线有限时域 OCP。离线构造有限集合 N={nu_l}_{l=0}^L，其中 nu_0=0；非零候选可采用
+
+  nu_l(tau)=a_l sin(omega_l tau)s_l(tau),  tau in [0,T_l],  (42)
+
+s_l 是端点为零的平滑 window。每个候选的 amplitude、rate、duration、持续接触域和 actuator
+limits 均在 Theta 和 d 的声明界上离线验证，并保留 conservatism margin。probe-augmented
+incumbent pi_a+nu_l 还必须通过式 (53) 的逐状态 Lyapunov 门。探测施加在现有 reference/
+force 命令的预定义低幅通道，不改变主控制器结构；探测期间的总 action error 仍按式 (63)
+计入有限时域性能，不把信息采集代价隐藏在控制结果之外。
+
+7.2 在线选择
+
+对每个可行候选，用当前置信集合短时前向预测 Jacobian，构造保守原始信息增量
+
+  0<=Delta I_l^-<=Delta I_l(theta,d),
+       for all theta in theta_hat+C_t and admissible d.      (43)
+
+式 (43) 的不等式是 Loewner 序。若只有 operator-norm 误差
+||Delta I_l-Delta I_hat_l||<=epsilon_I,l，且
+lambda_min(Delta I_hat_l)>=epsilon_I,l，可取
+Delta I_l^-=Delta I_hat_l-epsilon_I,l I；否则使用零下界，或求解带区间 remainder 的鲁棒
+SDP 下界。禁止把不定矩阵简单截断负特征值后称为信息下界，因为该操作一般不保持
+Loewner 保序。
+
+令 U_D 的列由式 (39) 的 certified maximizers 中所有使 loss 超过 epsilon_D^2 的方向，连同
+K_tau 中满足 v^T M_bar_t v>tau_D 的方向正交化得到；若只有 conservative upper-bound box，
+则纳入所有尚不能排除的 violating boxes 的主轴。这样 U_D 由当前 gate 失败直接计算，而非
+人为选择。候选必须满足
+
+  lambda_min(U_D^T Delta I_l^- U_D)>=alpha_l>0,             (44)
+
+并在把 I_data+Delta I_l^- 代入式 (31)-(40) 后使鲁棒 DSI 通过。离线约束验证必须覆盖
+Theta（或声明的先验全集）和 d 的界；否则只能称为 bounded probe，不能称为约束保证。
+控制器从通过者中选择预定义
+burden
+
+  J_l=c_E integral nu_l^2+c_T T_l+c_S margin_l^(-1)         (45)
+
+最小者。这里是有限候选评估和短时仿真，没有在线 trajectory optimization。
+
+7.3 无安全信息权时的语义
+
+若没有候选同时满足式 (40)、(44) 和预验证约束，则算法报告 no safe information authority，
+保持最近已验证 anchor/baseline 或执行 withdraw。此时问题在给定传感、动作和接触约束下
+不可由本方法解决；禁止继续外推并称其为自适应成功。
+
+======================================================================
+8. Adaptive NEOC predictor-corrector 与 branch 管理
+======================================================================
+
+8.1 发布前的候选移动
+
+估计更新 Delta theta_hat_k 后，只有 DSI 已通过才开始移动 candidate critic。若
+||Delta theta_hat_k||>r_theta，则分成
+
+  N_k=ceil(||Delta theta_hat_k||/r_theta)                    (46)
+
+个 homotopy substeps。每步 h_j 满足 ||h_j||<=r_theta，并执行
+
+  W_j^-=W_j+C_theta,j h_j,                                  (47)
+
+  W_j^+=W_j^- - alpha_j A_W^(-1)r_b(W_j^-,theta_j+h_j).     (48)
+
+alpha_j 由 residual decrease 和 Kantorovich 球共同决定。每个中间策略都必须通过第 9 节
+的可采纳性和参考根门；最后一步通过前，实际系统继续执行 incumbent。
+
+8.2 block 内 tracking recurrence
+
+令 e_k^W=W_k-W_N,b*(theta_hat_k)。若 root tangent 的 Lipschitz 常数为 L_C，计算切线误差
+不超过 epsilon_C，corrector 收缩率 rho_c<1，残余求解误差为 epsilon_r，则
+
+  ||e_(k+1)^W||
+   <=rho_c[||e_k^W||+epsilon_C||Delta theta_hat_k||
+              +(L_C/2)||Delta theta_hat_k||^2]+epsilon_r.   (49)
+
+证明：对 root map 作二阶 Taylor；减去式 (47) 得到 predictor error；再应用式 (48) 在
+Kantorovich 球内的 contraction bound。该递推明确包含切线误差和二阶余项。
+
+8.3 tangent 与 corrector gate
+
+每步必须同时满足：
+
+  ||r_b(W_j^+,theta_j+h_j)||<=epsilon_H；
+  sigma_min(A_W)>=mu_min 且 condition(A_W)<=kappa_max；
+  Newton-Kantorovich h_N<=1/2；
+  式 (49) 的上界未超出 policy-error allocation；
+  第 9 节的 admissibility/reference gate 通过。              (50)
+
+任何一项失败均中止候选，不发布部分完成的 homotopy。
+
+8.4 data/state-stack 更新与 re-anchor jump
+
+D_b、S_rho,b、zeta 包络或 basis normalization 任一改变，都定义新 block。新残差在旧 root
+处的 mismatch 为 r_(b+1)(W_b,theta)。若新 Jacobian 通过式 (22)-(24)，局部 root jump 满足
+
+  J_b=||W_(b+1)*-W_b*||
+      <=2||A_(b+1)^(-1)|| ||r_(b+1)(W_b,theta)||.            (51)
+
+算法随后完整求解新 root 至 ||e_W||<=epsilon_anchor。重锚期间继续执行旧 incumbent；只有
+新 root 通过全部门后才原子发布。若不执行完整重锚，则式 (49) 右端必须额外加 J_b；最终
+实现选择完整重锚，避免隐藏该项。
+
+======================================================================
+9. 可采纳性、位置参考与实际执行闭合
+======================================================================
+
+9.1 所有中间策略的可采纳性门
+
+对最近已验证 anchor 策略 pi_a 保存一个 C1 certificate L_a；L_a 可取通过第 4.5 节验证的
+critic value，也可取预先构造的固定二次 Lyapunov 函数，不引入额外学习网络。在紧集
+Omega_X 上已验证
+
+  c_L1||X||^2<=L_a(X)<=c_L2||X||^2,
+  grad L_a^T[F(X,theta)+G(X,theta)(pi_a(X)-f_s(theta))]
+       <=-alpha_a||X||^2                                   (52)
+
+对所有 theta in theta_hat+C_t 成立。对 candidate pi_c，计算区间/网格加 Lipschitz 余量，
+验证
+
+  sup_(theta in theta_hat+C_t,d in D)
+  grad L_a^T[F+G(pi_c-f_s)+d]
+    <=-alpha_c||X||^2+b_c||X||, alpha_c>0.                 (53)
+
+若 b_c=0，candidate 在该域内保持渐近可采纳；若 b_c>0，只给出 practical admissibility 和
+UUB。式 (53) 对 predictor、每个 corrector/homotopy intermediate policy 和最终策略均执行。
+验证网格必须配有已知导数上界，使网格间隙由 Lipschitz remainder 覆盖。
+
+9.2 NNBO 位置参考方程
+
+令 Pi_W(x_r;xi,theta_hat) 表示 NNBO critic policy 在虚拟参考状态 X_r(x_r,xi) 下对应的
+实际目标接触力，xi 汇总当前 x、x_dot、x_d、x_e 和可测 force。对主一维 NNBO，第 4.1 节
+的 pi_W 可直接写为
+
+  Pi_W(x_r;xi,theta_hat)
+   =f_s(theta_hat)
+     -{[partial_(tilde e)phi(X_r)]^T W}
+        /[2 R exp(b_hat)bar_delta_r^(n_hat)],
+  bar_delta_r=(x_r-x_e)/delta_0.                             (54)
+
+对二次 basis，partial_(tilde e)phi 对 X_r 为线性，因此式 (54) 与 NNBO 原文整理成
+bar_delta_r^(-n_hat) 乘 affine state term 的 reference equation 同构，同时显式保留了可行
+接触平衡力 f_s。
+
+位置实现求标量根
+
+  s(x_r;xi,W,theta_hat)
+    =Pi_W(x_r;xi,theta_hat)-f_target=0,
+  x_r in [x_r^-,x_r^+].                                     (55)
+
+其中 f_target 是经全部上层 gate 接受的实际 force policy 命令，已经包含
+f_s(theta_hat)；若具体内环采用 NNBO 原文的测得力匹配形式，只需把 f_target 换成该测得力，
+下面的根条件不变。
+
+9.3 存在、唯一和误差传播
+
+只有以下条件同时成立才发布 reference：
+
+  s(x_r^-)s(x_r^+)<=0；
+  partial s/partial x_r 在 bracket 内不变号；
+  |partial s/partial x_r|>=m_ref>0；
+  bar_delta_r>=bar_delta_min；
+  safeguarded Newton/bisection residual <=epsilon_s.        (56)
+
+由介值定理和单调性，式 (56) 给出 bracket 内存在唯一根。隐函数定理与均值定理给出
+
+  |x_r,app-x_r*|
+   <=m_ref^(-1)[L_ref,W||e_W||+L_ref,theta||e_theta||
+                 +epsilon_s].                               (57)
+
+若 force realization map 对 reference 的 Lipschitz 常数为 L_fx，内位置环误差为
+epsilon_inner，则
+
+  epsilon_ref
+   <=L_fx|x_r,app-x_r*|+epsilon_inner.                       (58)
+
+bracket、单调性或 derivative gate 失败时，不使用未收敛 Newton iterate，而保持上一已验证
+reference/策略或 withdraw。
+
+======================================================================
+10. 统一可执行策略误差、性能与稳定性
+======================================================================
+
+10.1 单一误差账本
+
+实际 force 与真实 frozen optimum 的误差写为
+
+  e_pi=f_app-pi*(X,theta)
+      =e_est+e_Galerkin+e_track+e_ref.                       (59)
+
+其中 e_track 同时包含 Galerkin-root tangent 的计算误差、二阶 predictor 余项和 corrector
+残差；这些量已经由式 (49) 汇总到 ||e_k^W||，不再重复作为独立加数。在通过 DSI 和各局部
+门后，任务状态分布上的可计算上界是
+
+  ||R^(1/2)e_pi||_rho
+   <= sqrt(L_DSI,t)
+      +epsilon_G+L_W||e_k^W||
+      +sqrt(lambda_max(R))epsilon_ref
+   =:epsilon_pi,rho.                                        (60)
+
+其中 ||e_k^W|| 由式 (49) 或重锚后的 epsilon_anchor 给出；epsilon_G 是 exact HJB 到
+Galerkin branch 的 policy approximation error，L_W 满足
+||R^(1/2)[pi_W-pi_W*]||_rho<=L_W||W-W*||。各项的范数、状态栈和置信水平必须一致。
+
+稳定性不能由平均式 (60) 直接推出。发布前还须在 Omega_X 上验证逐状态包络
+
+  ||e_pi(X,t)||
+   <=epsilon_est(X)+epsilon_G(X)+L_W,X||e_k^W||+epsilon_ref(X)
+   <=kappa_pi||X||+bar_e_pi.                                (60a)
+
+第一行各项分别使用式 (37) 的 pointwise 版本、Galerkin error envelope、critic-to-policy
+Lipschitz bound 和式 (58)。只有式 (60a) 的第二行经 interval/grid remainder 验证后，才能
+把 kappa_pi、bar_e_pi 代入稳定性定理。
+
+10.2 精确 action gap 与 frozen performance identity
+
+对 quadratic action cost，使用真实 p* 有精确恒等式
+
+  H(X,f,p*,theta)-H(X,pi*,p*,theta)
+     =(f-pi*)^T R(f-pi*).                                   (61)
+
+固定 theta、d=0，并令 f 为 admissible actual-force policy，则
+
+  J_theta(f;X_0)-V*(X_0,theta)
+    =integral_0^infinity e_pi^T R e_pi dt.                   (62)
+
+这是精确 identity；数值上界仍须用状态衰减和式 (60) 积分。
+
+10.3 变化环境的有限时域分解
+
+沿真实式 (5)，对任意 T 有
+
+  J_[0,T](f_app)
+   =V*(X_0,theta_0)-V*(X_T,theta_T)
+    +integral_0^T e_pi^T R e_pi dt
+    +integral_0^T V_theta*^T theta_dot dt
+    +integral_0^T V_X*^T d dt.                              (63)
+
+式 (63) 将可控的 policy tracking loss、不可预知的环境漂移和模型/执行扰动分开。局部理想
+情况下，stale policy 对 h 的 action error 是 O(h)，NEOC predictor 是 O(h^2)，因此二次
+action gap 分别为 O(h^2) 和 O(h^4)，直至式 (60) 的其他 error floors 主导。该阶数不外推
+为未知未来参数轨迹的全局 regret rate。
+
+10.4 UUB 条件
+
+假设在主域内
+
+  c_1||X||^2<=V*(X,theta)<=c_2||X||^2,
+  dot V*|_(pi*,theta fixed)<=-c_3||X||^2,
+  ||V_X*G||<=c_g||X||,
+  ||V_X*||<=c_x||X||,
+  ||V_theta*||<=c_theta||X||^2,
+  ||e_pi||<=kappa_pi||X||+bar_e_pi,
+  ||d||<=kappa_d||X||+bar_d.                                (64)
+
+则
+
+  dot V*<=-mu||X||^2+(c_g bar_e_pi+c_x bar_d)||X||,
+
+  mu=c_3-c_g kappa_pi-c_x kappa_d-c_theta v_theta.          (65)
+
+若 mu>0，
+
+  limsup_(t->infinity)||X(t)||
+    <=sqrt(c_2/c_1)(c_g bar_e_pi+c_x bar_d)/mu.             (66)
+
+该保守系数来自 Young 不等式：令 b_0=c_g bar_e_pi+c_x bar_d，则
+dot V*<=-(mu/2c_2)V*+b_0^2/(2mu)，再用 V*>=c_1||X||^2。
+
+若 bar_e_pi=bar_d=0，则恢复渐近稳定。存在持续非零 offset 时只主张 UUB 和式 (63) 的
+有限时域性能，不声称原始 infinite-horizon cost 必然有限。
+
+======================================================================
+11. 唯一在线算法与原子发布顺序
+======================================================================
+
+输入：incumbent (W_a,pi_a,L_a,x_r,a)、theta_hat、C_t、D_b、S_rho,b、probe library。
+输出：已验证的新 position reference，或保持/withdraw 状态。
+
+每个低频 adaptation cycle 严格执行：
+
+  1) 在持续接触有效域采集 (delta,x_dot,f,X)，用式 (10) 更新 theta_hat；
+  2) 分别更新 I_data、prior constraint、beta 和 C_t；不得把 prior/ridge 写入 I_data；
+  3) 用 incumbent branch 的式 (25)-(28) 计算 P_hat 和 epsilon_P；
+  4) 在冻结 S_rho,b 上计算式 (35)-(40)，并在当前 C_t 上重新验证 incumbent 的式 (53)；
+     incumbent 已失效则直接 baseline/withdraw；
+  5) 若 DSI 失败，评估有限 probe library；执行最小 burden 的可行 probe 后回到步骤 1；
+     若没有可行 probe，保持 incumbent/baseline 或 withdraw，并结束本周期；
+  6) DSI 通过后，按式 (46)-(48) 构造未发布 candidate；
+  7) 每个 substep 执行 residual、conditioning、Kantorovich、式 (49) 和式 (53) 的 gate；
+  8) D_b、S_rho,b 或包络改变时，按式 (51) 完整 re-anchor；
+  9) 对最终 candidate 执行式 (56)-(58) 的 reference gate，并计算式 (60)、(65)；
+ 10) 只有 epsilon_pi,rho 在预算内且 mu>0 时，原子发布 W、policy 与 x_r；
+ 11) 任一 gate 失败均保持最近已验证 incumbent；若 incumbent 因离开主域而失效，执行
+     预构造 baseline/withdraw。
+
+高频层只执行已发布的 pi_W、safeguarded reference solver 和现有 position loop。方法没有
+第二 actor、第二 critic、在线 MPC 或隐藏的 finite-horizon probe OCP。
+
+======================================================================
+12. 主定理：decision-sufficient adaptive transport
+======================================================================
+
+定理 1（DS-ANEOC-NNBO 的发布、误差与稳定性）。
+
+假设：
+
+  A1. 式 (2)-(6) 在紧集上成立，theta in Theta，||theta_dot||<=v_theta；
+  A2. frozen HJB 存在局部 C2、内部最优、指数稳定的 solution branch；
+  A3. 数据置信集合式 (31) 以声明概率覆盖真实 theta，或在确定性噪声界下包含真实 theta；
+  A4. 当前 Galerkin block 通过式 (22)-(24)，误差常数满足式 (27)-(28)，且 exact-HJB
+      claim 所需的式 (28a)-(28d) 通过；
+  A5. corrector 在验证球内满足式 (49)，stack change 按式 (51) 重锚；
+  A6. 所有候选通过式 (53)、(56)，内环满足式 (58)；
+  A7. 式 (60a)、(64) 的常数存在并经紧集区间界/实验标定，且式 (65) 的 mu>0；
+  A8. probe 只从式 (42) 的离线预验证有限库中选择，且 probe-augmented incumbent 通过
+      式 (53)。
+
+则每一 adaptation cycle 恰有以下一种结果：
+
+  (a) 当前数据满足式 (40)，算法运输并校正 critic；全部发布门通过后，实际 policy error
+      满足式 (60)，性能满足式 (63)，状态满足式 (66)；
+  (b) 当前数据不满足式 (40)，存在有限库候选满足式 (43)-(45)；执行该 candidate 并更新
+      数据，只有新的 DSI 和全部发布门通过后才进入 (a)；
+  (c) 不存在可行 probe，或任一 branch/admissibility/reference gate 失败；算法不发布
+      candidate，保持仍有效的 incumbent，否则执行 baseline/withdraw。
+
+证明。
+
+  1) A2 对 reduced HJB 求导，stationarity 消去 pi_theta 项，得到式 (14)-(17)。
+  2) A4 与式 (20) 的隐函数定理给出式 (25)；线性系统扰动和 policy 映射 Lipschitz 性给出
+     式 (27)-(28)。
+  3) 对任意真实 e in C_t，三角不等式、式 (17)、式 (28) 和 Young 不等式依次给出
+     式 (37)-(39)，故式 (40) 控制参数歧义造成的 action error。
+  4) root map 的二阶 Taylor 展开和 A5 的 contraction 给出式 (49)；新 stack 的均值定理
+     与 sigma_min(A)>0 给出式 (51)。
+  5) A6、介值定理、单调性和隐函数定理给出唯一 reference 及式 (57)-(58)。将以上互不
+     重叠的误差项合并得到式 (60)。
+  6) 完全平方得到式 (61)。沿 V*(X,theta(t)) 积分链式法则得到式 (63)；A7 和 Cauchy-
+     Schwarz 给出式 (65)，comparison lemma 给出式 (66)。
+  7) 步骤 11 的原子发布规则保证失败 candidate 从未进入实际闭环，因此三种结果穷尽且
+     每种结果的控制语义明确。证毕。
+
+定理的概率只来自 A3 的置信覆盖；conditioning、residual、reference 和 stability gate 是
+确定性的已验证条件。若使用经验置信集合，论文必须报告其校准失效率。
+
+======================================================================
+13. 计算、存储与实时可行性
+======================================================================
+
+记 critic basis 大小 m，HC 参数维数 p=3，HJB stack 大小 N_D，任务状态栈大小 N_rho，
+probe 数 L，每个短时 probe 的预测采样数 S。
+
+  HJB residual/Jacobian assembly       O(N_D m^2)（结构稀疏时更低）
+  A_W factorization per anchor          O(m^3)
+  p 个 tangent right-hand sides         O(p m^2)
+  policy tangent/state metric           O(N_rho m p+N_rho p^2)
+  单椭球 DSI generalized eigen check      O(p^3)
+  交集置信集的 certified QCQP upper bound O(N_B p^3)，N_B 为 interval branch 数
+  one corrector with reused factor       O(N_D m+m^2)
+  finite probe evaluation                O(L[S p^2+N_B p^3]+L short simulations)
+  storage                               O(N_D m+N_rho m+m^2+L S p)
+
+若使用 S-procedure 的保守 SDP，以上第二项改为所选 p 维 SDP solver 的实测成本；不能把
+一般非凸 QCQP 简写为固定 O(p^3)。这里 p=3，N_B 由证书精度与置信集几何决定。
+
+在线高频层不执行上述矩阵分解。低频层最坏时间必须以 P95/P99/max 报告，并与 adaptation
+period 比较。若截止时间前未完成，候选丢弃且 incumbent 保持，因此计算超时不会发布半成品。
+
+复杂度优势的准确表述是“相对从头求 HJB 或在线 OCP，以一次 m x m 分解和三个右端运输
+局部单-critic 分支”；不得笼统宣称为 constant-time 或 real-time，除非硬件测量支持。
+
+======================================================================
+14. 常数获得方式与强制数值核对
+======================================================================
+
+14.1 可计算常数
+
+  beta_data：由已声明噪声模型的 quantile 或 set-membership residual，加式 (10) 的 Hessian
+             上界产生的二阶余项；
+  epsilon_A,epsilon_B：collocation quadrature、model envelope 和 residual operator 的区间界；
+  epsilon_full,kappa_H,L_H：full HJB residual 的覆盖网格余量、式 (52) 的衰减界和
+             Frechet derivative 区间界，用于式 (28a)-(28d)；
+  epsilon_C：式 (27) 及线性求解 backward error；
+  epsilon_P：式 (26)-(28) 的 basis-gradient、Galerkin 和 model error 合成界；
+  epsilon_H：由 Newton root-error 上界 2||A^(-1)||epsilon_H 不超过 critic budget 反解；
+  r_theta：式 (32) 的最小半径；
+  L_pi,2,L_C,L_A：在相应紧集上由 automatic differentiation 加 interval/grid remainder；
+  mu：由式 (64)-(65) 的保守上下界在线计算；
+  m_ref,L_ref,W,L_ref,theta,L_fx：由 bracket 上 derivative bounds 和内环标定；
+  epsilon_rho：由 held-out state stack 或覆盖网格的 quadrature discrepancy 上界。
+
+若某个常数只能经验估计，结论必须写成“在校准覆盖率下”；不能把点估计冒充确定性证书。
+
+14.2 三层 derivative consistency test
+
+进入任何任务性能实验前，必须通过：
+
+  D1. 对式 (8)、(8a)、(9)-(11) 比较解析导数、automatic differentiation 和中心差分；
+  D2. 在通过式 (22)-(24) 的 anchor 上分别求 W_N*(theta+/-h e_j)，比较
+      [W_N*(theta+h e_j)-W_N*(theta-h e_j)]/(2h) 与 C_theta(:,j)；
+  D3. 比较策略中心差分与式 (26)。
+
+接受阈值采用
+
+  error <=c_fd h^2+c_solve epsilon_H+c_round epsilon_machine/h, (67)
+
+并做至少三个 h 的收敛阶检查。只有单个 h 下“数值接近”不构成验证。
+
+14.3 theorem-to-code assertions
+
+代码中必须记录并持久化：I_data eigenvalues、tau_I、C_t coverage flag、L_DSI、mu_0、
+condition(A_W)、h_N、residual、每个 substep 的 admissibility margin、reference bracket/
+m_ref、epsilon_pi,rho、mu、fallback reason 和 cycle runtime。缺少这些量时，实验无法验证主定理。
+
+======================================================================
+15. Killer conditions、简化路线与可证伪边界
+======================================================================
+
+K1. 若强基线在同一数据预算下总能稳定完成 full HC identification，且式 (36) 几乎总是满秩，
+    DSI 的核心必要性被削弱；方法应简化为 full-ID + ANEOC transport。
+
+K2. 若实测 P_theta 在 observation-null space 上始终近零，额外 probe 没有必要；保留“免探测
+    证书”，删除探测优势 claim。
+
+K3. 若 A_W 在任务域持续病态，Galerkin branch 不能可靠运输；不得靠更大 ridge 伪造
+    structural regularity，应更换固定 basis/stack 或退回重求 anchor。
+
+K4. 若参数变化经常越出 r_theta 或 solution branch 切换，局部 NEOC 不是合适主方法；频繁
+    homotopy 不能掩盖适用域错误。
+
+K5. 若 corrector 不收缩、reference root 消失或 stability margin mu<=0，candidate 不发布。
+
+K6. 若 probe library 无法在持续接触与动作界内恢复式 (40)，当前硬件没有安全信息权；
+    需要改变传感/任务，不能增加未验证在线优化来回避结论。
+
+K7. 若直接重求 HJB 在相同硬件上的 P99 时间与运输法相当，ANEOC 的工程必要性被否决；
+    保留 DSI 仍需单独证明净价值。
+
+最简竞争路线依次为：固定 NNBO、full-ID 后重训 NNBO、full-ID + warm start、full-ID +
+ANEOC、DSI without transport、DSI + ANEOC without probe、完整 DS-ANEOC-NNBO。每个新增
+模块必须通过消融显示它解决对应 failure；否则删除，而不是继续拼接模块。
+
+======================================================================
+16. Final Method Definition of Done 与 venue 判定
+======================================================================
+
+理论/实现进入实验前的硬 Gate：
+
+  G1  式 (2)-(11) 的 NNBO-specific derivative 三层核对通过；
+  G2  raw information、prior/ridge 和 numerical null threshold 分开记录；
+  G3  式 (22)-(24) 的有限维 gate 与式 (28a)-(28d) 的 exact-HJB a posteriori gate 通过；
+  G4  epsilon_P、L_pi,2、r_theta 和式 (39) 均有可复算数值；
+  G5  block tracking、stack jump 和 re-anchor residual 按式 (49)-(51) 记录；
+  G6  每个 intermediate policy 通过式 (53)，最终 mu>0；
+  G7  reference bracket、m_ref 和实际 force error 按式 (56)-(58) 验证；
+  G8  probe 只来自有限预验证库，并报告无可行 candidate 的比例；
+  G9  theorem-to-code assertions 和 P95/P99/max runtime 完整；
+  G10 killer conditions K1-K7 用匹配基线、消融和 failure cases 检验。
+
+在 G1-G9 未通过前，不开始用任务回报“证明”理论。在 G1-G10 和预注册式实验矩阵完成后，
+论文才可主张完整方法的 empirical advantage。
+
+按相邻领域 reference distribution 的审计：问题—机制—方法形态已达到 T-RO 级候选标准；
+其创新落点是“同一 HJB policy tangent 同时定义决策充分信息与运输 moving optimum”，而非
+简单叠加辨识、探测和 warm start。IJRR 级主张还需要跨 contact family 的一般化理论和更广
+实验，当前不作该级别宣称。任何 venue 接收仍取决于强基线、效果量、失败案例和复现证据。
+
+======================================================================
+17. 冻结术语与 claim-evidence map
+======================================================================
+
+Canonical term                         固定含义
+---------------------------------------------------------------------
+DS-ANEOC-NNBO                           完整方法名
+raw information I_data                  只含观测 Jacobian 的数据几何
+prior precision Lambda_prior            独立先验，不参与结构可辨识宣称
+DSI                                     式 (36) 的结构概念与式 (39)-(40) 的鲁棒门
+frozen-optimal policy pi*               固定 theta 的 HJB-optimal interaction force
+Galerkin branch W_N*                    固定 basis/test/data block 的有限维 root
+online iterate W                        当前 predictor/corrector 数值解
+incumbent                               最近一次通过全部 gate 的已发布策略
+candidate                               尚未发布的运输/校正策略
+position-based nonlinear impedance      通过式 (55)-(58) 实现的 force policy
+probe library                           离线预验证的有限微扰集合
+
+主要 claim 与证据状态：
+
+  Claim：部分参数不可辨识不必然妨碍最优决策。
+  Evidence：式 (36) 的 null-space inclusion；状态为 theorem-supported。
+
+  Claim：信息不足时，仅靠 critic 更新无法统一保证近最优。
+  Evidence：式 (41) 的 two-point indistinguishability；状态为 theorem-supported。
+
+  Claim：ANEOC 把局部分支移动误差从一阶降为二阶。
+  Evidence：式 (17)、(49)，限于 regular branch/trust region；状态为 theorem-supported。
+
+  Claim：完整方法优于 full-ID、warm start 或重新求 HJB。
+  Evidence：尚需匹配实验、wall-clock distribution 和消融；状态为 needs evidence。
+
+  Claim：方法可用于所有软接触或所有接触切换。
+  Evidence：无；该 claim 被明确禁止。
+
+======================================================================
+18. 来源与披露
+======================================================================
+
+  Kong et al., Neural-Network-Based Optimal Impedance Control for Robots in
+  Physical Interaction With Soft Environments, IEEE Transactions on Systems,
+  Man, and Cybernetics: Systems, 2025. DOI: 10.1109/TSMC.2025.3579017.
+
+  Rai, Mou, and Anderson, Neighboring Extremal Optimal Control Theory for
+  Parameter-Dependent Closed-loop Laws, Automatica 184, 112693, 2026.
+  DOI: 10.1016/j.automatica.2025.112693.
+
+  Xu, Molloy, and Gould, Revisiting Implicit Differentiation for Learning
+  Problems in Optimal Control, NeurIPS 2023, arXiv:2310.14468.
+
+知识债务边界：HC/EWRLS、NNBO auxiliary HJB、single critic 和 position-based realization
+来自 Kong et al.；闭环 parameter-dependent HJB sensitivity 来自 Rai et al.；有限维隐式
+微分只用于解释 Galerkin root tangent。本文新增的研究构造是 decision-sufficient information
+与同一 policy tangent 的联合、含近似切线的鲁棒门、有限 probe library、原子发布协议以及
+从 estimator 到实际 reference 的统一误差闭合。
+
+AI-assisted research disclosure：Codex 用于文献对照、推导检查、结构审计与技术文本生成。
+正式投稿前，作者必须复核全部公式、运行第 14 节测试并以真实实验替换 needs-evidence 项。

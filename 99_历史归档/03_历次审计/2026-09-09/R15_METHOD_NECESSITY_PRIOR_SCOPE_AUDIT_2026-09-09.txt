@@ -1,0 +1,719 @@
+NNBO + Implicit Differentiation：Method Necessity、Prior Scope 与理论闭环再审计
+版本：2026-09-09
+状态：Theory-first independent audit；不包含实验设计
+目标：不预设现有路线成立，确定问题存在性、技术路线必要性、generic differentiable MPC prior 的覆盖边界与最终可主张增量
+
+======================================================================
+0. Executive Verdict
+======================================================================
+
+结论不是“无条件通过”，而是：
+
+1) Problem exists，且可由严格反例和局部表示定理证明；但它只存在于 consequence-defined soft-contact tasks，不适用于所有 impedance-control tasks。
+
+2) 当前研究的 scientific domain 仍是 impedance control / physical interaction，因为被设计的 policy variable 是可执行 K、B、reference/feedforward，failure 来自 robot-environment port mechanics，成立条件包含 variable-impedance passivity。MPC 是 inner computational form，differentiable optimization 是 training primitive。
+
+3) Differentiable robust MPC、Performer-MPC、DiffTune-MPC 与 ZipMPC 没有以 impedance-specific 形式解决该问题；但是它们覆盖了“context -> learned MPC cost -> differentiable solver -> outer loss”这一 generic skeleton。因此，不能把 context-dependent cost learning、bilevel MPC 或 implicit differentiation 本身写成创新。
+
+4) 当前 Method 的独特核心必须改写为：
+
+  Mechanics-Conditioned Objective Transport
+  for Closed-Loop, Passive Optimal Impedance Control。
+
+它不是让环境改变偏好，而是把固定的 consequence-space preference p，经可辨识的 environment mechanics transport 到 impedance controller 可实时处理的 objective coordinates。
+
+5) IDOC 不是唯一必要算法。它只在“outer consequence supervision 是 task/rollout-level、inner impedance optimizer 含一般 smooth constraints、需要低方差一阶 decision-focused gradient”这一信息结构下成为最自然的 backend。若有充分 dense consequence labels，supervised consequence-model learning 更简单；若 outer outcome 不可微，BO/RL/zeroth-order 更合适。
+
+6) 原 Method 存在两个需要修复的 Major issues：
+
+  M1. HC-only context insufficiency：若目标 consequence 包含 HC port model 无法唯一决定的内部 stress/geometry，单用 {K_e,B_e,n} 无法解决问题。
+
+  M2. open-loop/closed-loop mismatch：部署是 receding-horizon feedback，outer loss 必须评价并求导 closed-loop rollout，而不能只评价一次 inner planned trajectory。
+
+修复 M1、M2 后，Method fit 在明确 operating regime 内可以完成理论闭合；未修复时，不应宣称 T-RO-ready。
+
+
+======================================================================
+1. 研究对象的层级归属
+======================================================================
+
+1.1 Scientific layer：Impedance control
+
+判定依据不是论文是否使用 MPC，而是以下四个对象：
+
+- decision：K、B、x_r、f_ff，而不是任意 torque/action；
+- controlled relation：force-motion impedance at robot-environment port；
+- failure：soft-contact mechanics 改变 raw signals 对 physical consequence 的含义；
+- guarantee：variable K、B 的 realizability、contact feasibility 与 passivity。
+
+因此，该问题属于 optimal/variable impedance control。
+
+1.2 Optimization layer：Constrained receding-horizon optimal control
+
+为了直接处理 actuator、force、penetration、rate、energy 与 terminal constraints，inner HJB/ADP problem 被重写成 finite-horizon constrained direct transcription。数学上这是 nonlinear MPC/OCP。
+
+1.3 Learning layer：Differentiable optimization / decision-focused learning
+
+训练使用 outer high-fidelity consequence loss 对 inner KKT solution 求导。该层属于 differentiable MPC/optimal-control learning。
+
+最终定位是：
+
+  impedance-control scientific problem
+  + constrained MPC realization
+  + differentiable-optimization training backend。
+
+这意味着 generic MPC priors 必须作为 method prior 正面比较，但它们不会自动把 impedance-specific problem claim 消解。
+
+
+======================================================================
+2. 问题是否真实存在：从语义定义而不是“人工权重”出发
+======================================================================
+
+2.1 两种本质不同的任务
+
+Case A：raw-signal-defined task。
+
+真实任务就是：
+
+  U_p(y)=q||e||^2+r||f-f_d||^2。
+
+此时 q、r 的物理意义跨环境不变；精确 environment dynamics 已经会让 optimal K、B 随环境变化。不存在 objective semantic drift，fixed objective + adaptive dynamics 足够。
+
+Case B：consequence-defined task。
+
+真实任务是：
+
+  c=g_chi(y)，
+  J_p=sum_t U_p(c_t)，
+
+其中 c 可包含 deformation、strain energy、internal stress proxy、dissipation、contact-quality 或 task-specific tissue/load outcome。y={e,f,...} 只是实时可用代理量。由于 g_chi 随 environment mechanics chi 变化，同一 raw quadratic objective 不再表示同一 U_p。
+
+Final Method 只研究 Case B。把 Case A 纳入 claim 会使 necessity 为假。
+
+2.2 Concrete physical counterexample：strain-energy preference
+
+令 quasi-static linear soft contact：
+
+  f=k_e delta。
+
+真实代价希望平衡 tracking 与环境 strain energy：
+
+  L_true(delta;k_e)=q(delta-d)^2+lambda (1/2 k_e delta^2)。
+
+其最优 penetration：
+
+  delta_true*=2qd/(2q+lambda k_e)。
+
+若 controller 使用固定 force penalty：
+
+  L_raw(delta;k_e)=q(delta-d)^2+r f^2
+                  =q(delta-d)^2+r k_e^2 delta^2，
+
+则：
+
+  delta_raw*=q d/(q+r k_e^2)。
+
+要求两者对所有 k_e 相同，必须：
+
+  r(k_e)=lambda/(2k_e)。
+
+不存在跨非平凡 stiffness family 的固定 r。这里需要改变的不是 high-level preference lambda，而是 lambda 到 force-coordinate weight 的 mechanics-dependent realization。
+
+这个反例证明 problem class 非空，也证明“environment model 已进入 dynamics”并不自动修复错误的 utility coordinates。
+
+2.3 Proposition E1：Ordinal-equivalence condition
+
+令 Y_chi 为某环境下可实现的 local interaction behavior set，真实局部代价为：
+
+  L_chi,p(y)=U_p(g_chi(y))。
+
+若一个固定 raw objective l_0(y,p) 要在所有可能 local feasible subsets 上产生与 L_chi,p 相同的 minimizer，则它至少必须在 Y_chi 上保持相同的 ordinal ranking。对 C2、局部强凸函数，这要求其 tangent gradient fields 共线，二阶型在 stationary neighborhood 内正比例：
+
+  W_chi,p|T = alpha_chi W_0,p|T， alpha_chi>0。
+
+若两个环境的 restricted pullback Hessians 不正比例，则存在两个 feasible directions 发生 ranking reversal，因而存在一个 local feasible set 使 fixed objective 选错。
+
+2.4 Proposition E2：Exact dynamics cannot repair utility mismatch
+
+考虑 exact context-dependent reachable map：
+
+  y=Phi_chi(a)，
+
+其中 a 是 impedance decision。若 l_0 与 L_chi,p 在两个共同可实现行为 y_1、y_2 上排序相反，则即便 Phi_chi 完全准确，优化 l_0 仍会在 feasible subset {y_1,y_2} 上选择错误行为。
+
+因此：
+
+- environment adaptation in dynamics 修复 prediction error；
+- objective transport 修复 preference representation error。
+
+两者作用对象不同，不能互相替代。
+
+2.5 问题存在性的边界
+
+上述推导证明该问题作为数学与物理任务类别真实存在，但不能仅靠理论证明它在任意目标实验场景中具有显著幅度。未来证据仍需确认：
+
+- target tasks 的真实 performance/safety 是否确实由 consequence 而非 raw force/error 定义；
+- pullback metrics 是否显著非正比例；
+- resulting action difference 是否达到 decision-relevant magnitude。
+
+理论阶段能完成 existence 与 necessity conditions，不能替代 prevalence/effect-size evidence。
+
+
+======================================================================
+3. 一个新的不可解性边界：Context Sufficiency
+======================================================================
+
+3.1 HC model 并不天然是 consequence-sufficient
+
+HC model 主要描述 contact port 的 nonlinear force-penetration/velocity relation。若 consequence 只取 penetration、port energy 等可由 HC state 唯一计算的量，analytic pullback 可能已经充分，learning 不必要。
+
+但若 consequence 包含 spatial internal stress、geometry-dependent tissue loading、distributed deformation 或 contact quality，两个环境可能具有相同或近似相同 HC port parameters，却有不同 g_chi。
+
+3.2 Proposition E3：Context-aliasing impossibility
+
+令 online controller 仅观察 context statistic h(o). 若存在两个环境 chi_1、chi_2 满足：
+
+  h(o_chi1)=h(o_chi2)，
+
+但存在两个可执行 impedance actions a_1、a_2，使：
+
+  J_p(a_1;chi_1)<J_p(a_2;chi_1)，
+  J_p(a_1;chi_2)>J_p(a_2;chi_2)，
+
+则任何 deterministic policy pi(h(o),p) 在两个环境输出相同 action，不可能同时最优。
+
+这不是学习算法不足，而是 information-theoretic impossibility。
+
+3.3 Required correction
+
+最终 context 必须定义为：
+
+  chi_hat=[theta_HC_hat, xi_task]，
+
+其中 xi_task 是使目标 consequence family 可区分所需的最小附加 context，例如局部几何、成像特征、材料类别、接触面积 proxy 或有限 history embedding。若所声明 consequence 可由 HC 唯一决定，则 xi_task 为空。
+
+必须给出 Context Sufficiency Assumption：
+
+  对所有目标环境，g_chi 在保留的 task-relevant equivalence class 上是 chi_hat 的单值 Lipschitz function；未分辨环境只允许在同一 optimal-action equivalence class 中混叠。
+
+若无法满足，Method 必须缩小 consequence claim，而不能让 NN“自行推断”不可观测信息。
+
+
+======================================================================
+4. 最终技术对象：Objective Transport，而不是 Preference Adaptation
+======================================================================
+
+4.1 Invariant high-level utility
+
+显式 preference p 定义：
+
+  b_c(p)=grad_c U_p(c_bar)，
+  P_c(p)=H_c U_p(c_bar)。
+
+p 不由 environment network 预测。
+
+4.2 Integrable mechanics/consequence surrogate
+
+  g_psi(y;chi_hat)
+  =g_phys(y;theta_HC_hat)+r_psi(y,chi_hat)，
+
+其中 r_psi 使用 C3 smooth architecture、C2 norm bound，并且不输入 p。由同一个 g_psi 获得：
+
+  J_psi=D_y g_psi，
+  H_psi,j=D_y^2 g_psi,j。
+
+这保证 learned derivatives 可积，且 preference/mechanics 在结构上可分。
+
+4.3 Second-order objective transport
+
+在 y_bar 附近：
+
+  U_p(g_psi(y))
+  =const+a_psi^T Delta y
+   +0.5 Delta y^T W_psi Delta y+O(||Delta y||^3)，
+
+其中：
+
+  a_psi=J_psi^T b_c(p)，
+
+  W_psi=J_psi^T P_c(p)J_psi
+        +sum_j b_c,j(p)H_psi,j。
+
+这不是 free Q,R prediction。Q、R、cross-term N 只是 W_psi 在实时变量坐标中的 block representation。
+
+4.4 Preference compositionality property
+
+由于 p 只进入 {b_c,P_c}，对一个新 p 的 objective 由同一 g_psi 解析组合产生。generic h_psi(chi,p)->Q,R 没有该结构保证。
+
+这给出本 Method 相对 generic cost learner 的第一个可证明差异：不是表达能力更强，而是 hypothesis class 更受约束并满足 explicit preference-mechanics separation。
+
+
+======================================================================
+5. Inner Optimal-Impedance Layer 是否真正解决问题
+======================================================================
+
+5.1 Decision must be impedance-realizable
+
+inner decision 为 principal stiffness/damping、reference 与 feedforward：
+
+  a_t={k_t,b_t,x_r,t,f_ff,t}，
+
+  K_t=R_c diag(k_t)R_c^T，
+  B_t=R_c diag(b_t)R_c^T。
+
+fixed smooth contact frame 与 scalar box/rate constraints 使 inner 保持标准 C2 NLP，并保证 K、B 正定可执行。
+
+5.2 Constraints are not learned preferences
+
+以下属于 feasible set：
+
+- robot/joint/torque bounds；
+- force、penetration、contact constraints；
+- robust uncertainty tightening；
+- variable-stiffness energy/passivity budget；
+- terminal safe set 与 backup publication。
+
+objective transport 只改变同一 feasible set 内的排序。这比把 safety weight 一起学习更容易形成不依赖 cost 的保证。
+
+5.3 Proposition E4：Local solution consistency
+
+假设：
+
+- true composed utility C3；
+- trust-region radius rho；
+- learned consequence surrogate 的 C2 error <=epsilon_g；
+- inner KKT mapping strong regular；
+- exact objective 与 surrogate optimum 位于同一 local active manifold。
+
+则 transported quadratic/affine surrogate 的 gradient error 满足：
+
+  epsilon_stationarity
+  <=C_g epsilon_g + C_3 rho^2 + epsilon_model。
+
+由 implicit-function/strong-regularity bound：
+
+  ||z_psi*-z_true*||
+  <=kappa(C_g epsilon_g+C_3 rho^2+epsilon_model)
+    +higher-order terms。
+
+因此技术路线确实针对所定义 failure：它通过逼近 true consequence utility 在实时 interaction coordinates 中的 local gradient/Hessian，缩小相应 KKT 与 impedance-decision error。
+
+注意：它只保证 local decision consistency，不保证 global optimum。
+
+
+======================================================================
+6. 为什么 outer objective 必须是 Closed-loop
+======================================================================
+
+6.1 Open-loop planned trajectory 不是 deployment object
+
+inner MPC 每次只发布 first action，随后基于新状态重新规划。一次 solve 的 predicted trajectory 与真实 receding-horizon rollout 一般不同。只对一次 planned trajectory 定义 outer J_HF 会重新产生 surrogate/deployment mismatch。
+
+6.2 Correct outer system
+
+对 t=0,...,T_out-1：
+
+  eta_t=T_psi(chi_hat_t,p,s_t)，
+
+  z_t*=argmin InnerOCP(s_t,eta_t)，
+
+  a_t=First(z_t*)，
+
+  s_{t+1}=F_HF(s_t,a_t;chi_true)。
+
+outer objective：
+
+  J_CL(psi)=E[sum_t U_p(c_t)+V_out(c_T)]。
+
+训练梯度必须通过 closed-loop state recursion 和每个 inner solution sensitivity：
+
+  D_psi a_t
+  =D_z First · D_eta z_t* · D_psi eta_t
+   +state-mediated terms。
+
+IDOC 提供每次 solve 的 D_eta z_t*；outer adjoint/BPTT 负责跨 replanning steps 的 closed-loop chain。
+
+6.3 Accumulated error bound
+
+若 closed-loop transition 对 state/action 的 Lipschitz constants 为 L_s、L_a，per-step action deviation <=epsilon_a，则：
+
+  ||Delta s_t||
+  <=L_a epsilon_a sum_{i=0}^{t-1}L_s^i。
+
+若 outer stage utility 为 L_U-Lipschitz，可由几何和得到 finite-horizon closed-loop regret bound。若 L_s>=1，bound 随 horizon 放大，说明 terminal/stability design 不是可省略细节。
+
+
+======================================================================
+7. IDOC 的必要性：必须降级为 backend-level claim
+======================================================================
+
+7.1 What is mathematically necessary
+
+当训练目标为 J_CL(z*(eta_psi)) 时，任何 exact first-order method 都必须获得或等价计算 solution sensitivity：
+
+  D_eta z*。
+
+它可以由：
+
+- unrolled solver differentiation；
+- KKT implicit differentiation；
+- PMP/PDP adjoint；
+- differentiable SQP/DDP；
+- finite difference（近似）
+
+获得。因此 implicit differentiation family 必要，但 IDOC 这个具体算法不具有逻辑唯一性。
+
+7.2 Why IDOC is the selected backend
+
+在 inner problem 含 general smooth equality/inequality constraints、需要 VJP、horizon 较长且不希望存储全部 solver iterations 时，IDOC 的 KKT-based structured solve 是自然选择。其成立仍要求 local minimizer、C2、active Jacobian full row rank、relevant Hessian/KKT nonsingular 与 branch consistency。
+
+7.3 When IDOC is not needed
+
+- g_chi 已完全解析：直接计算 pullback；
+- 有覆盖充分的 dense consequence labels：先监督学习 g_psi，若其 decision error 已足够则不做 bilevel fine-tuning；
+- J_HF 可在线直接优化：删除 surrogate learning；
+- outer 只有 scalar black-box return：用 BO/RL/zeroth-order；
+- inner solution 对 eta sensitivity 为零或病态不可用：IDOC 无贡献。
+
+7.4 Exact activation regime
+
+IDOC 在以下联合条件下具有 method necessity：
+
+  (i) only aggregate/closed-loop consequence supervision，或 supervised model loss 与 decision loss 不一致；
+  (ii) differentiable offline high-fidelity model/oracle 可得；
+  (iii) inner smooth constrained optimum 满足 strong regularity；
+  (iv) residual 对 first action 有非零 sensitivity；
+  (v) black-box exploration 的样本/安全代价不可接受。
+
+
+======================================================================
+8. Generic Differentiable MPC Priors 是否已经解决核心问题
+======================================================================
+
+8.1 Differentiable Robust MPC（RSS 2024）
+
+其核心问题：tube-based robust MPC 的 cost/barrier/model parameters 难以人工调整；通过 IFT/DDP-style differentiable control 在线优化 nominal 与 ancillary MPC parameters，并用 discrete barrier states 处理 safety。
+
+覆盖本 Method 的部分：
+
+- differentiating cost/model parameters through an optimal-control solve；
+- context/task-loss-driven controller tuning；
+- robust nominal/ancillary separation；
+- safety-related parameter adaptation。
+
+未解决的 impedance-specific core：
+
+- 未定义 consequence-space preference 经 contact mechanics 的 objective transport；
+- decision 不是 K、B 的 physical impedance realization；
+- 无 variable-impedance passivity/energy accounting；
+- 不处理 HC context sufficiency 或 preference-mechanics separability。
+
+重要判决：其 general mathematical framework 可以被实例化到 impedance MPC，所以“IFT + robust MPC + learned weights”不是新贡献。值得借鉴的是 objective-independent robust/safety layer，以及保留固定 terminal task semantics、防止 online weight adaptation丢失任务目标。
+
+8.2 Performer-MPC（CoRL 2023）
+
+其核心问题：从 rich visual context 生成 context-dependent quadratic + affine residual cost，并通过 implicit differentiable MPC 从 demonstrations 训练。
+
+这是对当前架构非常强的 generic prior，因为它已经包含：
+
+  context -> NN cost -> quadratic/affine MPC objective
+  -> implicit differentiation -> imitation loss。
+
+未解决之处不是“没有 context-dependent cost”，而是：
+
+- learned cost 不受 consequence mechanics/pullback 约束；
+- 无显式 p 与 mechanics 的组合结构；
+- 不研究 optimal impedance 或 contact passivity；
+- learned quadratic cost 的 physical semantics 与 identifiability 不是其目标。
+
+若本 Method 退化为 h(chi,p)->Q,R + differentiable MPC，则会被 Performer-MPC 等 generic prior 实质覆盖。
+
+8.3 DiffTune-MPC（RA-L 2024）
+
+其核心问题：MPC open-loop cost 与 overall closed-loop performance interval 不一致；通过 analytical MPC gradients 学习 cost parameters，并允许 evaluation horizon 与 planning horizon 不同。
+
+它没有解决 mechanics-conditioned consequence transport，但已经覆盖“closed-loop performance trains inner MPC cost”。因此本 Method 必须吸收 closed-loop outer rollout，不能把这个部分声称为新贡献。
+
+8.4 ZipMPC（CoRL 2025）
+
+其核心问题：短 horizon MPC 丢失 long-horizon context；NN 根据长 context 生成 time-varying short-horizon cost，通过 differentiable MPC 模仿 long-horizon MPC。
+
+与本 Method 的交集：
+
+- context-dependent cost；
+- long/short horizon bilevel learning；
+- differentiable MPC；
+- constraints retained by keeping optimizer in the loop。
+
+本质区别：
+
+- ZipMPC 修复 temporal information compression；本 Method 修复 mechanics-dependent semantic coordinate mismatch；
+- ZipMPC teacher 是 well-tuned long-horizon MPC behavior；本 Method 的 invariant object 是 explicit consequence utility U_p；
+- ZipMPC 可自由输出 bounded time-varying cost；本 Method 的 cost 必须由 integrable g_psi 与 analytic pullback 组成；
+- ZipMPC 不包含 impedance/passivity claim。
+
+但必须承认：若用 high-fidelity impedance MPC 作为 teacher，把 contact context 输入 ZipMPC，并让短 MPC 优化 K、B，它在 behavior level 可能解决大部分任务。故本 Method 的优势不能声称为更强表达能力，只能来自可证明结构、preference compositionality、较小 identifiable hypothesis class 与 impedance-specific closure。
+
+值得借鉴：
+
+- 当 long-horizon information gap 被证明存在时，引入 time-indexed local metric/terminal correction；
+- 训练初态必须来自可行 region；
+- 保持 short-horizon online computation。
+
+但 long-horizon compression 不应默认加入 core；否则会同时承担 semantic transport 与 horizon compression 两个 paper-level mechanisms。
+
+8.5 DiffTune/ZipMPC 是否属于“本研究问题范畴”
+
+答案分两层：
+
+- 作为 scientific problem：不是。它们研究 generic MPC cost tuning/compression，不以 impedance port mechanics 为问题对象。
+- 作为 method superclass / strongest alternative：是。它们能够容纳一个 impedance MPC 实例，因而必须用于判断 algorithmic novelty 与 simpler alternative。
+
+
+======================================================================
+9. Impedance-specific strongest priors 的覆盖
+======================================================================
+
+9.1 NNBO（2025）
+
+覆盖 nonlinear HC soft-contact modeling、environment identification、robust HJB/critic optimal interaction，以及 fixed tracking-error/force objective 下的 optimal behavior。它没有把 objective 本身作为 environment-dependent semantic representation 来研究。
+
+9.2 Model-based/deep MPVIC（Robotics and Autonomous Systems 2023）
+
+覆盖 learned Cartesian impedance model + MPC online impedance adaptation，并强调跨任务 transfer。其主要学习对象是 dynamics/model，未建立 consequence preference 的 pullback/transport theory。
+
+9.3 Model Predictive VIC for adaptive precision-compliance tradeoff（T-Mech 2023）
+
+覆盖直接优化 variable impedance、impedance constraints 与 precision-compliance tradeoff。其存在意味着“用 MPC 优化 K、B”不是新贡献。
+
+9.4 Safe MPVIC in unknown soft environments（Robotics and Autonomous Systems 2025）
+
+这是最强 domain prior：它已经组合 HC online estimation、unknown/disturbance-rich soft environment、MPC variable impedance、safety-performance mode switching 和 passivity。
+
+它尚未解决本问题的理由是：它把 safety/performance hierarchy 预先写入 controller modes/objective，并不研究同一 consequence preference 如何因 environment mechanics 映射成不同 raw objective geometry。
+
+同时，它明确使以下内容失去独立新颖性：
+
+- HC estimator；
+- MPC-based K、B adaptation；
+- safety/performance balance；
+- energy-tank/passivity alone。
+
+9.5 Stable state-dependent VIC（T-Mech 2025）
+
+覆盖 learnable variable-stiffness structure 与 stability/performance。它强化了 passivity/stability 必须独立闭合，但没有覆盖 consequence-semantic transport。
+
+
+======================================================================
+10. Alternative Route Tournament
+======================================================================
+
+Route A：Fixed raw objective + exact adaptive dynamics
+
+最优条件：真实任务由 raw force/error 定义，或所有 pullback metrics 正比例。
+判决：此条件下应选 A，Final Method 不必要。
+
+Route B：Direct analytic consequence objective
+
+最优条件：g_chi 已知且可实时求值/求导。
+判决：理论最干净，应优先；不需要 learning/IDOC。
+
+Route C：Supervised consequence-model learning
+
+最优条件：训练期有覆盖充分的 dense (y,chi,c) labels。
+优势：目标明确、训练稳定、不受 optimizer non-identifiability 影响。
+判决：应作为前置/强 baseline；只有 decision-focused error 仍非零时再用 IDOC fine-tuning。
+
+Route D：Generic context-dependent cost learning（Performer/DiffTune/Zip style）
+
+优势：表达能力高，可直接优化 behavior/imitation。
+缺点：cost non-identifiability、p/chi entanglement、较弱的 physical extrapolation 与无 impedance semantics guarantee。
+判决：strongest generic baseline。Final Method 的结构化版本不能保证性能总优于 D，只能保证 factorization/invariance properties 并降低不必要自由度。
+
+Route E：Black-box BO/RL
+
+优势：不需要 differentiable model，可优化真实 return。
+缺点：样本需求和 safe exploration burden 较大。
+判决：outer 不可微时优于 IDOC；outer 可微且交互昂贵时不优先。
+
+Route F：Direct context-to-K,B policy + safety filter
+
+优势：online 最快、无 optimizer local-minimum burden。
+缺点：对新 p、新 constraints 的组合性较差；safety filter 可能大幅改变 learned action。
+判决：必须作为 simpler baseline。若在相同 information/safety interface 下能力等价，inner optimizer 不必要。
+
+Selected Route G：Structured objective transport + closed-loop IDOC + passive constrained impedance OCP
+
+仅当以下六项联合成立时选择：
+
+G1. task 是 consequence-defined；
+G2. fixed raw metric 违反 ordinal/pullback equivalence；
+G3. online context 对 optimal action equivalence class sufficient；
+G4. direct analytic/online high-fidelity optimization 不可用；
+G5. residual geometry 对 impedance decision 有非零 sensitivity；
+G6. differentiable aggregate closed-loop supervision 可得，且 constrained solution strong regular。
+
+
+======================================================================
+11. 从 priors 中融合什么，以及明确不融合什么
+======================================================================
+
+11.1 必须融合
+
+F-A（from DiffTune）：outer objective 改为 closed-loop rollout across repeated replanning；IDOC 只提供单次 inner sensitivity。
+
+F-B（from robust MPC）：learned objective 与 robust/safety/passivity feasible set 解耦；只有通过 first-action nonlinear/energy verification 的 action 才发布。
+
+F-C（from Performer-MPC）：保留 quadratic + affine local cost，而不是只学习 diagonal Q、R；但 cost 由 mechanics pullback 生成，不由任意 context embedding自由输出。
+
+F-D（from ZipMPC，conditional）：若 future context/horizon truncation 是经证明的第二误差源，允许一个小型 time-indexed terminal/value correction；否则不加入。
+
+11.2 不应融合
+
+- 不采用两套并列 MPC 仅为了显得 robust；
+- 不同时保留 HJB critic 和 direct KKT optimizer；
+- 不在线更新 objective network；
+- 不让 safety barrier weight 与 physical preference 混在同一个 free network output；
+- 不把 long-horizon compression 默认包装为第二核心创新；
+- 不宣称 IDOC 比所有 differentiable solvers 普遍更优。
+
+
+======================================================================
+12. 修订后的理论闭环
+======================================================================
+
+T1 Problem existence：E1/E2 证明 non-proportional pullback 下 fixed raw objective 不可能普遍保持 consequence preference。
+
+T2 Information feasibility：E3 证明 context sufficiency 是任何 adaptive method 的必要条件，并决定所需 sensing/context scope。
+
+T3 Representation：integrable g_psi + explicit U_p 给出完整一阶/二阶 objective transport、cross terms 与 preference compositionality。
+
+T4 Decision consistency：C2 surrogate error + Taylor locality + KKT strong regularity给出 surrogate-to-impedance decision bound。
+
+T5 Training correctness：每次 constrained OCP 的 IDOC sensitivity + closed-loop adjoint 给出真正对应 deployment rollout 的 hypergradient。
+
+T6 Identifiability：只学习对 first applied impedance action具有非零 sensitivity 的 normalized equivalence subspace。
+
+T7 Safety：robust feasible set、energy accounting、terminal/backup publication 与 learned objective 解耦。
+
+T8 Closed-loop performance：per-step decision error 经 closed-loop Lipschitz/ISS gain 传播为 finite-horizon consequence-regret bound。
+
+
+======================================================================
+13. 最终 Research Question 与贡献边界
+======================================================================
+
+Final RQ：
+
+  在 consequence-defined continuous soft-contact tasks 中，当环境力学使固定 raw force/tracking objective 无法保持同一显式交互偏好时，如何在 task-relevant context sufficient 的条件下，将该偏好 transport 为局部、可辨识的 impedance-control objective，并通过 closed-loop differentiable constrained optimization 产生满足 robust feasibility 与 passivity 的可执行 K、B？
+
+允许主张的贡献：
+
+C1. 提出并证明 fixed raw objective 对 heterogeneous soft-contact consequence preference 的 ordinal/pullback impossibility condition。
+
+C2. 提出 context-sufficiency/aliasing theorem，明确 objective transport 何时可解、何时信息论上不可解。
+
+C3. 提出 preference-mechanics separable、integrable 的 second-order objective transport，而非 free cost-weight prediction。
+
+C4. 构造直接输出 executable principal impedance 的 constrained inner layer，并将 learned objective 与 passivity/robust feasible set 解耦。
+
+C5. 将 per-solve constrained IDOC sensitivity 放入 closed-loop replanning adjoint，建立 representation error -> KKT/action error -> closed-loop consequence regret 的链条。
+
+不允许主张：
+
+- 首个 differentiable MPC cost learning；
+- 首个 context-dependent MPC cost；
+- 首个 MPC variable impedance；
+- 首个 HC environment estimator；
+- 首个 passive variable impedance；
+- IDOC primitive 本身的新颖性。
+
+
+======================================================================
+14. Top-Venue Gate Reassessment
+======================================================================
+
+Problem fit：PASS WITH NARROWED SEMANTICS。
+
+问题真实且重要，但必须限定为 consequence-defined soft-contact tasks。固定力/位置跟踪不在 claim 内。
+
+Method fit / necessity：PASS ONLY IN G1-G6 REGIME。
+
+在该 regime 内，objective transport 针对 representation failure，constrained optimal impedance 针对 action/feasibility，closed-loop IDOC 针对 aggregate decision-focused supervision，三个模块各有不可替代的对象。超出该 regime 应自动简化为 Route A-F。
+
+Scientific strength：T-RO-STRONG AT THEORY-DESIGN LEVEL AFTER M1/M2 CORRECTION。
+
+真正强度来自 existence + information impossibility + structured transport + closed-loop hypergradient + passive execution 的统一理论，而非模块堆叠。
+
+IJRR potential：CONDITIONAL。
+
+需要把 E1-E4 从单点 HC 扩展到一类 nonlinear viscoelastic/contact consequence maps，并证明 context-equivalence/factorization 的更一般结果。
+
+
+======================================================================
+15. Devil's Advocate Final Checkpoint
+======================================================================
+
+Verdict：REVISE -> PASS CONDITIONAL ON DOCUMENT CORRECTIONS。
+
+Strongest counter-argument：
+
+  “这只是把 Performer-MPC/ZipMPC/DiffTune-MPC 应用于 impedance MPC，再加一个物理先验和 energy tank。”
+
+有效回应不能是“它们没做软接触”，而必须是：
+
+- generic method 可以表达本 policy，但没有提出或证明 E1 的 mechanics-semantic failure；
+- generic free cost 不满足 context sufficiency 与 preference-mechanics separation；
+- proposed representation 产生可证明 compositionality/identifiability，而不是仅换应用；
+- closed-loop output 是 impedance-port behavior，passivity 是决策定义的一部分；
+- contribution is a new impedance-control problem formulation and structured solution class，not a new differentiable solver。
+
+仍然可能导致 Reject 的条件：
+
+R1. 目标 consequence 实际就是 measured force/error；
+R2. HC analytic map 已充分，r_psi 没有 decision-relevant residual；
+R3. 只有 HC context，却声称 internal stress/geometry outcome；
+R4. generic cost learner 在相同 p/context/constraints 下同样实现 preference compositionality；
+R5. outer 仍只优化 open-loop plan；
+R6. passivity 只在 planned K 成立，未覆盖 executed reference/feedforward/tracking error；
+R7. active-set degeneracy 在目标 operating envelope 中普遍存在，使 classical IDOC gradient 不可靠。
+
+
+======================================================================
+16. Evidence Boundary and Verified Primary Sources
+======================================================================
+
+本审计是 theory-first targeted review，不是 PRISMA systematic review。检索截至 2026-09-09，优先使用官方 proceedings、publisher page、author repository 与用户提供全文。
+
+Generic differentiable MPC / cost learning：
+
+- Xiao et al., Learning Model Predictive Controllers with Real-Time Attention for Real-World Navigation, CoRL/PMLR 2023:
+  https://proceedings.mlr.press/v205/xiao23a.html
+
+- Oshin et al., Differentiable Robust Model Predictive Control, RSS 2024:
+  https://www.roboticsproceedings.org/rss20/p003.pdf
+
+- Tao et al., DiffTune-MPC: Closed-Loop Learning for Model Predictive Control, RA-L 2024:
+  https://ieeexplore.ieee.org/document/10584257/
+
+- Rickenbach et al., ZipMPC: Compressed Context-Dependent MPC Cost via Imitation Learning, CoRL/PMLR 2025:
+  https://proceedings.mlr.press/v305/rickenbach25a.html
+
+- Jain et al., Optimal Cost Design for Model Predictive Control, L4DC/PMLR 2021:
+  https://proceedings.mlr.press/v144/jain21a.html
+
+Impedance / MPVIC：
+
+- Anand et al., Model-based variable impedance learning control for robotic manipulation, Robotics and Autonomous Systems 2023:
+  https://doi.org/10.1016/j.robot.2023.104531
+
+- Jin et al., Model Predictive Variable Impedance Control of Manipulators for Adaptive Precision-Compliance Tradeoff, T-Mech 2023:
+  https://ieeexplore.ieee.org/document/9893390/
+
+- Xue et al., Model predictive variable impedance control towards safe robotic interaction in unknown disturbance-rich environments, Robotics and Autonomous Systems 2025:
+  https://doi.org/10.1016/j.robot.2025.104961
+
+- Jin et al., Learning Stable State-Dependent Variable Impedance Control for Compliant Manipulation, T-Mech 2025:
+  https://doi.org/10.1109/TMECH.2024.3466950
+
+AI-assisted research disclosure：本审计由 Codex 辅助完成文献检索、公式一致性检查与反证分析；所有外部事实性判断均以以上可验证来源为边界，理论命题属于本文推导，尚未经同行评审或形式化证明检查。

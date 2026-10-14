@@ -1,0 +1,220 @@
+R15 核心 Idea 与候选 Method 蓝图
+版本：2026-09-08
+状态：推导起点，不是 Final Method
+
+======================================================================
+1. 核心 Idea
+======================================================================
+
+不要先完整辨识患者组织，再把估计参数交给一个独立阻抗优化器。只维护“会改变可执行阻抗决策”的接触不确定性，并让连续扫描动作、接触信息和 applied impedance 在同一闭环中协同演化。
+
+直觉是：
+
+- 若当前不确定的多个接触模型会给出相同安全阻抗，则继续扫描，无需主动辨识它们之间的无关差异；
+- 若它们要求互不相容的阻抗，机器人必须利用安全且任务兼容的交互提高可区分性，再发布不会破坏任务/安全的阻抗；
+- 估计精度不是独立目标，最终任务损失和可执行决策才是目标。
+
+候选因果链：
+
+continuous safe scan data
+→ spatial contact belief
+→ impedance-decision ambiguity
+→ task-compatible information/action choice
+→ constrained executable impedance
+→ new data and task outcome。
+
+======================================================================
+2. 与两条来源路线的关系
+======================================================================
+
+从 T-RO 2023 保留：
+
+- deformable normal/tangential contact physics；
+- robot/contact coupled dynamics；
+- force–motion constrained prediction；
+- real-time decomposition/solver 只能在仍有必要时保留；
+- optimizer output 到 low-level controller 的执行闭环。
+
+从 NNBO 只保留概念动机：
+
+- soft-environment mechanics 应进入 optimal interaction decision；
+- 接触参数不能永久假设已知；
+- 在线最优性应由真实非线性 contact dynamics 推出。
+
+不直接继承 NNBO：
+
+- 一维 Hunt–Crossley 状态与独立 excitation trajectory；
+- matched uncertainty 假设；
+- 把 interaction force 作为 HJB action 后再反推 impedance；
+- single-critic/PE 结构；
+- 无约束 force-to-impedance 映射。
+
+原因：R15 的最终控制量应直接包含 executable impedance；否则 K 的唯一性、约束和低层实现都不闭合。
+
+======================================================================
+3. 候选物理与信息状态
+======================================================================
+
+3.1 物理状态
+
+可从 T-RO 2023 的 robot/contact state 出发，但必须针对凸阵探头的 cylinder–plane Hertz normal contact 和 tangential sliding/friction 重新推导。建议状态最少包含：
+
+x_t = [q_t, qdot_t, contact deformation/state, force-related state]。
+
+最终维数由可测量性和求解结构决定，不能沿用符号而不检查传感接口。
+
+3.2 接触参数场
+
+令 s_t 为探头沿扫描曲面的空间坐标，theta(s_t,t) 表示未知且可能缓慢变化的接触属性。候选参数可包括 normal stiffness/viscoelastic slope、damping 与 tangential/friction terms，但不得全部默认可辨识。
+
+必须先求：
+
+- structural identifiability；
+- practical observability under available force/pose data；
+- 哪些参数组合实际改变 K decision；
+- 哪些参数只能作为 bounded uncertainty 而不能在线点估计。
+
+3.3 Decision-relevant belief
+
+维护 belief b_t(theta) 或集合 Theta_t，而不是只维护点估计。进一步定义 decision-equivalence：若两个参数在允许状态/约束内诱导相同的可执行 impedance decision，则无需区分。
+
+候选定义：
+
+theta_1 ~_K theta_2
+iff
+argmin_{K in K_exec(theta_1)} J_task(K; theta_1)
+与
+argmin_{K in K_exec(theta_2)} J_task(K; theta_2)
+在容差内具有共同可执行解。
+
+该定义必须在最终推导中改成严格、可计算的集合或 regret 条件。
+
+======================================================================
+4. 候选动作与控制角色
+======================================================================
+
+候选动作：
+
+a_t = [u_nom,t, k_n,t, k_t,t]，
+
+其中 u_nom 可以是 T-RO 主干中的 torque/feedforward 或等价 nominal task action；d_n,d_t 优先由有效质量、局部接触斜率和目标阻尼关系导出，除非证明独立优化 damping 必要。
+
+动作具有两种不可分离作用：
+
+1) control role：决定 nominal force/motion 和反馈闭环力学；
+2) information role：通过闭环轨迹和接触响应改变后续观测的信息含量。
+
+重要边界：K 并不总能主动激励接触参数。零跟踪误差或无相对运动时，stiffness-only 可能没有信息权。若自然扫描运动不足，必须论证是否需要有界的 reference/force micro-perturbation；不能把额外 probing 隐藏在 K 中。
+
+======================================================================
+5. 单一优化问题的候选形式
+======================================================================
+
+最终不能再并列一个任务目标 J 和一个重复的未来性能 Π(K)。推荐从 belief-space stochastic/robust optimal control 直接定义唯一目标：
+
+V_H(x_t,b_t) = min_pi E[ sum_{i=0}^{H-1} l_task(x_i,a_i,theta_i)
+                              + l_change(a_i,a_{i-1})
+                              + l_probe(a_i)
+                         + V_f(x_H,b_H) ]，
+
+subject to：
+
+x_{i+1} = f(x_i,a_i,theta_i,w_i)，
+y_{i+1} = h(x_{i+1},theta_i,v_i)，
+b_{i+1} = Bayes/SetUpdate(b_i,a_i,y_{i+1})，
+a_i in A_exec(x_i,b_i)，
+force/slip/contact/actuator/energy constraints。
+
+这里 future observations 依赖候选 action，因此信息价值已经通过 b_{i+1} 和未来任务损失进入 V_H。不得另加一个与 task cost 重复的 Π(K)。
+
+若精确 belief-space 求解不可实时，可从该原问题推导局部近似，例如：
+
+- 短 horizon belief rollout；
+- ensemble/sigma-point contact belief；
+- one-step expected decision regret；
+- sensitivity-based local QP/SQP；
+- robust set update。
+
+选哪一种取决于保真度与实时性分析，不应预先冻结。
+
+======================================================================
+6. Method necessity 的核心命题
+======================================================================
+
+最终 Method 必须至少建立下列逻辑中的前两项，第三项用于安全闭合：
+
+命题 A：Decision-relevant ambiguity
+
+存在 theta_1、theta_2，使普通当前观测在容差内不可区分，但两者的安全/最优 executable impedance 集合不具有足够共同解。由此证明 current-only reactive VIC 或单一固定 K 不能普遍实现目标能力。
+
+命题 B：Task-compatible distinguishability
+
+存在满足扫描与安全约束的有限交互序列，使上述 decision-relevant ambiguity 收缩；若不存在，算法必须承认不可辨识并使用保守 action/withdraw，而不是伪造 patient-specific estimate。
+
+命题 C：Safe publication
+
+若 incumbent/withdraw action 已经预验证，且每个候选在原非线性模型、belief envelope 与能量约束下复验，则 timeout、infeasibility 或估计不确定性过大时仍能发布有定义的动作。该结论不等同于临床安全。
+
+======================================================================
+7. 最小模块及其必要 failure
+======================================================================
+
+模块 1：Deformable contact dynamics
+对应 failure：线性/一维环境模型不能表达凸阵探头 normal–tangential sliding contact。
+
+模块 2：Online contact belief
+对应 failure：患者特异接触图未知且离线逐点触诊不可部署。
+
+模块 3：Decision-relevance/dual coupling
+对应 failure：追求全参数精度会浪费激励并可能干扰扫描；先估计后优化忽略 action 对未来信息和性能的共同作用。
+
+模块 4：Constrained executable impedance decision
+对应 failure：optimal force 或 unconstrained target impedance 不能唯一变成可执行 K，也不能自动满足 force/slip/actuator/rate/energy 限制。
+
+模块 5：Verified publication/fallback
+对应 failure：在线 solver、估计器或 energy budget 失败时仍必须定义真实 robot action。
+
+任何其他 major module 只有在对应新 failure 且删除后会破坏 paper-level capability 时才能加入。
+
+======================================================================
+8. 相比 strongest prior 的目标 Scientific Delta
+======================================================================
+
+相对 T-RO 2023：从已知 contact physics 下的 force–motion prediction，扩展为未知空间接触 belief 与 feedback impedance 的同步闭环决策。
+
+相对 Beber ICRA 2024：从 offline patient map → online reactive K，扩展为无独立逐点触诊的 continuous task-embedded belief–impedance co-adaptation。
+
+相对 NNBO：从 optimal force → nonunique impedance realization，改为 impedance 是受约束的直接 action，并与 contact belief/scan task 联合决定。
+
+相对 generic active/safe SysID：从参数信息或任务前 exploration，收敛为连续软接触中只消除会改变 executable impedance 的歧义，并在同一安全扫描闭环执行。
+
+真实 contribution 应包装为一个 integrated control capability，而不是上述四项组件分别创新。
+
+======================================================================
+9. 必须保留的反证条件
+======================================================================
+
+以下任一成立，应简化或放弃当前 Method：
+
+1) matched explicit force control 在相同 sensing、bandwidth、constraints 和目标下达到相同 force/path/contact/image outcome；
+2) robust fixed K 在允许接触包络内与 online K action/order 等价；
+3) 被估 contact differences 不改变 optimal/safe impedance；
+4) 安全扫描轨迹无法提供 decision-relevant identifiability，额外 probing 又不可接受；
+5) full belief/dual optimization 相对 certainty-equivalent estimator + constrained K 没有稳定决策收益；
+6) real-time approximation 改变关键 action order 或 hard feasibility；
+7) applied K 被低层 controller、saturation 或 energy guard 大幅改写，使 optimizer 决策未真实执行。
+
+======================================================================
+10. 下一阶段最终产物要求
+======================================================================
+
+下一对话必须把本蓝图收敛为一份完整 Final Method：
+
+- 明确研究假设、测量、状态、动作和时间尺度；
+- 给出完整 contact/belief/closed-loop dynamics；
+- 给出唯一目标及其每项物理意义；
+- 给出所有约束与实际发布逻辑；
+- 给出必要性、可辨识性、安全/可行性命题；
+- 给出实时求解结构和 approximation boundary；
+- 给出与 strongest prior 的 paper-level contribution；
+- 最后按经验标尺审计，不达标则继续局部重构。

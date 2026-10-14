@@ -1,0 +1,804 @@
+R15 Final Research Problem and Method（实验前理论门）
+DSOM-NNBO: Decision-Sufficient Optimality-Manifold NNBO
+日期：2026-09-09
+状态：研究问题与技术路线已收敛；允许进入形式化证明，不允许直接进入实验
+
+======================================================================
+0. 结论先行
+======================================================================
+
+目标能力不是“把软环境参数估计得更准”，也不是“把 NNBO 与隐式求导拼接”，而是：
+
+  在持续接触未知、缓慢时变的非线性黏弹软环境时，即使低扰动交互数据只能提供
+  部分环境信息，也不要求每次环境估计变化后重新等待 critic 收敛，机器人仍能持续
+  维持近最优阻抗交互。
+
+主要矛盾是“partial information 下的 moving-optimum tracking”，而不是单独的参数
+辨识或单独的 critic 加速：现有数据可能看不见某些环境方向，其中有些不影响最优
+策略、有些会改变最优策略；与此同时，theta_hat 的每次变化都会移动 Bellman optimum。
+若不同时解决 information sufficiency 与 stale-critic lag，就不能形成持续近最优能力。
+
+最终研究问题（冻结）：
+
+  在持续接触未知且缓慢时变的非线性黏弹软环境时，如何判断有限、低扰动的在线
+  接触数据是否足以确定当前 HJB-optimal impedance policy，并在环境估计改变时跟踪
+  随之移动的 Bellman optimum，从而在完整 Hunt–Crossley 参数不可辨识且不能反复
+  强激励/重新训练的条件下，持续保证有界的 interaction suboptimality？
+
+最终路线选择（冻结）：
+
+  选择 NNBO 作为本领域 physical/optimal-control backbone，并迁移 IDOC 所代表的
+  “对最优性条件作隐式微分”思想；但不直接使用 IDOC 的 finite-horizon trajectory
+  KKT 方程。实际求导对象是 NNBO 的 regularized empirical Bellman stationary system。
+
+  application-oriented identification 与 real-time parametric optimization 只作为补足
+  information geometry 和 predictor-corrector 分析的跨领域理论来源，不替换主路线。
+
+最终核心机制：
+
+  环境参数 theta
+       -> Bellman/critic stationary solution W*(theta)
+       -> optimal interaction policy pi*(X;theta)
+
+  对该最优性流形求隐式导数。所得总策略灵敏度同时用于：
+
+  1) 定义 decision-equivalent parameter directions；
+  2) 判断现有接触数据是否足以支持近最优决策；
+  3) 只在决策相关方向缺信息时生成最小代价的有界激励；
+  4) 环境估计变化时预测性运输 critic，避免 stale-policy/re-learning lag。
+
+路线名称：
+
+  Decision-Sufficient Optimality-Manifold NNBO（DSOM-NNBO）
+
+顶刊门判断：
+
+  - Problem fit：通过。
+  - Method fit / necessity：通过，但必须以“同一最优性流形统一辨识充分性与 critic
+    跟踪”为核心，不能退化为 generic task loss 或 generic warm start。
+  - Novelty：有 T-RO 级潜力；control-relevant ID、Fisher information、implicit
+    differentiation、solution tracking 是邻接/跨领域 source mechanisms，而不是本
+    领域直接覆盖。创新性来自对软环境最优阻抗问题的非平凡迁移、统一推导和新增能力，
+    但不能把这些一般机制本身宣称为首次提出。
+  - Technical depth：理论链条可闭合；必须完成本文 T1–T5 的正式证明。
+  - Complexity rationality：通过；新增计算位于低频自适应层，不进入高频内环。
+  - Feasibility：通过；HC 参数维度低，critic Hessian 可一次分解、多右端求解。
+  - 当前总体状态：不是“已经达到可投稿”，而是“已达到可以冻结 Method、开始
+    形式化证明的实验前设计门”。T1–T5 任一失败都必须回退，不能用实验掩盖。
+
+======================================================================
+1. 领域边界与 prior 分类
+======================================================================
+
+1.1 本领域边界
+
+本研究属于：
+
+  sustained-contact robot impedance/admittance control
+  + unknown nonlinear viscoelastic soft environment
+  + online adaptive optimal interaction
+  + position-based realization of desired interaction impedance。
+
+主实例是 Hunt–Crossley（HC）软接触：
+
+  f = B delta^n delta_dot + K delta^n,
+  delta = x - x_e > 0,
+  theta = [log K, log B, n]^T。
+
+主理论仅覆盖持续压入区间 delta >= delta_min > 0。接触建立、分离、冲击、一般
+hybrid/multi-contact switching 不属于本稿 claim。
+
+1.2 本领域 strongest priors 已经解决什么
+
+(A) NNBO（Kong et al., IEEE TSMC:S 2025）已经解决：
+
+  - HC 非线性软环境建模；
+  - EWRLS 参数估计；
+  - 模型不确定性补偿后的 augmented optimal-control problem；
+  - continuous-time infinite-horizon HJB interaction-force policy；
+  - single-critic 在线近似；
+  - optimal force 到 desired impedance/reference 的位置内环实现。
+
+(B) Optimal Critic Learning for Robot Control in Time-Varying Environments
+（Wang et al., IEEE TNNLS 2015）已经把 time-varying linear environment、Q-learning
+critic 与 optimal impedance 放在同一问题中。因此，“时变环境 + critic + 阻抗”本身
+不是新问题。
+
+(C) Impedance Learning for Robots Interacting With Unknown Environments
+（Li et al., IEEE TCST 2014）以及后续 adaptive optimal admittance / MPC-VIC 已经覆盖
+未知或时变环境中的在线阻抗调节、性能/安全权衡、鲁棒估计或约束控制。因此不能声称
+“现有方法无法在线适应未知环境”。
+
+1.3 邻接领域 prior 与跨领域 source mechanisms 已经解决什么
+
+先明确分类：本节文献均不是“未知非线性软环境中的在线最优阻抗控制”本领域 direct
+prior。它们只用于判断 source mechanism 是否可直接搬用、迁移需要产生哪些新推导，
+不能因为数学工具相似就视为已经覆盖当前 research problem。
+
+(A) Identification for control / application-oriented input design——跨领域 source：
+
+  研究对象主要是系统辨识—控制设计的一般问题及过程/线性控制实例，不是机器人软
+  接触阻抗。它早已指出 prediction-best model 不等于 control-best model，并使用
+  application cost Hessian 与 information matrix 设计辨识实验。因此它不直接覆盖
+  当前问题；但“按下游性能加权参数误差”这一抽象原则不能再宣称为一般性首创。
+
+(B) Contact-aware Fisher information（RSS 2025）——邻接机器人领域 prior：
+
+  其研究问题是利用 contact-implicit dynamics 和 Fisher information 合成接触行为，
+  以更准确地学习质量、摩擦、材料或形状等物理参数。它属于 contact-rich active
+  system identification，而不是 sustained soft-environment optimal impedance：没有
+  NNBO/HJB critic、optimal impedance objective、decision-equivalent HC subspace 或
+  moving-critic tracking。因此它不直接覆盖当前 idea；它只说明“通过接触最大化全部
+  参数信息”本身不能成为本稿核心创新。
+
+(C) Value-equivalent/control-oriented model learning——跨领域 source：
+
+  已表明模型只需保留与决策相关的 Bellman 信息，并已有通过 Bellman fixed point
+  隐式微分直接学习 control-oriented model 的工作。因此“decision-focused model
+  learning + Bellman implicit differentiation”不是创新。
+
+(D) IDOC / differentiable optimal control——跨领域 source：
+
+  已通过 KKT 或最优性条件求解参数到最优轨迹/解的导数。因此“对 optimal-control
+  solver 使用 IFT”不是创新。
+
+(E) sensitivity-based real-time optimization——跨领域 source：
+
+  已使用参数灵敏度对时变最优解进行 predictor-corrector 跟踪。因此“用 sensitivity
+  warm-start 新解”不是创新。
+
+1.4 本领域 direct priors 与跨领域 mechanisms 均未直接覆盖的缺口
+
+保留下来的科学缺口不是五种机制的并列相加，而是 NNBO 中一个尚未被显式建立的
+共同对象：
+
+  未知软接触环境的 observation-equivalence geometry
+  与 HJB optimal-policy-equivalence geometry 是否相容？
+
+NNBO 当前分别要求：
+
+  - 环境辨识 regressor 的信息充分性；
+  - critic feature 的 PE；
+  - 环境估计改变后，critic 再次通过梯度更新逼近新的 optimum。
+
+它没有给出：
+
+  - 哪些 HC 参数方向虽然不能辨识，却不影响最优阻抗；
+  - 哪些不可辨识方向会改变最优策略，因此构成根本不可能性；
+  - 环境估计变化时，critic optimum 如何移动；
+  - 参数不确定性、critic 跟踪误差与 interaction regret 的统一界。
+
+这才是 DSOM-NNBO 的 residual scientific gap。
+
+======================================================================
+2. 苏格拉底式 failure 链
+======================================================================
+
+Q1：问题是否只是 HC 参数估计慢？
+
+不是。更快的 RLS/VFF-RLS/非线性最小二乘仍然优化 prediction geometry；它不知道
+某个参数误差是否会改变 HJB-optimal interaction force。
+
+Q2：完整参数不准是否必然导致控制差？
+
+不是。不同 theta 可以在给定任务状态分布上诱导相同的一阶最优策略。要求完整参数
+收敛可能是过强条件，并会制造不必要的 probing。
+
+Q3：只要 robust NNBO 能容忍估计误差，是否无需继续研究？
+
+不是。鲁棒项给出有界容忍，并不判断剩余不确定性是否值得学习；统一 worst-case
+界可能长期保守，也没有解决变化参数导致的最优 critic 漂移。
+
+Q4：直接采用 model-free Q-learning 能否绕开辨识？
+
+不能自然解决当前主问题。它把结构化低维 HC 不确定性换成更高真实交互样本需求，
+且已有 time-varying-environment optimal critic 工作。它也没有给出“何时部分环境
+信息足以保证近最优阻抗”的判据。
+
+Q5：application-oriented input design 是否已经完全覆盖？
+
+没有。它是跨领域 source mechanism，覆盖“按应用性能设计实验”的一般思想，但不
+包含 NNBO 的 learned Bellman stationary point、critic approximation、随环境估计共同
+移动的 HJB policy，以及 soft-contact sustained-interaction 的闭环误差链。跨领域
+迁移本身可以形成强创新，前提是迁移不是直接套公式，而是产生上述本领域新能力、
+统一条件和定理。
+
+Q6：为什么仅做 decision-sufficient identification 仍不够？
+
+因为时变环境中，即便 theta_hat 立即更新，当前 critic W 仍近似旧问题的 W*(theta_old)。
+在重新收敛期间执行的是 stale policy。只解决辨识，不解决最优解移动，新增能力仍不完整。
+
+Q7：为什么仅做 critic sensitivity tracking 仍不够？
+
+因为若接触数据对会改变策略的环境方向没有信息，最准确的 continuation 也只会沿错误
+的 theta_hat 移动。必须先判断 observation-null directions 是否为 decision-null。
+
+根因：
+
+  NNBO 把 environment estimator、Bellman critic 与在线 re-optimization 当作三个
+  相邻模块，而没有建模它们共享的参数化 optimality manifold。
+
+======================================================================
+3. 正式问题定义
+======================================================================
+
+在持续接触紧集 Omega_c 上，考虑：
+
+  X_dot = F(X;theta(t)) + G(X;theta(t)) u + d(X,t),
+
+  J_theta(pi;x0)
+    = integral_0^infinity l(X(t),pi(X(t));theta) dt,
+
+其中 u=f 是 interaction-force decision，theta(t) 属于紧集 Theta，K>0、B>0，且主
+定理假设 theta 为 piecewise C1、||theta_dot|| <= v_theta。d 包含有界模型误差、测量
+误差与位置内环跟踪误差。
+
+给定 NNBO critic family V_W(X)=W^T phi(X)，目标不是恢复 theta(t) 的全部分量，而是
+在线产生 pi_hat_t，使：
+
+  (i) 只要当前数据对最优策略是 decision-sufficient，即使 theta 不完全可辨识，
+      local interaction regret 仍有界；
+
+  (ii) theta_hat 变化时，W 沿 W*(theta_hat) 的局部解分支跟踪，而非从旧 critic
+       被动重新学习；
+
+  (iii) 只有当 observation-null space 含有 decision-relevant direction 时，才加入
+        有界、最小交互代价的附加激励；
+
+  (iv) 全部误差进入同一个 closed-loop/practical-optimality bound。
+
+不可能性边界：
+
+  如果存在参数方向 v，使现有数据沿 v 局部不可区分，但 v 会一阶改变 optimal
+  policy，则任何仅使用这些数据的算法都不能保证局部近最优。这不是优化器可修复的
+  数值问题，而是 information structure failure。
+
+======================================================================
+4. DSOM-NNBO 方法
+======================================================================
+
+4.1 正值约束的软接触估计层（基础设施，不作为主创新）
+
+避免直接在 f≈0 或 delta≈0 附近使用 log-linearization。采用物理正值参数化：
+
+  K=exp(kappa), B=exp(beta), n=n_min+softplus(eta),
+
+并在 sliding window 上求低维 recursive MAP / damped Gauss-Newton：
+
+  theta_hat_t = argmin_{theta in Theta}
+      sum_{i in H_t} ||f_i-h(z_i;theta)||^2_{Sigma_f^{-1}}
+      + ||theta-theta_hat_{t-1}||^2_{Q_theta^{-1}}。
+
+Q_theta 表示允许的缓慢漂移；P_theta 由 regularized Gauss-Newton information 的逆或
+平方根滤波近似得到。若实现上继续使用 EWRLS，也必须限制在其 logarithmic
+linearization 有效区间，且不能把 covariance 当成精确 posterior。
+
+4.2 可微的 windowed Bellman stationary system
+
+对固定的 concurrent history stack D_t 定义：
+
+  delta_B,i(W,theta)
+    = grad V_W(X_i)^T [F(X_i;theta)+G(X_i;theta)pi(W,theta;X_i)]
+      + l(X_i,pi(W,theta;X_i);theta),
+
+  E_B(W,theta;D_t)
+    = 1/2 sum_i omega_i delta_B,i(W,theta)^2
+      + lambda_W/2 ||W-W_ref||^2,
+
+  g(W,theta;D_t) = grad_W E_B(W,theta;D_t)=0。
+
+这一步同时修复 NNBO 原证明对象的问题：单个向量 xi 产生的 xi xi^T 在 critic 维数
+m>1 时秩至多为 1，不能具有正的最小特征值。正确的可逆对象必须是 windowed/
+concurrent Gramian 或 regularized empirical Hessian，而不是瞬时 rank-one matrix。
+
+理论只要求目标局部分支满足：
+
+  A_W := partial_W g(W*,theta;D_t) nonsingular,
+  sigma_min(A_W) >= mu_W > 0。
+
+不声称一般非凸 critic objective 全局强凸。history stack 更新引起的目标变化作为
+disturbance e_D 进入跟踪界。
+
+4.3 Bellman-optimum implicit differentiation
+
+在局部正则分支上：
+
+  J_Wtheta := D_theta W*(theta)
+             = - A_W^{-1} partial_theta g(W*,theta;D_t),
+
+  S_theta(X) := D_theta pi*(X;theta)
+              = partial_theta pi
+                + partial_W pi J_Wtheta。
+
+这是从 IDOC 迁移的正确机制：通过最优性/stationarity condition 对 solution map
+求导。它不是把 IDOC 的 finite-horizon trajectory KKT 方程直接贴到 infinite-horizon
+HJB critic 上，也不继承 IDOC 的 O(T) 复杂度结论。
+
+4.4 Decision metric 与局部策略等价类
+
+令 H_A(X) 是 true optimal advantage 在 u=pi*(X;theta) 处关于 action 的 reduced
+Hessian，并假设在关注方向上 H_A >= m_A I。对任务相关 occupancy/state measure
+rho_t 定义：
+
+  M_t = E_{X~rho_t}[S_theta(X)^T H_A(X) S_theta(X)] >= 0。
+
+局部 decision-null space：
+
+  N_dec(t)=ker(M_t)。
+
+若 Delta theta 属于 N_dec(t)，则在局部、固定任务分布和同一 optimal branch 上，
+参数变化不引起一阶 policy 变化；其 performance effect 至少是高阶项。该结论不是
+全局 parameter equivalence，rho、theta 或 policy branch 变化时必须重算。
+
+4.5 Observation geometry 与 decision-sufficient identifiability
+
+令 Phi_i=partial_theta h(z_i;theta_hat)，接触数据的信息矩阵为：
+
+  I_t = sum_{i in H_t} Phi_i^T Sigma_f^{-1} Phi_i + Lambda_prior >= 0。
+
+局部 observation-null space 为 N_obs(t)=ker(I_t)。定义：
+
+  Decision-Sufficient Identifiability（DSI）
+
+  ker(I_t) subseteq ker(M_t)。                                      (DSI)
+
+等价地：
+
+  range(M_t) subseteq range(I_t)，
+
+并在有限维 PSD 情形存在有限 c_t，使：
+
+  M_t <= c_t I_t。                                                  (Q-DSI)
+
+解释：现有数据可以不识别全部 theta，但任何数据无法区分的方向都必须同时不改变最优
+策略。若 DSI 不成立，则存在“看不见但会改变决策”的方向；近最优保证在信息论上失败。
+
+数值指标：
+
+  r_dec(t) = 1/2 trace(M_t P_theta,t),
+
+以及 generalized eigenvalue / principal-angle diagnostics，用于判断 DSI 的裕度，而
+不是只看 trace(P_theta) 或全参数 RMSE。
+
+4.6 最小干扰的决策充分激励
+
+当 r_dec 超阈值或 DSI 裕度不足时，在原 NNBO admissible force 上加入短时有界 probe
+nu。选择 nu 的目标是使未来 information 覆盖 M_t，而不是最大化全部参数的 log-det：
+
+  nu* = argmin_{nu in U_probe}
+      trace[M_t P_theta^+(nu)]
+      + lambda_u sum ||nu_k||_R^2
+      + lambda_task Delta J_task(nu),
+
+subject to sustained-contact bounds、force/velocity bounds 与内环可实现域。
+
+若无需主动规划，可使用更轻量的 candidate-library 版本：从少量安全 waveform 中选择
+使预测 r_dec 降幅/交互代价最大的一项。这里的贡献不是“Fisher information probing”，
+而是由 Bellman optimal-policy manifold 决定何时 probing、需要覆盖哪些方向、何时
+停止。若没有显式 barrier/constraint certificate，只能声称 bounded interaction
+burden，不能声称 hard safety。
+
+4.7 Critic optimality-manifold predictor-corrector
+
+估计更新后先运输 critic：
+
+  W_{k+1}^{pred}
+    = W_k + J_Wtheta,k (theta_hat_{k+1}-theta_hat_k),
+
+再执行少量 correction：
+
+  W_{k+1}
+    = W_{k+1}^{pred} - alpha_k precond_k g(W_{k+1}^{pred},theta_hat_{k+1};D_{k+1})。
+
+连续时间分析形式：
+
+  W_dot = -kappa_W g(W,theta_hat;D_t)
+          + J_Wtheta(theta_hat) theta_hat_dot。
+
+若使用 regularized/damped inverse，则所得是 regularized tangent，必须在误差界中保留
+tangent approximation error epsilon_J。
+
+4.8 原 NNBO policy 与 impedance realization
+
+高频执行层仍使用：
+
+  u_hat(X) = -1/2 R^{-1}G(X;theta_hat)^T grad V_W(X)，
+
+以及 safeguarded Newton/line-search 求 reference x_r。必须验证目标持续接触区间内：
+
+  - reference equation 存在根；
+  - 局部导数不接近零；
+  - 迭代保持 delta>=delta_min；
+  - 实际 x-x_r 误差作为 bounded disturbance 进入总界。
+
+不再使用“内环足够准确，所以 x 恒等于 x_r”代替闭环分析。
+
+4.9 在线算法顺序
+
+每个低频 adaptation cycle：
+
+  1) 收集 sustained-contact state/force data，更新 history stack；
+  2) 更新 theta_hat、P_theta；
+  3) correction 求得当前 empirical Bellman stationary point；
+  4) 分解 A_W，一次求解 p 个右端得到 J_Wtheta；
+  5) 计算 S_theta、M_t、I_t、r_dec 与 DSI 裕度；
+  6) 若 DSI 充分且 r_dec 小，不 probe；否则选择 bounded minimum-cost probe；
+  7) theta_hat 变化后用 J_Wtheta 运输 W，再作 correction；
+  8) 高频层执行 NNBO force/reference policy。
+
+注意：步骤 3 与 7 在实现上应合并为 predictor-corrector，不应重复完整求解。
+
+======================================================================
+5. 必须完成的理论链（T1–T5）
+======================================================================
+
+以下是投稿前必须形成正式 lemma/theorem/proof 的最小集合。它们服务同一个能力，不是
+装饰性 theorem 堆叠。
+
+T1. Local decision-regret expansion
+
+在 dynamics、cost、optimal branch C2，closed-loop locally exponentially stable，
+且 optimal action 满足二阶充分条件时，证明：
+
+  J_theta(pi*_{theta+Delta};x0)-J_theta(pi*_theta;x0)
+    = 1/2 Delta^T M_rho Delta + O(||Delta||^3)。
+
+其中 M_rho 通过 optimal advantage 的 reduced Hessian 与 total policy sensitivity
+构造。不能只用瞬时 Hamiltonian Hessian 2R 而忽略状态轨迹变化；需用 performance-
+difference/second-variation argument 说明 occupancy perturbation 为什么进入高阶项。
+
+T2. Decision-sufficient identifiability：充分性与局部不可能性
+
+证明：
+
+  (a) ker(I) subseteq ker(M) 当且仅当存在有限 c 使 M <= cI；
+  (b) 在该条件和局部统计正则性下，decision regret 可由可观测参数误差或
+      trace(MP_theta) 控制，即使 I 奇异、full theta 不收敛；
+  (c) 若存在 v in ker(I) 但 v notin ker(M)，则沿 theta+epsilon v 的观测分布局部
+      不可区分，而 optimal policy 相差 O(epsilon)、regret 为 Omega(epsilon^2)。
+      因而任何只使用该数据的信息策略均不能保证一致近最优。
+
+这一定理是论文的核心 scientific statement。
+
+T3. Empirical Bellman implicit sensitivity 与误差传播
+
+在 sigma_min(A_W)>=mu_W 下证明局部 solution map 存在且：
+
+  D_theta W* = -A_W^{-1}g_theta。
+
+进一步给出 empirical/regularized sensitivity 与 ideal sensitivity 的 perturbation bound，
+显式包含：
+
+  - Bellman approximation residual；
+  - finite history-stack error；
+  - A_W condition number；
+  - g_theta/Jacobian error；
+  - damping/regularization bias。
+
+不能把 exact HJB sensitivity 与 learned critic sensitivity 混为一谈。
+
+T4. Moving-manifold critic tracking
+
+令 e_W=W-W*(theta_hat;D_t)。在局部 contraction/strong regularity 下证明：
+
+  without predictor:
+    limsup ||e_W|| <= C[||J_Wtheta|| v_hat + e_D + e_B]/(kappa_W mu_W),
+
+  with approximate predictor:
+    limsup ||e_W|| <= C[epsilon_J v_hat + e_D + e_B]/(kappa_W mu_W)
+                       + higher-order terms。
+
+该结果必须显示 predictor 移除的是 optimum drift 的一阶项，而非只展示迭代次数减少。
+对 abrupt jump 不使用该定理；跳变只允许 change detector + re-correction，并报告
+recovery bound。
+
+T5. Integrated practical-optimality / closed-loop bound
+
+在 NNBO robust auxiliary-control assumptions、bounded probe、bounded inner-loop error、
+DSI margin 与 critic tracking assumptions 下，证明 state/weight errors UUB 或 ISS，并
+给出结构化 bound：
+
+  limsup Reg_interaction
+    <= C_theta limsup trace(M_t P_theta,t)
+       + C_W limsup ||e_W||^2
+       + C_S epsilon_S^2
+       + C_B epsilon_B^2
+       + C_d d_bar^2
+       + C_N epsilon_Newton^2。
+
+若无法证明无限时域 regret，可改为 moving-window dynamic regret 或 average suboptimality，
+但必须预先定义，不能在结果不理想后更换指标。
+
+======================================================================
+6. 方法必要性与复杂度合理性
+======================================================================
+
+6.1 删除测试
+
+删除 implicit policy sensitivity：
+
+  无法计算 M、decision-null space 或 DSI；方法退化为普通参数辨识/接触 FIM。
+
+删除 decision-sufficient information test/probe：
+
+  能跟踪 theta_hat 对应的 critic，但无法知道 theta_hat 是否漏掉会改变策略的方向。
+
+删除 critic manifold transport：
+
+  能获得控制相关参数数据，但环境变化后仍执行 stale critic，不能实现“持续近最优”。
+
+删除 windowed Bellman regularity：
+
+  IFT 可能无定义，且原 NNBO 瞬时 rank-one 论证不能支撑 m 维 critic 收敛。
+
+因此新核心不是可任意删减的模块集合，而是一条必要链：
+
+  Bellman optimum tangent
+  -> decision geometry
+  -> information sufficiency / targeted acquisition
+  -> optimum transport
+  -> bounded interaction regret。
+
+6.2 更简单替代为何不够
+
+  - Faster RLS：只改收敛速度，不改“需要辨识什么”。
+  - Uniform probing：能增加全局信息，但交互代价高且不判断何时停止。
+  - Robust NNBO：能容忍误差，但不主动消除 decision-critical uncertainty。
+  - Warm start：没有一阶 tangent cancellation，环境变化时仍留下 O(||Delta theta||)
+    的 initialization error。
+  - Generic end-to-end task loss：已有强 prior，且会损害 HC 可解释性与稳定性接口。
+  - Full dual control/POMDP：理论上更一般，但对低维 HC + online HJB critic 计算负担
+    不合理，也不是解决当前根因的最小方法。
+
+6.3 复杂度
+
+令 critic 参数维数 m、环境参数维数 p（HC 主实例 p=3）、history size N：
+
+  - theta recursive MAP/Gauss-Newton：p 很小，约 O(Np^2+p^3)；
+  - 构造 Bellman Jacobian/Hessian：依赖 feature 实现，约 O(Nm^2)；
+  - A_W 一次分解 + p 个右端：dense worst case O(m^3+m^2p)；
+  - M_t：O(N_r p^2) 加 policy Jacobian 代价；
+  - candidate probe：与候选数/短 horizon 线性增长。
+
+不宣称 IDOC 的 horizon-linear O(T)。计算置于较低频 adaptation thread；高频 robot
+servo 只执行已得到的 force/reference policy。若 m 较大，使用 Hessian-vector product
+与预条件迭代解，但必须报告 residual 与 wall-clock deadline miss rate。
+
+======================================================================
+7. 理论边界与不可夸大的 claim
+======================================================================
+
+1) 持续接触边界：delta>=delta_min。不得把结论外推到 impact/separation。
+
+2) 缓慢时变边界：主 theorem 假设 theta piecewise C1。abrupt change 只给恢复分析。
+
+3) 局部最优分支：IFT 只在 isolated regular branch 上成立。policy branch switch 时需
+   detector/re-solve，不能声称全局光滑。
+
+4) empirical critic：实际对象是 finite-data regularized stationary point，不是 exact
+   HJB solution。
+
+5) local decision equivalence：ker(M) 依赖 theta、rho 与 task objective，不表示参数
+   在所有任务中物理等价。
+
+6) probing safety：没有显式安全集合正不变性证明时，只能声称有界/较低交互代价。
+
+7) model misspecification：若 true soft contact 不在 HC family 中，theta 是 local
+   pseudo-true parameter。必须把 residual bias 纳入 T3/T5，不能以 parameter truth
+   解释结果。
+
+8) cost design：Q/R 仍由设计者给定。本文不同时解决 inverse preference learning；
+   否则 dynamics/preference confounding 会使问题失焦。
+
+======================================================================
+8. 创新声明：可说与不可说
+======================================================================
+
+可说的三项贡献：
+
+C1. 提出未知非线性软接触 optimal impedance 的 decision-sufficient identifiability
+条件：观测不可辨识方向必须包含于 optimal-policy null space；由此给出 full physical
+identification 非必要以及何时近最优控制在信息上不可能的成对结果。
+
+C2. 将 NNBO 的 learned Bellman optimum 建模为随环境参数移动的 regularized
+optimality manifold，并从其 stationary system 计算总策略灵敏度。该同一切向量同时
+决定 decision geometry 与 critic predictor-corrector transport。
+
+C3. 给出 co-evolving estimator–critic–impedance loop 的统一 practical-optimality
+bound，使参数 decision uncertainty、critic drift、Bellman approximation、内环误差
+与 reference solve error 都对应到 interaction regret。
+
+不可说（除非后续本领域系统检索给出可复核的首次性证据）：
+
+  - 首次 control-oriented identification；
+  - 首次 task-aware/system-identification excitation；
+  - 首次 contact information maximization；
+  - 首次 differentiable optimal control / implicit differentiation；
+  - 首次 time-varying optimal impedance critic；
+  - 首次 sensitivity-based optimizer tracking；
+  - 不需要任何 excitation；
+  - 保证 hard safety；
+  - 适用于任意 contact transition 或任意 soft material。
+
+======================================================================
+9. Strongest-prior 对照后的残余增量
+======================================================================
+
+与 NNBO 2025：
+
+  从“完整 HC 辨识 + PE + 被动 critic 重学习”提升为“decision-sufficient information
+  condition + critic manifold transport + unified regret bound”；并修复瞬时 rank-one
+  convergence object。
+
+与 TNNLS 2015 time-varying optimal critic：
+
+  不只让 critic 适应慢变线性环境，而是显式刻画 nonlinear soft-contact parameter
+  uncertainty 哪些方向影响最优 policy、何时数据不足，以及如何取消 optimum drift
+  的一阶 tracking term。
+
+与 application-oriented input design：
+
+  不声称 performance-weighted information 是新概念；新对象是由 learned HJB critic
+  的 implicit optimality manifold 产生的 M，以及它与 moving critic、approximation
+  error、physical impedance realization 的联合理论。
+
+与 AAAI 2022 control-oriented MBRL：
+
+  不把模型参数用 outer return 直接端到端改成“有用但不物理”的模型；保留 HC
+  estimator，通过 DSI 判定哪些物理误差可以保留，并建立 partial-identification 与
+  interaction-regret theorem。
+
+与 RSS 2025 contact-aware FIM：
+
+  不以最大化所有物理参数信息为目标；只有 observation-null space 与 decision-null
+  space 不相容时才 probe，并以 minimal decision risk/interaction cost 为停止准则。
+
+与 IDOC 2023：
+
+  迁移的是 optimality-condition implicit differentiation；数学对象改为 NNBO 的
+  empirical Bellman stationary point，不复制 trajectory-KKT 公式或复杂度结论。
+
+与 real-time optimization sensitivity updates：
+
+  predictor-corrector 本身不是创新；其必要性来自与 DSI 共用的 policy manifold，
+  最终贡献必须由 T2+T4+T5 的联合结果体现。
+
+======================================================================
+10. Venue 标准终审
+======================================================================
+
+10.1 Problem significance
+
+通过。它解决的是持续软接触机器人中的能力缺口：环境只部分可辨识且不断变化时，仍
+维持近最优交互，而不是离线辨识后再控制。该问题直接涉及数据代价、接触扰动与在线
+性能，具有明确机器人意义。
+
+10.2 Scientific novelty
+
+有条件通过。若论文只实现 sensitivity-weighted probing，则不通过；必须以 DSI 的
+充分性/不可能性定理、moving Bellman manifold 与联合 regret bound 为主贡献。
+
+10.3 Method necessity
+
+通过。总策略灵敏度是把环境 observation geometry 映射到 optimal-interaction
+geometry 的缺失量，也是 critic transport 所需切向量。没有它，问题的两个 failure
+不能同时被解决。
+
+10.4 Technical depth and correctness
+
+路线深度达标，但尚欠正式证明。T1–T5 是硬门；尤其是 T1 的 trajectory-level second
+variation、T2 的 impossibility direction、T3 的 empirical-vs-ideal sensitivity 和
+T5 的 UUB/ISS 合成不能省略。
+
+10.5 Complexity rationality
+
+通过。新增最重计算为 m 维线性系统分解，低频执行；p=3 的 HC identification 与
+decision geometry 很小。相比 full dual control/POMDP，复杂度与问题规模匹配。
+
+10.6 Feasibility
+
+通过实验前可行性门。所有新增量可从 NNBO 已有 HC model、critic features、Bellman
+residual 和数据 buffer 计算。主要风险不是工程不可实现，而是 A_W 病态、任务分布
+变化和 model mismatch；这些已进入诊断与理论边界。
+
+10.7 目标 venue
+
+  - IEEE T-RO：若 T1–T5 闭合，并用真实机器人证明“full parameter identification
+    不成立但 near-optimal policy 仍成立”以及 time-varying tracking benefit，路线匹配。
+  - IJRR：除上述内容外，通常还需要更广的任务/材料/机器人覆盖，或把 DSI theorem
+    推广到一类 differentiable viscoelastic contact models，而不能只停留于单一 1-DOF
+    HC 实例。
+
+当前审计结论：冻结 DSOM-NNBO，停止在 decision-focused 与 PIB-NNBO 之间摇摆。
+PIB-NNBO 属于另一个 inverse-preference 问题，不进入本稿。
+
+======================================================================
+11. 形式化证明前的 kill criteria
+======================================================================
+
+出现以下任一情况，应立即否决或重构路线，而不是继续堆模块：
+
+K1. 对目标 HC 工作区计算后，M_t 几乎总是 full rank 且条件数温和，full identification
+    与 decision-sufficient identification 实际没有信息/激励差异。
+
+K2. 现有安全接触数据满足 ker(I) subseteq ker(M)，且 r_dec 已很低；此时主动 probing
+    没有可测价值，只剩 critic tracking 小增量。
+
+K3. A_W 在合理 regularization 下仍普遍病态，implicit sensitivity 对数据/初始化高度
+    不稳定，epsilon_J 大到无法改善 tracking bound。
+
+K4. theta_hat 的实际漂移相对 critic correction 足够慢，使 stale-policy term远小于
+    approximation/inner-loop error；此时 manifold transport 不是主矛盾。
+
+K5. T2 的 local impossibility 或 T5 的 integrated bound 只能在不可验证/过强假设下
+    成立。若如此，本路线只能降级为工程方法，不符合目标 venue。
+
+======================================================================
+12. 下一步唯一任务
+======================================================================
+
+不进入实验。下一步仅做形式化理论收敛：
+
+  1) 在 NNBO 原方程上严格推导 g_W、g_theta、J_Wtheta 与 S_theta；
+  2) 完成 T1 与 T2 的 theorem/proof，先验证核心科学命题；
+  3) 再完成 T3/T4 perturbation and tracking proof；
+  4) 最后把 NNBO robust/UUB 结果与 estimator、probe、inner-loop error 合成为 T5；
+  5) 用 symbolic/numerical sanity checks 检查 rank、units、sign、conditioning，但不把
+     numerical check 当作证明。
+
+只有 T1–T5 通过，才制定实验矩阵。
+
+======================================================================
+13. 核心参考入口（按作用分类）
+======================================================================
+
+本领域：
+
+- Neural-Network-Based Optimal Impedance Control for Robots in Physical
+  Interaction With Soft Environments, IEEE TSMC:S 2025,
+  DOI 10.1109/TSMC.2025.3579017.
+
+- Optimal Critic Learning for Robot Control in Time-Varying Environments,
+  IEEE TNNLS 2015, DOI 10.1109/TNNLS.2014.2378812.
+
+- Impedance Learning for Robots Interacting With Unknown Environments,
+  IEEE TCST 2014, IEEE Xplore document 6654275.
+
+- Model Predictive Variable Impedance Control Towards Safe Robotic Interaction
+  in Unknown Disturbance-Rich Environments, RAS 2025,
+  DOI 10.1016/j.robot.2025.104961.
+
+跨领域 source mechanisms：
+
+- Optimal Experiment Designs With Respect to the Intended Model Application,
+  Automatica 1986, DOI 10.1016/0005-1098(86)90064-6.
+
+- Application-Oriented Input Design in System Identification: Optimal Input
+  Design for Control, IEEE Control Systems Magazine 2017,
+  DOI 10.1109/MCS.2016.2643243.
+
+- An Application-Oriented Approach to Dual Control With Excitation for
+  Closed-Loop Identification, European Journal of Control 2016,
+  DOI 10.1016/j.ejcon.2016.03.001.
+
+- Control-Oriented Model-Based Reinforcement Learning With Implicit
+  Differentiation, AAAI 2022, DOI 10.1609/aaai.v36i7.20758.
+
+- Revisiting Implicit Differentiation for Learning Problems in Optimal Control,
+  NeurIPS 2023.
+
+- Behavior Synthesis via Contact-Aware Fisher Information Maximization,
+  Robotics: Science and Systems 2025, DOI 10.15607/RSS.2025.XXI.118.
+
+- Sensitivity-Based Solution Updates in Closed-Loop Dynamic Optimization,
+  2004; Real-Time Nonlinear Optimization as a Generalized Equation,
+  SIAM Journal on Control and Optimization 2010.
+
+======================================================================
+14. 一句话最终冻结
+======================================================================
+
+本研究不再问“如何把软环境全部辨识清楚”，而问“为了维持 HJB-optimal impedance，
+哪些环境方向在信息上必须可辨、哪些可以永远未知，以及环境估计变化时如何不重新等待
+critic 学会同一个答案”；DSOM-NNBO 用 learned Bellman optimality manifold 的隐式
+切向量统一回答这三个问题。

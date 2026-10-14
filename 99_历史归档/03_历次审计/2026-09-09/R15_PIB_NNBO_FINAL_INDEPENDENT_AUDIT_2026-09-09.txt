@@ -1,0 +1,519 @@
+# PIB-NNBO 最终独立审计
+
+版本：2026-09-09  
+证据截止：2026-09-09  
+审计对象：`R15_NNBO_MINIMAL_CHANGE_INDEPENDENT_AUDIT_2026-09-09.txt` 中冻结的 PIB-NNBO 候选路线  
+目标标尺：《顶会顶刊_Method_经验标尺_Reference_Distribution_v1_1_Audited》  
+实验：本轮不展开；只判断实验前能够闭合的 Problem、Method、数学与工程条件
+
+---
+
+## 0. Executive verdict
+
+**最终 verdict：REJECT AS FROZEN FINAL / MAJOR RECONVERGENCE REQUIRED。**
+
+PIB-NNBO 不是“缺一点证明即可达到 T-RO”的冻结 Final Method。它有一个真实且有价值的种子：保留 NNBO 的 nonlinear soft-contact HJB feedback，并把 IDOC 的“对定义最优解的方程作隐式微分”迁移到 Bellman/HJB 解。然而，当前主问题、监督信息与所选 intervention 之间没有形成必要闭环，触发 Method-fit hard fail，而不是 novelty veto：
+
+1. 若主监督确实是 sparse expert state–force demonstrations，则研究对象是 inverse optimal control / inverse reinforcement learning。连续时间非线性 IOC 已能利用专家 input–state trajectories、HJB/逆 Bellman条件直接估计 cost 与 value；有的方法还专门避免反复求解双层 forward optimal-control problem。PIB-NNBO 却先反复求 forward critic，再以 demonstration loss 反传，机制更绕、假设更强，未证明其关闭 IOC 不能关闭的 residual failure。
+2. 若真实 failure 是“同一 raw tracking–force cost 在不同软环境中不再代表相同物理后果”，则单一 bounded Pareto coordinate \(\alpha\) 只重标定 \(e^2\) 与 \(f^2\) 的相对权重，通常不能表达由 Hunt–Crossley 参数变化引起的 consequence functional 形状变化。它没有真正修复 physics-to-consequence representation failure。
+3. 因而当前路线处于两类问题之间：对于 preference-from-demonstration，它的方法不最简；对于 environment-dependent physical consequence，它的方法又不充分。
+4. 其 implementable fixed point 是 regularized empirical Bellman-residual stationary point，不是 exact HJB root。当前文档在 exact-HJB sensitivity 与 approximate-critic hypergradient 之间仍有未闭合的等价性、偏差与 branch-selection 问题；NNBO 原 PE 推理的 rank-one 错误虽已识别，但尚未由正确 theorem 替换。
+
+因此：
+
+- **Problem fit：PARTIAL / 未闭合。** “objective specification 会影响交互行为”真实；但“软环境需要通过示范学习一个 context-dependent scalar preference”尚未成立为领域级能力缺口。
+- **Scientific Delta：有潜力但当前未形成。** 跨域迁移本身合法；当前尚不能把它提升为 target-domain new capability。
+- **Method necessity：FAIL。** 在冻结的 demonstration setting 下，被 direct inverse-Bellman/IOC 路线等价支配。
+- **Theory / Correctness：FAIL FOR FINAL。** 可修，但不是补几句假设；必须统一 exact 与 approximate solution object，并补 identifiability、regularity、PE 与 execution map。
+- **Complexity：局部结构不臃肿，但 relative to current delta 为 ABOVE-BUT-UNJUSTIFIED。** 多出的 bilevel/implicit layer 没有关闭一个更简单路线无法关闭的 failure。
+- **Engineering feasibility：局部可行、能力 claim 受限。** 仅适用于一维单点、慢变 context、critic 有稳定跟踪能力且 Newton realization 有唯一稳定根的范围。
+- **Venue：当前低于 T-RO ready；也不能判 RSS/ICRA ready。** 经过下面的二选一重收敛后可重新成为 ICRA/RSS/T-RO candidate；当前不具 IJRR morphology。
+
+这不是因为 Differentiable MPC、ZipMPC 或 IOC 使用了某个相同原子工具而否定 NNBO 主线；决定性理由是：在**同一信息条件和同一 RMC**下，当前 intervention 没有显示不可替代性。
+
+---
+
+## 1. 忠实恢复 NNBO 与 IDOC 的实际对象
+
+### 1.1 NNBO 的真实内层
+
+NNBO 使用一维 Hunt–Crossley 环境：
+
+\[
+f=B_e\delta^n\dot x+K_e\delta^n,\qquad \delta=x-x_e,
+\]
+
+并用 EWRLS 估计 \((K_e,B_e,n)\)。经状态改写和辅助鲁棒系统后，HJB 的 control variable 是交互力 \(f\)：
+
+\[
+\dot X=F_\chi(X)+G_\chi(X)f+K\varepsilon,
+\]
+
+\[
+J_\eta=\int_0^\infty
+\bigl[e^\top Q_\eta e+f^\top R_\eta f+\zeta_\varepsilon^2(X)\bigr]dt,
+\]
+
+\[
+f_\eta^*(X)=-\frac12R_\eta^{-1}G_\chi^\top\nabla V_\eta^*(X).
+\]
+
+single critic 近似 value。最后不是直接输出独立 stiffness/damping \((K,B)\)，而是把 force policy 重写成 nonlinear force–position relation，再用 Newton downhill 求 reference position \(x_r\) 交给 position loop。故 PIB-NNBO 的合法对象只能是：
+
+> objective-conditioned optimal force / NNBO target-impedance relation / reference realization。
+
+不得扩大为“直接学习一般最优 \(K,B\)”或“对任意 variable impedance controller 可用”。
+
+### 1.2 IDOC 的真实 source intervention
+
+Revisiting IDOC 处理 finite-horizon、discrete-time、constrained trajectory NLP。它对 active-set KKT system 使用 IFT，并利用 time-block structure 以 \(O(T)\) 计算 trajectory derivative/VJP。它要求局部解、二阶可微、约束 Jacobian 满行秩及相应 Hessian/KKT 非奇异。
+
+可迁移的机制是：
+
+> differentiate an optimum through the equation that defines that optimum。
+
+不可直接迁移的是 finite-horizon trajectory derivative、differential-KKT matrix 或其 \(O(T)\) complexity claim。NNBO 的 defining object 若保持不变，应是 HJB/Bellman equation 或明确的 projected Bellman fixed point。
+
+这一 target/source intervention-level mapping 是成立的；问题不在“能不能迁”，而在“当前 accepted failure 是否需要它”。
+
+---
+
+## 2. 领域现状 → failure：真正需要区分的两个问题
+
+### 2.1 已成立的表层事实
+
+NNBO 原文明确：\(Q,R\) 受量纲影响，实践中依赖 partial knowledge 与 trial-and-error；不同 \(Q\) 会改变 penetration、tracking error 与 force。由此可以成立：
+
+> Objective specification is behaviorally consequential and manually burdensome。
+
+但这只证明 tuning burden，不证明：
+
+- environment 单独决定 task preference；
+- scalar \(Q/R\) adaptation 能恢复正确物理后果；
+- demonstrations 必须通过 differentiable forward NNBO 学；
+- 该问题的增量已经达到 T-RO。
+
+### 2.2 Failure A：task preference 未显式指定
+
+同一环境 \(\chi\) 可执行不同任务 \(p_1,p_2\)，并具有不同 tracking–contact preference。因此 \(\eta=h(\chi)\) 在信息论上欠定。加入 task descriptor 或示范可以修复“偏好来源缺失”。
+
+这类 failure 的正确学术归属是 specification / IOC / IRL，而不是环境动力学适应本身。
+
+### 2.3 Failure B：raw NNBO objective 不是 environment-invariant consequence measure
+
+不同软材料上，相同 force、penetration 或 tracking error 未必代表相同 tissue deformation、stored energy、damage risk 或 task quality。此时根因不是 preference 缺失，而是：
+
+> high-level consequence 到 NNBO low-level stage cost 的 pullback 随 mechanics 改变。
+
+这才是 interaction-objective adaptation 与软环境之间最强、最贴合领域的联系。
+
+当前 PIB-NNBO 把 A 与 B 合并成一个 \(\eta=h_\psi(p,\chi)\)，因而让 preference 与 mechanics consequence mapping 相互代偿。网络可以用 \(\eta\) 吸收模型误差、示范风格或 consequence mismatch，却无法说明学到的是哪一个科学对象。
+
+---
+
+## 3. 根因分析：PIB-NNBO 的二分困境
+
+令 context \(c=(p,\chi)\)，真实任务后果为 \(C_c(\pi)\)，冻结的 surrogate family 为
+
+\[
+J_\eta(\pi;c)=\int_0^\infty
+\left[\alpha(\eta)q_e+(1-\alpha(\eta))q_f+\zeta_\varepsilon^2\right]dt.
+\]
+
+要证明 context-dependent objective adaptation 是正确 intervention，至少需同时成立：
+
+**Representability**
+
+\[
+\forall c,\ \exists \eta_c:\quad
+\operatorname*{argmin}_{\pi}J_{\eta_c}(\pi;c)
+=\operatorname*{argmin}_{\pi}C_c(\pi).
+\]
+
+**Nonexistence of a universal metric**
+
+\[
+\nexists \eta_0:\quad
+\forall c,\ 
+\operatorname*{argmin}_{\pi}J_{\eta_0}(\pi;c)
+=\operatorname*{argmin}_{\pi}C_c(\pi).
+\]
+
+当前材料只显示不同权重导致不同行为，没有证明上述任一命题。
+
+### 3.1 若真实根因是 preference：IOC 更直接
+
+若 \(q_e,q_f\) 已经是正确、量纲一致、跨环境有效的 consequence features，则 \(\eta\) 表示 task preference。给出 expert state–force demonstrations 后，问题自然是从最优行为反演 cost。对于 input-affine continuous-time nonlinear system，可写 inverse HJB 与 stationarity conditions：
+
+\[
+0=\nabla V_W^\top(F_\chi+G_\chi f^*)+\theta^\top\phi(X,f^*,\chi),
+\]
+
+\[
+0=G_\chi^\top\nabla V_W+
+\partial_f\bigl(\theta^\top\phi(X,f,\chi)\bigr)\big|_{f=f^*}.
+\]
+
+当 \(V_W\) 与 cost 对参数线性，归一化一个尺度后，这些条件可形成对 \((W,\theta)\) 的直接 inverse-Bellman regression/estimation；不需要每更新一次 \(\eta\) 就重新求 forward critic。连续时间非线性 MBIRL/IOC 已把这一路线发展到 limited-data、unknown dynamics、online estimation，并明确讨论 reward/value equivalence 与 informativity。
+
+因此，在冻结的 sparse expert demonstration setting 下，PIB-NNBO 的
+
+\[
+\eta\to\text{forward critic optimum}\to\text{rollout}\to L_{demo}
+\to\text{implicit hypergradient}
+\]
+
+不是最自然的 causal repair。它也许能工作，但“能工作”不等于 Method necessity。
+
+### 3.2 若真实根因是 physics-to-consequence mismatch：scalar \(\alpha\) 不充分
+
+考虑 quasi-static HC elastic term \(f=K_e\delta^n\)。环境 stored deformation energy 为
+
+\[
+U_e(\delta)=\int_0^\delta K_e s^n ds
+=\frac{K_e}{n+1}\delta^{n+1}
+=\frac{f^{1+1/n}}{(n+1)K_e^{1/n}}.
+\]
+
+当 \(n\) 或 \(K_e\) 改变时，真实 consequence 对 \(f\) 的尺度甚至指数都改变。除 \(n=1\) 或很窄的局部工作点外，任意 scalar \(R(\chi)\) 乘以 \(f^2\) 都不能在整个 operating envelope 内与 \(U_e(f;\chi)\) 保持 ordinal equivalence。
+
+所以，如果论文用“软环境的物理后果不同”作为 Problem fit，当前
+
+\[
+\alpha q_e+(1-\alpha)q_f
+\]
+
+只能是局部二阶 pullback，而不是一般 consequence representation。它必须明确工作点、局部误差阶和 validity radius；否则 Method 没有真正解决所宣称 failure。
+
+反过来，若 \((K_e,n)\) 已知且 consequence 能由上式解析得到，最简单路线是直接把 \(U_e\) 写进 stage cost，同样不需要学习或隐式微分。
+
+### 3.3 根本判断
+
+当前 PIB-NNBO 没有选定以下哪一个 RMC：
+
+1. `unknown preference -> identifiable preference from expert optimality`；或
+2. `environment-varying physical consequence -> structured mechanics-conditioned low-level objective`。
+
+把两者一起塞进 \(h_\psi(p,\chi)\) 不是统一，而是失去可解释性与 identifiability。
+
+---
+
+## 4. 当前 Method 的公式级正确性审计
+
+### 4.1 Exact HJB sensitivity：形式正确，但成立条件不足
+
+对 classical HJB root
+
+\[
+\mathcal B(V,\eta;\chi)=0
+\]
+
+微分并使用 envelope theorem，可得到
+
+\[
+\nabla S_j^\top(F_\chi+G_\chi f_\eta^*)
++\partial_{\eta_j}\ell_\eta(X,f_\eta^*)=0,
+\]
+
+以及候选文档中的 policy sensitivity。代数方向正确。
+
+但“closed loop 渐近稳定”不足以自动保证：无限时域积分有限、transport operator 可逆、sensitivity 唯一。至少应明确：
+
+- 在指定 compact basin 上存在唯一 stabilizing classical solution \(V_\eta^*\in C^2\)；
+- optimal policy 局部唯一，\(R_\eta\succeq r_{min}I\)；
+- closed loop 对 \(\eta\) 在邻域内 uniform exponential stability；
+- \(\partial_\eta\ell\) 沿轨迹可积并满足 transversality；
+- 以 \(S_j(0)=0\) 消除 transport operator 的常数 nullspace。
+
+否则只能把式子表述为 formal sensitivity，不是 theorem。
+
+### 4.2 Empirical critic stationary point 不等于 HJB fixed point
+
+实现层定义
+
+\[
+E_c(W;\eta,\chi)=\tfrac12\sum_i\omega_i\delta_i^2
++\tfrac{\lambda_W}{2}\|W\|^2,
+\qquad g=\nabla_WE_c=0.
+\]
+
+IFT 确实给出局部 stationary branch：
+
+\[
+\frac{dW^*}{d\eta}=-H_{WW}^{-1}H_{W\eta}.
+\]
+
+但当前文档把三个不同对象靠得过近：
+
+1. exact HJB root \(V_\eta^*\)；
+2. unregularized projected Bellman minimizer；
+3. regularized empirical residual stationary point \(W_{\lambda,D}^*\)。
+
+其中 \(g=0\) 不推出 \(\delta_i=0\)；加入 \(\lambda_W>0\) 后，即使 Bellman residual 可为零，regularized optimum 一般也会发生偏移。Hessian 非奇异只保证某个 stationary branch 可微，不保证它是局部最小、稳定 branch 或接近 true HJB solution。
+
+最终理论必须把 implementable claim 改成：
+
+> hypergradient is exact for the selected regularized empirical branch；其相对 projected/HJB hypergradient 的误差由 approximation、collocation、regularization 和 conditioning 四项共同界定。
+
+至少需要
+
+\[
+\|\widehat{\nabla_\eta L}-\nabla_\eta L_{HJB}\|
+\le C_{app}\epsilon_{app}
++C_D\epsilon_D+C_\lambda\lambda_W+C_H\epsilon_{solve},
+\]
+
+并给出常数所依赖的 stability margin 与 \(\|H_{WW}^{-1}\|\)。当前笼统的 \(O(\kappa_H\epsilon_B)\) 不足以建立这条桥。
+
+### 4.3 Dataset dependence 未闭合
+
+若 collocation/replay dataset \(D\) 来自当前 policy，\(D=D(\eta)\)，则冻结 \(D\) 计算 \(H_{W\eta}\) 会漏掉 sampling-distribution path。可选的最小处理只有二选一：
+
+- 训练时使用固定、覆盖充分的 off-policy collocation set，并把 coverage 写成条件；或
+- 对 data-generation path 同时求导/使用明确的 stochastic bilevel estimator。
+
+不应含混地同时写 replay 与 closed-loop rollout。
+
+### 4.4 Objective identifiability 尚未由 normalization 证明
+
+消除 global positive scale 只去掉一种 ambiguity。令 demonstration observation 为 \(y_c^*(\eta)=[x_c^*(t),f_c^*(t)]\)，local identifiability 至少要求
+
+\[
+\mathcal I_\eta=
+\sum_c\int
+\left(\frac{\partial y_c^*}{\partial\eta}\right)^\top
+W_y
+\left(\frac{\partial y_c^*}{\partial\eta}\right)dt>0
+\]
+
+（多维 \(\eta\) 时要求满秩）。还必须有 cost-family realizability 或给出 misspecification projection 的含义。若 expert trajectory 对 \(\eta\) 不敏感、只覆盖稳态、或者多个 \(\eta\) 产生同一 policy，PIB 中的 “Preference-Identifiable” 命名不成立。
+
+### 4.5 NNBO critic convergence theorem 目前仍缺失
+
+原文用 instantaneous \(\lambda_{min}(\xi\xi^\top)>0\) 推负定；当 critic dimension \(m>1\) 时 \(\xi\xi^\top\) 为 rank one，最小特征值恒为零。interval PE 不等价于 pointwise positive definiteness。
+
+候选文档正确发现了错误，但“改用 PE/UUB theorem 或 concurrent-learning Gramian”还不是证明。若最终采用
+
+\[
+\sum_{i=1}^{N_D}\omega_i\nu_i\nu_i^\top\succeq\beta I,
+\]
+
+必须从实际 normalized update 推导 critic error dynamics，并明确 approximation error、time-varying \((\eta,\chi)\) 与 Gramian refresh 对 UUB radius 的作用。
+
+### 4.6 Robustness 与 execution 不可直接继承
+
+PIB 可保留 NNBO uncertainty decomposition，但不能把原 paper 的 robustness/convergence 作为无条件 inheritance。还需证明：
+
+- learned objective 在所有 context 上保持 NNBO robust theorem 所需的 positivity/admissibility；
+- \(x_r\) Newton equation 存在局部唯一根，\(|\partial S/\partial x_r|\ge m_S>0\)；
+- reference loop bandwidth、saturation 与 contact domain 不破坏设计的 force policy；
+- context 变化速度低于 critic tracking 能力；
+- EWRLS 的 excitation 来源与真实任务兼容。
+
+否则工程 claim 只能是 offline learned objective + slowly adapted one-dimensional interaction，不能写成 broad real-time environment adaptation。
+
+---
+
+## 5. Method-fit tournament：同一 RMC 下谁更自然
+
+### Route A：人工/解析 normalization + 固定 task preference
+
+若真实 utility 已知且只存在量纲问题，直接定义 dimensionless tolerance features 和 task-specified \(\alpha\) 即可。PIB 不必要。
+
+### Route B：inverse-Bellman / IOC-NNBO
+
+输入：expert state–force trajectories。  
+Intervention：由 expert optimality + HJB/stationarity 直接估计 normalized preference 与 value parameters。  
+Closure：直接关闭 “preference unknown from demonstrations”。  
+优势：不需每次 weight update 重求 forward critic；因果链短；已有连续时间非线性理论基础。  
+边界：要求 expert 近似最优、cost family 合适、trajectory informative；reward 只在 policy-equivalence class 内可辨识。
+
+**对冻结的 demonstration problem，Route B 是当前 winner。**
+
+### Route C：PIB-NNBO 的 Bellman implicit hypergradient
+
+输入：同样的 expert state–force trajectories。  
+Intervention：反复求 forward critic branch，通过 rollout imitation loss 的 implicit gradient 更新 \(\eta\)。  
+优势：可处理非线性 outer loss、非线性 parameter map，也可天然对 decision outcome 优化。  
+失败：当前 setting 未使用这些独有优势；相反增加 solver-branch、Hessian conditioning、approximation-to-HJB 和 two-timescale assumptions。
+
+**在当前 RMC 下被 Route B 等价支配，FAIL。**
+
+### Route D：black-box BO / multiobjective tuning
+
+输入：可重复 trial 的 task metrics。  
+Intervention：不需要 differentiability，直接搜少量 impedance/objective scalar。  
+若只有单环境、单 scalar 且 trial 便宜，Route D 最自然。若真实交互昂贵、context 多且有可信可微模型，才不支配 model-based route。
+
+### Route E：outcome-calibrated Bellman-differentiable NNBO
+
+输入：无 expert optimal action；只有 delayed/global/non-Markov task outcome \(C(\tau)\)，且该 outcome 不能在部署时直接作为 dense HJB stage cost。  
+Intervention：学习 structured low-level Markov surrogate，使其 NNBO-induced closed-loop behavior 最小化 outer outcome；通过 Bellman/HJB implicit derivative 得到 gradient。  
+Closure：IOC 无 expert optimality equation可用；BO 在 costly multi-context setting 样本低效；直接把 \(C\) 塞入 HJB 不可行。  
+边界：必须先证明 outcome non-decomposability/online unavailability，并限制 surrogate family。
+
+**只有 Route E 才能使 Bellman implicit differentiation 成为由信息结构推出的必要 mechanism。** 它保留 NNBO inner architecture，但改变当前主监督与研究问题；不能把这项变化伪装成对现版的“小证明补丁”。
+
+---
+
+## 6. 最小收敛方向：必须二选一，禁止拼接
+
+### 6.1 若坚持当前 sparse-demonstration 研究问题
+
+选择 **PI-IOC-NNBO**，删除 Bellman implicit outer loop：
+
+\[
+\text{expert }(X,f)
+\to \text{normalized inverse HJB/stationarity}
+\to (\hat\eta,\hat W)
+\to \text{original NNBO policy/reference realization}.
+\]
+
+必须补：policy-equivalence identifiability、informativity rank、suboptimal/noisy demonstration robustness、HC estimation error propagation、正确 critic convergence与 reference realization。
+
+这是最小、自然、理论上可防守的路线；但其顶刊 Scientific Delta 不能写成“把 IOC 用到 NNBO”。要达到 T-RO，必须形成更强的 target-domain result，例如：mechanics-invariant preference recovery across soft environments、明确的 transfer theorem、以及由 learned objective 带来的此前不能实现的 closed-loop interaction capability。否则更像 focused conference/specialized-journal contribution。
+
+### 6.2 若坚持 NNBO + implicit differentiation 作为核心
+
+将研究问题明确重构为：
+
+> 在 nonlinear soft-contact NNBO 中，当真正的 task outcome 是 delayed/global、无法在线分解成 HJB stage cost、且没有 expert optimal actions 时，如何学习一个受物理结构约束的、低维 Markov interaction objective，使其诱导的 infinite-horizon feedback 在不同软环境中优化同一高层任务后果？
+
+最小 Method：
+
+1. invariant task preference \(\rho(p)\) 只由 task/specification 决定；
+2. mechanics \(\chi\) 进入 dynamics 与 structured consequence basis \(\phi_c(X,f;\chi)\)，不自由改变 preference；
+3. low-level objective \(\ell_{\theta}=\rho^\top M_\theta(\chi)\phi_c+\zeta^2\)，并约束 positivity、normalization 与局部 representability；
+4. inner 仍是 NNBO HJB/critic/force/reference chain；
+5. outer 只使用 task outcome \(C(\tau)\)，通过明确的 projected-Bellman implicit VJP 更新 \(\theta\)；
+6. 用本报告第 4 节的 exact/approximate bridge、identifiability、PE、two-timescale 和 execution conditions 闭合。
+
+不得再加入 MPC、direct \(K,B\)、energy tank、第二套 actor、decision-equivalent contact representation，除非新的独立 failure 证明必须。该版本只有一个 scientific mechanism：
+
+> environment mechanics changes the low-level Markov objective required to realize an invariant high-level interaction outcome; Bellman implicit differentiation learns that structured pullback through the NNBO feedback optimum。
+
+这是 PIB 思路进入 T-RO 分布更有希望的方向，但它是新的 Candidate Method Seed，不是现版已经通过。
+
+---
+
+## 7. 理论结论分层
+
+### 7.1 当前可直接证明/已由代数成立
+
+1. **Environment-only preference impossibility**：同一 \(\chi\) 可有不同合法任务偏好，故 \(h(\chi)\) 不能普遍确定 objective。
+2. **HC consequence shape change**：\(U_e=f^{1+1/n}/[(n+1)K_e^{1/n}]\)，说明环境变化可改变真实 consequence 对 force 的函数形状；scalar \(Rf^2\) 一般不能全局等价。
+3. **Formal HJB sensitivity equation**：在 classical unique stabilizing branch 与 operator invertibility 下，候选 sensitivity PDE 与 policy derivative 的代数形式成立。
+4. **Critic stationary-branch IFT**：\(g=0,H_{WW}\) 非奇异时，\(dW^*/d\eta=-H_{WW}^{-1}H_{W\eta}\) 对该 empirical branch 成立。
+5. **NNBO 原 pointwise PE step 无效**：critic dimension 大于一时 rank-one \(\xi\xi^\top\) 不可能正定。
+6. **Demonstration setting 的 simpler route existence**：inverse HJB/stationarity 可在适当 parameterization 与 rank 条件下直接估计 cost/value，因而 PIB 的 necessity 不能由“需要从示范学 cost”推出。
+
+### 7.2 尚需补全才能成为 theorem 的条件
+
+1. soft-contact high-level outcome 与 proposed objective family 的 representability / local pullback error bound；
+2. objective local/global identifiability 与 context coverage rank；
+3. classical HJB solution existence、uniform exponential stability、transport-operator invertibility；
+4. empirical projected critic branch 的局部最小性、唯一性和 Hessian conditioning；
+5. regularization/collocation/approximation/solver error 到 hypergradient 与 policy error的显式 bound；
+6. correct concurrent-learning/integral-PE critic convergence proof；
+7. time-varying \((\eta,\chi)\) 的 two-timescale tracking theorem；
+8. Newton reference map 的 existence/uniqueness与 low-level tracking error propagation；
+9. HC estimator error 与 learned objective compensation 的可分离性。
+
+### 7.3 必须由后续实验验证，理论不能替代
+
+1. 真实软环境中是否存在会改变 optimal policy order 的 objective mismatch，而不是简单 normalization 已足够；
+2. scalar/local structured objective family 是否覆盖实际 operating envelope；
+3. inverse-Bellman、BO、固定 normalized objective 与 implicit route 的样本效率/泛化差异；
+4. learned objective 是否跨未见材料与任务复用，而非记忆 material label；
+5. critic condition number、Bellman residual、hypergradient finite-difference agreement；
+6. slow-context assumption在真实切换速度下是否成立；
+7. commanded force/reference 与实际 force/motion 的执行误差；
+8. task-level consequence 是否真正改善，不能只报告 learned surrogate cost。
+
+---
+
+## 8. Adversarial comparator 与 venue distribution
+
+### 8.1 Comparator set
+
+- **Target-base/strongest target prior：NNBO (TSMC Systems 2025)**。它已覆盖 HC/EWRLS、robust auxiliary HJB、single critic 与 reference realization；PIB 的增量必须发生在 objective information path，而非重复 NNBO 主干。
+- **Source mechanism：Revisiting IDOC (NeurIPS 2023)**。它证明 constrained finite-horizon optimum 可通过最优性方程高效微分，但不自动覆盖 HJB critic。
+- **Same-information simpler competitors：Self et al., Automatica 2022；Asl & Uchibe, Neural Networks 2024；Asl et al., ISA Transactions 2026**。它们直接处理 continuous-time deterministic nonlinear IOC/objective estimation，并以减少/避免 repeated forward solve 为明确机制优势。
+- **Generic mechanism priors：Differentiable Robust MPC (RSS 2024)、Performer-MPC (CoRL 2023)、ZipMPC (CoRL 2025)**。它们说明“context/NN cost + differentiable controller + imitation/outcome loss”不是独立 novelty；但不构成 target-domain full-capability coverage。
+- **Simpler black-box competitor：multiobjective BO impedance tuning (IEEE TIM 2024)**。它证明低维 tuning 可用少量 interaction trials 完成。
+- **Same-venue morphology：Pollayil T-RO 2023、Li et al. T-RO 2025**。前者表明 focused objective/impedance planning 需要直接必要性与数学闭环；后者表明多个支撑层只有在共同关闭同一 capability failure 时才合理。
+
+### 8.2 八维分布位置
+
+| 维度 | PIB-NNBO 当前状态 | 分布位置 | 含义 |
+|---|---|---|---|
+| Problem Level | objective tuning、preference IOC 与 physical consequence adaptation 混合 | BELOW | 尚未锁定一个领域级 RMC |
+| Scientific Delta | Bellman-ID × NNBO 有潜力，但现 data regime 被 IOC 压缩 | BELOW / INDETERMINATE | 不是 prior veto，而是 capability 尚未形成 |
+| Packaging | 单主线、support 未拆成多个创新 | ALIGNED | 当前最强优点，应保留 |
+| Complexity | 增加 low-dimensional generator + implicit solve | ABOVE-BUT-UNJUSTIFIED relative to delta | 绝对不重；相对 simpler IOC 仍过重 |
+| Necessity | demonstration 下存在更直接 inverse-Bellman route | BELOW / HARD FAIL | 必须二选一重收敛 |
+| Theory | formal sensitivity 有深度；solution-object bridge、PE、identifiability 未闭合 | BELOW | Closure veto 未解除 |
+| Engineering | 保留 NNBO online chain，但限一维、慢变、需 excitation 与 Newton root | PARTIAL | 不能扩大 real-time adaptation claim |
+| Evidence | 本轮未执行；claim–evidence matrix已可定义 | NOT YET AVAILABLE | 暂不以实验缺失否定 idea，但不能宣布 venue ready |
+
+### 8.3 Current position
+
+当前最像“一个 focused differentiable-control extension + specialized soft-contact application”，而不像已完成的 Pollayil-style T-RO focused Method：Pollayil 的核心 optimization object、必要性、理论与执行是同一对象；PIB-NNBO 目前的 outer inverse problem、inner HJB root、empirical critic branch 和 reference execution 尚未统一。
+
+它也不像 Li-style medium integrated T-RO：PIB 的主要支撑层还没有被一个已成立的 capability failure逐一推出。
+
+### 8.4 Venue fit
+
+- **现版：currently below target venue。**
+- **PI-IOC-NNBO 路线：**有望形成 ICRA/RSS-like focused Method；要到 T-RO，必须有 mechanics-invariant preference recovery / transfer 的一般结果与机器人级 consequence closure。
+- **Outcome-calibrated Bellman-differentiable路线：**若完成 structured pullback、exact/approximate hypergradient theory、online execution 与直接 outcome evidence，可进入 T-RO-like medium/focused morphology。
+- **IJRR：**当前不对齐。除非形成一般的 continuous-time feedback-objective pullback theory或跨多类 contact system 的统一结果，不能仅靠更多 theorem/module升级。
+
+---
+
+## 9. 核心 falsifiers / killer conditions
+
+以下任一成立，就必须简化或放弃相应版本：
+
+1. **Universal-metric falsifier**：一个固定、解析归一的 objective 在全部目标软环境上保持相同 policy ordering 与 task outcome；则 objective adaptation 不必要。
+2. **Analytic-consequence falsifier**：HC 参数已足以解析构造所需 consequence stage cost；则 learned pullback 不必要。
+3. **Family-insufficiency falsifier**：不存在 \(\eta\) 使 scalar \(e^2/f^2\) family 接近 expert/outcome optimum；则现 PIB parameterization 被否决。
+4. **IOC-dominance falsifier**：在同 demos、同 dynamics information 下，inverse-Bellman/IOC 以更少 forward solves 达到同等 transfer/outcome；则 demonstration-based PIB 被否决。
+5. **BO-dominance falsifier**：低维 BO 用可接受 trial 数达到同等跨环境 performance；则 implicit layer 无必要。
+6. **Identifiability falsifier**：\(\mathcal I_\eta\) 奇异或多个 \(\eta\) 产生 policy-equivalent trajectories；则 “Preference-Identifiable” claim 被否决。
+7. **Gradient-object mismatch falsifier**：critic implicit gradient 与 finite-difference closed-loop gradient方向持续不一致；则 empirical fixed point 不是合法 surrogate。
+8. **Conditioning falsifier**：\(H_{WW}\) 病态导致 hypergradient variance/bias抵消其样本效率；则 BID backend 不可用。
+9. **Timescale falsifier**：真实 \(\chi\) 变化快于 critic/reference adaptation；则 real-time environment adaptation claim 被否决。
+10. **Execution falsifier**：实际 low-level loop/saturation显著改写 \(f^*\) 或 Newton reference；则 optimizer-to-robot closure 被否决。
+11. **Model-compensation falsifier**：\(\eta\) 主要吸收 HC model error，而非稳定表示 task/consequence；则 learned objective 没有所宣称语义。
+12. **Outcome falsifier**：surrogate cost 下降但真实 interaction consequence不改善；则整个 paper-level mechanism 被否决。
+
+---
+
+## 10. 最终决定
+
+**不建议继续把当前 PIB-NNBO 标记为“理论 Method 结构达到 T-RO-aligned candidate，只差 theorem/evidence”。** 更准确状态是：
+
+> Valid cross-domain mechanism seed, but the accepted problem–information–intervention chain is not yet closed.
+
+冻结版本的根本问题位于 **RMC/Method-selection 层**，不是 NNBO 主干层，也不是“模块太少”。因此不应重构整个 controller，更不应叠加 MPC、direct impedance、passivity 或额外 representation learner；只需在以下两条路线中做明确选择：
+
+1. demonstrations 是主信息源 → 选择 direct inverse-Bellman/IOC，删除 implicit outer loop；
+2. distal task outcome 是主信息源且无 expert optimal actions → 保留 Bellman implicit differentiation，把目标改为 structured mechanics-conditioned objective pullback。
+
+在当前冻结问题不变的前提下，**路线 1 是 Method-fit winner**。若研究战略明确要求保留 NNBO + Revisiting 的跨域机制，则必须公开采用路线 2 的新研究问题，并重新执行一次 Problem fit / representability audit；不能以“更高级”或“跨域创新明显”为由保留当前 demonstration-based bilevel formulation。
+
+---
+
+## 11. 核心 primary-source evidence
+
+1. NNBO：Kong et al., *Neural-Network-Based Optimal Impedance Control for Robots in Physical Interaction With Soft Environments*, IEEE TSMC: Systems, 2025, DOI 10.1109/TSMC.2025.3579017。
+2. IDOC：Xu, Molloy, Gould, *Revisiting Implicit Differentiation for Learning Problems in Optimal Control*, NeurIPS 2023: https://proceedings.neurips.cc/paper_files/paper/2023/hash/bcfcf7232cb74e1ef82d751880ff835b-Abstract-Conference.html
+3. Self et al., *Model-based inverse reinforcement learning for deterministic systems*, Automatica 2022: https://www.sciencedirect.com/science/article/pii/S0005109822000875
+4. Asl & Uchibe, *Online estimation of objective function for continuous-time deterministic systems*, Neural Networks 2024: https://www.sciencedirect.com/science/article/pii/S0893608024000303
+5. Asl, Le, Uchibe, *Data-driven inverse optimal control for continuous-time nonlinear systems*, ISA Transactions 2026: https://www.sciencedirect.com/science/article/pii/S0019057825007104
+6. Oshin et al., *Differentiable Robust Model Predictive Control*, RSS 2024: https://www.roboticsproceedings.org/rss20/p003.html
+7. Xiao et al., *Performer-MPC*, CoRL 2023: https://proceedings.mlr.press/v205/xiao23a.html
+8. Rickenbach et al., *ZipMPC*, CoRL 2025: https://proceedings.mlr.press/v305/rickenbach25a.html
+9. Fu et al., *Efficient Impedance Controller Tuning...*, IEEE TIM 2024: https://ieeexplore.ieee.org/document/10683724/
+

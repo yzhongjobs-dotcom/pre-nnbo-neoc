@@ -1,0 +1,626 @@
+NNBO × 可微最优控制：Interaction Objective Adaptation 独立审计与顶刊级重构
+版本：2026-09-09
+目标标尺：顶会顶刊_Method_经验标尺_Reference_Distribution_v1_1_Audited
+
+======================================================================
+0. 核心结论
+======================================================================
+
+NNBO 对应的研究问题确实存在进一步研究 interaction objective adaptation 的必要空间，但成立的原因不能只写成“Q、R 需要人工调参”。
+
+真正重要的 failure 是：NNBO 用固定 Q、R 在原始 position-error / contact-force 坐标中定义交互优劣，但同样大小的误差和力在不同软环境中可能对应完全不同的形变、应变能、损伤/不适风险、接触质量和任务收益。因此，固定 raw-space quadratic objective 的物理语义会随环境变化；即使环境动力学已准确进入最优控制器，也不保证同一 Q、R 在不同环境中表达同一个高层交互偏好。
+
+所以，应把问题从：
+
+  “如何自动调 Q、R？”
+
+提升为：
+
+  “如何在异质、变化的软环境中，使最优阻抗所使用的内部目标始终与一个环境无关、任务定义的高层交互效用保持语义一致？”
+
+原 Idea 可以据此优化到具有 T-RO 潜力，但必须把自由的 environment → Q,R 回归改造成：
+
+  task preference
+  + environment-conditioned consequence calibration
+  → identifiable structured interaction metric
+  → differentiable constrained optimal impedance
+  → environment-invariant task outcome。
+
+创新核心不是“NN + 隐式微分”，而是一个新的控制关系：
+
+  environment mechanics 改变 raw signals 到 physical consequences 的映射
+  → objective metric 在线重标定该映射
+  → 同一高层偏好在不同软环境中产生一致的闭环交互语义。
+
+隐式微分是把独立 task-level outcome 反传给该结构化 objective metric 的求解机制。安全边界不由 learned weight 表达，而由约束独立保证。
+
+0.1 三项硬标准的当前判定
+
+Problem fit：PASS，但只对“objective semantic non-invariance”这一重构问题成立；“减少人工调参”本身不够。
+
+Method fit / necessity：原始自由 NN→Q,R 为 FAIL；下文给出的 mechanics pullback metric + constrained differentiable impedance 为 CONDITIONAL PASS。它只有在解析 normalization 和直接实时优化真实效用均不能闭合 failure 时才必要。
+
+Scientific strength：原始 Idea 为 FAIL；完成 fixed-metric impossibility、pullback factorization、局部 hypergradient validity、passivity/feasibility 和实机因果验证后，优化版可进入 T-RO 经验分布。当前状态是 strong method seed，不是已完成顶刊 Method。
+
+0.2 本文所说的“NNBO + IDOC”究竟怎样组合
+
+研究种子保持不变：
+
+- NNBO 提供 nonlinear soft-environment model、tracking–interaction objective 与 optimal-impedance problem；
+- Revisiting Implicit Differentiation 提供 optimal-control solution 对 objective parameters 的隐式梯度；
+- 外层根据环境上下文学习 Q、R，使 inner NNBO-derived optimum 对齐真实 task consequence。
+
+但不能把 NNBO 的 online HJB critic 与 IDOC 的 constrained trajectory KKT backward pass机械堆叠。二者是两个不同的 inner solver；同时保留会形成重复求解链和不一致梯度。
+
+最自然的融合方式是：保留 NNBO 的 HC dynamics、robust interaction cost 和 optimal-impedance科学问题，把无限时域 HJB/critic 求解改写为有限时域、直接配点的 constrained optimal-impedance layer；随后对该 NNBO-derived inner problem 的 KKT system 使用 IDOC。这个改写是两篇工作的接口桥梁，不是改变研究方向。
+
+若坚持保留 critic，则必须改为对 converged Bellman-residual/critic fixed point 做隐式求导，并证明 critic equilibrium 唯一、Jacobian 非奇异和 approximation error 可控；该路线比 direct-transcription IDOC 假设更强、实时与理论风险更高，当前被 method-fit 淘汰。
+
+
+======================================================================
+1. NNBO 已解决到哪里，剩余 failure 在哪里
+======================================================================
+
+1.1 NNBO 的真实主线
+
+Kong et al. 针对单点、单方向软接触：
+
+- 采用 Hunt–Crossley（HC）环境模型；
+- 通过 excitation trajectory 和 EWRLS 识别 K_e、B_e、n；
+- 定义
+
+  J_bar = integral [e^T Q e + f^T R f] dt；
+
+- 以 interaction force f 为 HJB control input；
+- 用 critic NN 逼近 value function；
+- 再通过目标阻抗关系和参考位置求解间接实现交互行为。
+
+其 Remark 5 明确说明 Q、R 由先验初始化并通过 trial-and-error 调整。这说明存在 objective design burden，但 burden 本身还不是顶刊问题。
+
+1.2 继续追问：准确环境模型 + 固定 Q、R 是否已经足够？
+
+如果 Q、R 精确表达了最终任务效用，而且这个效用在所有环境中都以同一 raw e、f 二次型成立，那么环境变化只需进入 dynamics，固定 Q、R 完全可以得到不同的最优策略。此时 interaction objective adaptation 没有必要。
+
+因此，研究问题成立必须证明更强事实：
+
+  环境变化不仅改变 dynamics，还改变 observable proxies（e、f）到真实 task consequence 的映射；固定 raw-space metric 无法跨环境保持同一个高层偏好。
+
+这正是软接触中可成立的 failure。
+
+1.3 为什么软环境会使 fixed objective 失真
+
+同一接触力 f 在不同 K_e、B_e、n 下对应不同 indentation、strain、stored energy、dissipation 和局部应力状态；同一 position error 也可能分别意味着允许的柔顺、接触丢失或过度形变。
+
+因此：
+
+- raw force magnitude 不是环境不变的风险坐标；
+- raw position error 不是环境不变的任务损失坐标；
+- Q/R 的固定比例把“任务偏好”和“环境造成的量纲/后果缩放”混为一体；
+- 一套人工权重只能在校准环境附近偶然表达正确 tradeoff。
+
+这不是普通调参问题，而是 interaction objective 的 semantic non-invariance。
+
+
+======================================================================
+2. 必要性反例：固定 Q、R 为什么可能原则上不够
+======================================================================
+
+考虑 HC 的准静态线性特例 n=1、B_e=0：
+
+  f = k_e delta。
+
+令期望压入量为 d，位置误差 e = delta - d。单步 NNBO 型目标为：
+
+  l(delta;k_e) = q(delta-d)^2 + r(k_e delta)^2。
+
+其最优压入量为：
+
+  delta*(k_e) = q d / (q + r k_e^2)，
+
+因此归一化压入比例为：
+
+  rho(k_e) = delta*/d = 1 / [1 + (r/q) k_e^2]。
+
+若高层交互意图是跨环境保持相同的归一化 tracking–compliance compromise rho_0，则必须有：
+
+  r(k_e)/q(k_e) = (1-rho_0)/(rho_0 k_e^2)。
+
+只要 k_e 变化，就不存在一个固定 r/q 能维持同一 rho_0。
+
+这个反例说明：即使动力学模型完全正确，固定 raw-space Q、R 也可能使高层偏好随环境刚度发生漂移。环境自适应 objective 并非只是在补偿模型误差。
+
+同一结论可扩展到 nonlinear HC：
+
+  f = K_e delta^n + B_e delta^n dot(delta)。
+
+此时 raw force 对 indentation、elastic work 与 dissipation 的映射同时依赖 K_e、B_e、n 和运动状态；有效 objective metric 一般应为 context/state dependent，而不是每个环境一个任意常数。
+
+必要性边界也必须明确：
+
+- 若最终目标本来就是 raw e、f 的固定二次型，则无需适配 Q、R；
+- 若直接测得并优化真实 consequence（例如可靠的 strain/damage/quality metric），也可能无需学习 surrogate Q、R；
+- 只有当真实 task outcome 难以直接用于实时 OC，而 raw e、f surrogate 的正确标度随环境变化时，objective adaptation 才是必要机制。
+
+2.1 一般化理论对象：environment-conditioned pullback metric
+
+令 y=[e,f,...] 是 inner controller 可实时使用的 raw interaction features，真实物理后果为
+
+  c = g_theta(y)，
+
+其中 theta 是环境力学参数或接触状态；高层任务效用为 U_p(c)，p 是显式 preference。真实目标是复合函数：
+
+  L_theta,p(y) = U_p(g_theta(y))。
+
+在 operating point y_bar 附近，其二阶局部几何为：
+
+  W_theta,p
+  = J_g(theta)^T H_U(p) J_g(theta)
+    + sum_j [partial U_p/partial c_j] H_{g_theta,j}。
+
+当 consequence map 局部仿射，或在 consequence-space stationary point 附近，第二项消失，得到：
+
+  W_theta,p = J_g(theta)^T H_U(p) J_g(theta)。
+
+这就是高层 consequence utility 经环境力学映射拉回 raw interaction space 后的 pullback metric。NNBO 的固定 diag(Q,R) 相当于用一个与 theta 无关的常数矩阵近似 W_theta,p。
+
+由此可以形成一个一般化 necessity 命题：若存在 theta_1、theta_2，使 W_theta1,p 与 W_theta2,p 在可行决策切空间上不是正比例关系，则不存在一个固定 quadratic metric 能在两个环境中保持全部局部 outcome ranking 与最优下降方向。只有当二者至多相差正尺度时，固定 Q、R 才可能保持相同语义。
+
+这个命题比“不同环境需要不同权重”的经验观察更强：它给出 objective adaptation 何时必要、何时不必要的可检验边界，也自然解释环境作用于 calibration、p 作用于 preference 的分工。
+
+
+======================================================================
+3. 根因与 Required Mechanism Change
+======================================================================
+
+3.1 Observable Failure
+
+在跨 stiffness、damping、nonlinearity 或接触阶段变化时，固定 Q、R 的 NNBO 出现：
+
+- 同一高层偏好下的 normalized force/deformation tradeoff 漂移；
+- 在软环境中过度压入、在硬环境中过度退让，或反之；
+- 为某一环境调好的 tracking–interaction Pareto operating point 在另一环境发生 preference inversion；
+- 必须重新人工调权重，才能恢复同等物理后果。
+
+3.2 Mechanism-level Root Cause
+
+NNBO 的 objective 在 raw measurement space 中使用固定 Euclidean metric。它没有区分：
+
+1) task preference：设计者真正想如何权衡 accuracy、contact quality、comfort/risk；
+2) consequence calibration：一个单位 e 或 f 在当前环境中代表多少真实物理后果。
+
+环境变化时第 2 项变化，而固定 Q、R 把它错误地冻结；直接由环境自由预测 Q、R 又会把第 1 项一起改写。
+
+3.3 Required Mechanism Change
+
+必须把 objective 从“固定 raw-signal scalarization”改成“先把 raw interaction outcomes 映射到环境可比较的 consequence coordinates，再用显式 task preference scalarize”。
+
+形式上：
+
+  raw outcomes y = [e, f, ...]
+  -- environment-conditioned calibration C(b,x) -->
+  dimensionless/physical consequences z
+  -- explicit task preference p -->
+  scalar utility。
+
+环境只改变 C；任务/操作者只改变 p。二者在模型中可分离、可干预、可验证。
+
+
+======================================================================
+4. Source Mechanism 与 Target-domain 迁移
+======================================================================
+
+4.1 Source Problem–Intervention Pair
+
+可微 MPC / bilevel cost learning 中存在一个成熟 intervention：当实时 inner controller 只能使用短时域、结构化 surrogate objective，而真正关心的是外层长期/任务结果时，通过 optimizer sensitivity 用外层 loss 学习 inner objective，使 surrogate controller 对齐真实结果。
+
+Source intervention 改变的是：
+
+  manually specified inner proxy
+  → outer-outcome-calibrated inner proxy。
+
+它说明隐式微分可以作为机制来源，但不能直接给出软接触中的研究问题。
+
+4.2 Intervention-level Isomorphism
+
+Source failure：inner cost 的数值下降不保证 outer task outcome 正确。
+
+Target failure：固定 e/f quadratic cost 的数值下降不保证不同软环境中具有相同物理交互后果。
+
+共同 required change：利用 outer task consequence 校准 inner objective，而不是只优化 proxy 自身。
+
+4.3 Target constraints 导出的必要改造
+
+软接触不是一般 cost tuning，必须额外满足：
+
+- HC/contact mechanics 决定 consequence scaling；
+- objective calibration 与 task preference 可分离；
+- Q、R 的 scale ambiguity 必须规范化；
+- learned metric 必须 PSD、有界并保持期望单调性；
+- K、B 必须是直接可执行的 inner decision；
+- force/deformation/contact/actuator/passivity 是约束，不随 learned weights 消失；
+- 环境未知时使用 belief，而不是假设“environment state”直接可得。
+
+这些是目标域自然要求，不是为了和 prior 做表面差异。
+
+
+======================================================================
+5. 顶刊级研究问题
+======================================================================
+
+5.1 一般表述
+
+对于异质、变化的软环境，如何构造并学习高层 consequence utility 经环境力学映射诱导的、可辨识的 interaction pullback metric，使显式给定的 tracking–compliance preference 在不同环境中保持相同物理语义，并通过受约束的最优阻抗控制转化为安全、可执行的 K、B？
+
+5.2 更强的科学表述
+
+何时不存在一组固定 raw-space Q、R 能跨软环境保持 consequence-level ranking 与 optimal interaction？在这一条件下，如何将 task preference 与 environment-dependent pullback geometry 分解，并从 task-level outcome 通过 constrained optimal-control sensitivity 学习该几何？
+
+5.3 新能力
+
+用户/任务给定一次高层偏好后，机器人在不同软环境和接触状态下自动重标定 inner interaction objective；它不是重新猜测用户偏好，而是维持偏好在物理 consequence space 中的一致含义。
+
+这是比“自动调参”更强、也更可证伪的 capability。
+
+
+======================================================================
+6. Minimal Strong Method：Mechanics-Conditioned Pullback Objective for Differentiable Optimal Impedance
+======================================================================
+
+6.1 输入与状态
+
+物理状态 x_t：机器人/末端状态、接触 deformation/force-related state。
+
+环境上下文 theta_hat_t：优先直接复用 NNBO 已有的 HC/contact estimator；它是 Method 输入与支撑模块，不作为本论文第二条创新主线。只有 uncertainty 对 objective metric 或 hard feasibility 的影响不可忽略时，才扩展为 belief b_t。
+
+任务偏好 p：由任务协议、操作者或上层 planner 显式给出，并归一化到 simplex；p 不由环境网络产生。
+
+6.2 结构化 objective metric
+
+由第 2.1 节的 pullback relation 定义环境条件化 consequence normalization：
+
+  z_e = S_e(b_t,x_t) e，
+  z_f = S_f(b_t,x_t) f。
+
+有效权重为：
+
+  Q_psi(b_t,x_t,p) = S_e^T diag(p_e) S_e，
+  R_psi(b_t,x_t,p) = S_f^T diag(p_f) S_f。
+
+当 local consequence map 的 Jacobian 可分块近似时，S_e、S_f 对应 pullback metric 的 square-root factors。它们不是任意矩阵网络：
+
+- HC mechanics 的 Jacobian/Hessian 提供 analytic pullback initialization，例如 characteristic force、indentation、elastic energy 和 dissipation scales；
+- NN 只学习不能由名义 mechanics 解释的 bounded residual calibration；
+- Cholesky/positive parameterization 保证 Q、R 半正定；
+- trace/determinant 或 characteristic-scale normalization 消除共同尺度不辨识；
+- bounded eigenvalues 防止 objective collapse 或无限放大。
+
+一维最小形式可以是：
+
+  l_t = p_e (e/e_char(b_t))^2
+      + p_f (f/f_char(b_t))^2
+      + l_rate，
+
+其中 effective q=p_e/e_char^2、r=p_f/f_char^2。网络学习的是 analytic pullback 未能解释的 consequence geometry，而不是无语义权重。
+
+6.3 Inner direct optimal-impedance problem
+
+将 NNBO 的 HC augmented dynamics 和 tracking–force robust objective 离散化，并把“optimal force → 间接 target impedance”改为 IDOC-compatible 的有限时域 direct impedance optimization。可同时保留 f_i 作为 interaction variable，并加入与可执行阻抗的一致性约束：
+
+  z*(eta_t) = argmin sum_i
+      e_i^T Q_psi(b_i,x_i,p) e_i
+    + f_i^T R_psi(b_i,x_i,p) f_i
+    + l_change(K_i,B_i)
+
+  subject to
+      x_{i+1} = F_closed-loop(x_i,K_i,B_i,r_i,theta_i),
+      f_i = F_HC(delta_i,dot(delta_i);theta_i),
+      f_i = F_imp(x_i,r_i,K_i,B_i) within realization tolerance,
+      theta_i in / distributed as b_i,
+      K_i = K_i^T, K_i >= K_min,
+      B_i = B_i^T, B_i >= B_min,
+      K/B magnitude and rate bounds,
+      force/deformation/contact constraints,
+      actuator/torque/velocity constraints,
+      passivity/energy condition,
+      terminal backup/feasibility condition。
+
+决策至少包含 K_i、B_i；若理论证明 B 可由 K 与 effective inertia 的阻尼关系唯一给出，则删除 B 的独立优化，降低复杂度。
+
+因此 inner layer 仍然是 NNBO 所提出的“soft-environment mechanics → optimal interaction → impedance”问题，只是其 control variable、约束和求解器被改造成可微且执行闭合的版本，而不是换成无关 MPC 问题。
+
+6.4 独立 outer objective
+
+最闭合、最可行的训练定义不是让真实机器人提供未知梯度，而是建立一个训练期可用、部署期过慢的 high-fidelity/long-horizon consequence oracle。对训练环境 theta_j，定义：
+
+  L_outer,j(psi)
+  = J_HF,pj(tau*(eta_psi(theta_j,p_j)); theta_j)
+    - J_HF,pj(tau_HF,j*; theta_j)。
+
+第二项是 high-fidelity oracle 的最优或近最优 reference，与 psi 无关；第一项评价实时 inner surrogate metric 所产生的轨迹。这使学习目标成为相对真实 consequence objective 的 control regret，而非 Q、R 数值误差。
+
+J_HF,p 可以包含研究者真正关心、且不等于 inner quadratic proxy 的结果，例如：
+
+  L_outer = task accuracy/quality loss
+          + physical consequence loss
+          + closed-loop transient loss。
+
+安全阈值仍作为 inner hard constraints，不靠 L_outer penalty 替代。
+
+训练数据可来自多种已表征 soft phantoms、可信 FEM/high-fidelity contact model 和真实机器人 rollout。HC 可给出 elastic energy K_e delta^(n+1)/(n+1) 与 dissipative power B_e delta^n dot(delta)^2 等 analytic consequences；更复杂组织/接触的未建模部分由高保真数据提供。若应用为机器人超声，outer signal 可包含独立 image quality、扫描路径质量和 tissue-deformation proxy；不能只用 NNBO 自己的 e^TQe+f^TRf 评价自己。
+
+6.5 IDOC 的正确作用
+
+令 eta_psi=[Q_psi,R_psi] 或其低维 scale parameters。IDOC 在局部 regularity 条件下提供：
+
+  dL_outer/dpsi
+  = (dL_outer/dz*)
+    (dz*/deta)
+    (deta/dpsi)。
+
+因此可以训练 S_e、S_f，使 inner objective 产生外层 consequence-consistent 的阻抗行为。
+
+对 direct transcription，令 primal–dual solution 为 y*=[z*,lambda*,mu*]，active-set KKT residual 为 F_KKT(y,eta)=0，则局部有：
+
+  dy*/deta = - [partial F_KKT/partial y]^{-1}
+                    [partial F_KKT/partial eta]。
+
+这正是 Revisiting Implicit Differentiation 在本问题中的实体化，而不是只在流程图中写“backprop”。
+
+若 J_HF 可微，IDOC 提供 inner-solution sensitivity，high-fidelity model 提供 outer trajectory gradient；若 oracle 不可微，则先生成 tau_HF* 并采用 differentiable imitation/decision loss，或改用 outer zeroth-order estimator。IDOC 只负责穿过 inner optimizer，不能替代这部分。最可行路线是 offline/meta training，部署期根据 theta_hat_t 在线推断 metric 并求 MPC，不在未知人体/环境上高频反向更新网络。
+
+6.6 Safety 与 passivity 独立于 learned objective
+
+由于 variable K 会注入能量，需在 inner problem 中约束 stiffness-change work，例如离散形式：
+
+  Delta E_K,i = 0.5 e_i^T (K_{i+1}-K_i) e_i，
+
+并要求正能量注入由 energy budget/tank 覆盖，或推导其他足够 passivity 条件。这样即使 metric 在 OOD 环境中不准确，也不会仅因 R 变小而取消交互边界。
+
+
+======================================================================
+7. 理论深度与正确性闭合
+======================================================================
+
+达到 T-RO 潜力至少需要以下四类结果。
+
+7.1 Fixed-objective impossibility / necessity theorem
+
+给出一类 soft-contact family 和一个 environment-invariant consequence preference，证明当 characteristic force/error ratio 随环境变化时，不存在固定 Q、R 能在所有环境保持该 preference；进一步证明第 2.1 节的切空间条件：不同环境的 pullback metrics 若不正比例，则固定 metric 无法保持局部 ranking/optimal direction。第 2 节的一维反例是 theorem seed，而非最终充分结果。
+
+7.2 Identifiable factorization
+
+证明或严格定义：
+
+- p 只表示 task preference；
+- S(theta_hat,x) 只表示 consequence pullback/calibration；
+- 在规定 normalization 与 feature family 下，学习对象可辨识到何种 equivalence；
+- 不声称从行为恢复唯一“真实 Q、R”，而是恢复能保持 consequence ranking / optimal decision 的规范化 metric。
+
+7.3 Local implicit-gradient validity
+
+对本系统的 constrained OC 重新验证 LICQ/full-rank active constraints、二阶充分条件、KKT matrix nonsingularity 等条件；说明 contact/active-set 退化时如何检测并停止或替代更新。不能把 IDOC 原论文的 Proposition 1 直接当作本方法定理。
+
+7.4 Closed-loop feasibility / passivity
+
+证明 learned metric 只改变 feasible set 内的优选次序，不改变 hard constraints；给出 terminal backup、recursive feasibility 或至少 verified one-step publication 的明确 claim。若使用 energy tank，证明 metric adaptation 与 K 变化均受同一能量约束。
+
+IJRR 级增强不是增加网络或证书数量，而是进一步得到：固定 objective 不可能性的更一般必要/充分条件，或 preference–calibration 分解在 nonlinear contact systems 中的统一理论。
+
+
+======================================================================
+8. 方法必要性：与更简单路线比较
+======================================================================
+
+8.1 固定 Q、R + 准确环境模型
+
+这是首要 simpler rival。若 outer task consequence 本身在 raw e、f 坐标中固定，或者实验中它跨环境保持同样 normalized outcome，则 objective adaptation 不必要。
+
+8.2 解析 physics normalization
+
+若 HC 参数可准确获得，且真实 consequence 完全由解析 characteristic scales 表达，则直接使用 q(k),r(k) 即可，NN 与隐式学习不必要。
+
+因此网络的必要性必须来自：未建模 contact geometry、hysteresis、spatial heterogeneity、task-quality relation等使解析 normalization 系统性残缺；网络只学习这一 residual。
+
+8.3 直接优化真实 outer metric
+
+若 image quality、deformation risk 或 comfort 能实时、平滑、低延迟地写入 inner OC，则直接优化它比学习 surrogate metric 更自然。
+
+可微 objective adaptation 的必要性来自：outer metric 只在较长窗口、rollout 结束或昂贵感知后可得，不能直接用于高速 inner control，而结构化 e/f surrogate 可以实时求解。
+
+8.4 Environment → direct K,B policy
+
+必须作为 baseline。若 direct policy 在相同训练数据、OOD 环境、硬约束接口和实时预算下达到同等结果，则 optimization layer 没有必要。
+
+inner OC 的必要性应由在线约束变化、可解释 preference intervention、model-based OOD replanning 和可验证 applied action 支撑。
+
+8.5 自由 NN 输出 Q、R
+
+比结构化 factorization 更灵活，但存在 scale ambiguity、objective collapse、偏好/环境纠缠和 OOD 非单调行为；在相同 capability 下被结构化 metric 支配，应淘汰。
+
+
+======================================================================
+9. 可行性与实现边界
+======================================================================
+
+9.1 可行路线
+
+- 训练：多环境离线/meta learning；每个 batch 解 finite-horizon constrained OC，并用 IDOC 求 VJP；
+- 部署：在线估计 b_t，网络前向生成 metric，MPC 求第一步 K、B；
+- 时间尺度：estimator/metric update 慢于低层 impedance loop，MPC 在中间频率；
+- action publication：只发布完整求解且复验约束的候选；timeout/infeasible 时使用 incumbent 或 withdraw；
+- 初始实验先做 1-DoF normal contact，再扩展 normal–tangential，不在首版同时解决所有 6-DoF 接触。
+
+9.2 主要技术风险
+
+- environment belief 不准时，metric calibration 与 dynamics prediction 同时失真；
+- outer outcome 标签稀疏、有延迟或不可重复；
+- inner nonconvex solution branch 造成 hypergradient 不稳定；
+- 网络可能用 metric 补偿错误 dynamics，得到不可解释但训练集有效的权重；
+- robust constraints 过于保守，使 learned objective 无控制权；
+- variable impedance 的低层带宽/饱和改写 optimizer 输出；
+- forward COC solve 是训练瓶颈。
+
+9.3 防止“用 objective 掩盖错误 model”
+
+必须联合记录 dynamics residual 与 metric residual，并设置反事实测试：交换 environment model 与 learned metric，判断性能提升来自正确 consequence calibration，还是由 Q、R 偷偷补偿模型误差。若后者占主导，科学 claim 不成立。
+
+
+======================================================================
+10. 判别实验与 Killer Conditions
+======================================================================
+
+10.1 必须比较
+
+- NNBO fixed Q,R；
+- 每环境人工/oracle Q,R；
+- fixed Q,R + oracle environment dynamics；
+- analytic physics-normalized objective；
+- free NN → Q,R；
+- proposed factorized preference–calibration metric；
+- direct context → K,B policy + 相同安全层；
+- 直接优化 outer metric（若可实时计算）。
+
+10.2 核心实验设计
+
+实验必须正交改变：
+
+- environment mechanics：K_e、B_e、n、geometry/hysteresis；
+- task preference p：同一环境下改变 tracking–compliance preference；
+- observation uncertainty；
+- train / interpolation / OOD contexts。
+
+关键结果不是平均 cost 更低，而是：
+
+1) 固定 p 时，跨环境维持相同 normalized physical consequence / Pareto coordinate；
+2) 固定环境时，改变 p 能按预期、单调地改变交互结果；
+3) metric swap 能定位 calibration 的因果作用；
+4) learned metric 不增加 hard-constraint violation；
+5) issued K,B 与 applied K,B 一致，且满足实时 deadline。
+
+10.3 机制级证据链
+
+  environment change
+  → raw e/f-to-consequence mapping change
+  → fixed metric preference drift
+  → learned calibration corrects metric geometry
+  → recovered consequence-level preference consistency
+  → improved task outcome。
+
+只有形成这条链，才能证明 objective adaptation，而不是网络容量或重新调参。
+
+10.4 Killer Conditions
+
+以下任一成立，核心研究问题或 Method 必须简化：
+
+1) fixed Q,R + oracle dynamics 已能跨环境维持同一 consequence-level preference；
+2) analytic normalization 达到同等结果，learned residual 无显著必要性；
+3) outer task metric 可直接实时进入 inner OC；
+4) environment context 无法可靠推断，而 learned metric 对 belief error 高度敏感；
+5) free/direct K,B policy 在相同安全与 OOD 条件下等价；
+6) metric 主要补偿 dynamics/model error，而非 consequence calibration；
+7) K,B 经低层控制器、饱和或 energy guard 后被系统性改写；
+8) implicit differentiation 相比 unrolling / zeroth-order training 没有稳定性或计算优势。
+
+
+======================================================================
+11. 与当前研究现状的关系：用于定边界，不用于否决问题
+======================================================================
+
+自动 cost tuning、IOC/IRL、DiffTune-MPC、weights-varying MPC 和 context-dependent differentiable MPC 说明“学习 inner cost”这一计算原语已经成熟。特别是 RSS 2024 Differentiable Robust MPC 已用 IFT 对 nonlinear tube MPC 的 Q、R 等控制器参数进行在线适配，并报告实时硬件结果；ZipMPC 2025 已用 differentiable MPC 从 imitation loss 学 context-dependent inner cost。这些工作把原始“NN 输出权重 + differentiable control”的 novelty 上限压得很低，但不能反证软接触中的 objective semantic non-invariance，也不能替代第 2 节的 necessity analysis。
+
+它们真正限定的是贡献包装：
+
+- 不能声称 novelty 是自动学习 Q,R；
+- 不能声称 novelty 是把 optimizer 变成 differentiable layer；
+- 必须证明软接触特有的 fixed-objective failure；
+- 必须贡献 consequence utility → contact mechanics → raw interaction objective 的 pullback relation、preference–calibration 分解、理论条件和 applied impedance closure；
+- prior 只用于检查这条完整 relation 是否已被覆盖。
+
+因此，是否值得做首先由 failure 与根因决定；prior 决定最后能 claim 什么，而不是一开始把问题缩掉。
+
+
+======================================================================
+12. 顶会顶刊经验分布判断
+======================================================================
+
+12.1 原始一句话 Idea
+
+“environment → NN learns Q,R → differentiable optimizer”仍低于顶刊标准，因为它尚未区分 task preference 与 consequence calibration，也没有 fixed objective failure 的理论对象。
+
+12.2 重构后的 Method-level alignment
+
+Problem Level：ALIGNED。
+
+它解决的不是调参效率，而是 heterogeneous soft contact 下 interaction objective 失去物理一致性的问题；若不解决，机器人无法用一次给定的高层偏好跨环境保持一致交互行为。
+
+Scientific Delta：CONDITIONAL STRONG。
+
+潜在增量是：
+
+  environment-invariant preference
+  × mechanics-conditioned pullback objective geometry
+  × direct constrained executable impedance。
+
+其中 fixed-objective impossibility 和 factorization identifiability 决定它是否从工程调权重上升为科学贡献。
+
+Method Necessity：CONDITIONAL。
+
+只有 analytic normalization 和 direct outer optimization 均不足时，NN + implicit differentiation 才必要。
+
+Complexity：中高且可合理。
+
+belief/estimator、structured metric、direct impedance OC、implicit training、安全约束各有作用；不应再加入独立 RL、critic、dual control 或 nonsmooth differentiation，除非出现新的必要 failure。
+
+Theory：具备 T-RO 深度路径。
+
+fixed-metric impossibility + pullback metric derivation + 可辨识分解 + local hypergradient validity + feasibility/passivity closure，能够形成与 claim 匹配的数学闭环。
+
+Feasibility：可行但应采用 offline/meta training + online inference/MPC；原位高频 backprop 不是推荐主线。
+
+Venue readiness：
+
+- ICRA/RSS：若完成一维/低维理论、实时 constrained impedance 和多软环境实机验证，有较强潜力；
+- T-RO：若扩展到 nonlinear/time-varying contact、完成上述理论与工程闭环，并以 consequence-level 指标和强反事实验证核心机制，有现实潜力；
+- IJRR：还需要更一般的 objective invariance/identifiability 理论，或证明该机制跨多个连续接触任务构成统一控制原则，不能仅靠单应用和更多实验。
+
+
+======================================================================
+13. 最终推荐版本
+======================================================================
+
+建议保留 Idea 的方向，但把核心表述改为：
+
+  “Mechanics-Conditioned Objective Adaptation via Differentiable NNBO”
+
+最终链路：
+
+  interaction history
+  → estimated environment mechanics theta_hat_t（必要时为 belief b_t）
+  → mechanics-conditioned pullback calibration S(theta_hat_t,x_t)
+  + explicit task preference p
+  → structured, normalized Q(theta_hat,p), R(theta_hat,p)
+  → IDOC-compatible constrained NNBO inner layer
+  → executable K,B
+  → independent task/consequence outcome
+  → offline implicit-gradient learning of calibration。
+
+一句话研究主张：
+
+  当不同软环境诱导的 consequence pullback metrics 在可行决策空间中不正比例时，固定 raw e/f objective 无法保持同一高层交互偏好；通过将 task preference 与 mechanics-conditioned pullback geometry 分离，并利用可微约束最优控制从真实 task outcome 学习未建模 residual，可使最优阻抗跨环境保持物理语义一致，同时不牺牲硬安全与可执行性。
+
+这才是能够继续向顶会顶刊推进的 interaction objective adaptation；不是因为“Q、R 手工设定”，也不是因为“NNBO 和 IDOC 没有人拼过”。
+
+
+======================================================================
+14. 核心参考边界
+======================================================================
+
+- Kong et al., Neural-Network-Based Optimal Impedance Control for Robots in Physical Interaction With Soft Environments, IEEE TSMC: Systems, 2025, DOI 10.1109/TSMC.2025.3579017.
+- Oshin et al., Revisiting Implicit Differentiation for Learning Problems in Optimal Control, NeurIPS 2023.
+- DiffTune-MPC: Closed-Loop Learning for Model Predictive Control, IEEE RA-L, 2024, DOI 10.1109/LRA.2024.3422836.
+- Rickenbach et al., ZipMPC: Compressed Context-Dependent MPC Cost via Imitation Learning, CoRL 2025.
+- Jain et al., Optimal Cost Design for Model Predictive Control, L4DC 2021.
+- Weights-varying MPC for Autonomous Vehicle Guidance, ECC 2021.
+- Safe RL-driven Weights-varying MPC, IEEE IV 2024.
+- Inverse Optimal Control for Multiphase Cost Functions, IEEE T-RO 2019.
+- Oshin et al., Differentiable Robust Model Predictive Control, RSS 2024.
