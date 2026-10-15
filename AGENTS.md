@@ -1,29 +1,37 @@
 # Research work and GitHub synchronization
 
-The user authorizes committing and pushing this project's baseline and every
-subsequent completed research change to:
-https://github.com/zyanzhi90-dot/pre-nnbo-neoc
+This is a long-term research project. The user authorizes committing and pushing
+completed project changes to https://github.com/zyanzhi90-dot/pre-nnbo-neoc.
 
-1. Start from `00_基线与变更记录.md` and the user's latest research objective.
-   Read `01_项目推进复盘与后续研究依据_2026-10-14.md` for the completed
-   historical audit, selective reuse and the corrected next research workflow.
-   Preserve the reference snapshot under `00_基线快照_2026-10-14/`.
-2. Develop the idea from the field state, strongest-prior failure mechanisms and
-   domain taste. Existing modules may be reused. Do not shrink the question to
-   preserve a named algorithm or treat module overlap as a reason to evade prior.
-3. After each completed logical research change, update the change record with
-   its reason, evidence, baseline/version, affected assumptions/proofs and scope.
-   This also applies to diagnostic or negative results; do not call them a
-   completed new method or a new discovery when already present in the baseline.
-4. Perform checks appropriate to the change, then automatically run:
+1. Read `项目记录/HANDOFF.md` to resume, then the current user request and
+   relevant parts of `项目记录/长期要求.md` and `项目记录/研究决策与变更.md`.
+   Older root handoffs and dated plans were consolidated; recover originals
+   from Git only when needed. Do not repeatedly reread all history.
+2. Current scope: file consolidation and handoff. Idea optimization has not been
+   started; wait for the user's instruction to begin that research stage.
+3. Develop the idea from field state, important natural failures, strongest-prior
+   failure mechanisms and domain taste. Co-refine question, prior limitations
+   and method. Do not shrink the question to preserve an algorithm, evade prior
+   because modules overlap, or require NEOC to be uniquely indispensable.
+4. Distinguish baseline, candidate changes and tested instances. Negative local
+   results only change the supported layer. Do not call known baseline facts new
+   discoveries, nodal roots optimal controllers, or prototype timings real-time
+   certification. Check original evidence when it affects a decision.
+5. Preserve `00_基线快照_2026-10-14/` byte-for-byte. The three working core
+   documents now live under `研究/`; B0 contents and equations were preserved.
+   They may change in future based on research evidence, with explicit deltas.
+6. Keep useful reproducible source/configuration/primary results together. Files
+   retained merely to prove that work happened may be removed from the working
+   tree after recording necessary lessons and a Git recovery point. Do not use
+   archival completeness as a reason to preserve irrelevant material locally.
+7. For each completed logical change, update `项目记录/研究决策与变更.md` with
+   its reason, comparison version, evidence, scope and affected assumptions or
+   proofs; perform appropriate checks, then automatically run:
    `python -X utf8 scripts/research_sync.py --message "research: <specific change and purpose>"`
-   Run this before reporting the change complete and at the end of a turn that
-   changed project files. No repeat permission is needed for this authorized sync.
-5. The script commits project changes and pushes main. If pushing fails, retain
-   the local commit, report the failure, and retry on the next checkpoint.
-   Never force-push, reset user work, rewrite history, or hide a failed upload.
-6. Ignore local caches and credentials. Keep research reports, source scripts,
-   data, logs and proof changes together in the corresponding research commit.
+   Run before reporting completion and at the end of a turn that changes files.
+   No repeat upload permission is needed. If pushing fails, keep the local
+   commit, report the failure and retry. Never force-push or rewrite history.
 
-Automatic synchronization is performed at completed research checkpoints, not
-halfway through a file write or while presenting an unfinished result as complete.
+The synchronization helper runs at completed checkpoints, not arbitrary file
+writes. Preserve the user's notification and review preferences; report actual
+changes plainly, without making the user read inventory dumps.
