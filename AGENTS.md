@@ -13,6 +13,16 @@ completed project changes to https://github.com/zyanzhi90-dot/pre-nnbo-neoc.
    failure mechanisms and domain taste. Co-refine question, prior limitations
    and method. Do not shrink the question to preserve an algorithm, evade prior
    because modules overlap, or require NEOC to be uniquely indispensable.
+   Preserve the existing field-state research module; update its evidence as
+   needed while refining questions and methods. For a new or substantially
+   changed question, present grounded candidates for user selection before
+   dependent method design. B0 remains the given starting point; routine
+   refinement within it does not require repeated approval. Prioritize mature
+   cross-domain mechanisms for reuse, adaptation and fusion; transfer alone
+   does not establish novelty. Contribution checks and validation belong within
+   method design, whose formation is not limited to failure analysis or RCA.
+   General Harness-building principles do not replace R15's research objective
+   or authorize starting Harness development in this handoff stage.
 4. Distinguish baseline, candidate changes and tested instances. Negative local
    results only change the supported layer. Do not call known baseline facts new
    discoveries, nodal roots optimal controllers, or prototype timings real-time
