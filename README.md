@@ -14,7 +14,7 @@
 | [长期要求](项目记录/长期要求.md) | 目标、优先级、科研workflow与过去failure |
 | [研究决策与变更](项目记录/研究决策与变更.md) | baseline、推进过程、取舍和本轮清理记录 |
 
-[GitHub仓库](https://github.com/zyanzhi90-dot/pre-nnbo-neoc)，B0标签 `baseline-b0-2026-10-14`。固定副本位于 `00_基线快照_2026-10-14/`；旧文件保存在Git历史，工作区只保留有明确用途的内容。
+[GitHub仓库](https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc)，B0标签 `baseline-b0-2026-10-14`。固定副本位于 `00_基线快照_2026-10-14/`；旧文件保存在Git历史，工作区只保留有明确用途的内容。
 
 实验依赖见[requirements.txt](requirements.txt)，重跑入口见实验索引。每个完成的研究改动更新决策记录后执行：
 

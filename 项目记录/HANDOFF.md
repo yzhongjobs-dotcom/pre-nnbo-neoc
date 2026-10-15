@@ -45,7 +45,7 @@ B0方法链为：柱面有限足迹接触 → 完整Fn/Ft/My观测与MHE → 环
 
 重跑脚本和所需前序输出见实验索引，依赖见根目录requirements.txt。保留的JSON是历史原始结果，计时不必相同；迁移修改了少量路径及物理模块依赖，旧源码哈希不能冒充迁移后哈希。
 
-GitHub为 `zyanzhi90-dot/pre-nnbo-neoc`；B0标签 `baseline-b0-2026-10-14`。历史导入提交按现有记录分阶段补录，不代表恢复了每次原始编辑。
+GitHub为 `yzhongjobs-dotcom/pre-nnbo-neoc`；B0标签 `baseline-b0-2026-10-14`。历史导入提交按现有记录分阶段补录，不代表恢复了每次原始编辑。
 
 清理前完整提交为 `b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c`。需要某一旧节点时，以该提交建独立分支/worktree或用 `git show 提交:路径` 读取，保留当前进度，不reset主线。文件去向与原哈希见[清理记录](清理记录.json)。
 

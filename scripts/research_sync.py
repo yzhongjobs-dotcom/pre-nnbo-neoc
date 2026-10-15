@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-EXPECTED_REMOTE = "https://github.com/zyanzhi90-dot/pre-nnbo-neoc.git"
+EXPECTED_REMOTE = "https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.git"
 
 
 def git(root: Path, *args: str, timeout: int = 120) -> str:

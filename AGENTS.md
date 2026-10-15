@@ -1,7 +1,7 @@
 # Research work and GitHub synchronization
 
 This is a long-term research project. The user authorizes committing and pushing
-completed project changes to https://github.com/zyanzhi90-dot/pre-nnbo-neoc.
+completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
 
 1. Read `项目记录/HANDOFF.md` to resume, then the current user request and
    relevant parts of `项目记录/长期要求.md` and `项目记录/研究决策与变更.md`.
