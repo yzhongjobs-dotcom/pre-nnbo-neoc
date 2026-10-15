@@ -17,6 +17,11 @@ completed project changes to https://github.com/zyanzhi90-dot/pre-nnbo-neoc.
    results only change the supported layer. Do not call known baseline facts new
    discoveries, nodal roots optimal controllers, or prototype timings real-time
    certification. Check original evidence when it affects a decision.
+   The complete B0 question and method remain the current refinement starting
+   point; they have not been invalidated by local tests. Do not silently replace
+   them with the pre-B0 September 8 question or a new algorithmic subproblem.
+   Co-refinement may adjust an inaccurate question without requiring strict
+   falsification, provided the reasons support that level of change.
 5. Preserve `00_基线快照_2026-10-14/` byte-for-byte. The three working core
    documents now live under `研究/`; B0 contents and equations were preserved.
    They may change in future based on research evidence, with explicit deltas.
