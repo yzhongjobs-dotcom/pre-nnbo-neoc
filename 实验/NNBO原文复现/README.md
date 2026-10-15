@@ -1,4 +1,4 @@
-> 2026-10-15整理：以下为既有实验报告，所述“下一步／active”等属于当时时点。当前任务以[交接与研究安排](../../项目记录/HANDOFF.md)为准。已保留复用代码、关键结果与必要数据，其他旧产物可从固定Git版本回查。
+> 既有局部验证记录。过时选题与续做安排已移除，原配置和数值结论保留。后续安排见[HANDOFF](../../项目记录/HANDOFF.md)。
 
 # NNBO 原文最小机制复现
 
@@ -25,13 +25,9 @@
 
 原始论文为 Kong et al., *Neural-Network-Based Optimal Impedance Control for Robots in Physical Interaction With Soft Environments*, IEEE TSMC: Systems 55(10), 6463—6475 (2025)，DOI 10.1109/TSMC.2025.3579017。
 
-PDF 路径：
+本项目原文：[NNBO PDF](../../文献/原文/NNBO.pdf)。
 
-```text
-D:\桌面\科研Agent Harness设计\impedance-control-e2e\source-materials\user-batch-mpvic\Neural-Network-Based_Optimal_Impedance_Control_for_Robots_in_Physical_Interaction_With_Soft_Environments.pdf
-```
-
-来源页截图保留在 `source_pages`；PDF SHA256 和代码 SHA256 在 results.json 中。
+PDF及原运行代码SHA256见results.json；提取文本位于文献目录。重复公式截图已清理，核对时直接读PDF。
 
 | 原文位置 | 本次实现 |
 |---|---|
@@ -84,12 +80,12 @@ CSV 分别保存运行代价 Qe²+Rfhat²、0—t 的有限累计代价、critic
 
 由于末端仍有非零跟踪误差/作用力，本次不声称其无限时域累计成本有限或已经求得无限时域最优解。原文关于权重有界的论证与 PE 假设也未由本次有限仿真独立证明。
 
-这次成功建立了可运行的原始 single-critic 学习机制参照。此前 R15 的失败发生在另一套固定配置点根的初始求解，因此 **原文仿真跑通不会自动证明 R15 根可解**。后续先明确怎样从这个学习机制建立合格的固定参数根及策略质量，再检验 NEOC；不能直接把这里的三维权重塞到五状态 28 系数问题。
+这次成功建立了可运行的原始 single-critic 学习机制参照。此前 R15 的失败发生在另一套固定配置点根的初始求解，因此 **原文仿真跑通不会自动证明 R15 根可解**。原学习机制与B0固定根的状态、动作和表达不同，不能直接迁移其三维权重。
 
 ## 7. 文件与重跑
 
 - [运行脚本](run_reproduction.py)、[冻结配置](config.json)、[完整结果](results.json)。
-- 四个 `Q*_*.csv/.npz` 保存完整轨迹，`*_reference_check.csv` 保存反解核对。
+- 当前保留四个 `Q*_*.npz` 的完整轨迹及results.json；旧CSV副本和反解表可从Git回查或由driver重新生成。
 - [复现检查](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/NNBO%E5%8E%9F%E6%96%87%E6%9C%80%E5%B0%8F%E5%A4%8D%E7%8E%B0_2026-10-12/reproducibility.json)、[第一次运行结果](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/NNBO%E5%8E%9F%E6%96%87%E6%9C%80%E5%B0%8F%E5%A4%8D%E7%8E%B0_2026-10-12/run1/results.json)、[运行日志](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/NNBO%E5%8E%9F%E6%96%87%E6%9C%80%E5%B0%8F%E5%A4%8D%E7%8E%B0_2026-10-12/run_log.txt)。
 - [绘图脚本](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/NNBO%E5%8E%9F%E6%96%87%E6%9C%80%E5%B0%8F%E5%A4%8D%E7%8E%B0_2026-10-12/plot_diagnostics.py)：当前 Python 未安装 Matplotlib，安装下载未完成，未生成或宣称已检查诊断图。数值运行和复现检查不依赖它；完整轨迹已保存为 CSV/NPZ。
 - [汇总与重跑比对脚本](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/NNBO%E5%8E%9F%E6%96%87%E6%9C%80%E5%B0%8F%E5%A4%8D%E7%8E%B0_2026-10-12/summarize_reproduction.py)。
@@ -98,8 +94,6 @@ CSV 分别保存运行代价 Qe²+Rfhat²、0—t 的有限累计代价、critic
 
 ```powershell
 python -X utf8 run_reproduction.py
-python -X utf8 summarize_reproduction.py
-python -X utf8 plot_diagnostics.py
 ```
 
-`run1` 是首轮基准，不覆盖它。Matplotlib 3.9.4 仅绘图需要；数值运行需要 NumPy/SciPy。
+首轮重复副本已移出工作区，历史结果仍在Git。数值运行需要NumPy/SciPy；重跑请使用独立副本或新输出位置。
