@@ -9,12 +9,19 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    from Git only when needed. Do not repeatedly reread all history.
 2. Current scope: file consolidation and handoff. Idea optimization has not been
    started; wait for the user's instruction to begin that research stage.
-3. Develop the idea from field state, important natural failures, strongest-prior
-   failure mechanisms and domain taste. Co-refine question, prior limitations
-   and method. Do not shrink the question to preserve an algorithm, evade prior
-   because modules overlap, or require NEOC to be uniquely indispensable.
+3. Follow the user-approved scientific principles in `项目记录/长期要求.md`:
+   co-refine the question, prior limitations and method from field understanding,
+   domain taste and required capabilities. Preserve the field-state research
+   module while updating its evidence. Do not shrink the question to preserve an
+   algorithm, evade prior because modules overlap, or require NEOC to be uniquely
+   indispensable. Failure analysis and mechanism transfer are useful routes,
+   not mandatory formation paths for every contribution. For a substantially
+   changed core question, present grounded options for user selection; explore
+   within the selected question proactively without repeated approval.
 4. Distinguish baseline, candidate changes and tested instances. Negative local
-   results only change the supported layer. Do not call known baseline facts new
+   results only change the supported layer; accumulated evidence may justify
+   higher-level revision. Do not use locality to shield an idea indefinitely.
+   Do not call known baseline facts new
    discoveries, nodal roots optimal controllers, or prototype timings real-time
    certification. Check original evidence when it affects a decision.
    The complete B0 question and method remain the current refinement starting
