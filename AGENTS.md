@@ -7,8 +7,10 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    relevant parts of `项目记录/长期要求.md` and `项目记录/研究决策与变更.md`.
    Older root handoffs and dated plans were consolidated; recover originals
    from Git only when needed. Do not repeatedly reread all history.
-2. Current scope: file consolidation and handoff. Idea optimization has not been
-   started; wait for the user's instruction to begin that research stage.
+2. Current scope: the user has started independent theory/experiment review and
+   authorized a quick evaluation of candidate 2 (learned adaptive impedance).
+   This authorization does not select candidate 2 as the main method or change
+   the core research question. See the current HANDOFF and candidate report.
 3. Follow the user-approved scientific principles in `项目记录/长期要求.md`:
    co-refine the question, prior limitations and method from field understanding,
    domain taste and required capabilities. Preserve the field-state research

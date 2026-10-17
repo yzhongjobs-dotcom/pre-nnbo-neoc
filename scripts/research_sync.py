@@ -44,7 +44,9 @@ def verify_snapshot(root: Path):
     manifest = root / "00_基线快照_2026-10-14" / "manifest.json"
     data = json.loads(manifest.read_text(encoding="utf-8"))
     for entry in data["files"]:
-        snapshot = (root / entry["snapshot"]).resolve()
+        # The frozen manifest was produced on Windows; accept its separators
+        # without rewriting the byte-preserved reference manifest on POSIX.
+        snapshot = (root / entry["snapshot"].replace("\\", "/")).resolve()
         if not snapshot.is_relative_to(manifest.parent.resolve()):
             raise RuntimeError("Baseline snapshot path escaped its directory")
         if hashlib.sha256(snapshot.read_bytes()).hexdigest() != entry["sha256"]:
