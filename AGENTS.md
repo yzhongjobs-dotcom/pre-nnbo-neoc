@@ -15,15 +15,15 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    Candidate A and its tests remain contextual evidence, not the current selected
    replacement question. Any substantive problem revision must state its basis
    and impact clearly. See HANDOFF for the latest evidence and next work.
-3. Follow the user-approved scientific principles in `项目记录/长期要求.md`:
-   co-refine the question, prior limitations and method from field understanding,
-   domain taste and required capabilities. Preserve the field-state research
-   module while updating its evidence. Do not shrink the question to preserve an
-   algorithm, evade prior because modules overlap, or require NEOC to be uniquely
-   indispensable. Failure analysis and mechanism transfer are useful routes,
-   not mandatory formation paths for every contribution. For a substantially
-   changed core question, present grounded options for user selection; explore
-   within the selected question proactively without repeated approval.
+3. Follow `项目记录/长期要求.md` for the approved goal, research workflow
+   and stage-specific judgment standards. Co-refine important questions, prior
+   limitations and complete methods through interleaved literature analysis,
+   design and quick task-relevant verification. Actively propose and implement
+   candidate mechanisms; do not turn the workflow into a defensive checklist or
+   require all prior to fail before exploration. Deepen strong in-field work and
+   actively transfer mature mechanisms where useful. For a substantially changed
+   core question, explain grounded options for user selection; explore within
+   the selected question proactively without repeated approval.
 4. Distinguish baseline, candidate changes and tested instances. Negative local
    results only change the supported layer; accumulated evidence may justify
    higher-level revision. Do not use locality to shield an idea indefinitely.
