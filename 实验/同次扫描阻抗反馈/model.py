@@ -326,7 +326,7 @@ def decide(y,zref,cfg,resp,temporal,method,policy=np.zeros(8)):
 
 
 @njit(cache=True)
-def episode(p,noise,method,cfg0,latency=0.,dt=DT,nq=33,collect=False,policy=np.zeros(8)):
+def episode(p,noise,method,cfg0,latency=0.,dt=DT,nq=33,collect=False,policy=np.zeros(8),geometry_prior=False):
     cfg=cfg0.copy();cfg[7]=p[9]
     y=initial(p,cfg[:4]);zref=y[1]
     count=len(noise)-1
@@ -335,7 +335,13 @@ def episode(p,noise,method,cfg0,latency=0.,dt=DT,nq=33,collect=False,policy=np.z
     ndecision=(count+3)//4
     xx=np.zeros((ndecision,16));qq=np.zeros((ndecision,25))
     metrics=np.zeros(10);metrics[8]=1e3;metrics[9]=0.
-    response0=np.array([1000.,0.,0.,FD,.6,zref,0.,0.])
+    initial_k=1000.
+    if geometry_prior:
+        # Uses the declared calibrated initial surface frame and measured initial pose,
+        # never the true material parameter. Validity is checked as a model assumption.
+        initial_k=1.5*FD/zref if zref<A*A/(2*R) else FD/(zref-A*A/(6*R))
+        initial_k=min(7000.,max(200.,initial_k))
+    response0=np.array([initial_k,0.,0.,FD,.6,zref,0.,0.])
     measured=np.array([FD,.6,0.]);target=cfg[:4].copy();ff=0.
     pending=target.copy();pendingff=0.;release=-1.;decisions=0
     for i in range(count):

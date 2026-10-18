@@ -8,12 +8,13 @@ import json,hashlib
 import numpy as np
 from scipy.integrate import solve_ivp
 import model as m
+import reference_controller as rc
 from verify import pressure_discrete,gain_independent
 from run import noises
 HERE=Path(__file__).resolve().parent
 
 
-def independent_episode(p,noise,method,cfg0,policy,geometry=False):
+def independent_episode(p,noise,method,cfg0,policy,geometry=True):
     cfg=cfg0.copy();cfg[7]=p[9]
     y=m.initial(p,cfg[:4]);zr=y[1]
     initial_k=1000.
@@ -32,7 +33,8 @@ def independent_episode(p,noise,method,cfg0,policy,geometry=False):
         if method!=0:ob[:2]=resp[3:5]
         sensed=cfg[6]*ob+(1-cfg[6])*sensed;resp[3:5]=sensed[:2]
         if i%4==0:
-            choice,_=m.decide(y,zr,cfg,resp,temporal,method,policy)
+            if method==13:choice=rc.decide(y,zr,cfg,resp,temporal)
+            else:choice,_=m.decide(y,zr,cfg,resp,temporal,method,policy)
             target=choice[:4];ff=choice[4]
         def rhs(tt,yy):
             state=yy[:10]
@@ -59,20 +61,26 @@ def independent_episode(p,noise,method,cfg0,policy,geometry=False):
 def main():
     cfg=np.array(json.loads((HERE/'joint_validation.json').read_text())['cfgs']['fixed_PI'])
     policy=np.zeros(8)
-    path=HERE/'learned_policy.json'
-    if path.exists():policy=np.array(json.loads(path.read_text())['actor_theta'])
+    path=HERE/'final_policies.json'
+    if path.exists():policy=np.array(json.loads(path.read_text())['policies']['learned_feedback'])
     ps=m.sample(18,8201);ns=noises(ps,8202)
     output=[]
     for case in [0,2]:
-      for method in [0,6,12]:
-        fast=m.episode(ps[case],ns[case],method,cfg,policy=policy)[0]
-        fine=m.episode(ps[case],ns[case],method,cfg,policy=policy,dt=.00025,nq=129)[0]
-        independent,_,_=independent_episode(ps[case],ns[case],method,cfg,policy)
+      for method in [0,6,12,13]:
+        cc=cfg.copy()
+        if method==13:
+            cc=np.array(json.loads((HERE/'reference_tuning.json').read_text())['cfg'])
+            fast=rc.episode(ps[case],ns[case],cc)[0]
+            fine=rc.episode(ps[case],ns[case],cc,dt=.00025,nq=129)[0]
+        else:
+            fast=m.episode(ps[case],ns[case],method,cc,policy=policy,geometry_prior=True)[0]
+            fine=m.episode(ps[case],ns[case],method,cc,policy=policy,geometry_prior=True,dt=.00025,nq=129)[0]
+        independent,_,_=independent_episode(ps[case],ns[case],method,cc,policy)
         row={'validation_case':case,'method':method,'baseline_J':float(fast[0]),'fine_J':float(fine[0]),
            'DOP853_J':float(independent[0]),'relative_mesh_difference':float(fine[0]/fast[0]-1),
            'relative_DOP853_difference':float(independent[0]/fast[0]-1)}
         output.append(row);print(row,flush=True)
     result={'scope':'Recomputed causal feedback on independently written DOP853 plant, no latency; validation cases, not test selection',
-      'rows':output,'source_sha256':{f:hashlib.sha256((HERE/f).read_bytes()).hexdigest() for f in ['model.py','audit_closed_loop.py','verify.py']}}
+      'rows':output,'source_sha256':{f:hashlib.sha256((HERE/f).read_bytes()).hexdigest() for f in ['model.py','audit_closed_loop.py','verify.py','reference_controller.py']}}
     (HERE/'closed_loop_checks.json').write_text(json.dumps(result,indent=2)+'\n')
 if __name__=='__main__':main()
