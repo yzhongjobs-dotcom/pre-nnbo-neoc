@@ -7,12 +7,14 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    relevant parts of `项目记录/长期要求.md` and `项目记录/研究决策与变更.md`.
    Older root handoffs and dated plans were consolidated; recover originals
    from Git only when needed. Do not repeatedly reread all history.
-2. Current scope: the user has authorized continued problem/method co-refinement
-   toward top-journal quality. Following the prior review, explore recommended
-   candidate A within continuous soft-contact scanning. Its working design is
-   研究/候选A_问题与方法设计.md; it is not an established novelty claim or a
-   permanently selected organ/platform. Do not silently adopt unrelated topics.
-   See HANDOFF for the latest discriminatory experiment and resource status.
+2. Current scope: the user explicitly corrected the drift toward abstract
+   whole-acquisition candidate A. Resume from the original question: use online
+   environment information to rapidly update near-optimal impedance with actual
+   control value. Compare the model/optimization route and the learned impedance
+   route; investigate task benefit and computational bottlenecks together.
+   Candidate A and its tests remain contextual evidence, not the current selected
+   replacement question. Any substantive problem revision must state its basis
+   and impact clearly. See HANDOFF for the latest evidence and next work.
 3. Follow the user-approved scientific principles in `项目记录/长期要求.md`:
    co-refine the question, prior limitations and method from field understanding,
    domain taste and required capabilities. Preserve the field-state research
