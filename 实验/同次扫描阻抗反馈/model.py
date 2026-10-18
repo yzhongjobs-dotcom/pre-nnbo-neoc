@@ -132,9 +132,9 @@ def dynamics(y,force,target,ff,zref,measured,cfg):
 
 
 @njit(cache=True)
-def stage(y,force,ut,un):
+def stage(y,force,ut,un,zref,normal_weight=0.):
     # Force, tangential path, normal velocity and executed command effort.
-    return ((force[0]-FD)/.3)**2+(y[0]/.0015)**2+.04*(y[3]/.03)**2+.015*((ut/3.)**2+((un-FD)/3.)**2)
+    return ((force[0]-FD)/.3)**2+(y[0]/.0015)**2+normal_weight*((y[1]-zref)/.0015)**2+.04*(y[3]/.03)**2+.015*((ut/3.)**2+((un-FD)/3.)**2)
 
 
 @njit(cache=True)
@@ -149,7 +149,7 @@ def advance(t,y,p,target,ff,zref,measured,cfg,duration,dt=DT,nq=33):
         fm,_=wrench(t+i*dt+.5*h,mid,p,nq)
         dm,utm,unm,am,sm=dynamics(mid,fm,target,ff,zref,measured,cfg)
         yy+=h*dm
-        metrics[0]+=h*stage(mid,fm,utm,unm)
+        metrics[0]+=h*stage(mid,fm,utm,unm,zref,cfg[8] if len(cfg)>8 else 0.)
         metrics[1]+=h*(fm[0]-FD)**2
         metrics[2]+=h*mid[0]**2
         metrics[3]=max(metrics[3],fm[0])
@@ -215,22 +215,24 @@ def library(y,zref,cfg,resp,method,temporal):
     arr=np.zeros((25,5))
     arr[0,:4]=cfg[:4]
     k=resp[0]
+    qratio=(cfg[8] if len(cfg)>8 else 0.)*(.3/.0015)**2
     for index in range(1,25):
         j=index-1
         kfac=.5 if (j//12)==0 else 1.
-        kn=0. if (j//6)%2==0 else 150.
-        zeta=np.array([.35,.7,1.1])[(j//2)%3]
+        # Closed-form steady task matching is a mature simple competitor.
+        kn=0. if (j//6)%2==0 else min(800.,(1+cfg[4])*qratio/max(k,200.))
+        dn=cfg[3]*np.array([.5,1.,2.])[(j//2)%3]
         fraction=0. if j%2==0 else 1.
         kt=cfg[0]*kfac
-        dn=2*zeta*np.sqrt(MASS[1]*((1+cfg[4])*k+kn))
-        dt=2*.8*np.sqrt(MASS[0]*kt)
-        arr[index,:4]=np.array([kt,kn,dt,dn])
+        dd=2*.8*np.sqrt(MASS[0]*kt)
+        arr[index,:4]=np.array([kt,kn,dd,dn])
         source=temporal if method==4 else resp[1]*(cfg[7]+y[2])+resp[2]
-        vel=-source/max(k,200.)
+        vel=-source/max(k+kn/(1+cfg[4]),200.)
         arr[index,4]=fraction*dn*min(.02,max(-.02,vel))
         if method==5:arr[index,4]=0.
         if method==7:
             arr[index,:4]=cfg[:4]
+            vel=-source/max(k+cfg[1]/(1+cfg[4]),200.)
             arr[index,4]=fraction*cfg[3]*min(.02,max(-.02,vel))
     arr[:,:4]=np.minimum(np.maximum(arr[:,:4],GMIN),GMAX)
     return arr
@@ -269,7 +271,7 @@ def score_library(y,zref,cfg,resp,temporal,mode,arr):
             fm=predicted_force(tau+.5*dt,mid,y,ext,temporal,mode)
             dm,um,nm,_,_=dynamics(mid,fm,tar,ff,zref,sensed,cfg)
             yy+=dt*dm
-            value=stage(mid,fm,um,nm)
+            value=stage(mid,fm,um,nm,zref,cfg[8] if len(cfg)>8 else 0.)
             if not np.isfinite(value) or abs(yy[1])>.08:
                 values[c]=1e10;break
             values[c]+=dt*value
@@ -288,6 +290,16 @@ def features(y,zref,cfg,resp,temporal):
 def decide(y,zref,cfg,resp,temporal,method):
     if method<2:
         out=np.zeros(5);out[:4]=cfg[:4]
+        return out,np.zeros(25)
+    if method in (8,9,10,11):
+        out=np.zeros(5);out[:4]=cfg[:4]
+        qratio=(cfg[8] if len(cfg)>8 else 0.)*(.3/.0015)**2
+        if method in (9,10):out[1]=min(800.,(1+cfg[4])*qratio/resp[0])
+        if method in (8,10,11):
+            source=temporal if method==11 else resp[1]*(cfg[7]+y[2])+resp[2]
+            vel=-source/max(resp[0]+out[1]/(1+cfg[4]),200.)
+            scale=cfg[9] if len(cfg)>9 else 1.
+            out[4]=scale*out[3]*min(.02,max(-.02,vel))
         return out,np.zeros(25)
     if method in (2,3):
         out=np.zeros(5);out[:4]=cfg[:4]
