@@ -287,7 +287,19 @@ def features(y,zref,cfg,resp,temporal):
 
 
 @njit(cache=True)
-def decide(y,zref,cfg,resp,temporal,method):
+def decide(y,zref,cfg,resp,temporal,method,policy=np.zeros(8)):
+    if method==12:
+        # Structured offline policy search: deployment features only, no oracle label.
+        lk=np.log(max(200.,resp[0])/1000.)
+        logkn=policy[0]+policy[1]*lk+policy[2]*np.tanh((resp[3]-FD)/.3)+policy[7]*np.tanh(y[3]/.01)
+        kn=min(800.,max(0.,np.exp(min(8.,max(-8.,logkn)))))
+        if len(cfg)>8 and cfg[8]==0.:kn=0.
+        dn=min(150.,max(2.,np.exp(policy[3]+policy[4]*lk)))
+        source=policy[6]*(resp[1]*(cfg[7]+y[2])+resp[2])+(1-policy[6])*temporal
+        vel=-source/max(200.,resp[0]+kn/(1+cfg[4]))
+        out=np.zeros(5);out[:4]=cfg[:4];out[1]=kn;out[3]=dn
+        out[4]=policy[5]*dn*min(.02,max(-.02,vel))
+        return out,np.zeros(25)
     if method<2:
         out=np.zeros(5);out[:4]=cfg[:4]
         return out,np.zeros(25)
@@ -314,7 +326,7 @@ def decide(y,zref,cfg,resp,temporal,method):
 
 
 @njit(cache=True)
-def episode(p,noise,method,cfg0,latency=0.,dt=DT,nq=33,collect=False):
+def episode(p,noise,method,cfg0,latency=0.,dt=DT,nq=33,collect=False,policy=np.zeros(8)):
     cfg=cfg0.copy();cfg[7]=p[9]
     y=initial(p,cfg[:4]);zref=y[1]
     count=len(noise)-1
@@ -341,7 +353,7 @@ def episode(p,noise,method,cfg0,latency=0.,dt=DT,nq=33,collect=False):
         measured=cfg[6]*mm+(1-cfg[6])*measured
         resp[3:5]=measured[:2]
         if i%4==0:
-            decision,scores=decide(y,zref,cfg,resp,temp,method)
+            decision,scores=decide(y,zref,cfg,resp,temp,method,policy)
             pending=decision[:4].copy();pendingff=decision[4]
             release=t+latency
             if collect:
