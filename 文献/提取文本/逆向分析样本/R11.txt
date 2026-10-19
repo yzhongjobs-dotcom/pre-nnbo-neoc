@@ -1,0 +1,887 @@
+          918                                                                                           IEEE TRANSACTIONS ON ROBOTICS, VOL. 27, NO. 5, OCTOBER 2011
+
+
+
+
+             Human-Like Adaptation of Force and Impedance in
+                    Stable and Unstable Interactions
+                 Chenguang Yang, Member, IEEE, Gowrishankar Ganesh, Member, IEEE, Sami Haddadin, Member, IEEE,
+                         Sven Parusel, Alin Albu-Schäeffer, Member, IEEE, and Etienne Burdet, Member, IEEE
+
+
+             Abstract—This paper presents a novel human-like learning con-                     these tasks with ease, robots lack such adaptation capabilities
+          troller to interact with unknown environments. Strictly derived                      and have generally not been conceived to deal with unstable
+          from the minimization of instability, motion error, and effort, the                  interactions.
+          controller compensates for the disturbance in the environment in
+          interaction tasks by adapting feedforward force and impedance. In                       A robust control approach was used in most previous robotic
+          contrast with conventional learning controllers, the new controller                  works to guarantee interaction stability, where explicit design
+          can deal with unstable situations that are typical of tool use and                   bounds are developed for a particular controller to maintain
+          gradually acquire a desired stability margin. Simulations show that                  stability while the control structure is fixed [3]–[5]. However,
+          this controller is a good model of human motor adaptation. Robotic                   human beings use a different strategy to deal with instability [6],
+          implementations further demonstrate its capabilities to optimally
+          adapt interaction with dynamic environments and humans in joint                      [7]: They adapt endpoint force and viscoelasticity to compensate
+          torque controlled robots and variable impedance actuators, with-                     for the environment forces and instability by minimizing error
+          out requiring interaction force sensing.                                             and effort and ensuring a constant stability margin [8], [9].
+            Index Terms—Feedforward force, human motor control,                                Similar to humans, the learning controller that is developed in
+          impedance, robotic control.                                                          this paper increases feedforward force and impedance as long as
+                                                                                               the error is large, i.e., until the disturbing effect that results from
+                                       I. INTRODUCTION                                         the interaction with the environment is overcome. In the absence
+                                                                                               of a disturbance, the controller will decrease feedforward force
+                EW APPLICATIONS in service robotics, health care,
+          N     small-batch manufacturing, construction, entertainment,
+          and agriculture require efficient interaction with unknown envi-
+                                                                                               and impedance to a small margin to keep compliance while
+                                                                                               maintaining stability.
+                                                                                                  Iterative learning control (ILC) [10], i.e., learning actuator
+          ronments and human beings [1], [2]. These interactions are often                     force trial after trial along a repeated trajectory by minimizing
+          unstable, e.g., when the task involves a tool or if the interaction                  feedback error, has produced efficient algorithms that have been
+          is with an active environment. For example, carving requires                         demonstrated in various robotic implementations [11], and has
+          compensation for the instability and unknown forces due to the                       provided an excellent model for human motor force adaptation
+          contact with the raw material. While humans learn to perform                         in a novel stable interaction [12]. However, such algorithms
+                                                                                               are inefficient in unstable situations, as the force will be dif-
+                                                                                               ferent in each trial due to noise or external disturbances [13].
+             Manuscript received December 6, 2010; revised May 4, 2011; accepted May
+                                                                                               Furthermore, safety (in particular, in a human–robot interac-
+          23, 2011. Date of publication July 5, 2011; date of current version October 6,       tion) [14]–[17] and energy minimization are required to keep
+          2011. This paper was recommended for publication by Associate Editor Y. Choi         mechanical impedance low, which is out of the scope of ILC.
+          and Editor B. J. Nelson upon evaluation of the reviewers’ comments. The first
+          two authors contributed equally to the work. This work was supported in part
+                                                                                                  Control of the robot to match a target relation between force
+          by the European Union FP7-ICT-2007-3 VIACTORS Grant.                                 and displacement has been proposed in impedance control [18].
+             C. Yang was with the Department of Bioengineering, Imperial College               For example, an ILC approach was developed in [19] to learn
+          London, London, SW7 2AZ, U.K. He is now with School of Computing
+          and Mathematics, University of Plymouth, Plymouth, PL4 8AA, U.K. (e-mail:
+                                                                                               the target impedance model. However, strict impedance control
+          cyang@ieee.org).                                                                     methods [18] require measurement of interaction forces and a
+             G. Ganesh was with the Department of Bioengineering, Imperial College             fixed target impedance model so that if the environment changes
+          London, London, SW7 2AZ, U.K. He is now with Computational Neuro-
+          science Laboratories, Advanced Telecommunication Research Institute, Kyoto
+                                                                                               drastically, the interaction may become unstable. In addition, if
+          6190288, Japan, and also with the National Institute of Information and Com-         reproducible interaction forces are not considered, they will
+          munications Technology, Japan (e-mail: gganesh@atr.jp).                              interfere with the impedance control.
+             S. Haddadin and S. Parusel are with the German Aerospace Center, Wessling
+          82234, Germany (e-mail: sami.haddadin@dlr.de; sven.parusel@dlr.de).
+                                                                                                  Impedance control strategies can be optimally implemented
+             A. Albu-Schäeffer is with the German Aerospace Center, Wessling 82234,           using variable impedance actuators (VIA) [17], [20]. VIA pro-
+          Germany, and also with the Technical University of Munich, Munich 80333,             vide robots embodied impedance as humans have through their
+          Germany (e-mail: Alin.Albu-Schaeffer@dlr.de).
+             E. Burdet is with the Department of Bioengineering, Imperial College
+                                                                                               muscles. This yields immediate response to impact as well as
+          London, London, SW7 2AZ, U.K. (e-mail: eburdet@imperial.ac.uk).                      tunable (e.g., compliant or stiff) interaction. VIA further open
+             This paper has supplementary downloadable material available at                   possibilities of low-energy behaviors and control of viscoelas-
+          http://ieeexplore.ieee.org.
+             Color versions of one or more of the figures in this paper are available online
+                                                                                               ticity to improve performance in tasks such as assembly, saw-
+          at http://ieeexplore.ieee.org.                                                       ing, throwing, hammering, etc., as well as for interaction with
+             Digital Object Identifier 10.1109/TRO.2011.2158251                                humans. However, concretizing these potentialities requires
+
+                                                                            1552-3098/$26.00 © 2011 IEEE
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+         YANG et al.: HUMAN-LIKE ADAPTATION OF FORCE AND IMPEDANCE IN STABLE AND UNSTABLE INTERACTIONS                                                               919
+
+
+
+
+         Fig. 1. Adaptation to novel dynamics: from humans to robot. (a) Investigation of point-to-point arm movements with lateral instability produced by a robotic
+         interface showed that humans adapt mechanical impedance to ensure stable movements with minimal metabolic cost [6]. (b) Control diagram of the biomimetic
+         controller that is presented in this paper and was derived from the results of this investigation.
+
+         appropriate algorithms to adapt force and impedance to the task                   (CNS) reduces movement error trial after trial by adapting feed-
+         and to the dynamic environment.                                                   forward control and compensating for the environment forces.
+            In this context, this paper presents an automatic motor behav-                    To manipulate objects or use tools, one has to interact with the
+         ior for a robot to perform tasks skillfully in unknown dynamic                    environment and compensate for forces and instability that arise
+         interactions. It starts by analyzing the control strategy that is                 from it. While muscle intrinsic properties and reflexes generally
+         used by the human central nervous system (CNS) in interac-                        stabilize motion, the stabilization that is provided by reflexes
+         tion tasks and then designs a biomimetic learning controller                      is limited by a time delay of at least 60 ms, which means that
+         for robots using Lyapunov theory. The resulting adaptation of                     in some cases, reflexes can create instability [26]. Furthermore,
+         impedance and force is demonstrated in simulations and im-                        many tasks that are common to daily life, e.g., most tasks that
+         plemented on the 7 degree-of-freedom (DOF) DLR lightweight                        involve tool use, are unstable [27]. This instability will amplify
+         robot (LWR), as well as on a novel VIA [17]. The human-like                       the important variability that is observed in consecutive arm
+         adaptivity that is shown by robots in these stable and unstable                   movements and make them unpredictable.
+         tasks illustrates the potential of the novel learning controller.                    In a series of studies, we have analyzed the learning of stable
+                                                                                           and unstable dynamics (see Fig. 1(a), e.g., [6], [28], and [29]).
+           II. CONCURRENT ADAPTATION OF FORCE AND IMPEDANCE                                We found principles of motor learning [8], [9] that yield the
+                                                                                           adaptation of both force and impedance by the concurrent min-
+         A. Review of Human Motor Control and Learning                                     imization of motion error and effort while maintaining a fixed
+            To develop a controller with biomimetic adaptation prop-                       stability margin.
+         erties, we first review human motor control and learning. We
+         analyze them from a robotics point of view by considering the
+                                                                                           B. Biomimetic Adaptive Controller
+         influence of both biomechanical and neural control aspects.
+            First, it was observed that when the human hand is slightly                       Let us now derive a robot controller with adaptive proper-
+         perturbed during arm movements, it tends to return to the undis-                  ties that are similar to human motor control as modeled in the
+         turbed trajectory, as if the hand were connected to a spring along                previous review. In the following,  ·  denotes the Euclidean
+         a planned trajectory [21]. This spring-like property stems from                   vector norm and induced matrix norm, tr{·} stands for the trace
+         muscle viscoelasticity and the stretch reflex, which produce a                    of a matrix, 0[m ,n ] for an (m × n)-dimensional matrix with all
+         restoring force toward the undisturbed trajectory. Analysis of                    zero elements, and ⊗ is the Kronecker product. The task for this
+         this restoring force shows that the stiffness and damping in-                     controller consists of the following:
+         crease with muscle activation [22] or endpoint force [23], and                       1) moving an m DOF robot (or a human arm) with dynamics
+         both stiffness and damping can be adapted to compensate for dy-
+         namic environments [24]. This provides feedback during move-                                               M (q)q̈ + C(q, q̇)q̇ + G(q)                      (1)
+         ment due to muscle elastic property and reflexes, i.e., neural
+         feedback.                                                                              where q ∈ Rm is the joint position vector, M (q) is the
+            In addition, skillful movements require a feedforward mech-                         (symmetric, positive definite) mass matrix, C(q, q̇)q̇ rep-
+         anism to plan the forces for a task in advance. Shadmehr and                           resents the torque vector due to Coriolis and centrifu-
+         Mussa-Ivaldi have studied how this feedforward is acquired dur-                        gal forces, and G(q) represents the torque vector due to
+         ing performance by having subjects repeat planar arm reaching                          gravity;
+         movements while interacting with a novel environment [25].                          2) using actuators/muscles producing joint torques τu and
+         The results demonstrate that the human central nervous system                          suffering from noise τν (t) ≤ ν̄ < ∞;
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+          920                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 27, NO. 5, OCTOBER 2011
+
+
+
+             3) in an n-dimensional Cartesian task space (n ≤ m) that                       where
+                is characterized by an interaction force FI (x, ẋ, t) that
+                depends on Cartesian position x, velocity ẋ, and time;                                 Φ̃(t) ≡ Φ(t) − Φ∗ (t)
+             4) while tracking a C 2 bounded periodic task reference tra-                                      ≡ [vec(K̃(t))T , vec(D̃(t))T , τ̃ T (t)]T
+                jectory q ∗ (t):
+                                                                                            with
+                               q ∗ (t) = q ∗ (t − T ) < ∞ ,       T > 0.             (2)
+                                                                                                                      K̃ ≡ K(t) − KE (t)
+             Corresponding to the previous analysis of human motion con-
+          trol, we propose a robot/human controller that is composed of                                               D̃ ≡ D(t) − DE (t)
+          feedforward and feedback [see Fig. 1(b)], both of which are                                                  τ̃ ≡ τ (t) − τE (t)                            (9)
+          adapted during movements
+                                                                                            and
+           τu (t) = −τ (t) − K(t)e(t) − D(t)ė(t) − L(t)ε(t) + τr (t)
+                                                                    (3)                                        Q ≡ diag(I ⊗ QK , I ⊗ QD , Qτ )                       (10)
+          where
+                                                                                            in which QK , QD , and Qτ are the symmetric positive-definite
+                      e(t) ≡ q(t) − q ∗ (t) ,       ė(t) ≡ q̇(t) − q̇ ∗ (t)                matrices corresponding to the learning rate of K, D, and τ ,
+          are position error and velocity error relative to the task reference              respectively [see (14) and (16)]. In addition, the CNS tends to
+          trajectory and                                                                    minimize motion error that is translated as concurrent minimiza-
+                                                                                            tion of
+                              ε ≡ ė(t) + κe(t) ,           κ>0
+                                                                                                                              1 T
+                                                                                                                  Vp (t) ≡      ε (t)M (q)ε(t)                       (11)
+          is the tracking error commonly used in robot control [30].                                                          2
+          In the controller (3), −τ (t) is the learned feedforward, and                     such that the overall cost function to minimize is
+          −K(t)e(t) − D(t)ė(t) is the feedback due to stiffness K(t)
+          and damping D(t) learned through interaction with the envi-                                               V (t) ≡ Vp (t) + Vc (t) .                        (12)
+          ronment, as described in (14) and (16), shown below. The term
+          −L(t)ε(t) corresponds to the desired stability margin, where                      In the following, we use the motion error cost Vp of (11) as a
+          L(t) is a symmetric positive-definite matrix with minimal eigen-                  stability measure. As human and robot motions have finite time,
+          value                                                                             we define stability using finite time intervals. The interaction of
+                                                                                            a robot or the human body with an environment is stable from
+                                   λm in (L(t)) ≥ λL > 0                             (4)    time t, if there is δ > 0 so that for all instant t1 > t
+          that ensures stable but compliant motion control. In the human                                             t1
+          arm, this minimal feedback is produced by passive mechanical                                                   V̇p (σ) dσ < δ .                  (13)
+                                                                                                                        t
+          properties of muscles without contraction and reflexes [31]. To
+          compensate for robot/arm dynamics and bounded noise, we set                       Otherwise, the interaction is unstable. This definition, which
+                                                                                            is similar to uniformly ultimate boundedness stability [32], is
+                          τr (t) ≡ M q̈ ∗ + C q̇ ∗ + G − sign(ε)ν̄                   (5)    illustrated by an example in Appendix A. As the evolution time
+          with the sign function that is defined component wise.                            is assumed to be extendable, this definition actually describes
+             Let KE (t), DE (t), and τE be the stiffness, damping, and                      the tendency to stability/instability.
+          feedforward torque that is required to maintain stability and to                     It will be shown in Section IV how this minimization of V (t)
+          reduce systematic deviation caused by the interaction with the                    leads to the adaptation of feedforward torque and impedance as
+          environment, which are represented by the vector                                  described now. Feedforward torque is adapted through
+
+                    Φ∗ (t) ≡ [vec(KE (t))T , vec(DE (t))T , τET (t)]T                (6)             δτ (t) = τ (t) − τ (t − T ) = Qτ (ε(t) − γ(t)τ (t))
+
+          where vec(·) is the column vectorization operator. Correspond-                              τ (t) = 0[n ,1] , t ∈ [0, T ) .                                (14)
+          ing to the human motor behavior as observed in Section II-A, we
+                                                                                            where Qτ is a symmetric positive-definite constant matrix, and
+          assume that the CNS adapts stiffness, damping, and feedforward
+          torque                                                                                                                    a
+                                                                                                                      γ(t) =                                         (15)
+                                                                                                                               1 + bε(t)2
+                      Φ(t) ≡ [vec(K(t)) , vec(D(t)) , τ (t)]
+                                              T               T    T      T
+                                                                                     (7)
+                                                                    ∗
+                                                                                            is a forgetting factor of learning with positive a and b. In fact,
+          such that Φ(t) approaches the required value Φ (t), while at the                  any positive value of γ > 0 can be used to yield the convergent
+          same time, the CNS tends to minimize the metabolic cost so                        result as will be shown in Section IV-A; however, a too large
+          that no extra effort will be spent on the learned impedance and                   γ will prevent good buildup of torque and impedance, while a
+          feedforward torque. This can be summarized as minimization                        small γ will slow the decrease/unlearn of torque and impedance.
+          of the cost function                                                              The aforesaid definition of γ has the advantage that when the
+                                    
+                                  1 t                                                       tracking performance is bad, i.e., ε(t) is large, then γ(t) is
+                        Vc (t) ≡          Φ̃T (σ)Q−1 Φ̃(σ)dσ           (8)
+                                  2 t−T                                                     small, and vice versa. The values of a and b can be selected
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+         YANG et al.: HUMAN-LIKE ADAPTATION OF FORCE AND IMPEDANCE IN STABLE AND UNSTABLE INTERACTIONS                                                               921
+
+
+
+         by the designer to adapt the response speed. The stiffness and                    controller can be implemented (on the actuators) using
+         damping matrices are adapted according to
+                                                                                                                         τu ≡ J T Fu .                             (18)
+                        δK(t) = K(t) − K(t − T )
+                                                                                         If the robot position sensing is done in joint space, the Carte-
+                              = QK ε(t)eT (t) − γ(t)K(t)                                   sian space version of the controller requires a forward kinematic
+                                                                                           transformation to compute the end effector’s position in Carte-
+                        δD(t) = D(t) − D(t − T )
+                                                                                         sian space (in which the control force will be computed), then
+                              = QD ε(t)ėT (t) − γ(t)D(t)                         (16)     this force has to be transformed into joint torque and executed
+                                                                                           by the actuators. Similarly, when using VIA, embodiment of
+         with K(t) = 0[n ,n ] , and D(t) = 0[n ,n ] , t ∈ [0, T ), where
+                                                                                           impedance requires transformation of stiffness and damping
+         QK and QD are symmetric positive-definite constant gain ma-
+                                                                                           from Cartesian to joint space at every time step. These back-
+         trices. Section IV demonstrates that with this learning law, the
+                                                                                           and-forth transformations, which must be performed at every
+         controller of (3) acquires stability without using superfluous
+                                                                                           time step, are avoided in the joint space version.
+         effort.
+                                                                                              5) Adaptive Control Extends to τr : In the proposed con-
+                                                                                           troller, the term τr (t) that is defined in (5) assumed that the
+         C. Comments
+                                                                                           model of robot/arm is exactly known such that M (q), C(q, q̇),
+            1) Force Sensing: It is noted that the developed controller                    and G(q) are available. If the model parameters are unknown,
+         of eq. (3), together with adaptation laws (14) and (16), does not                 they can be identified using adaptive control as described in
+         require force sensing. Therefore, no force sensor is required to                  Appendix B.
+         implement this controller, which is an advantage as good quality
+         force sensors are usually expensive and may not be able to detect                                            III. SIMULATIONS
+         force if the contact point is outside the measurement range.
+                                                                                              Before analyzing the dynamic properties of the new con-
+            2) Stability Margin: As will be illustrated by the simulation
+                                                                                           troller in Section IV, we first examine its efficiency and its
+         in Section III and the robotic implementation in Section V, the
+                                                                                           adaptive properties through simulations. Simulations are carried
+         proposed controller can deal with both stable and unstable con-
+                                                                                           on planar arm movements using the two-joint model of human
+         ditions. The learned stiffness K and damping D as well as feed-
+                                                                                           arm/robot that is detailed in [13] along various movement with
+         forward torque τ will compensate for the external force, such
+                                                                                           reference velocity profile
+         that the closed-loop dynamics of the interaction between robot                                                      2 
+         and environmental force match the interaction-free behavior                                         30t2             t        t     m
+                                                                                                     v(t) = 3 1 − 2               +             .      (19)
+                             M (q) ë + C(q, q̇) ė + Lε = 0 .                    (17)                        T              T        T       s
+
+         This is similar to the human-adaptive behavior [9], where the                     A. Comparison With Human Motor Control Experiments
+         net impedance was observed to be maintained at the same level
+         in various dynamic environments. In addition, as analyzed in                         To verify that the proposed controller is able to learn to com-
+         Section IV, no extra effort will be spent to increase impedance or                pensate for interaction dynamics and to model human motor
+         feedforward torque if there is no interaction or if the interaction               adaptation, we first simulate the adaptation of a point-to-point
+         force is assisting the tracking task.                                             movement ahead of the body in an unstable interaction, as was
+             3) Joint Space Controller: An interesting property of the                     tested in the experiments of [6] (see Fig. 1(a), where the right
+         above controller that is implemented in joint space is that the                   shoulder position is set as coordinate origin). We investigate the
+         impedance is distributed according to the limbs dynamics, such                    adaptation to the unstable divergent force field (DF)
+         that if the proximal limbs have large inertia or damping, high-                                450     0     x1
+         frequency perturbations applied on the distal limb will lead to                    FDF =                        N,           if − 0.03 m ≤ x1 ≤ 0.03 m
+                                                                                                         0      0     x2
+         increase impedance mainly distally.
+             With the above controller, the task reference trajectory q ∗ (t)                                                         otherwise FDF = 0[2,2]
+         can be transformed from a Cartesian space reference trajectory                    which was used in the experiments of [6]. Note that the destabi-
+         x∗ (t) by the use of a local minimization and by the integration                  lizing force was set to zero outside of this workspace for safety
+         of the transformed velocity. For example, minimization of speed                   reasons.
+         q̇ ∗ 2 leads to q̇ ∗ (t) = J † (q ∗ )ẋ∗ (t) with the pseudo inverse                The simulation uses the reference trajectory with velocity
+         J † ≡ J T (J J T )−1 (where J(q) is the Jacobian defined through                  v ∗ (t) = (xf − xs )v(t) starting at xs = [0, 0.31]T m and fin-
+         ẋ ≡ J(q) q̇), which can be integrated to yield the position. This                ishing at xf = [0, 0.55]T m, with duration T = 0.7 s. The
+         transformation needs to be computed only once, e.g., offline.                     controller parameters are selected as Qτ = diag{5, 5}, QK =
+         In addition, a desired Cartesian space impedance Lx (t) can be                    diag{80, 80}, QD = diag{10, 10}, a = 0.2, b = 5, κ = 5, and
+         specified directly using the relation L(t) ≡ J(q ∗ )T Lx (t) J(q ∗ ).
+                                                                                                                               5     1.2
+         Again, this transformation needs to be computed only once be-                                                L=                    .                      (20)
+                                                                                                                              1.2     4
+         fore starting the movement and adaptation.
+             4) Cartesian Space Controller: Equations (3)–(16) can be                      Adaptation is simulated during 60 iterations. The robust term
+         similarly formulated in Cartesian space. This Cartesian space                     sign(ε)ν̄ in (5), which is specific to robot control, is not included
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+          922                                                                                               IEEE TRANSACTIONS ON ROBOTICS, VOL. 27, NO. 5, OCTOBER 2011
+
+
+
+
+          Fig. 2. Simulation of adaptation to unstable dynamics as in the experiment of [6]. (a) Hand paths before and after learning. (b) Change in the stiffness ellipse at
+          midpoint of movement (first iteration: in dashed blue, final iteration: in solid black). (c) Feedforward force after learning in the final iteration. The evolution of (d)
+          stiffness and (e) damping (2 × 2 matrices) and (f) force during the trials is a prediction from the model that cannot be directly compared with experiment results,
+          as they were not measured. However, the evolution patterns are consistent with the evolution of muscle activity that is shown in [29].
+
+
+          in the simulation. At the end of each iteration, the position q is
+          reset to the start point and the velocity q̇, and acceleration q̈ are
+          reset to zero to emulate the experimental conditions. The noise
+          is Gaussian with standard deviation σ = 1N/m truncated at ±σ.
+             Simulation results are presented in Fig. 2. We observe similar
+          patterns of the evolution of hand trajectories, stiffness ellipse
+          change, and feedforward hand force after learning as in the
+          experiments of [6]. Initial divergent trajectories become straight
+          and successful after learning [see Fig. 2(a)]. This is caused by a
+          selective increase in stiffness (and damping) to compensate for
+          the unstable interaction [see Fig. 2(b), (d), and (e)] without a
+          large modification of the feedforward force [see Fig. 2(f)].
+             In Fig. 2 (d)– (f), we see that stiffness and damping selectively
+          change to maintain stability in the DF, while the feedforward
+          force in the unstable direction (along the x1 -axis) does not vary
+          much.
+
+
+          B. Test on a Circular Tracking Task                                                   Fig. 3. Simulation of circular motion with constant force Fc , velocity-
+             We further test the adaptive properties of the proposed con-                       dependent divergent force Fv , and position-dependent divergent force Fd .
+          troller on the tracking of a circle of radius r centered at xc (see
+          the solid red line in Fig. 3) with velocity profile (19), i.e.,
+                                                                                                   1) a constant interaction force field
+                                ∗          − sin(2π v(t))
+                               v (t) = 2πr                                             (21)
+                                            cos(2π v(t))
+                                                                                                                                              0
+                                                                                                                                  Fc =           N;                           (22)
+          with period T = 1.2 s. Three kinds of force fields are applied                                                                     −20
+          during motion:
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+         YANG et al.: HUMAN-LIKE ADAPTATION OF FORCE AND IMPEDANCE IN STABLE AND UNSTABLE INTERACTIONS                                                                         923
+
+
+
+
+         Fig. 4. Adaptation to stable and unstable position- and velocity-dependent interactions. (a) Trajectories of three consecutive periods at the beginning (1: blue; 2:
+         yellow; 3: green) and end (1: blue; 2: black; 3: cyan) of each phase (reference trajectory in red). (b) Stiffness ellipses along the circle at the end of phase II with κL
+         as dashed and κL + K as solid lines. (c) Evolution of the (mean over a period of) components of transformed stiffness K in the x1 o x2 system. (d) Evolution of
+         the (mean over a period of) components of damping D in the x1 o x2 coordinate. (e) Average norm of errors for every periods for the three phases. (f) Evolution
+         of feedforward force in the x1 o x2 system.
+
+
+
+            2) a position-dependent DF normal to the circle                                    Fc + Fd + Fv ; and phase IV: periods 91–120 with no interac-
+                                                                                               tion force.
+                                                      x
+                       Fd = Kd ( x − r)                ,           x ≡ x − xc                   The simulation results are presented in Fig. 4, where the
+                                                     x                                       stiffness ellipse, which is defined as {Kx/x, x ∈ R2 }, was
+                                        Kd = 450 N/m;                                          plotted by multiplying the Cartesian space stiffness matrix K ∈
+                                                                                               R2×2 with the unit circle trajectory x = [cos(α), sin(α)]T , 0 ≤
+            3) a velocity-dependent DF                                                         α < 2π. From the definition of the controller in (3), we see
+                                                                                               that initially K = 02,2 , i.e., the initial stiffness is the minimal
+                                  Fv = Kv ẋ,        Kv = 30 Ns/m;
+                                                                                               feedback κL, while after learning the overall stiffness has been
+               with both Fd and Fv limited to a torus within 5 cm of the                       modified to κL + K. Initial stiffness and overall stiffness at the
+               circle (see the dashed green line in Fig. 3).                                   end of phase II are plotted in Fig. 4(b) (dashed blue and solid
+            The task reference trajectory in joint space q ∗ (t) is obtained                   black ellipses).
+         by inverse kinematics from (21). The same controller and noise                           In addition, the learned stiffness K is also transformed
+         parameters are used as in Section III-A.                                              into a moving coordinate x1 o x2 (which is shown in Fig. 3)
+            Starting with K, D, and τ , all equal to zero, 120 peri-                           with x1 -axis along the radial direction and x2 -axis normal
+         ods of learning with the Cartesian space version of the learn-                        to the radial direction. The transformed K is calculated as
+         ing controller were performed under the following conditions:                         K = RT (α)KR(α) with R(α) the rotation matrix of angle
+         phase I: periods 1–30 with a constant bias force FI = Fc ;                            α shown in Fig. 3, and each components of K is plotted in
+         phase II: periods 31–60 with an additional position-dependent                         Fig. 4(c).
+         divergent force, i.e., FI = Fc + Fd ; phase III: periods 61–90                           At the beginning of the simulation, when the constant force
+         with additional velocity-dependent divergent force, i.e, FI =                         field Fc is introduced, the trajectories in consecutive periods
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+          924                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 27, NO. 5, OCTOBER 2011
+
+
+
+          deviate from the circle [see the first row of Fig. 4(a)] systemati-
+          cally in the direction of the force. Thereafter, they monotonically
+          converge toward the circle in less than ten periods [see phase I
+          in Fig. 4(e)].
+             We see in the second row of Fig. 4(a) that the system becomes
+          unstable when the position-dependent interaction force Fd is
+          added, and the trajectory deviates in a nonsystematic way from
+          the circle in the first trials. However after the 40th period, the
+          system becomes able to track the circular trajectory well (see
+          phase II in Fig. 4(e)]. Fig. 4(b) shows that the stable behavior in
+          phase II has been acquired by increasing stiffness mainly in the
+          direction of instability, i.e., normal to the circle (along the x1 -
+          axis). The adaptation of the stiffness ellipse from before learning
+          (dashed blue) to after learning (solid black) matches well with
+          the experimental results of the human stiffness adaptation in a
+          DF [6], [9].
+             When the velocity-dependent interaction force Fv is intro-
+          duced, we see that the tracking performance worsens (observe
+          the few periods starting from the 60th). However, while suitable
+          damping D is learned [see Fig. 4(d)], the tracking improves
+          again. The evolution of the average norm of errors [see phase
+                                                                                            Fig. 5.   Simulation result without adaptation of stiffness K and damping D.
+          III in Fig. 4(e)] confirms this with a large reduction in about ten
+          periods. When all the external force fields are released at period
+          91, a large tracking error appears in the reverse direction due                   e.g., q(0) = q0 , and q̇(0) = q̇0 at each iteration, our proposed
+          to the memory of learned feedforward force [see the last row                      algorithm runs in a continuous manner and does not require
+          of Fig. 4(a)]. This error, however, soon decreases to a low level                 resetting after each period.
+          [see the white part in Fig. 4(e)].
+             Fig. 4(c) shows the transformed stiffness K in the x1 o x2                     D. Summary
+          coordinate. We see that when the stable interaction due to Fc
+                                                                                                The simulation results demonstrate that the developed con-
+          is introduced at period 1, stiffness changes in the very few next
+                                                                                            troller is able to acquire stability when starting with an unstable
+          periods but soon tends to return back to the previous level. When
+                                                                                            interaction. It learns to efficiently perform the tracking task with
+          the position-dependent divergent force is brought in phase II,
+                                                                                            little superfluous effort, i.e., force and impedance are adapted
+          the controller increases stiffness mainly in the normal direction
+                                                                                            to compensate for the environment in which the hand/robot is
+          to the circle (along x1 ) in 30–40 periods, which reduces motion
+                                                                                            moving, which is similar to what was observed in the human
+          error as was just explained. Note that mainly the normal com-
+                                                                                            behavior [6], [7], [28], [29]. These simulations demonstrate that
+          ponent of stiffness compensates for the interaction force, while
+                                                                                            the developed controller is a good model of human motor learn-
+          other components are smaller.
+                                                                                            ing [9], which has promising properties as a robot controller.
+             We see in Fig. 4(f) that the feedforward force is learned at
+          roughly the right level and during the right periods to compen-
+          sate for external force Fc . Note that the level reached is slightly                         IV. STABILITY AND CONVERGENCE ANALYSIS
+          less than Fc =20 N, probably due to the assistance that is pro-                     This section describes the convergence analysis of the joint
+          vided by increased impedance during these periods.                                space version of the controller. Analysis of the Cartesian space
+                                                                                            version is omitted as it is similar.
+          C. Comparison With Traditional Iterative Learning Control
+                                                                                            A. Convergence Proof
+             To illustrate the difference of the novel control with respect
+          to traditional ILC, we performed the same simulation while                          The interaction force can be transformed into joint space
+          adapting only the feedforward force, which corresponds to ILC                     using the forward kinematics x = φ(q), i.e.,
+          (but without resetting position and velocity at the beginning of                                    τI (t) = J T (q) FI (φ(q), J(q)q̇, t)                  (23)
+          every period). The results in Fig. 5 demonstrate that without
+          impedance learning, the ILC controller is not able to perform                     yielding the interaction dynamics
+          successfully with either the divergent force Fd or the divergent                     M (q)q̈ + C(q, q̇)q̇ + G(q) ≡ τu (t) + τν (t) + τI (t) .              (24)
+          force Fv , i.e., the tracking performance does not improve at all
+          with only adaptation of feedforward force.                                        For simplicity, the arguments q, q̇ in M (q), C(q, q̇), and G(q)
+             In contrast with the ILC method, where every iteration starts                  are dropped in the following, and time index t will also be
+          from time instant 0 to time instant T , and the values of position                dropped sometimes in order to avoid confusion. Using the skew
+          and velocity are reset to the fixed initial conditions (q0 and q̇0 ),             symmetry of the matrix Ṁ − 2C [33], the first derivative of
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+         YANG et al.: HUMAN-LIKE ADAPTATION OF FORCE AND IMPEDANCE IN STABLE AND UNSTABLE INTERACTIONS                                                               925
+
+
+
+         Vp (t) can be calculated as follows:
+
+                                V̇p (t) = εT M ε̇ + εT Cε.
+            Defining
+                                       q̇d ≡ q̇ ∗ − κe                            (25)
+         yields [with (5)]
+                                                                                           Fig. 6.     Bounding set Ω for the convergence set as defined in (32).
+                               ε = q̇ − q̇d ,     ε̇ = q̈ − q̈d .                 (26)
+         Using (24) and (3), we obtain                                                     As illustrated in Fig. 6, the bounding set is the area in the
+                                                                                           first quadrant of an ellipse that passes through the points
+             V̇p (t) = εT (τν − sign(ε)ν̄ − Lε − Dė − Ke − τ + τI )                       (ε2 = 0, Φ̃ = 0) and (ε2 = 0, Φ̃ = Φ∗ ). Note that
+                         ≤ −εT Lε − εT Ke − εT Dė − εT τ + εT τI                 (27)     if the parameter γ is constant, this bounding set is
+
+         from which one sees that the term −sign(ε)ν̄ in (5) is used to                                                4λL ε2 + 4γ(Φ̃ − Φ∗ /2)2
+                                                                                                     (ε2 , Φ̃) ,                                  ≤1
+         compensate for the effect of noise τν .                                                                                   γΦ∗ 
+            Given an interaction torque τI , KE (t), DE (t), and τE (t)
+                                                                                           i.e., as long as it is positive, the exact value of γ does not affect
+         represent the minimal required effort of stiffness, damping, and
+                                                                                           convergence; however, it will affect the speed of convergence
+         feedforward force (which are assumed in Section II-B) required
+                                                                                           as well as the size of convergence set.
+         to guarantee
+                 t+T
+                                                                                           B. Interpretation
+                       {−εT (σ)KE (σ)e(σ) − εT (σ)DE (σ)ė(σ)
+                    t                                                                         We see that whatever interaction disturbing the tracking task,
+                        − εT (σ)τE (σ) + εT (σ)τI (σ)} dσ ≤ 0                     (28)     e.g., the stable interaction force Fc and unstable interaction
+                                                                                           forces Fd and Fv in the simulation, the tracking error ε and
+                                                t+T
+         so that from (27), we have t       V̇p (σ) dσ ≤ 0. In fact, any                   compensation error Φ̃ will eventually fall into the (small)
+         smooth interaction force can be approximated by the linear                        bounding set Ω, which implies that the system has become
+         terms of its Taylor expansion along the reference trajectory as                   stable.
+         follows:                                                                             In addition, since the controller aims to minimize the cost
+                                                                                           function V , which includes Vc , i.e., the measurement of the
+                           τI (t) = τ0 (t) + KI (t) e + DI (t) ė                 (29)
+                                                                                           difference between learned impedance/torque and required
+         where τ0 (t) is the zero-order term, and KI (t) and DI (t) are                    impedance/torque to maintain stability, it will bring no extra
+         the first-order coefficients, which are all periodic with T (as                   effort in impedance/torque and thus tend to achieve optimal
+         q ∗ (t) in (2) is periodic). Therefore, from (29) and (26), one can               compensation for stable and unstable interactions.
+         obtain the values for KE (t), DE (t), and τE (t) to guarantee                        Let us illustrate this with an example. When there is no inter-
+         (28), i.e., stability. Different τI will yield different values of                action, i.e., τI (t) = 0, Φ∗  = 0, or when the interaction force
+         KE (t), DE (t), and τE (t) and when τI (t) is zero or is assisting                is assisting the tracking task ε → 0, we again have Φ∗  = 0
+         the tracking task ε(t) → 0, KE (t), DE (t), and τE (t) will be                  because zero values of KE , DE , and τe will be required. It is
+         0.                                                                                easy to see from Fig. 6 that Ω shrinks to a point at origin, i.e.,
+             Considering the first difference of overall cost function V (t)               Ω = {ε2 = 0, Φ̃ = 0}. It follows Φ → 0, i.e., K → 0,
+         in (12)                                                                           D → 0, and τ  → 0, such that no effort is spent in compen-
+                                                                                           sation, and the control remains compliant.
+                δV (t) = V (t) − V (t − T ) = δVp (t) + δVc (t) .                 (30)        In summary, the proposed control saves extra effort in the
+         It is shown in Appendix C that a sufficient condition for δV (t) ≤                compensation of unstable interaction such that the impact with
+         0 is                                                                              a stiff environment is minimized. When applied to VIA, the
+                                                                                           learned impedance behavior minimizes the control effort that is
+               λL bε4 + λL ε2 + aΦ̃2 − aΦ̃Φ∗  ≥ 0                       (31)     spent.
+         with λL defined in (4). By LaSalle’s theorem, it follows that
+                                                                                                           V. IMPLEMENTATION AND EXPERIMENTS
+         ε2 and Φ̃ will converge to an invariant set Ωs ⊆ Ω on
+         which δV (t) = 0, where Ω is the bounding set that is defined as                     The algorithm was tested on a 1-DOF DLR LWR testbed, on
+                                                                                           the DLR 7-DOF LWR arm, and on a new VIA joint. The posture
+         Ω≡                                                                                control and trajectory control experiments resulted in a human-
+                                         1 2
+                             (λL bε2 + 2b ) + a(Φ̃ − Φ∗ /2)2                         like adaptation of the feedforward torque and impedance. Videos
+           (ε2 , Φ̃) ,                                         ≤1 .
+                                          λL + aΦ ∗ 2                                    of these experiments are attached to this paper.
+                                          4b    4 λL b                                        Fig. 7 shows the behavior of the 1-DOF VIA joint in a pos-
+                                                                    (32)                   ture control experiment. The 1-DOF system with a vertical link
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+          926                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 27, NO. 5, OCTOBER 2011
+
+
+
+
+          Fig. 7. Adaptation in posture control on the VIA. The robot automatically          Fig. 8. Trajectory control adaptation with the 1-DOF LWR testbed. Starting
+          maintains its position [blue trace of (a)] in the presence of low-frequency dis-   with an unknown load, the periodic robot movement [(blue trace of (a)] adapts
+          turbance (green region) by adapting (b) torque and reacts to high-frequency        to follow the reference [red trace in (a)]. On addition (yellow) and removal
+          perturbations (orange) by increasing (c) stiffness.                                (green) of a spring load, the error is compensated with trials by the change of
+                                                                                             (b) feedforward torque. (c) Impedance of the robot increases every time there
+                                                                                             are novel and, thus, unpredictable dynamics but falls once the appropriate torque
+                                                                                             profile is adapted.
+          serves as a testbed for the DLR QA joint [34]. The proposed
+          adaptation algorithm runs on top of a low-level controller with
+                                                                                                                                T
+          1-kHz rate [34]–[36] and directly commands the desired feed-                       and tr{εėT } = ėT ė + κ2 d(edt e) , respectively. As in the experi-
+          forward torque and impedance to it. The setup is controlled by                     ment, error e (as well as ė) oscillates around zero, then τ (t) will
+          a QNX real-time PC for low-level control that is connected to a                    not change much, while K(t) and D(t) increase roughly
+          Windows XP PC controlling the non real-time task. Parameters                       linearly with κeT e and ėT ė.
+          used in this experiment were Qτ = 9, QK = 20, QD = 3.0, and                           A trajectory control experiment tested the adaptation to loads
+          a constant γ = 0.2, which were selected to result in a behav-                      by the robot, while it had to move repetitively between 0 and 0.7
+          ior roughly similar to that observed in humans doing a similar                     rad (see the red trace in Fig. 8). Fig. 8 plots data from implemen-
+          task [37].                                                                         tation on the testbed of the 1-DOF LWR [38] that is controlled
+             The robot attempts to maintain its initial position at 0 rad [see               by a D-Space system that runs at 1 kHz with Qτ = 9, QK = 95,
+          Fig. 7(a)], while a perturbation of low frequency [see the green                   QD = 9, and γ = 0.5. The proposed adaptation algorithm runs
+          area in Fig. 7(a)] or high frequency (orange area) is applied to the               on top of a lower level controller, which compensates for gear
+          robot. The robot adapts to the vibration by changing the applied                   friction and makes the robot backdrivable [35], [36].
+          feedforward torque [see Fig. 7(b)] or impedance [see Fig. 7(c)]                       The experiment starts with the robot at 0◦ and with an un-
+          to minimize the deviation. When the force perturbation changes                     known load that is fixed to the link, which causes a deviation
+          slowly, the robot applies a counter torque to reduce the deviation,                from the reference trajectory that is reduced by adaptation in
+          with little change to impedance. However, when the perturbation                    five trials. In the sixth trial, an extension spring is attached to
+          frequency is higher, the robot no longer counters with torque but                  the link, which reduces the movement amplitude [see the or-
+          automatically increases its stiffness to reduce the deviation.                     ange region in Fig. 8(a)]. However, the robot again learns the
+             In the posture control experiment, the period T becomes                         required torque [see Fig. 8(b)] to achieve the movement task in
+          sampling period Δt of the digital controller in the implemen-                      about nine movements. The spring is then removed in the 15th
+          tation. In the presence of a time-dependent disturbing force                       trial [see the green region in Fig. 8(a)], causing an overshoot,
+          of low frequency ( 1/T ), one sees that there is a periodic                       after which, the robot readapts to have torque levels that are
+          time-dependent function τ0 (t) = τ0 (t − T ) such that τI = τ0                     similar to that of before the spring addition.
+          and KE  = DE  = 0 in (29). According to the convergence                           Fig. 8(b) shows the underlying torque adaptation, and
+          analysis, K̃ and D̃ will be eventually confined to a small                     Fig. 8(c) the adaptation of the stiffness of the robot during
+          region, thus K and D will remain small.                                            the experiment. The stiffness is initially high, but the end effec-
+             However, when the time-dependent disturbance is of high                         tor becomes more compliant as the robot adapts to the unknown
+          frequency such that τI cannot be approximated only by a time-                      load. When the spring is added, the robot increases its stiffness to
+          dependent periodic function τ0 (t) (which implies that KE and                      quickly adapt to the induced error. However, as the robot adapts
+          DE cannot be zero values again), the proposed adaptation will                      to the torque, the stiffness is reduced again. When the spring is
+          compensate for the disturbance by increasing impedance as was                      suddenly removed, leading to an error in the task, stiffness again
+          seen in the experiment. Let us explain this as follows. By neglect-                increases and then reduces as torque is readapted.
+          ing the small forgetting factor γ(t) in (14) and (16), we see that                    The 1-DOF implementations exhibited the ability of the al-
+          τ (t), K(t), and D(t) increase approximately linearly                        gorithm to tune feedforward torque and impedance in magni-
+                                                                 T
+          with the integration of ε = ė + κe, tr{εeT } = 12 d(edt e) + κeT e                tude. To test the ability of the adaptive control algorithm to tune
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+         YANG et al.: HUMAN-LIKE ADAPTATION OF FORCE AND IMPEDANCE IN STABLE AND UNSTABLE INTERACTIONS                                                                      927
+
+
+
+
+         Fig. 9. Task stiffness shaping with the DLR 7-DOF LWR. The joint space
+         implementation on the 7-DOF arm exhibits the ability of the algorithm to shape
+         the task stiffness in magnitude and direction while maintaining a posture (which
+         is shown in the figure) against disturbances that are applied at the end effector
+         by a human. The 2-D projection on the yz plane of the translational task space
+         stiffness matrix is presented at different time instances.
+                                                                                              Fig. 11. Conceptual “human–machine learning cycle” showing the learning
+                                                                                              cycle between human and machine to advance understanding of human and
+                                                                                              development of better robots. On the one hand, we want to understand human
+                                                                                              motor control and provide assistive tools to humans and, on the other hand, to
+                                                                                              create better robots based on this knowledge. The control diagram in the right
+                                                                                              bottom corner is the biological version [9] of the controller that is presented in
+                                                                                              this paper.
+
+
+
+                                                                                              after (second ellipse from left) the load addition, indicating that
+                                                                                              the load was compensated purely by a feedforward. The mid-
+                                                                                              dle plot shows that impedance adaptation to a high-frequency
+                                                                                              perturbation is not modified by the new feedforward force
+                                                                                              condition.
+
+                                                                                                                           VI. CONCLUSION
+                                                                                                 Using robotic tools and techniques to investigate human mo-
+                                                                                              tor control led to significant advances in our understanding of
+                                                                                              how humans control motion, as described in Section II. This
+         Fig. 10. Task feedforward shaping. On addition of a 0.7-kg load at the end           in turn led to a novel robotic controller, which could simulate
+         effector (see the green region), the robot selectively increases feedforward force   human motor control and learning, as shown in Section III, and
+         in the z-direction (red traces) to reduce the perturbation due to the load. There
+         is no increase of the task space force in the y-direction.                           was theoretically analyzed in Section IV. This novel adaptive
+                                                                                              controller, which was implemented and demonstrated, as de-
+                                                                                              scribed in Section V, can be used to assist humans (e.g., by
+         impedance in both magnitude and geometry, a joint space imple-                       automatically filtering tremor), or in rehabilitation robots, pro-
+         mentation was performed on the 7-DOF DLR-LWR robot con-                              viding guiding assistance adapted to the patient and her or his
+         trolled via a VxWorks real-time system running at 1 kHz [38].                        state. This embodies one of the very first examples of the vir-
+         The same parameters as in the 1-DOF LWR testbed were used                            tuous human–machine motor learning cycle (see Fig. 11) in
+         in each joint of the 7-DOF arm.                                                      which progresses in neuroscience and neurology lead to robotic
+            Fig. 9 shows the initial position of the robot, which it tries                    advances, and conversely.
+         to maintain against disturbances that are generated by a human                          Specifically, a novel adaptive motor behavior has been cre-
+         experimenter. Depending on the disturbance, the robot reacts by                      ated, which is both a successful model of human motor adap-
+         increasing the task space stiffness specifically in the direction                    tation that is able to predict all published observations on
+         of disturbance (as humans also do [6]). The disturbance may be                       impedance adaptation [9], as well as a robotic controller with
+         applied on any joint or body of the robot to produce a similar                       the following properties.
+         result (see the attached video).                                                        1) It is the first controller that is able to simultaneously adapt
+            On addition of an unknown load (see the green region in                                  force and impedance in the presence of unknown dynam-
+         Fig. 10) at the end effector, the robot learns feedforward force                            ics.
+         specifically in the z-direction without changing the force in the                       2) It can deal with unstable situations that are typical of tool
+         y-direction (see the central panel in Fig. 10). Note that the task                          use and gradually acquire a desired stability margin.
+         stiffness also remains the same before (left-most ellipse) and                          3) It does not require interaction force sensing.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+          928                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 27, NO. 5, OCTOBER 2011
+
+
+
+             4) It is strictly derived from the minimization of motion error                corresponding to adding, to the cost function (12), the following
+                 and effort.                                                                term:
+             5) It is an intuitive adaptive solution for a human–robot inter-                                       t
+                 action, such as what is needed in rehabilitation, physical                               Vl (t) =       p̃T (τ ) S −1 p̃(τ ) dτ         (37)
+                                                                                                                          t−T
+                 training, and teleoperation.
+             The controller was validated in implementations with one and                   with the same results as in Section IV-A.
+          multi-DOF force controlled robots, can utilize the new possi-
+          bilities offered by VIA, and can realize optimal assistance in a                                                 APPENDIX C
+          human–machine interaction.
+                                                                                                                      DERIVATION OF EQ. (31)
+                                           APPENDIX A                                          In the following, we show that (31) is sufficient to guarantee
+                                                                                            δV (k) > 0. As can be seen from (30), δV (k) consists of two
+                                      STABILITY MEASURE                                     parts: δVp (t) and δVc (t). Let us first analyze δVp (t), for which
+             This Appendix illustrates the stability definition of eq. (13)                 the following can be derived from (9), (27), and (28)
+          through an unstable interaction example. For simplicity, we as-                              δVp (t) = Vp (t) − Vp (t − T )
+          sume that there is no adaptation of stiffness, damping, or feed-                                    t
+          forward torque, i.e., K, D, and τ equal zero in controller (3), and                             ≤       −εT (σ)L(σ)ε(σ) − εT K̃(σ)e(σ)
+          there is an interaction torque τI = KI e + DI ė with positive-                                       t−T
+          definite constant matrices KI and DI , from time t. For simplic-
+                                                                                                          − ε (σ)D̃(σ)ė(σ) − εT (σ)τ̃ (σ)
+                                                                                                               T
+          ity, we neglect the effect of noise and the robust term sign(ε)ν̄,
+          and assume that at the starting time t, ė(t) = e(t) = 0[n ,1] . Us-                            − εT KE e − εT DE ė − εT τE + εT τI dσ
+          ing (27) yields                                                                                    t
+                 t1                t1                                                                   ≤      −εT (σ)L(σ)ε(σ) − εT K̃(σ)e(σ)
+                                                                                                                t−T
+                     V̇p (σ) dσ =       εT KI e + εT DI ė − εT Lε dσ
+                   t                       t                                                              − εT (σ)D̃(σ)ė(σ) − εT (σ)τ̃ (σ) dσ.                      (38)
+                            t1
+                       =          κeT (KI − κL)e + ėT (DI − L)ė dσ                        We now turn our attention to the first difference of the cost func-
+                            t                                                               tion δVc (t) = Vc (t) − Vc (t − T ). According to the definition of
+                        1                      κ                                            Φ(t) and Q in (7) and (10), we have
+                       + eT (KI + κDI − 2κL)e + eT DI e.                           (33)
+                        2                      2                                            δVc (t)
+          Noting that [using (11) and (4)] Vp ≤ λM (ė(t) +                                       
+                                                                                                1 t
+          κe(t))T (ė(t) + κe(t)) with λM denoting the largest eigenvalue                    =        {tr{K̃ T (σ)Q−1                    −1
+                                                                                                                   K K̃(σ) − K̃ (σ − T )QK K̃(σ − T )}
+                                                                                                                               T
+
+          of M (q), it can be shown from (33) that when KI > κL                                 2 t−T
+          and DI > L, there exists a constant scalar g such that
+            t1
+                                                                                                + tr{D̃T (σ)Q−1                    −1
+                                                                                                             D D̃(σ) − D̃ (σ − T )QD D̃(σ − T )}
+                                                                                                                         T
+
+           t [V̇p (σ) − gVp (σ)] dσ > 0, and then, it can be further
+          shown that for any δ, there exists a time instant t1 to make                          + τ̃ T (σ)Q−1                     −1
+                                                                                                           τ τ̃ (σ) − τ̃ (σ − T )Qτ τ̃ (σ − T )} dσ.
+                                                                                                                        T
+                                                                                                                                                                     (39)
+            t1
+           t V̇p (σ) dσ > δ hold. This implies that the closed-loop                         Now, we rewrite (14) and (16) as
+          dynamics is unstable from time t.                                                                                               
+                                                                                                       δ K̃(t) = QK ε(t)eT (t) − γ(t)K(t)
+                                           APPENDIX B                                                                                    
+                                                                                                       δ D̃(t) = QD ε(t)ėT (t) − γ(t)D(t)
+                    IDENTIFICATION OF THE ROBOT’S PARAMETERS                                                δτ̃ (t) = Qτ (ε − γ(t)τ (t)) .                           (40)
+            If the structure of the robot’s dynamics is known but the                       Using (40), the symmetry of Q−1
+                                                                                                                         K and the fact K̃(σ) − K̃(σ −
+          actual robot parameters p ∈ Rp are unknown, e.g., the rigid                       T ) = δK(σ), one can show that the first term in the integrand
+          body dynamics model can be written as                                             of (39) can be written as
+                   Ψ(q̈ ∗ , q̇ ∗ , q̇, q) p ≡ M (q)q̈ ∗ + C(q, q̇)q̇ ∗ + G(q)      (34)       tr{K̃ T (σ)Q−1                    −1
+                                                                                                          K K̃(σ) − K̃ (σ − T )QK K̃(σ − T )}
+                                                                                                                      T
+
+
+          with known Ψ and unknown p, then the unknown parameters p                               = tr{(K̃(σ) − K̃(σ − T ))T Q−1
+                                                                                                                              K
+          can be identified online using the learning law [39]
+                                                                                                     × (2K̃(σ) − K̃(σ) + K̃(σ − T ))}
+                        p̂(t) = p̂(t − T ) − SΨ(q̈ ∗ , q̇ ∗ , q̇, q)T ε(t)         (35)
+                                                                                                  = tr{δK T (σ)Q−1
+                                                                                                                K (2K̃(σ) − δK(σ))}
+          where S is a symmetric positive-definite matrix, and                                    = −tr{δK T (σ)Q−1               T    −1
+                                                                                                                 K δK(σ)} + 2tr{δK (σ)QK K̃(σ)}
+          Ψ(q̈ ∗ , q̇ ∗ , q̇, q) is the regressor matrix, together with the learning
+          of feedforward (14) and impedance (16). Then, we can set                                = −tr{δK T (σ)Q−1
+                                                                                                                 K δK(σ)}
+
+                           τr (t) = Ψ(q̈ ∗ , q̇ ∗ , q̇, q) p̂(t) − sign(ε)ν        (36)              + 2εT (σ)K̃(σ)e(σ) − 2γ(σ)tr{K T (σ)K̃(σ)}.                     (41)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+         YANG et al.: HUMAN-LIKE ADAPTATION OF FORCE AND IMPEDANCE IN STABLE AND UNSTABLE INTERACTIONS                                                                    929
+
+
+
+         Performing a similar derivation for the second and third terms                       [6] E. Burdet, R. Osu, D. W. Franklin, T. E. Milner, and M. Kawato, “The
+         in the integrand of (39), we have                                                        central nervous system stabilizes unstable dynamics by learning optimal
+                                                                                                  impedance,” Nature, vol. 414, no. 6862, pp. 446–449, 2001.
+               tr{D̃T (σ)Q−1                    −1
+                          D D̃(σ) − D̃ (σ − T )QD D̃(σ − T )}
+                                      T                                                       [7] D. W. Franklin, G. Liaw, T. E. Milner, R. Osu, E. Burdet, and M. Kawato,
+                                                                                                  “Endpoint stiffness of the arm is directionally tuned to instability in the
+                   = −tr{δDT (σ)Q−1           T
+                                 D δD(σ)} + 2ε (σ)D̃(σ)ė(σ)
+                                                                                                  environment,” J. Neurosci., vol. 27, no. 29, pp. 7705–7716, 2007.
+                                                                                              [8] D. W. Franklin, E. Burdet, K. P. Tee, R. Osu, C. M. Chew, T. E. Milner,
+                                                                                                  and M. Kawato, “CNS learns stable, accurate, and efficient movements
+                      − 2γ(σ)tr{DT (σ)D̃(σ)}                                        (42)          using a simple algorithm,” J. Neurosci., vol. 28, no. 44, pp. 11165–11173,
+                                                                                                  2008.
+         and                                                                                  [9] K. P. Tee, D. W. Franklin, M. Kawato, T. E. Milner, and E. Burdet,
+                                                                                                  “Concurrent adaptation of force and impedance in the redundant muscle
+                  tr{τ̃ T (σ)Q−1                     −1
+                              τ τ̃ (σ) − τ̃ (σ − T )Qτ τ̃ (σ − T )}
+                                           T
+                                                                                                  system,” Biol. Cybern., vol. 102, no. 1, pp. 31–44, 2010.
+                                                                                             [10] Z. Bien and J. X. Xu, Iterative Learning Control: Analysis, Design, Inte-
+                      = −tr{δτ T (σ)Q−1            T
+                                     τ δτ (σ)} + 2ε (σ)τ̃ (σ)                                     gration and Applications. Norwell, MA: Kluwer, 1998.
+                                                                                             [11] E. Burdet, A. Codourey, and L. Rey, “Experimental evaluation of nonlinear
+                         − 2γ(σ)tr{τ T (σ)τ̃ (σ)}.                                  (43)          adaptive controllers,” IEEE Control Syst. Mag., vol. 18, no. 2, pp. 39–47,
+                                                                                                  Apr. 1998.
+         Incorporating (41), (42) and (43) into (39), we finally obtain                      [12] M. Kawato, K. Furukawa, and R. Suzuki, “A hierarchical neuralnetwork
+                                                                                                 model for control and learning of voluntary movement,” Biol. Cybern.,
+                         1 t                                                                      vol. 5, no. 8, pp. 169–185, 1987.
+             δVc (t) = −          δ Φ̃T (σ)Q−1 δ Φ̃(σ) dσ                                    [13] E. Burdet, K. P. Tee, I. Mareels, T. E. Milner, C. Chew, D. W. Franklin,
+                         2 t−T
+                                                                                                  R. Osu, and M. Kawato, “Stability and motor adaptation in human arm
+                          t                                                                      movements,” Biol. Cybern., vol. 94, no. 1, pp. 20–32, 2006.
+                       −       γ(σ)Φ̃T (σ)Φ(σ) dσ                                            [14] S. Haddadin, A. Albu-Schäffer, and G. Hirzinger, “Requirements for safe
+                                t−T                                                               robots: Measurements, analysis & new insights,” Int. J. Robot. Res.,
+                                t                                                                vol. 28, no. 11, pp. 1507–1527, 2009.
+                                                                                             [15] M. A. Peshkin, J. E. Colgate, W. Wannasuphoprasit, C. A. Moore, R.
+                           +          εT (σ)K̃(σ)e(σ) + εT (σ)D̃(σ)ė(σ)                          B. Gillespie, and P. Akella, “Cobot architecture,” IEEE Trans. Robot.
+                                t−T                                                               Autom., vol. 17, no. 4, pp. 377–390, Aug. 2001.
+                                                                                             [16] A. Albu-Schäffer, O. Eiberger, M. Grebenstein, S. Haddadin, C. Ott,
+                           + εT (σ)τ̃ (σ) dσ.                                       (44)          T. Wimbock, S. Wolf, and G. Hirzinger, “Soft robotics: From torque
+                                                                                                  feedback controlled lightweight robots to intrinsically compliant systems,”
+         Combining with (38) yields                                                               IEEE Robot. Autom. Mag., vol. 15, no. 3, pp. 20–30, Sep. 2008.
+                                                                                             [17] A. Albu-Schäffer, S. Haddadin, C. Ott, A. Stemmer, T. Wimböck, and
+         δV (t) = V (t) − V (t − T ) = δVp (t) + δVc (t)                                          G. Hirzinger, “The DLR lightweight robot: Design and control concepts
+                                                  t                                             for robots in human environments,” Ind. Robot, vol. 34, no. 5, pp. 376–
+                 1 t              −1
+            ≤−          δ Φ̃ (σ)Q δ Φ̃(σ) dσ −
+                            T
+                                                        εT (σ)L(σ)ε(σ)                            385, 2007.
+                 2 t−T                             t−T                                       [18] N. Hogan, “Impedance control: An approach to manipulation—Part I:
+                                                                                                  Theory; Part II: Implementation; Part III: Applications,” Trans. ASME J.
+             + γ(σ)Φ̃T (σ)Φ̃(σ)                                                                   Dyn. Syst., Meas. Control, vol. 107, no. 1, pp. 1–24, 1985.
+                                                                                             [19] C. C. Cheah and D. Wang, “Learning impedance control for robotic ma-
+             + γ(σ)Φ̃T (σ)Φ∗ (σ) dσ.                                                (45)          nipulators,” IEEE Trans. Robot. Autom., vol. 14, no. 3, pp. 452–465, Jun.
+                                                                                                  1998.
+         A sufficient condition to make δV (t) in (45) non-positive is                       [20] Variable Impedance ACTuation systems embodying advanced interac-
+                                                                                                  tion behaviORS: A project supported by the European Commission un-
+                      εT Lε + γ Φ̃T Φ̃ + γ Φ̃T Φ∗                                                 der the 7th Framework Programme. (Jun. 22, 2010). [Online]. Available:
+                                                                                                  www.viactors.eu.
+                          ≥ λL ε2 + γΦ̃2 − γΦ̃Φ∗  ≥ 0                       (46)     [21] J. Won and N. Hogan, “Stability properties of human reaching move-
+                                                                                                  ments,” Exp. Brain Res., vol. 107, no. 1, pp. 125–136, 1995.
+         where λL was defined in (4) as the infimum of the smallest                          [22] R. F. Kirsch, D. Boskov, W. Z. Rymer, R. E. Center, M. H. M. Center,
+                                                   a                                              and O. H. Cleveland, “Muscle stiffness during transient and continuous
+         eigenvalue of L. Substituting γ(t) = 1+bε 2 into the above                             movements of catmuscle: perturbation characteristics and physiological
+         inequality yields the inequality of (31).                                                relevance,” IEEE Trans. Biomed. Eng., vol. 41, no. 8, pp. 758–770, Aug.
+                                                                                                  1994.
+                                                                                             [23] H. Gomi and R. Osu, “Task-dependent viscoelasticity of human multijoint
+                                      ACKNOWLEDGMENT                                              arm and its spatial characteristics for interaction with environments,” J.
+                                                                                                  Neurosci., vol. 18, no. 21, pp. 8965–8978, 1998.
+            The authors would like to thank N. Jarrasse for editing of the                   [24] T. E. Milner and C. Cloutier, “Compensation for mechanically unstable
+         figures and text.                                                                        loading in voluntary wrist movement,” Exp. Brain Res., vol. 94, no. 3,
+                                                                                                  pp. 522–532, 1993.
+                                                                                             [25] R. Shadmehr and F. A. Mussa-Ivaldi, “Adaptive representation of dy-
+                                         REFERENCES                                               namics during learning of a motor task,” J. Neurosci., vol. 14, no. 5,
+                                                                                                  pp. 3208–3224, 1994.
+          [1] M. A. Peshkin and J. E. Colgate, “Cobots,” Ind. Robot: Int. J., vol. 26,       [26] A. Jacks, A. Prochazka, and P. S. Trend, “Instability in human forearm
+              no. 5, pp. 33–34, 1999.                                                             movements studied with feed-back-controlled electrical stimulation of
+          [2] O. Lambercy, L. Dovat, R. Gassert, E. Burdet, C. L. Teo, and T. Milner,             muscles,” J. Physiol., vol. 402, no. 1, pp. 443–461, 1988.
+              “A haptic knob for rehabilitation of hand function,” IEEE Trans. Neural        [27] D. Rancourt and N. Hogan, “Stability in force-production tasks,” J. Motor
+              Syst. Rehabil. Eng., vol. 15, no. 3, pp. 356–366, Sep. 2007.                        Behav., vol. 33, no. 2, pp. 193–204, 2001.
+          [3] J. E. Colgate and N. Hogan, “Robust control of dynamically interacting         [28] D. W. Franklin, E. Burdet, R. Osu, M. Kawato, and T. E. Milner, “Func-
+              systems,” Int. J. Control, vol. 48, no. 1, pp. 65–88, 1988.                         tional significance of stiffness in adaptation of multijoint arm movements
+          [4] N. Hogan, “On the stability of manipulators performing contact tasks,”              to stable and unstable dynamics,” Exp. Brain Res., vol. 151, no. 2, pp. 145–
+              IEEE J. Robot. Autom., vol. 4, no. 6, pp. 677–686, Dec. 1988.                       157, 2003.
+          [5] J. E. Colgate, “Coordinate transformations and logical operations for mini-    [29] D. W. Franklin, R. Osu, E. Burdet, M. Kawato, and T. E. Milner, “Adap-
+              mizing conservativeness in coupled stability criteria,” J. Dyn. Syst., Meas.        tation to stable and unstable dynamics achieved by combined impedance
+              Control, vol. 116, no. 4, pp. 643–649, 1994.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+          930                                                                                            IEEE TRANSACTIONS ON ROBOTICS, VOL. 27, NO. 5, OCTOBER 2011
+
+
+
+               control and inverse dynamics model,” J. Neurophysiol., vol. 90, no. 5,                                    Sami Haddadin (M’10) received the Dipl.-Ing. de-
+               pp. 3270–3282, 2003.                                                                                      gree in electrical engineering and the M.Sc. degree
+          [30] J. E. Slotine and W. Li, Applied Nonlinear Control. Englewood Cliff,                                      in computer science from the Technical University
+               NJ: Prentice-Hall, 1991.                                                                                  of Munich, Munich, Germany, in 2005 and 2009,
+          [31] E. J. Perreault, R. F. Kirsch, and P. Crago, “Multijoint dynamics and                                     respectively. He received an Honours degree in tech-
+               postural stability of the human arm,” Exp. Brain Res., vol. 157, no. 4,                                   nology management from the Technical University
+               pp. 507–517, 2004.                                                                                        of Munich and the Ludwig Maximilian University
+          [32] S. Jagannathan, Neural Network Control of Nonlinear Discrete-Time Sys-                                    Munich.
+               tems. Boca Raton, FL/New York: CRC/Taylor & Francis, 2006.                                                   He has been with the German Aerospace Center,
+          [33] B. Siciliano, L. Sciavicco, L. Villani, and G. Oriolo, Robotics: Modelling,                               Wessling, Germany, since 2005, where he coordinates
+               Planning and Control. New York: Springer-Verlag, 2008.                                                    the human–robot interaction research. His main re-
+          [34] O. Eiberger, S. Haddadin, M. Weis, A. Albu-Schäffer, and G. Hirzinger,        search interests include physical human–robot interaction, control of actively
+               “On joint design with intrinsic variable compliance: Derivation of the         and passively compliant robots, reactive/reflex planning, and safety and de-
+               DLR QA-joint,” in Proc. IEEE Int. Conf. Robot. Autom., Anchorage, AK,          pendability in robotics. Since 2010, he has been lecturing on “Human-Friendly
+               2010, pp. 1687–1694.                                                           Robotics” at the Technical University of Munich.
+          [35] L. L. Tien, A. Albu-Schäffer, A. D. Luca, and G. Hirzinger, “Friction
+               observer and compensation for control of robots with joint torque mea-
+               surement,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., Nice, France,
+               2008, pp. 3789–3795.
+          [36] A. Albu-Schäffer, C. Ott, and G. Hirzinger, “A unified passivity based
+               control framework for position, torque and impedance control of flexible
+               joint robots,” Invited extended version of the Springer Tracts Article, Int.
+               J. Robot. Res., vol. 26, no. 1, pp. 23–39, 2007.                                                          Sven Parusel received the Dipl.-Inf. degree in com-
+          [37] G. Ganesh, M. Haruno, and E. Burdet, “Transitions between reciprical                                      puter science from the Kempten University of Ap-
+               activation and co-contraction during posture control,” Poster at Neural                                   plied Sciences, Kempten, Germany, in 2009.
+               Control of Movement, vol. NCM’08, 2008.                                                                       He has been a Research Scientist with the Ger-
+          [38] A. Albu-Schäffer, S. Haddadin, C. Ott, A. Stemmer, T. Wimböck, and                                      man Aerospace Center, Wessling, Germany, since
+               G. Hirzinger, “The DLR lightweight robot—Lightweight design and soft                                      2009. His main research interests include physical
+               robotics control concepts for robots in human environments,” Ind. Robot                                   human–robot interaction and reactive/reflex planning
+               J., vol. 34, no. 5, pp. 376–385, 2007.                                                                    for robots in unstructured environments and in direct
+          [39] A. Tayebi, “Adaptive iterative learning control for robot manipulators,”                                  interaction with humans.
+               Automatica, vol. 40, no. 7, pp. 1195–1203, 2004.
+
+
+
+
+                                   Chenguang Yang (S’07–M’10) received the B.E. de-                                      Alin Albu-Schäeffer (M’93) received the M.S. de-
+                                   gree from the College of Automation, Northwestern                                     gree in engineering from the Technical University
+                                   Polytechnical University, Xi’an, China, in July 2005                                  Timisoara, Romania, and the Ph.D. degree in control
+                                   and the Ph.D. degree from the Department of Electri-                                  systems from the Technical University of Munich,
+                                   cal and Computer Engineering, National University                                     Germany, in 1993 and 2002, respectively.
+                                   of Singapore, Singapore, in March 2010.                                                    Since 1995, he has been with the Institute of
+                                       He was a Postdoctoral Research Associate with                                     Robotics and Mechatronics, German Aerospace Cen-
+                                   the Department of Bioengineering, Imperial College                                    ter, Wessling, Germany. Since 2009, he has been the
+                                   London, London, U.K., from October 2009 to De-                                        Head of the Department of Mechatronics Compo-
+                                   cember 2010. He is currently a Lecturer in humanoid                                   nents and Systems. Additionally, since 2007, he has
+                                   robotics and intelligent systems with the University                                  been a Lecturer with the Technical University of Mu-
+          of Plymouth, Plymouth, U.K. His current research interests include robotics,        nich, Munich, Germany. His main research interests include the design, model-
+          control, and human–robot interaction.                                               ing, and control of robotic manipulators, especially on compliantly controlled
+                                                                                              or actuated robots for physical interaction with humans and unknown environ-
+                                                                                              ments.
+
+
+
+
+                                     Gowrishankar Ganesh (M’08) received the B.E.
+                                     (first-class Hons.) degree from the Delhi College of
+                                     Engineering, New Delhi, India, in 2002 and the M.E                                   Etienne Burdet (S’92–M’96) received the M.S. de-
+                                     degree from the National University of Singapore,                                    gree in mathematics, the M.S. degree in physics, and
+                                     Singapore, in 2004, both in mechanical engineering,                                  the Ph.D. degree in robotics from the Swiss Federal
+                                     and the Ph.D. degree in bioengineering from Imperial                                 Institute of Technology, Zurich, Switzerland, in 1990,
+                                     College London, London, U.K., in 2010.                                               1991, and 1996, respectively.
+                                          He was an Intern Researcher with the Com-                                           He is currently a Reader with Imperial College
+                                     putational Neuroscience Laboratories, Advanced                                       London, London, U.K. He is doing research at the
+                                     Telecommunication Research Institute, Kyoto, Japan,                                  interface of robotics and bioengineering and his main
+                                     between 2004 and 2009, where he is currently a Re-                                   interest is in human-machine interaction. He has con-
+          searcher. Since 2010, he has been a Specialist Researcher with the Advanced                                     tributions in various fields from human motor control
+          ICT group of National Institute of Information and Communications Technol-                                      to virtual-reality-based training systems, assistive de-
+          ogy, Tokyo, Japan. His research interests include human motor control, robotics,    vices, and robotics for life sciences.
+          signal processing, and mechanical design.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 28,2026 at 09:52:07 UTC from IEEE Xplore. Restrictions apply.
+

@@ -1,0 +1,952 @@
+        3362                                IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 5, OCTOBER 2025
+
+
+
+
+              Learning Stable State-Dependent Variable
+            Impedance Control for Compliant Manipulation
+                       Zhehao Jin , Andong Liu , Member, IEEE, Wen-an Zhang , Senior Member, IEEE,
+                              Li Yu , Senior Member, IEEE, and Chenguang Yang , Fellow, IEEE
+
+
+           Abstract—State-dependent variable impedance control                            and impedance control, has been shown as a useful approach for
+        (VIC) has been shown as the necessary skill for compli-                           completing complex tasks and thus draws great attention from
+        ant and dexterous robot operations. However, introducing                          the robotic research society [4], [5].
+        a variable impedance law will raise the stability issue of
+        the robot system, which introduces potential safety risks.                           The kernel work for applying VIC is the design of the
+        Unfortunately, there is not yet a generally effective frame-                      variable impedance law. Online optimization approaches are
+        work to handle this issue, i.e., existing approaches achieve                      always implemented to design variable impedance laws. Model
+        stability by sacrificing the VIC performance. This article                        predictive control (MPC) approach might be one of the most
+        presents a learning-based VIC approach to maintain sta-
+                                                                                          popular online optimization approaches in the robotic research
+        bility and control performance simultaneously. Specifically,
+        we design a neural energy function called SNEUM, which                            society. In [6], [7], [8], the impedance model was written as a
+        has a globally unique minimum. Then, the SNEUM is used                            state space model, and the MPC approach was utilized to design
+        to encode the variable stiffness behaviors to result in stable                    the variable impedance law for finding an optimal accuracy-
+        and learnable VIC structures. Due to the special form of                          compliance trade-off. In [9], a novel nonlinear impedance model,
+        the SNEUM, we show that the control modes focusing on                             where the impedance parameters are directly served as the model
+        control smoothness or accuracy could be mathematically
+        determined by tuning a hyper-parameter of the SNEUM.                              input, was formulated to allow users to consider the impedance
+        Various comparative experiments are conducted to show                             constraints during the impedance variation process. However,
+        the effectiveness of the proposed approach.                                       when the approach considers a multistep model prediction case,
+            Index Terms—Robotic control and learning, stability cer-
+                                                                                          the resulting MPC optimization problem is not convex, which
+        tificate learning, variable impedance control (VIC).                              results in a locally optimal variable impedance law. In [10],
+                                                                                          the MPC optimization problem was formulated as a robust
+                                                                                          optimization form, and based on some assumptions, the resulted
+                                    I. INTRODUCTION                                       variable impedance law is globally optimal and has a closed
+           MPEDANCE control [1] is one of the most popular control                        form.
+        I  approaches for contact-rich robotic applications. However,
+        with robots’ tendency to walk towards unstructured working
+                                                                                             Reinforcement learning (RL) is another online optimization
+                                                                                          approach, and it is sometimes more flexible and powerful due
+        environments especially in safety-sensitive human–robot collab-                   to its model-free learning abilities. In [11], a novel actor–critic
+        oration tasks [2], [3], traditional impedance control is no longer                algorithm was proposed to design the variable impedance laws
+        capable due to its limited flexibility. Consequently, the variable                to optimize the robot operation performances of contact tasks
+        impedance control (VIC), which combines impedance varying                         in uncertain environments. In [12] and [13], the policy im-
+                                                                                          provement with path integrals (PI2 ) [14] approach was used
+                                                                                          to design optimal variable impedance laws integral with the
+           Received 23 April 2024; revised 14 August 2024; accepted
+        18 September 2024. Date of publication 15 October 2024; date of
+                                                                                          dynamic movement primitive (DMP) [15] framework for im-
+        current version 17 October 2025. Recommended by Technical Editor                  proving the trajectory-tracking and environment-adaptive abil-
+        J. Yang and Senior Editor X. Chen. This work was supported by the                 ities. However, due to incorporating the DMP framework, the
+        Zhejiang Provincial Natural Science Foundation of China under Grant
+        LR23F030002. (Corresponding author: Chenguang Yang.)
+                                                                                          derived variable impedance laws are time-dependent, which
+           Zhehao Jin was with visiting Bristol Robotics Laboratory, BS16 1QY             could severely reduce their adaptability. In [16], a modified PI2
+        Bristol, U.K. He is now with the Nanyang Technological University, Sin-           approach was proposed where the DMP framework is replaced
+        gapore 639798 (e-mail: jzhzjut@outlook.com).
+           Andong Liu, Wen-an Zhang, and Li Yu are with the Department of
+                                                                                          by the SEDS [17] framework, which allows the obtained variable
+        Information Engineering, Zhejiang University of Technology, Hangzhou              impedance law to be fully state-dependent and hence improves
+        310023, China (e-mail: lad@zjut.edu.cn; wazhang@zjut.edu.cn; lyu@                 the adaptability. However, all RL algorithms need to be learned
+        zjut.edu.cn).
+           Chenguang Yang was with Bristol Robotics Laboratory, BS16 1QY
+                                                                                          via trial-and-errors, which might introduce safety issues, espe-
+        Bristol, U.K. He is now with the Department of Computer Science, Uni-             cially at the initial stage of the learning process.
+        versity of Liverpool, L69 3BX Liverpool, U.K. (e-mail: cyang@ieee.org).              Learning from demonstration (LfD) is another popular
+           This article has supplementary material provided by the au-
+        thors and color versions of one or more figures available at
+                                                                                          learning-based approach for designing variable impedance laws.
+        https://doi.org/10.1109/TMECH.2024.3466950.                                       The purpose is to transmit human-like impedance variations
+           Digital Object Identifier 10.1109/TMECH.2024.3466950                           to robots. However, human impedance parameters can not be
+
+                            1083-4435 © 2024 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                          See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: LEARNING STABLE STATE-DEPENDENT VIC FOR COMPLIANT MANIPULATION                                                                                  3363
+
+
+
+       easily obtained via traditional sensors, and thus one of the                             system under the contact-free and contact-rich cases,
+       critical challenges of LfD-based variable impedance design is                            respectively.
+       to obtain the label data, i.e., the human impedance parameters.                       2) We design a novel neural energy function called symmet-
+       Gaussian mixture model (GMM) combined with the least square                              ric NEUM (SNEUM) based on our previous work [26].
+       approach is popular to extract human impedance variations                                The SNEUM has a globally unique minimum and satisfies
+       through the human demonstrated force, position, and velocity                             the derived stability certificate conditions. Moreover, it is
+       trajectories [18], [19]. Using the same data, a nonparameter                             symmetric for the input sign, which avoids the influences
+       learning approach based on a human arm dynamic model was                                 of the tracking error sign to the variable impedance be-
+       proposed in [20] to further increase the accuracy of the human                           haviors.
+       impedance estimations. In [21], the positive-definite structure                       3) Two learnable VIC structures, i.e., coupled and decou-
+       of the human impedance parameters was further considered to                              pled VIC structures, are derived by encoding the desired
+       enhance the learning performance.                                                        variable stiffness behaviors via SNEUM. We show that if
+          Although using variable impedance laws can significantly                              SNEUM parameters satisfy the proposed constraints, the
+       improve the flexibility of the impedance control, it will raise the                      closed-loop robot system will always be stable.
+       stability issues of the robot system [22], which can not be ne-                       4) Thorough analyses are conducted for the SNEUM-
+       glected for safety concerns. However, compared with the works                            encoded stiffness variations. We show that the vari-
+       focusing on the variable impedance law design, research on the                           able stiffness tendency reacting from the tracking error
+       VIC’s stability guarantee is much rarer. One of the most popular                         could be mathematically determined by tuning a hyper-
+       approaches for stability guarantee of the VIC is tank-based                              parameter of the SNEUM, which could be a favorable
+       approaches [22], [23]. Tank-based approaches establish a virtual                         means to introduce designer preferences into the learning
+       tank and ensure the passivity of the robot-tank integral system                          procedure.
+       by online reshaping the variable impedance law. However, the                         The proposed VIC learning approach is validated via contact-
+       major disadvantage of this approach is that the reshaping process                 free and comparative contact-rich experiments.
+       is not predictable and controllable, which might severely reduce
+       the VIC performance. Moreover, the tank-based approaches                                     II. BACKGROUND ON IMPEDANCE CONTROL
+       are unsuitable for stability analyses in the contact-free cases,
+       and they are sensitive to the parameter settings, such as the                        Consider the following Cartesian robot dynamic model:
+       constant stiffness which should be used when the tank is ex-
+       hausted, tank lower and upper bounds, etc. In [24], a novel                                      M (x)ẍ + C(x, ẋ)ẋ + fg (x) = fc + fe                     (1)
+       Lyapunov candidate function (LCF) was designed to derive
+       stability constraints for the variable impedance laws. However,                   where M (x), C(x, ẋ) ∈ Rdx ×dx are the inertial and Corio-
+       the derived constraints will limit the flexibility of the variable                lis/centrifugal matrices, respectively. Vectors x, fg (x), fc , and
+       impedance laws. What is more limited is that this approach is                     fe ∈ Rdx are the robot Cartesian pose, gravity, control force,
+       only suitable for time-dependent variable impedance laws since                    and environment-contact force, respectively. The goal of the
+       the derived constraints contain time derivatives of the stiffness                 impedance control is to reshape the dynamic model (1) into the
+       and damping matrices. In [25], a passivity-preservation control                   following impedance model:
+       approach was presented to ensure compliant robots’ stability
+                                                                                                                 Bd ë + Dd ė + Kd e = fe                          (2)
+       based on Lyapunov theorems. Similar to [24], the LCF-derived
+       constraints will limit the flexibility of the variable impedance                  where error e = x − xr , and xr is the reference robot pose.
+       law. Furthermore, the constraints contain robot dynamic param-                    Matrices Bd , Dd , and Kd ∈ Rdx ×dx are the desired inertial,
+       eters, which are always unknown to designers and thus might                       damping, and stiffness matrices, respectively. This transforma-
+       further limit their applications.                                                 tion can be achieved by designing the control force fc as follows:
+          Actually, both tank-based and LCF-based approaches are
+       energy-function-based approaches. The shortcomings of these
+       stability-guarantee approaches can be viewed as the results of                               fc = − (M Bd−1 Dd − C)ė − M Bd−1 Kd e
+       choosing the inappropriate energy functions. Jin et al. [26]
+       presented an approach to learn a neural energy function with                                        + (M Bd−1 − I)fe + M ẍr + C ẋr + fg                    (3)
+       a unique minimum, called NEUM, which has been shown as a
+       flexible stability certificate for LfD approaches. In this article, we            where variables for M (x), C(x, ẋ), and fg (x) are omitted for
+       modify the NEUM to make it a proper VIC stability certificate,                    the clarity, e.g., M  M (x).
+       and present a stable variable impedance law learning approach                        Observing (3) we can find that the impedance controller is
+       accordingly. Specific contributions of this article are listed as                 constructed by a feedback term and a compensation term, which
+       follows.                                                                          are listed on different lines. By forcing slight constraints
+           1) We derive sufficient conditions to make an energy func-                                             
+               tion a proper stability certificate for the state-dependent                                          Bd = M
+                                                                                                                                                      (4)
+               VIC. These conditions can simultaneously ensure the                                                  Dd = C + D d
+               globally asymptotic stability and passivity of the robot
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+        3364                                                                        IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 5, OCTOBER 2025
+
+
+
+
+        where Dd is the designable part of the desired damping matrix,                    For a general Kd (e), the sign of term 21 eT K̇d (e)e is indefinite
+        the controller could be simplified as                                             and uncontrollable, and thus we can not ensure the passivity or
+                                                                                          stability of the variable impedance system. Various approaches
+                     fc = − Dd ė − Kd e + M ẍr + C ẋr + fg                      (5)
+                                                                                          have been proposed to solve the stability issue, such as LCF-
+        which is a combination of a simple proportional-derivative (PD)                   based approach [24] and various tank-based approaches [22],
+        controller and a feed-forward compensation term. Another prac-                    [23]. However, the LCF-based approach is theoretically de-
+        tically useful point is that we could implement the impedance                     signed for the time-dependent VIC. Specifically, Kronander and
+        controller without the force/torque sensor, since fe is eliminated                Billard [24] proposed constraints on the Bd , Dd , Kd , K̇d , and
+        in the controller (5). Substituting (4) into (2), the impedance                   Ḋd to ensure the stability. Note that K̇d and Ḋd can only be
+        model will be                                                                     accurately obtained if Kd and Dd are time-dependent matrix
+                                                                                          functions. Although work [10] approximated K̇d using the time-
+                           M ë + (C + Dd )ė + Kd e = fe .                        (6)    differential technique to utilize the approach for state-dependent
+        The impedance model (6) has been widely used in applications                      VIC, the stability actually can only be approximately ensured.
+        like surgical robots [22] and quadrupedal robots [10], where                      Moreover, the proposed constraints will limit the flexibility of
+        force/torque sensors are difficult to be installed. Note that when                the variable impedance law.
+        the velocity ẋ is slow, the effect of C in (6) can be neglected.                    Tank-based approaches ensure the stability by designing a
+           It can be shown that the impedance systems (2) and (6) are                     virtual tank. Informally speaking, when V̇ in (11) is negative, the
+        passive with respect to the input–output pair (ẋ, fe ). Since the                virtual tank will store the dissipated energy of the robot system.
+        proof for the former is naive, we only briefly introduce the                      When V̇ > 0, the energy in the virtual tank will be extracted
+        passivity proof of the system (6). Defining an energy function                    to support the impedance variations until the tank is exhausted,
+                                                                                          and then a designed constant stiffness will be used to reshape the
+                               1 T         1                                              desired stiffness. However, we can never predict when the tank
+                               V =
+                                 ė M ė + eT Kd e                                 (7)
+                               2           2                                              will be exhausted, which means that the reshaping behaviors can
+        we can compute the derivative of V as follows:                                    not be predicted. Thus, a bad tank design will severely reduce the
+                                                                                          VIC performance. Moreover, the frequently reshaping behaviors
+                                         1
+                          V̇ = ėT M ë + ėT Ṁ ė + ėT Kd e.                    (8)    will cause robot oscillations, which might raise the safety issues.
+                                         2                                                   As mentioned in Section I, both LCF-based and tank-based
+        Substituting (6) into (8) and using the property that Ṁ − 2C is                  approaches are energy-function-based approaches. The disad-
+        skew symmetric [27], we have                                                      vantages of these existing approaches are caused by selecting
+                                                                                          the inappropriate energy functions. For example, if the energy
+                                  V̇ = ėT fe − ėT Dd ė.                         (9)    functions V is properly designed, i.e., V̇ is always negative
+        If Dd is at least semi-positive definite, we will have the following              under the desired variable stiffness Kd (e) and Dd (e, ė), the
+        passivity condition [22]:                                                         constraints in [24] or the tanks in [22] and [23] will be extra and
+                                           t                                             redundant. In this article, we try to design such a proper energy
+                                                                                          function. Let us observe the form (11), the unstable or nonpassive
+                         V (t) − V (0) ≤       ėT (t)fe (t)dt.         (10)
+                                                 0                                        hazard is mainly caused by the variable stiffness. Thus, we try
+                                                                                          to solve the mentioned issue by encoding the variable stiffness
+        Moreover, according to (9) and LaSalle’s invariance princi-
+                                                                                          into an energy function. Mathematically, we are committed to
+        ple [28], we can further state that the equilibrium point of system
+                                                                                          design an energy function V2 (e) such that the total energy
+        (6) is globally asymptotically stable when the environment-
+        contact force fe = 0.                                                                                           1 T
+                                                                                                                    V =   ė M ė + V2 (e)                  (12)
+                                                                                                                        2
+                               III. PROBLEM STATEMENT                                     will always be decreasing along the variable impedance sys-
+           In this article, we consider a state-dependent VIC problem.                    tem. We name V2 (e) as the stiffness-encoding energy function.
+        Specifically, Kd and Dd in (6) will be state-dependent, i.e.,                     Actually, even for the constant stiffness case, the second term is
+        they are actually two matrix-functions with forms Kd (e) and                      also the key to compensate the stiffness-related energy variation,
+        Dd (e, ė). Compared with the time-dependent VIC with forms                       which can be found in the derivation from (8) to (9). Moreover,
+        Kd (t) and Dd (t), the state-dependent VIC is obviously more                      in the constant stiffness case, the stiffness-encoding energy
+        adaptable since the impedance parameters are allowed to be                        function will be V2 = eT Kd e, see (7).
+        online modified according to the states (e, ė). In the state-                       The remaining problem is how to design the stiffness-
+        dependent case, the time-derivative of the energy function (7)                    encoding energy function V2 such that the desired variable
+        can be computed as                                                                impedance system is passive (fe = 0) and globally asymptot-
+                                                                                          ically stable (fe = 0). In this article, we assume that a desired
+                                1                         1                               variable-impedance set Ψ = {et , ėt , Kd,t , D d,t } has been pro-
+               V̇ = eT M ë + ėT Ṁ ė + ėT Kd (e)e + eT K̇d (e)e
+                                2                         2                               vided, where t ∈ [1, . . . , T ] is the index of a data-pair, and T is
+                                               1                                          the size of the set Ψ. The set Ψ could be generated from an origi-
+                  = ėT fe − ėT Dd (e, ė)ė + eT K̇d (e)e.        (11)
+                                               2                                          nal desired variable impedance law, or be collected from human
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: LEARNING STABLE STATE-DEPENDENT VIC FOR COMPLIANT MANIPULATION                                                                                  3365
+
+
+
+       demonstrations, or even be directly set by an experienced human                      Theorem 1: The state-dependent variable impedance system
+       tutor. We will learn V2 based on the set Ψ, and then generate the                 (13.a) is passive with respect to (ė, fe ) if Dd (ė, e) is at least
+       desired stiffness Kd (e) and damping Dd (e, ė) accordingly. In                                                                  2 (e)
+                                                                                         semi-positive definite, and Kd (e)e = ∂V∂e           where V2 (e) is
+       the next section, we will analyze the condition for V2 such that                  differentiable and at least semi-positive definite. Moreover, if
+       the total energy function (12) could be an effective passivity and                Dd (ė, e) and V2 (e) are further positive definite, and V2 (e) is also
+       stability certificate for the variable impedance system.                          radially unbounded and satisfies the unique-minimum condition
+                                                                                         (18), the equilibrium point of the system (13.a) is globally
+                 IV. PASSIVITY/STABILITY ANALYSIS WITH THE                               asymptotically stable (GAS) in the case fe = 0.
+                  STIFFNESS-ENCODING ENERGY FUNCTION
+          In this section, we analyze the passivity (stability) of the                         V. DESIGNING THE STIFFNESS-ENCODING ENERGY
+       state-dependent variable impedance system at the case fe = 0                                             FUNCTION
+       (fe = 0). To keep the self-contained structure, we give the state-                   According to the Theorem 1, the best choice of the stiffness-
+       dependent variable impedance system and the energy function                       encoding energy function V2 (e) is a positive-definite, differen-
+       as follows:                                                                       tiable, radially unbounded function with the unique-minimum
+                                                                                      property (18). In this case, with a positive-definite D(e, ė), the
+               (a). M ë + C + Dd (e, ė) ė + Kd (e)e = fe
+                                                                    (13)                 state-dependent variable impedance system (13.a) will be pas-
+               (b). V = 21 ėT M ė + V2 (e)
+                                                                                         sive and globally asymptotically stable for fe = 0 and fe = 0,
+       where V2 (e) is the stiffness-encoding energy function. We can                    respectively. In this section, we aim to construct such a type of
+       compute V̇ as follows:                                                            functions.
+                          1               ∂V2 (e)                                           Lemma 1: The energy function Γ(e) with the form
+          V̇ = ėT M ë + ėT Ṁ ė + ėT                                                           ⎧
+                          2                   ∂e                                                    ⎪ Γ(e) = J1 (e) − J1 (0) + J2 (e)
+                                                                                                  ⎪
+                                                                                                    ⎪
+                                                ∂V2 (e)                                             ⎪
+                                                                                                    ⎪ J1 (e) = ω T f (e)
+             = ė fe − ė Dd (ė, e)ė + ė
+                 T       T                  T
+                                                        − Kd (e)e                                   ⎪
+                                                                                                    ⎪                                               T
+                                                  ∂e
+                                                                    (14)                            ⎪
+                                                                                                    ⎨f (e) = f1 (e), . . . , fk (e), . . . , fd (e)
+                                                                                                                                               H
+                                                                                                                                                       (19)
+       where the second row can be obtained by using (13.a) and the                                 ⎪
+                                                                                                    ⎪ fk (e) = (aTk z(e) + bk )
+                                                                                                    ⎪
+                                                                                                    ⎪                                 
+       property that Ṁ − 2C is skew symmetric. Arrive here we can                                  ⎪
+                                                                                                    ⎪ z(e) = e1+        e21 eT
+                                                                                                                                        T
+                                                                                                    ⎪
+                                                                                                    ⎪
+                                                                                                                       1
+
+       mathematically give the stiffness encoding form as                                           ⎩               2
+                                                                                                      J2 (e) = αeT e
+                               ∂V2 (e)
+                                        = Kd (e)e.                  (15)                 where ω ∈ RdH , (s) = ees +e−e  s   −s
+                                                                                                                         −s , ak ∈ R
+                                                                                                                                     dx +1
+                                                                                                                                           , bk ∈ R, 1 , α ∈
+                                 ∂e
+                                                                                         R++ , is positive-definite, continuously-differentiable, radially
+       We first consider the passivity of the variable impedance system
+                                                                                         unbounded, and has the unique-minimum property
+       (13.a) at the case fe = 0. It is obvious that the system will                                          ⎧
+       be passive if Dd (ė, e) and V2 (e) both be at least semi-positive                                      ⎨ ∂Γ(e) = 0, e = 0
+                                                                                                                    ∂e
+       definite.                                                                                                                                          (20)
+                                                                                                               ⎩  ∂Γ(e)
+         We then consider the globally asymptotic stability of the vari-                                            ∂e = 0, e = 0
+       able impedance system (13.a) at the case fe = 0. Substituting                     if the following constraints hold:
+       fe = 0 and (15) into (13.a), we have                                                         ⎧
+                                                                                                    ⎨ak,1 > 
+                                                                                                            0
+                                               ∂V2 (e)                                                       dx +1 2
+                      M ë + C + Dd (ė, e) ė +         = 0.                   (16)                  a − i=2
+                                                                                                       2
+                                                                                                                     ak,i > 0, ∀k ∈ [1, . . . , dH ]              (21)
+                                                   ∂e                                               ⎩ k,1
+                                                                                                      ωk > 0
+       Assuming Dd (ė, e) is positive definite, the semi-negative defi-
+                                                                                         where ak,i is the ith component of the vector ak , and ωk is the
+       nite function V̇ can take value 0 only at the case ė = 0. Substi-
+                                                                                         kth component of the vector ω. Moreover, Γ(e) is monotonically
+       tuting ė ≡ 0 into (16), we have
+                                                                                         increasing along any rays emitted from the origin.
+                                     ∂V2 (e)                                                Proof: See Propositions 3 and 4in our previous work [26].
+                                              = 0.                    (17)                  The energy function Γ(e) in (19) is named as the “NEUM,”
+                                        ∂e
+       Thus, according to the LaSalle’s invariance principle [28], we                    which refers to a type of neural energy functions with a unique
+       can state that the equilibrium of the variable impedance system                   minimum. It has been shown in our previous work [26] that
+       (16), or equivalently (13.a), is globally asymptotically stable if                the constraints (21) will not introduce too much limitations for
+       V2 (e) is positive definite, radially unbounded and has the unique-               the model flexibility. Although we may directly use Γ(e) as the
+       minimum property                                                                  stiffness-encoding energy function, we should note that Γ(e) is
+                                ∂V (e)                                                  not symmetric, e.g., Γ(−e) = Γ(e). It will indeed be a problem
+                                      2
+                                     ∂e   = 0, e = 0                                     since in this case, the Kd (e) will be influenced by the sign of the
+                                  ∂V2 (e)
+                                                                      (18)               error e, which is not reasonable. A familiar symmetric energy
+                                          = 0, e = 0.
+                                     ∂e                                                  function is the quadratic function eT Kd e which corresponds to
+       We conclude the main results of this section as the following                     the constant stiffness as mentioned in Section III. To keep the
+       theorem.                                                                          symmetric property, we slightly modify the function Γ(e) to
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+        3366                                                                            IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 5, OCTOBER 2025
+
+
+
+
+        Γ(e) as                                                                                 We then consider the case that e contains zero element(s).
+                                                                                             Denote e as the vector constructed by the nonzero elements of e,
+                                      Γ(e) = Γ(|e|1+2 )                              (22)   then h(e) = |e|1+2 is the vector constructed by the nonzero
+        where 2 is a positive scalar, | · |       1+2
+                                                           is an element-wise opera-         elements of h(e). According to the Proposition 1, we have
+                                                                                             ∂Γ(h)
+        tion, i.e.,                                                                            ∂h
+                                                                                                   = 0. Moreover, matrix ∂h(e)
+                                                                                                                             ∂e , which is the nonzero part
+                                                                               T            of the diagonal matrix ∂h(e)
+          |e|1+2 = |e1 |1+2         ···      |ei |1+2    ···   |edx |1+2        . (23)                           ∂e , is obviously full-rank. Thus, we
+                                                                                             have
+        The function Γ(e) is named as the SNEUM.                                                                              T
+                                                                                                                       ∂h(e)        ∂Γ(h)
+          Denote h(e) = |e|1+2 , we will show that                                                                                       = 0                      (29)
+                                                                                                                        ∂e           ∂h
+                                       Γ(e) = Γ(h(e))                                 (24)
+        is also positive-definite, continuously differentiable, radially                     which implies that part of ∂Γ(e)
+                                                                                                                            ∂e ’s elements are not zero. This
+        unbounded, and has the unique-minimum property. To achieve                           completes the proof.                                          
+        the purpose, we first give the following useful result.                                 The SNEUM Γ(e) can then be used as the stiffness-encoding
+           Proposition 1: For any e containing zero element(s), denote                       energy function, i..e, V2 (e)  Γ(e).
+        e as the vector constructed by nonzero element(s) of e, we have                         Remark 1: From (27) we can find that the parameter 2 is
+        ∂Γ(e)                                                                                used to ensure the existence of the gradient ∂Γ(h)
+          ∂e = 0 if constraints (21) hold.                                                                                                 ∂h at cases with
+           Proof: We prove the result by contradiction. Consider the ray                     ei = 0, which ensures the smooth property of the SNEUM.
+        passing through the origin and e which has zero element(s), if
+        ∂Γ(e)
+          ∂e = 0, the Γ(e) will not be monotonically increasing along                              VI. LEARNING COUPLED STATE-DEPENDENT VIC
+        this ray, which violates the Lemma 1 if constraints (21) hold.
+                                                                                               In this section, we show how to learn the coupled state-
+        This completes the proof.                                       
+                                                                                             dependent VIC utilizing the SNEUM Γ(e) proposed in the last
+           Then, we can state the main result of this section as follows.
+                                                                                             section. The word “coupled” means that Kd (e) and D(ė, e) are
+           Proposition 2: The SNEUM (22) is positive-definite, contin-
+                                                                                             generally not diagonal.
+        uously differentiable, radially unbounded, and has the unique-
+        minimum property
+                               ⎧                                                             A. Learning Coupled Variable Impedance Behaviors
+                               ⎨ ∂Γ(e) = 0, e = 0
+                                   ∂e
+                                                                      (25)                      Learning a positive-definite Dd (ė, e) based on the set Ψ
+                               ⎩ ∂Γ(e) = 0, e = 0                                          defined in the Section III is trivial, such as using tensor-based
+                                          ∂e
+                                                                                             approach [21]. Thus, we step the details for this in the section.
+        if the constraints (21) hold.
+                                                                                                The most important part of the variable impedance controller
+            Proof: According to the Lemma 1 and the definition (22), it
+                                                                                             is the variable stiffness part. As mentioned in Sections IV and
+        is obvious that the SNEUM Γ is positive-definite and radially
+                                                                                             V, the variable stiffness Kd (e) has the form
+        unbounded if constraints (21) hold. We then show the contin-
+        uously differentiable and the unique-minimum properties of Γ.                                              ∂V2 (e,Θ)
+                                                                                                                               = Kd (e, Θ)e
+        Using the chain rule and definition (24), we have                                                                ∂e                                         (30)
+                                            T                                                                      V2 (e, Θ) = Γ(e, Θ)
+                           ∂Γ(e)       ∂h(e)    ∂Γ(h)
+                                  =                              (26)
+                             ∂e         ∂e        ∂h                                         where the SNEUM Γ(e, Θ) is defined as (22). Note that the Θ 
+                                                                                             {ak , bk , ωk } is also regarded as the variable for functions in (30)
+        where
+                            T                                                              since it is served as the learnable parameter in this section. Thus,
+           ∂h           ∂h                                                                   in order to get Kd (e, Θ), we first need to learn the V2 (e, Θ), or
+              =                   = (1 + 2 )diag{· · · sign(ei )|ei |2 · · · } (27)
+           ∂e           ∂e                                                                   equivalently the Γ(e, Θ). The objective function of the learning
+                                                                                             problem is formulated as follows:
+        diag{· · · δi · · · } represents a diagonal matrix with elements δi ,
+        and                                                                                                            T                          2
+                                                                                                                   1                            
+                                                                                                                           ∂V2 (et , Θ) − Kd,t et 
+                                              −1, ei ≤ 0                                                 J(Θ) =                                                   (31)
+                                 sign(ei ) =                           (28)                                         T t=1      ∂et
+                                              1, ei > 0.
+
+        Since ∂Γ(h)                                                                          where T is the size of the set Ψ, et and Kd,t are the set samples,
+                  ∂h is continuous and 2 > 0, we can state that Γ(e) is
+        continuously differentiable. As for the unique-minimum prop-                         see definitions in Section III. Moreover, we should also consider
+        erty, it is obvious that ∂Γ(e)                                                       the constraints (21) to ensure that the V2 (e) is an effective
+                                     ∂e = 0 for e = 0. As for e = 0, we
+        first consider the case that e does not contain any zero element,                    stiffness-encoding energy function. Thus, the learning problem
+        i.e., ei = 0 for ∀i ∈ [1, . . . , dx ]. In this case, the matrix ∂h                 is formulated as follows:
+                                                                          ∂e is
+        full-rank, and we have h(e) = 0. According to the Lemma 1,
+                                                                                                                           min J(Θ)                                 (32)
+        we further have ∂Γ(h)                        ∂Γ(h)
+                            ∂h = 0, and thus ∂e = 0.
+                                                                                                                               Θ
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: LEARNING STABLE STATE-DEPENDENT VIC FOR COMPLIANT MANIPULATION                                                                                  3367
+
+
+
+       subject to                                                                          where ak,2: is the vector constructed by the second to last
+           ⎧                                                                               components of ak , and
+           ⎨(a). ak,1 > 0                                                                        T          T
+                           dx +1 2
+             (b). a2k,1 − i=2   ak,i > 0, ∀k ∈ [1, . . . , dH ] .                (33)        ∂z(h)       ∂f (z)       dH
+                                                                                                                                        ak,2: hT
+           ⎩                                                                                                       ω=     ωk (1 − 2k )          h21 −1 h.
+             (c). ωk > 0                                                                      ∂h 2         ∂z                            h2
+                                                                                                                             k=1
+                                              ∗                                                                                                                   (39)
+       Once we obtain the optimal Θ by solving the above learning
+       problem, we can compute the V2 (e, Θ∗ ) and Kd (e, Θ∗ ) using                       Substituting (38) and (39) into (35), we have
+       (30). As a conclusion, the decoupled state-dependent variable
+                                                                                                           Γ(h)
+       impedance controller is given as follows:                                                                 = (G(h) + g(h)I + 2α) h                (40)
+                                                                                                            ∂h
+           fc = −Dd (e, ė)ė − Kd (e, Θ∗ )e + M ẍr + C ẋr + fg                          where I is the identity matrix, and
+                                                                                            ⎧                                                      
+                                    ∂V2 (e, Θ∗ )                                            ⎪                 −1 
+                                                                                                                   dH
+                                                                                                                                           hT a
+              = −Dd (e, ė)ė −                  + M ẍr + C ẋr + fg . (34)                ⎪
+                                                                                            ⎨g(h) = 1 h21          ωk (1 − 2k ) ak,1 + hk,2:
+                                        ∂e                                                                        k=1
+                                                                                                                                                 2
+
+                                                                                            ⎪                    
+                                                                                                                 d H                                . (41)
+       Actually, in practically implementation, we need not to compute                      ⎪
+                                                                                            ⎩G(h) = h21 −1                              a
+                                                                                                                     ωk (1 − 2k ) ak,1 I + k,2:
+                                                                                                                                                 hT
+                                                                                                                                             h2
+       the closed-form of Kd (e, Θ), which can be seen in the second                                               k=1
+       row of (34). However, it is worthwhile to derive Kd (e, Θ) in                       Let us observe the gains g(h) and G(h) in (41). If constraints
+       order to better interpret the coupled state-dependent variable                      (33.a) and (33.b) hold, we have
+       impedance controller.
+                                                                                                                          hT ak,2:
+                                                                                                                 ak,1 +            > 0, ∀h.                       (42)
+                                                                                                                           h2
+       B. Analysis for the Coupled Variable Stiffness Behaviors
+          In this section, we derive the closed-form of Kd (e) to analyze                  Combine with the constraint (33.c), we claim that g(h) > 0 for
+       the variable stiffness behaviors. Based on (26) and (27), what                      any h. As for the matrix gain G(h), the definite property may not
+       remains is to compute ∂Γ(h)                                                         be easily determined. However, we will show that it is always
+                                   ∂h . According to the chain rule, we
+       have                                                                                positive in the decoupled case, which will be introduced in the
+                       ⎧                                                                   next section.
+                       ⎨ ∂Γ(h) = ∂J1 (h) + 2αh                                                Moreover, due to the existence of the term h21 −1 , the rela-
+                           ∂h       ∂h T            T            (35)                  tionships between gain values and the modified error norm h2
+                            1 (h)
+                       ⎩ ∂J∂h                   ∂f (z)
+                                  = ∂z(h)
+                                       ∂h         ∂z      ω                                in area around h = 0 will be determined by the parameter 1 .
+                                                                                           Specifically, when 0 < 1 < 1, gain values will approach infinity
+       where we reclaim that h is the modified error defined as h(e) =                     when h → 0, and be negatively related with the h2 around
+                                                  T
+        |e1 |1+2 · · · |ei |1+2 · · · |edx |1+2 , and                                   h = 0. On the contrary, when 1 > 1, gain values equal 0 when
+                                                                                           h = 0, and be positively related with the h2 around h = 0.
+       ⎧         T                                                                    These two modes have their own advantages. Specifically, if
+       ⎪
+       ⎪
+           ∂f (z)
+                     = ···     1 − 2k ak             · · · , k ∈ [1, . . . , dH ]
+       ⎨ ∂z                                                                                0 <  < 1, the tendency that gain values approach to infinity
+                 T                                                            
+                                                                   T              .        when h → 0 implies that the controller will generate persistent
+       ⎪
+       ⎪
+           ∂z(h)
+                     = (1 + 1 )h21 h
+                                        h
+                                                      1 h21 hh
+                                                                h 2 + h1
+                                                                           2  I
+       ⎩ ∂h  T                          2                         2                      force to eliminate small tracking errors. Otherwise, if 1 > 1,
+         k   ak z(h) + bk                                                               the control signal will be more smooth around h = 0. We will
+                                                                                 (36)      validate these properties in experiments in detail.
+                                                                                              We then step forward to the Kd (e) derivation. Substituting
+       We rewrite ( ∂z(h)
+                     ∂h ) in (36) as follows:
+                          T
+                                                                                           (41) into (26), we can obtain
+                  T                                                                            ∂Γ(e)
+           ∂z(h)
+                        = hh21 −1 (1 + 1 )           hT
+                                                     1 h     + h21 0       I .                     = (1 + 2 )Λ (G(h) + (g(h) + 2α) I) h                    (43)
+            ∂h                                              2                                       ∂e
+                                                                                 (37)      where
+                                                                                                            Λ = diag{· · · sign(ei )|ei |2 · · · }.              (44)
+       Denote the first and second terms in (37) as ( ∂z(h)
+                                                       ∂h )1
+                                                            T
+                                                                                     and
+        ∂z(h) T
+       ( ∂h )2 , respectively, we have                                                     Since h can be expanded as h = Λe, we have
+
+                    T    T                                                                ∂Γ(e)                                     
+             ∂z(h)   ∂f (z)                                                                           = (1 + 2 ) Λ2 (g(h) + 2α) + ΛG(h)Λ e.                      (45)
+                               ω                                                                ∂e
+              ∂h       ∂z
+                  1                                                                        According to (30) we can obtain
+           
+           dH                                                                                                                       
+                                            hT ak,2:                                           Kd (e) = (1 + 2 ) Λ2 (g(h) + 2α) + ΛG(h)Λ .                       (46)
+         =    ωk (1 − k ) ak,1 + 1 ak,1 +
+                       2
+                                                        h21 −1 h
+                                             h2
+             k=1                                                                             Remark 2: It should be noted that the functions h and Λ in
+                                                                                 (38)      (46) are all e-dependent, and thus Kd is also e-dependent.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+        3368                                                                        IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 5, OCTOBER 2025
+
+
+
+
+                                                                                          where function Γi (·) is the SNEUM introduced in the Section V.
+                                                                                          According to (48) and the stiffness-encoding form (15), we have
+
+                                                                                                                                     ∂Γi (ei , Θi )
+                                                                                                                 kd,i (ei , Θi ) =                                  (49)
+                                                                                                                                         ∂ei
+
+                                                                                          where Θi  {ai,k , bi,k , ωi,k } is the parameter set expected to be
+                                                                                          learned. Note that we regard Θi as the variable for functions in
+                                                                                          (49), since it will be learned in this section. The learning problem
+                                                                                          for each kd,i is formulated as
+                                                                                                                T                                  2
+                                                                                                             1    ∂V2 (et,i , Θi )               
+                                                                                                min J(Θi ) =                          − kd,t,i et,i                (50)
+                                                                                                             T i=t                                 
+        Fig. 1.   Robot assembly task.
+                                                                                                Θi                       ∂et,i
+
+                                                                                          subject to
+           The constant 2 ∈ R++ is only used to ensure the differential                            ⎧
+        ability of Γ(e) at cases ei = 0. Thus, it could be taken as an                              ⎨(a). ai,k,1 > 0
+        extremely small positive value, which implies that Λ2 ≈ I and                                 (b). a2i,k,1 − a2i,k,2 > 0, ∀k ∈ [1, . . . , dH ]             (51)
+                                                                                                    ⎩
+        Λ2 g(h) ≈ g(h)I. As for the term ΛG(g)Λ, we can state that the                                (c). ωi,k > 0
+        amplitudes of its elements are approximately same as these of
+                                                                                          where et,i and kd,t,i can be obtained from the tth sample of the
+        G(h) if 2 is extremely small. Thus, terms Λ2 g(h) and ΛG(h)Λ
+                                                                                          set Ψ. Once we get each optimal Θ∗i , we can finally obtain the
+        share the same properties of g(h) and G(h).
+                                                                                          decoupled variable impedance controller as follows:
+           Arrive here we have given a coupled state-dependent variable
+        impedance controller, under which the stability and passivity                                                 
+                                                                                                                      dx
+                                                                                                                         ∂Γi (ei , Θ∗ )
+        could be simultaneously ensured. We conclude this result as the                      fc = −Dd (e, ė)ė −                        i
+                                                                                                                                             + M ẍr + C ẋr + fg .
+        following theorem.                                                                                             i=1
+                                                                                                                                 ∂ei
+           Theorem 2: The variable impedance system (13.a) is, respec-                                                                                              (52)
+        tively, GAS and passive with respect to (ė, fe ) at the cases
+        fe = 0 and fe = 0, if Dd (e, ė) is any positive-definite matrix                 Similar with coupled case, we need not to compute each kd,i (ei )
+        function, constraints (21) hold, and Kd (e) has the form (46)                     when we implement the decoupled controller (52). However, we
+                                                                   T                     claim that it is worthwhile to derive it for better understanding
+        where h(e) = |e1 |1+2 · · · |ei |1+2 · · · |edx |1+2 , 2                      the variable stiffness behaviors.
+        and α are any positive constants, Λ(e) is given by (44), g(h(e))
+        and G(h(e)) are defined in (41).                                                  B. Analysis for the Decoupled Variable Stiffness
+                                                                                          Behaviors
+               VII. LEARNING DECOUPLED STATE-DEPENDENT VIC                                   In this section, we derive the closed-form of kd,i (ei ) to intu-
+          In this section, we aim to learn a decoupled state-dependent                    itively interpret the variable stiffness behaviors. The result can
+        variable impedance controller, i.e., Kd (e) and Dd (ė, e) follow                 be directly obtained based on the derivations of Section VI-B.
+        the forms:                                                                        Since we focus the ith dimension, we need to add a subscript
+                                                                                         “i” for symbols in Section VI-B. For example, (40) will be
+                      Kd (e) = diag{· · · kd,i (ei ) · · · }
+                                                                       . (47)
+                      Dd (ė, e) = diag{· · · dd,i (ėi , ei ) . . . }                                    Γi (hi )
+                                                                                                                   = (Gi (hi ) + gi (hi ) + 2αi ) hi                (53)
+                                                                                                           ∂hi
+        Actually, the decoupled forms (47) are more consistent with
+        the human control style. It is also more convenient to provide                    where
+        diagonal Kd and Dd in set Ψ for a human tutor.                                      ⎧
+                                                                                                              1,i −1 
+                                                                                                                      dH
+                                                                                            ⎪
+                                                                                            ⎪
+                                                                                            ⎨gi (hi ) = 1,i hi          ωi,k (1 − 2i,k ) (ai,k,1 + ai,k,2 )
+                                                                                                                         k=1
+        A. Learning Decoupled Variable Impedance Behaviors                                                                                                           .
+                                                                                              ⎪
+                                                                                              ⎪                      
+                                                                                                                     d H
+                                                                                              ⎩Gi (hi ) = hi 1,i −1     ωi,k (1 − 2i,k ) (ai,k,1 + ai,k,2 )
+           The learning details for Dd (ė, e) are also omitted as in last                                            k=1
+        section since it is trivial, and we mainly introduce the learning                                                                                           (54)
+        approach for Kd (e), or equivalently for each kd,i (ei ). Different
+        from the coupled case, the stiffness-encoding energy function                     Note that for the decoupled case, hi , gi (hi ), and Gi (hi ) are all
+        for the decoupled case is designed as                                             scalars, and we will have gi (hi ) > 0 and Gi (hi ) > 0 due to the
+                                                                                          constraints (51). For simplicity, (53) can be rewritten as
+                                               
+                                               dx
+                                   V2 (e) =          Γi (ei )                    (48)                           Γi (hi )
+                                                                                                                         = (g i (hi ) + 2αi ) hi                    (55)
+                                               i=1                                                               ∂hi
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: LEARNING STABLE STATE-DEPENDENT VIC FOR COMPLIANT MANIPULATION                                                                                  3369
+
+
+
+
+       Fig. 2. Learning results of the variable impedance behaviors. (a) Stiffness encoding results under two different 1 settings. (b) Stiffness-related
+       force encoding results under two different 1 settings. (c) Damping encoding results under the case 1 = 1.5. (d) Damping-related force encoding
+       result under the case 1 = 1.5.
+
+
+
+
+       Fig. 3. Results of the robot assembly experiment using the second-order planner (59) with κ = [40.0 40.0 20.0]T , and the proposed VIC with
+       setting 1 = 1.5. (a) Velocity tracking result. (b) Damping variation. (c) Position tracking error. (d) Stiffness variation. (e) Distance to the goal position.
+       (f) Control force in the x dimension. (g) Control force in the y dimension. (h) Control force in the z dimension. (i) Energy variation.
+
+
+
+       where                                                                                and fe = 0, if Dd (e, ė) is given as (47) with positive-definite
+                                             
+                                             dH                                             dd,i (ėi , ei )s, constraints (21) hold, and Kd (e) has the form (47)
+                                        −1
+                                 
+        g i (hi ) = (1 + 1,i )hi 1,i              ωi,k (1 − 2i,k ) (ai,k,1 + ai,k,2 ) .   with kd,i (ei ) defined in (58), where hi (ei ) = |ei |1+2 , 2,i and
+                                             k=1                                            αi are any positive constants, λi is given by (57), and g i (hi (ei ))
+                                                                                    (56)    is defined in (56).
+       The Λi corresponding to (44) will also be a scalar as
+                                                                                                           VIII. EXPERIMENTAL VALIDATIONS
+                              λi  Λi = sign(ei )|ei |2,i .                        (57)       In this section, the contact-free robot assembly and contact-
+       Thus, according to (46), we can finally obtain                                       rich robot polish tasks are conducted to show the effectiveness
+                                                                                            of the proposed approach.
+                      kd,i (ei ) = (1 + 2,i )λ2i (g i (hi ) + 2αi )                (58)
+       where we restate that hi = |ei |1+2 is a modified error for the                     A. Robot Assembly Experiment
+       ith dimension. Compared with the coupled case, the decoupled                            In this section, the proposed approach is validated via the
+       case is easier to be interpreted since the gain is a scalar. Note                    robot assembly experiment. We will thoroughly analyze the
+       that g i (hi ) inherits all of the properties of g(h) in (41), i.e.,                 properties of the proposed state-dependent VIC approach in this
+       be positive definite and has two relationship modes with hi                          experiment, and leave the comparisons with other stable VIC
+       dependent on the value of 1,i , see analysis in Section VI-B.                       approaches in the robot polish experiment. The robot assembly
+       Since we have (1 + 2,i )λ2i > 0, we state that kd,i (ei ) has the                   experiment is shown in the Fig. 1, where experiment devices
+       same properties of g i (hi ). Similar with the coupled case in                       contain a Franka robot arm, a controller box, a PC with Core
+       last Section, we conclude the decoupled VIC controller as the                        i7-7700HQ 2.8GHz CPU, and an assembly object with 0.5 mm
+       following theorem.                                                                   tolerance error. In this experiment, the robot orientation is con-
+          Theorem 3: The variable impedance system (13.a) is, respec-                       trolled via a constant impedance controller, and we adapt the
+       tively, GAS and passive with respect to (ė, fe ) at the cases fe = 0                proposed approach on the robot position control. The following
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+        3370                                                                        IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 5, OCTOBER 2025
+
+
+
+                                                                                          Fig. 2(a) since the slope of the stiffness-related force is exactly
+                                                                                          the stiffness.
+                                                                                             We state that these two different settings of 1 actually re-
+                                                                                          sult into two different control modes. The setting 0 < 1 < 1.0
+                                                                                          allows a persistent control force even though the error is very
+                                                                                          small, which can improve the tracking accuracy. Oppositely, the
+                                                                                          controller corresponding to the setting 1 > 1.0 will be more
+                                                                                          smooth around the zero-error area. Moreover, if the controller
+                                                                                          is expected to be totally data-driven, we can set the 1 = 1.0.
+                                                                                          Fig. 2(c) and (d) shows the similar learning contents as these
+                                                                                          in Fig. 2(a) and (b), except they focus on the damping and
+                                                                                          damping-related force encoding.
+        Fig. 4.   Robot polish task.                                                         Remark 3: The stiffness and damping parameters respec-
+                                                                                          tively shown in Fig. 2(a) and (c) are quite large values, i.e.,
+        decoupled second-order dynamic system is used as the robot                        with level 105 . It is normal since for the trajectory tracking
+        reference position trajectory planner                                             task with small sampling period, the error terms e and ė have
+                                    √                                                     extremely small values, i.e., with level 10−4 , and thus we need
+                         ẍr,i = −2 κi ẋi − κi estatic,i     (59)
+                                                                                          large stiffness and damping parameters to result in the suitable
+        where estatic,i = xi − xgoal,i is the distance between the robot’s                control force.
+        current position and the goal position at the ith dimension. Note                    Using the learned VIC with the setting 1 = 1.5, the assembly
+        the difference between the estatic,i and ei , where the latter is                 experiment results are shown in Fig. 3. Fig. 3(a) shows the
+        defined as ei = xi − xr,i . The parameter κ = [κ1 , . . . , κdx ]T is             velocity tracking result where dashed and solid lines represent
+        used to determine the convergence rate of the planner, and it is                  the reference and real velocities, respectively. As we can see, the
+        set as κ = [40.0 40.0 20.0]T in the experiment.                                   reference velocity can be accurately tracked. The corresponding
+           Accordingly, the decoupled state-dependent variable                            damping variation is shown in Fig. 3(b). We can find that at
+        impedance controller introduced in Section VII is used for                        the initial stage, the damping will be very small since the
+        the robot control, and the SNEUM, or the variable stiffness law,                  initial velocity error ė is very large. This setting can avoid
+        for each dimension is the same. The parameter-settings for the                    the generation of the extremely large control force. With the
+        SNEUM are given as follows after trial-and-errors.                                decrease of the ė, the damping continuously increases to ensure
+                                                                                         a persistent control force. These variation rules are consistent
+                         dH = 10, 1 = 1.5, α = 10−3
+                                                            .           (60)              with the desired variable impedance set Ψ shown in Fig. 2(c).
+                         2 = 10−10
+                                                                                             Fig. 3(c) and (d) shows the position tracking result and the
+        The damping terms dd,i s are also encoded via SNEUMs with                         corresponding stiffness variations, respectively. Similarly with
+        the same parameter-settings as (60). Given the desired variable                   the case of damping variations, at the first stage, the stiffness for
+        impedance set Ψ = {et , ėt , Kd,t , Dd,t }, the learning results of              each dimension is negatively related with the position error since
+        the variable impedance law are shown in Fig. 2.                                   the error trajectory in this stage lies on the area away from the
+           The stiffness encoding result is shown in Fig. 2(a), where the                 origin, see stiffness variation rule in Fig. 2(a). At the last stage,
+        red points represent the samples in the set Ψ, the solid and dashed               the stiffness decreases as the position error decreases since the
+        lines are, respectively, the learning results under the cases 1 =                error lies in the area near the origin. As the previous discussion,
+        1.5 and 1 = 0.5. In Section VII-B, we analyze the influence of                   this positively related property between the stiffness and error
+        the parameter 1 to the stiffness encoding result, that is, in area               can suppress the oscillation around the origin.
+        near the origin, the stiffness will be infinite (zero) and negatively                Fig. 3(e) shows the the distance variations between the robot
+        (positively) related the tracking error if 0 < 1 < 1.0 ( > 1.0).                and goal positions in different dimensions. The final value
+        The learning result here is exactly what we expect. Moreover,                     of these distances, denoted estatic,i,f s, determine that whether
+        we can also find that, although the set Ψ is more consistent with                 the assembly task could be accurately executed. The tolerance
+        the setting  > 1.0, a violated choice of 1 will also useful for                 error for this assembly task is |estatic,1,f | < 0.5 × 10−3 m and
+        encoding the variable stiffness in area away from the origin.                     |estatic,2,f | < 0.5 × 10−3 m. The final error in the z dimension is
+           Fig. 2(b) shows the stiffness-related force encoding result,                   less important compared with it in the x or y dimension. The
+        where the stiffness-related force in the ith dimension is defined                 final errors in the x and y dimension of this experiment are listed
+        as fstiffness = kd,i ei . The solid and dashed lines, respectively,               as follows:
+        represent the force encoding results under the cases 1 = 1.5                                          
+                                                                                                                |estatic,1,f | = 3.12 × 10−5 m
+        and 1 = 0.5. We may find that the force can be both well                                                                                          (61)
+                                                                                                                |estatic,2,f | = 1.67 × 10−4 m
+        encoded under these two different cases. However, the most
+        obvious difference between these two cases lies on the force                      Thus, the assembly task can be accurately completed.
+        variation near the origin. The slope of the solid line approaches                    Fig. 3(f), (g) and (h), respectively, show the control forces
+        zero near the origin, while the slop of the dashed line approaches                in the x, y, and z dimensions. As we can see, the stiffness-
+        infinity when ei approaches 0. This difference is consistent with                 related forces are very smooth. Moreover, we can find that the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: LEARNING STABLE STATE-DEPENDENT VIC FOR COMPLIANT MANIPULATION                                                                                  3371
+
+
+
+
+                                (a)                                   (b)                                   (c)                                  (d)
+
+
+
+
+                                (e)                                   (f)                                   (g)                                  (h)
+
+       Fig. 5. Results of the robot polish experiment using the proposed VIC with setting 1 = 0.5. (a) Velocity tracking result. (b) Damping variation.
+       (c) Position tracking error. (d) Stiffness variation. (e) Control force in the x dimension. (f) Control force in the y dimension. (g) 2-dimensional motion
+       trajectory. (h) Distance between the robot and the reference circle center.
+
+
+
+                                                                                           Fig. 3(i) shows the variation of the total energy defined in
+                                                                                         (12), where V2 are sums of SNEUMs in each dimension. As we
+                                                                                         can see, the total energy monotonically decreases to zero, which
+                                                                                         validates the stability of the robot system.
+
+
+                                                                                         B. Robot Polish Experiment
+                                                                                            In this section, the proposed approach will be validated via
+                                                                                         the robot polish experiment. Different from the robot assembly
+                                                                                         task, the robot polish task is a contact-rich task, which might
+                                                                                         raise more difficulties for accurate tracking. The experiment
+                                                                                         setting is shown in Fig. 4, where the vector field of the dynamic
+                                                                                         system planner is shown in the right-upper corner. As a result,
+                                                                                         the reference velocity will force the robot to conduct periodic
+                                                                                         motions. The specific design of the planner is omitted for the
+                                                                                         sake of clarity, and we just denote it as ẋr = f (x). The reference
+                                                                                         position is generated as xr,t = xt + ẋr,t T , where T = 0.002s
+                                                                                         is the sampling period. Similar with the robot assembly exper-
+                                                                                         iment, the variable stiffness and damping are also encoded by
+       Fig. 6. Results of the robot polish experiment using the tank-based
+       VIC [23]. (a) Position tracking error. (b) Stiffness variation. (c) Control
+                                                                                         SNEUMs, and we set 1 = 0.5 for both stiffness and damping
+       force in the x dimension. (d) Control force in the y dimension.                   encoding, and other SNEUM parameters are same as these in
+                                                                                         (60). This setting will generate variable stiffness or damping
+                                                                                         rules like dashed line in Fig. 2(a), i.e., stiffness and damping
+       stiffness-relate forces are properly to reduce the position tracking              values will approach infinity when position and velocity errors
+       error, which can be reflected by the rapidly increasing and                       approach zero, which could improve the tracking accuracy.
+       persistent holding of the control force in the initial and middle                    The experiment result is shown in Fig. 5, where Fig. 5(a)
+       stages, respectively. This trend is determined by the negatively                  and (b), respectively, shows the velocity tracking error and the
+       related property between the stiffness and the tracking error.                    corresponding damping variations. As we can see, the reference
+       Comparatively, the damping-related control force is much more                     velocity can be well tracked. The damping could be a little bit
+       noisy due to the noise in the velocity signal and the damping                     noisy due to the velocity signal noise.
+       parameters. Actually, before applying the control force on the                       Fig. 5(c) and (d) shows the position tracking error and the
+       robot, we will use low-pass filters to smooth these computed                      corresponding stiffness variations. The position error trajecto-
+       signals.                                                                          ries are periodic as what we expect, and the stiffness varies
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+        3372                                                                        IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 5, OCTOBER 2025
+
+
+
+        accordingly. These peaks of the stiffness implies that the po-                                                TABLE I
+                                                                                           QUANTITATIVE COMPARISON RESULTS BETWEEN THE PROPOSED VIC (PA),
+        sition errors approach to zero, and allows the robot to promptly                      CONSTANT IMPEDANCE CONTROL (IC), AND ONLINE OPTIMIZATION
+        generate control forces in these cases.                                                                  (OP)-BASED VIC [9]
+           Fig. 5(e) and (f), respectively, shows the control forces at
+        the first and second dimensions. As we can see, the control
+        forces are also periodic. The damping-related control force is
+        quite noisy due to the noised velocity signal. Nevertheless,
+        the control performance is quite well, which is reflected in
+        Fig. 5(g), where the robot real motion trajectory (represented
+        by the blue solid line) finally coincides with reference motion
+        trajectory (represented by the red dashed line). Fig. 5(h) gives
+        a more intuitive illustration of this point, where the dashed line
+                                                                                          an accurate tracking. As we can see, the proposed approach
+        represent the radius of reference circle, and the solid line is the
+                                                                                          achieves the best results with respect to all of these metrics.
+        real distance of the robot to the circle center. The slight error
+        during the convergence period might be caused by the friction
+        and uncompensated robot dynamics.                                                                              IX. CONCLUSION
+           We additionally conduct the robot polish experiment using                         In this article, we presented a stable state-dependent VIC
+        the tank-based VIC approach [22] for comparison. To run a                         learning approach based on the energy-function learning frame-
+        fair comparison, the variable impedance law learned via the                       work. The kernel idea is to learn an energy function to serve
+        proposed approach is set as the original variable impedance law                   as a stability certificate and encode the controller’s variable
+        of the tank-based VIC approach. We have carefully tuned the                       stiffness behaviors. We proposed the condition for an energy
+        tank parameters to achieve the near-optimal performance. The                      function to be a proper stability certificate, and designed a
+        experiment results are shown in Fig. 6, where Fig. 6(b) shows the                 corresponding energy function called SNEUM. Based on the
+        variation of the stiffness. Compared with smooth stiffness vari-                  SNEUM, we derived two learnable controllers, referred to as
+        ation of the proposed approach shown in Fig. 5(d), the stiffness                  the coupled and decoupled variable impedance controllers. By
+        here will sometimes be reshaped to a constant value during the                    ensuring SNEUM-parameter constraints, the closed-loop robot
+        variation process due to the exhaustion of the tank energy. The                   system will always be GAS and passive. Thorough analyses were
+        inappropriate constant stiffness will generate extremely large                    conducted for the SNEUM-encoded variable stiffness behaviors,
+        stiffness-related control forces as shown in Fig. 6(c) and 6(c).                  and we showed that the control modes focusing on the control
+        As a result, the robot will generate impacts at these moments,                    smoothness or tracking accuracy can be mathematically deter-
+        which might raise safety issues.                                                  mined by setting a hyper-parameter of the SNEUM. Finally,
+           We also conduct comparisons between the proposed VIC ap-                       experiments were conducted to show the effectiveness of the
+        proach, constant impedance control (Constant IC), and an online                   proposed approach.
+        optimization (OP)-based VIC approach [9] with respective to the                      In this article, due to the stability consideration, the variable
+        compliance, accuracy and smoothness metrics. Metrics |fc,i,M |                    stiffness law is only dependent on the position tracking error,
+        and |fc,i,A |, respectively, represent the maximum absolute con-                  which may limit the flexibility. In our future work, we expect to
+        trol force and average absolute control force in ith dimension,                   derive the variable stiffness law which can adapt to the contact
+        and they are used to evaluate the compliance property of the                      force.
+        approaches. The metric Iacc is used to evaluate the tracking
+        accuracy of the approaches, and it is designed as follows:                                                       REFERENCES
+                                        
+                                        tE                                                  [1] N. Hogan, “Impedance control: An approach to manipulation,” in Proc.
+                            Iacc = T          |r − x − xcen 2 |                 (62)          Amer. Control Conf., 1984, pp. 304–313.
+                                                                                            [2] M. Zhang, C. Wang, C. Zhang, P. Li, and L. Liu, “A unified
+                                        t=0                                                     switching control framework for continuous robot-assisted training,”
+                                                                                                IEEE/ASME Trans. Mechatron., vol. 29, no. 4, pp. 2743–2755, Aug. 2024,
+        where r is the desired radius of the reference circle, x and xcen                       doi: 10.1109/TMECH.2023.3330875.
+        are the positions of the robot and reference circle center, respec-                 [3] C. Zhang, C. Wang, P. Li, Y. Liu, Y.-F. Chen, and M. Zhang, “Robot-
+        tively. Thus, this metric simultaneously evaluate the dynamic                           assisted haptic rendering for nail hammering: A representative of IADL
+                                                                                                tasks,” IEEE Trans. Autom. Sci. Eng., vol. 21, no. 3, pp. 4028–4041,
+        and static tracking errors. The metric fsmooth,i is used to measure                     Jul. 2024, doi: 10.1109/TASE.2023.3291751.
+        the smoothness of the approach using the control force variation,                   [4] M. Sharifi, A. Zakerimanesh, J. K. Mehr, A. Torabi, V. K. Mushahwar,
+        which is designed as follows:                                                           and M. Tavakoli, “Impedance variation and learning strategies in human–
+                                                                                                robot interaction,” IEEE Trans. Cybern., vol. 52, no. 7, pp. 6462–6475, Jul.
+                                                                                                2022.
+                             1 
+                                  tE
+                                                                                            [5] R. Wu and A. Billard, “Learning from demonstration and interactive
+            Ismooth,i =              |fc,i,stiffness,t − fc,i,stiffness,t−1 | .   (63)          control of variable-impedance to cut soft tissues,” IEEE/ASME Trans.
+                          tE − 1 t=1                                                            Mechatron., vol. 27, no. 5, pp. 2740–2751, Oct. 2022.
+                                                                                            [6] Y. Wu, F. Zhao, T. Tao, and A. Ajoudani, “A framework for autonomous
+        The comparative results are shown in Table I, where the boldface                        impedance regulation of robots based on imitation learning and optimal
+        values represent the best results with respect to the metrics. To                       control,” IEEE Robot. Autom. Lett., vol. 6, no. 1, pp. 127–134, Jan. 2021.
+                                                                                            [7] S. Calinon, D. Bruno, and D. G. Caldwell, “A task-parameterized proba-
+        conduct a fair comparison, all these approaches are tuned to                            bilistic model with minimal intervention control,” in Proc. IEEE Int. Conf.
+        achieve a similar performance with respect to the Iacc to ensure                        Robot. Autom., 2014, pp. 3339–3344.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: LEARNING STABLE STATE-DEPENDENT VIC FOR COMPLIANT MANIPULATION                                                                                  3373
+
+
+
+        [8] L. Rozo, D. Bruno, S. Calinon, and D. G. Caldwell, “Learning optimal                                    Andong Liu (Member, IEEE) received the
+            controllers in human-robot cooperative transportation tasks with position                               B.Eng. degree in automation from Guangxi Uni-
+            and force constraints,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst.,                              versity, Nanning, China, in 2007, and the Ph.D.
+            2015, pp. 1024–1030.                                                                                    degree in control theory and control engineer-
+        [9] Z. Jin, D. Qin, A. Liu, W.-A. Zhang, and L. Yu, “Model predictive variable                              ing from the Zhejiang University of Technology,
+            impedance control of manipulators for adaptive precision-compliance                                     Hangzhou, China, in 2014.
+            tradeoff,” IEEE/ASME Trans. Mechatron., vol. 28, no. 2, pp. 1174–1186,                                     He is currently an Associate Professor with
+            Apr. 2023.                                                                                              the Department of Automation, College of In-
+       [10] M. J. Pollayil et al., “Choosing stiffness and damping for optimal                                      formation Engineering, Zhejiang University of
+            impedance planning,” IEEE Trans. Robot., vol. 39, no. 2, pp. 1281–1300,                                 Technology. He was a Postdoctoral Research
+            Apr. 2023.                                                                                              Fellow with the Department of Electronic Engi-
+       [11] B. Kim, J. Park, S. Park, and S. Kang, “Impedance learning for robotic          neering, City University of Hong Kong, from 2016–2018. His research
+            contact tasks using natural actor-critic algorithm,” IEEE Trans. Syst., Man,    interests include model predictive control, networked control systems,
+            Cybern., vol. 40, no. 2, pp. 433–443, Apr. 2010.                                and mobile robots.
+       [12] J. Buchli, F. Stulp, E. Theodorou, and S. Schaal, “Learning variable
+            impedance control,” Int. J. Robot. Res., vol. 30, no. 7, pp. 820–833, 2011.
+       [13] F. Stulp, J. Buchli, A. Ellmer, M. Mistry, E. A. Theodorou, and S. Schaal,
+            “Model-free reinforcement learning of impedance control in stochas-
+            tic environments,” IEEE Trans. Auton. Ment. Develop., vol. 4, no. 4,                                    Wen-an Zhang (Senior Member, IEEE) re-
+            pp. 330– 341, Dec. 2012.                                                                                ceived the B.Eng. degree in automation and the
+       [14] E. Theodorou, J. Buchli, and S. Schaal, “A generalized path integral                                    Ph.D. degree in control theory and control en-
+            control approach to reinforcement learning,” J. Mach. Learn. Res., vol. 11,                             gineering from the Zhejiang University of Tech-
+            pp. 3137–3181, 2010.                                                                                    nology, Hangzhou, China, in 2004 and 2010,
+       [15] A. J. Ijspeert, J. Nakanishi, H. Hoffmann, P. Pastor, and S. Schaal, “Dynam-                            respectively.
+            ical movement primitives: Learning attractor models for motor behaviors,”                                 Since 2010, he has been with the Zhejiang
+            Neural Comput., vol. 25, no. 2, pp. 328–373, 2013.                                                      University of Technology, where he is currently
+       [16] J. Rey, K. Kronander, F. Farshidian, J. Buchli, and A. Billard, “Learning                               a Professor with the Department of Automation.
+            motions from demonstrations and rewards with time-invariant dynamical                                   He was a Senior Research Associate with the
+            systems based policies,” Auton. Robots, vol. 42, no. 1, pp. 45–64, 2018.                                Department of Manufacturing Engineering and
+       [17] S. M. Khansari-Zadeh and A. Billard, “Learning stable nonlinear dynam-          Engineering Management, City University of Hong Kong, from 2010 to
+            ical systems with Gaussian mixture models,” IEEE Trans. Robot., vol. 27,        2011. His current research interests include networked control systems,
+            no. 5, pp. 943–957, Oct. 2011.                                                  multisensor information fusion estimation, and robotics.
+       [18] P. Kormushev, S. Calinon, and D. G. Caldwell, “Imitation learning of              Dr. Zhang was a recipient of an Alexander von Humboldt Fellowship
+            positional and force skills demonstrated via kinesthetic teaching and haptic    during 2011–2012. He has been a Subject Editor for Optimal Control
+            input,” Adv. Robot., vol. 25, no. 5, pp. 581–603, 2011.                         Applications and Methods since 2016.
+       [19] L. Rozo, S. Calinon, D. Caldwell, P. Jimenez, and C. Torras, “Learning
+            collaborative impedance-based robot behaviors,” in Proc. 27th AAAI Conf.
+            Artif. Intell., 2013, pp. 1422–1428.
+       [20] J. R. Medina, H. Borner, S. Endo, and S. Hirche, “Impedance-based                                        Li Yu (Senior Member, IEEE) received the B.S.
+            Gaussian processes for modeling human motor behavior in physical and                                     degree in control theory from Nankai University,
+            non-physical interaction,” IEEE Trans. Biomed. Eng., vol. 66, no. 9,                                     Tianjin, China, in 1982, and the M.S. and Ph.D.
+            pp. 2499–2511, Sep. 2019.                                                                                degrees in control theory and control engineer-
+       [21] F. J. Abu-Dakka, L. Rozo, and D. G. Caldwell, “Force-based variable                                      ing from Zhejiang University, Hangzhou, China,
+            impedance learning for robotic manipulation,” Robot Auton. Syst., vol. 109,                              in 1988 and 1999, respectively.
+            pp. 156–167, 2018.                                                                                          He is currently a Professor with the College
+       [22] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to                                      of Information Engineering, Zhejiang University
+            impedance control with variable stiffness,” in Proc. IEEE Int. Conf. Robot.                              of Technology, Hangzhou. He has authored or
+            Autom., 2013, pp. 4948–4953.                                                                             coauthored three books and more than 200 jour-
+       [23] F. Ferraguti et al., “An energy tank-based interactive control architecture                              nal or conference articles. His current research
+            for autonomous and teleoperated robotic surgery,” IEEE Trans. Robot.,           interests include wireless sensor networks, networked control systems,
+            vol. 31, no. 5, pp. 1073–1088, Oct. 2015.                                       and motion control.
+       [24] K. Kronander and A. Billard, “Stability considerations for variable
+            impedance control,” IEEE Trans. Robot., vol. 32, no. 5, pp. 1298–1305,
+            Oct. 2016.
+       [25] E. Spyrakos-Papastavridis, P. R. N. Childs, and J. S. Dai, “Passivity preser-
+            vation for variable impedance control of compliant robots,” IEEE/ASME                                    Chenguang Yang (Fellow, IEEE) received the
+            Trans. Mechatron., vol. 25, no. 5, pp. 2342–2353, Oct. 2020.                                             B.Eng. degree in measurement and control from
+       [26] Z. Jin, W. Si, A. Liu, W.-A. Zhang, L. Yu, and C. Yang, “Learning a                                      Northwestern Polytechnical University, Xian,
+            flexible neural energy function with a unique minimum for globally stable                                China, in 2005, and the Ph.D. degree in con-
+            and accurate demonstration learning,” IEEE Trans. Robot., vol. 39, no. 6,                                trol engineering from the National University of
+            pp. 4520–4538, Dec. 2023.                                                                                Singapore, Singapore, in 2010.
+       [27] A. Albu-Schaffer, C. Ott, U. Frese, and G. Hirzinger, “Cartesian impedance                                  He performed postdoctoral studies in hu-
+            control of redundant robots: Recent results with the DLR-light-weight-                                   man robotics at the Imperial College London,
+            arms,” in Proc. IEEE Int. Conf. Robot. Autom., 2003, pp. 3704–3709.                                      London, U.K from 2009 to 2010. His research
+       [28] H. K. Khalil, Nonlinear Control. London, U.K.: Pearson Press, 2015.                                      interests include human robot interaction and
+                                                                                                                     intelligent system design.
+                                                                                              Prof. Yang is Chair in Robotics and Head of Robotics and Autonomous
+                                  Zhehao Jin received the B.Eng. degree in au-              Systems Group with Department of Computer Science, University of
+                                  tomation and the Ph.D. degree in control theory           Liverpool, U.K.. He was a recipient of U.K. EPSRC UKRI Innovation
+                                  and control engineering from the Zhejiang Uni-            Fellowship and individual EU Marie Curie International Incoming Fel-
+                                  versity of Technology, Hangzhou, China, in 2018           lowship. As the lead author, he won the IEEE Transactions on Robotics
+                                  and 2024, respectively.                                   Best Paper Award (2012) and IEEE Transactions on Neural Networks
+                                    He is currently a Research Fellow with the              and Learning Systems Outstanding Paper Award (2022). He is the
+                                  School of Mechanical and Aerospace Engineer-              Corresponding Co-Chair of IEEE Technical Committee on Collaborative
+                                  ing, Nanyang Technological University, Singa-             Automation for Flexible Manufacturing.
+                                  pore. His research interests include robot learn-
+                                  ing and control.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:17:43 UTC from IEEE Xplore. Restrictions apply.
+

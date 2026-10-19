@@ -1,0 +1,782 @@
+               IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 69, NO. 12, DECEMBER 2022                                                13225
+
+
+
+
+   Model-Based Actor−Critic Learning of Robotic
+    Impedance Control in Complex Interactive
+                  Environment
+             Xingwei Zhao , Shibo Han, Bo Tao , Member, IEEE, Zhouping Yin , Member, IEEE,
+                                   and Han Ding, Senior Member, IEEE
+
+
+   Abstract—In complex robot applications, such as                          Impedance control is designed to provide stable tracking by
+human−robot interaction and robot machining, robots                         regulating the impedance response of a robot when the robot
+should interact with an unknown environment. To learn the                   contacts with the external environment [7]. It is usually pre-
+interactive skill, a model-based actor−critic learning algo-
+rithm and a safety-learning strategy are proposed in this                   scribed to guarantee the safety of interaction with environments
+article to find the optimal impedance control, in which the                 [8] or act as an interface for a human to tutor the motion of the
+learning process is safe and fully automatic and does not                   robot [1].
+know the system parameter. In the learning algorithm, a                        The main difficulty in the impedance control of robots is to
+critic is defined as a quadratic form of the system states                  overcome the confliction between motion accuracy and interac-
+and the external force. A modified deterministic policy gra-
+dient algorithm is presented to improve the learning ef-                    tion safety [9]. For example, robots should exhibit a low mechan-
+ficiency. The proposed approach utilizes a model-based                      ical impedance, such that they can interact with humans safely.
+constraint and a highly efficient learning algorithm. In the                Meanwhile, the robots should reject disturbances, which results
+safety-learning strategy, the robot is trained under a con-                 in an increased impedance. One way to solve this confliction is
+stant force, and the learned impedance control can transfer                 to use adaptive impedance control for the time-varying environ-
+to different interaction situations by choosing the suitable
+impedance index. The effectiveness of the learning algo-                    ment [10]. Braun et al. [11] proposed variable stiffness control
+rithm and the performance of the learned impedance con-                     for explosive movement tasks. Kronander et al. [12] analyzed the
+trol are validated in a UR5 robot. The robot can perform                    stability properties of a system with variable impedance control.
+human−robot interaction and robot machining tasks after                     A cascade-loop physical human–robot interaction controller,
+the training process with 100 s training time.
+                                                                            which can adapt to different users by predicting human motion
+  Index Terms—Actor−critic learning, human−robot inter-                     intent and estimate a reference trajectory, was proposed by
+action, impedance control, robot machining.                                 Cremer et al. [9]. Li et al. [13] proposed impedance learning for
+                                                                            robots interacting with unknown environments, which aims to
+                         I. INTRODUCTION                                    adjust impedance parameters to achieve safe and stable contact
+                                                                            with humans. They also developed a robot controller that con-
+        ITH the increasing need for safe, reliable, and efficient
+W       physical robot−environment interaction, impedance
+control is a permission tool to deal with different interaction
+                                                                            currently adapts to feedforward force, impedance, and reference
+                                                                            trajectory when a robot interacts with an unknown environment
+                                                                            [14]. Xu et al. [15] proposed an adaptive impedance control
+tasks, such as robot assembly tasks [1], robot machining [2],               with reference trajectory learning, in which control is designed
+human−robot interaction [3], collaborative manufacturing [4],               to follow the target impedance model. The adaptive policy is a
+robotic surgical procedures [5], and robotic manipulation [6].              powerful tool to balance motion accuracy and interaction safety
+                                                                            but is not always suitable. For example, when the external en-
+   Manuscript received April 25, 2021; revised September 25, 2021 and       vironment changes rapidly or the interaction force may damage
+November 14, 2021; accepted December 1, 2021. Date of publication
+December 15, 2021; date of current version July 8, 2022. This work was      the robot or environment, the learning strategy while working
+supported in part by the National Natural Science Foundation of China       may not be suitable.
+under Grant 91948301, Grant 51905184, and Grant 92048204 and in                As an alternative to adaptive control, multiobject controller
+part by the National Key Research and Development Program of China
+under Grant 2019YFB1311900. (Corresponding author: Bo Tao.)                 can be designed to solve the confliction issue. Dietrich et al. [16]
+   The authors are with the State Key Laboratory of Digital Man-            provided a hierarchical multiobjective controller for trajectory
+ufacturing Equipment and Technology School of Mechanical Sci-               tracking that ensures the asymptotic stability of an equilib-
+ence and Engineering, Huazhong University of Science and Tech-
+nology, Wuhan 430074, China (e-mail: zhaoxingwei@hust.edu.cn;               rium and the desired contact impedance at the same time. A
+m201870633@hust.edu.cn; taobo@hust.edu.cn; yinzhp@hust.edu.cn;              multiobject is used to overcome the confliction issue, but the
+dinghan@hust.edu.cn).                                                       system parameters should be given previously for the control
+   Color versions of one or more figures in this article are available at
+https://doi.org/10.1109/TIE.2021.3134082.                                   design. Reinforcement learning (RL) is a machine learning
+   Digital Object Identifier 10.1109/TIE.2021.3134082                       method used to find an optimal policy based on the given cost
+
+ This work is licensed under a Creative Commons Attribution 4.0 License. For more information, see http://creativecommons.org/licenses/by/4.0/
+13226                                                    IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 69, NO. 12, DECEMBER 2022
+
+
+
+                                                                            way to transfer the learned results to the human−robot
+                                                                            interaction and robot machining situations is discussed.
+                                                                        The rest of the article is organized as follows. Section II
+                                                                     defines the optimal impedance control. In Section III, a model-
+                                                                     based AC learning algorithm for impedance control is proposed.
+                                                                     A safety-learning strategy based on model-based AC learning is
+                                                                     investigated in Section IV. Sections V and VI show the simula-
+                                                                     tion and experimental results, respectively. Finally, Section VII
+                                                                     concludes this article.
+
+Fig. 1.   Impedance control of robots.                                  II. INTERPRETATION OF OPTIMAL IMPEDANCE CONTROL
+                                                                        Impedance control consists of state and force feedback. The
+                                                                     robot under impedance control can return the null position in
+function, where the control tasks are formulated as a sequential     free space and acts as a spring when interacting with external
+decision-making process [17]. Thus, the cost function can be         obstacles.
+used to express different objects, and the confliction issue is         Given a single degree-of-freedom robot joint, as shown in
+transferred to find the suitable cost function with respect to       Fig. 1, the dynamics of the robotic system can be described as a
+different tasks. RL is widely used for robotic control problems,     second-order function as
+such as locomotion [18], human−robot interaction [19], stable
+flight of an autonomous helicopter [20], ball-catching tasks [21],                 M q̈ + Dq̇ + mgl sin (q) = u + af                 (1)
+and single-leg hopping [22]. Although RL has been effectively        where q is the joint angle, M is the joint inertia, m is the joint
+applied to solve various problems, it is rarely used to deal with    mass, D is the friction coefficient, g is the gravity constant, u is
+impedance control. Oikawa et al. [23] studied the RL for robotic     the input torque, f is the external force, a is a constant, and l is
+assembly, where RL is used for the selection of the stiffness ma-    the length of the force arm. Linearizing the dynamic equation,
+trix. Buchli et al. [24] proposed the RL approach for impedance      we have
+control, where the control includes position and speed feedback
+but without force feedback. Li et al. [25] used integral RL to                 Ẋ = Ac X + Bc u + Ec f,                              (2)
+optimize the parameters of the impedance model, but the system                                                   
+                                                                                                       0    1
+parameters should be partially known. A parameter-free and                     Ac =                                 ,
+                                                                                      −M −1 mgl cos q −M −1 D
+efficient RL for impedance control of robots should be further                                                     
+investigated. Two main issues arise for the RL of impedance                              0                 0           q
+                                                                               Bc =          , E   =           , X =
+control. First, an exploration process is required for RL, which                      M −1       c
+                                                                                                       aM −1           q̇
+may introduce the safety issue in the interaction environment.
+                                                                     where Xk is the robot state, and Ac , Bc , and Ec are the system
+Then, the greedy policy improvement is mainly used in RL,
+                                                                     matrices. The discretized dynamic equation is
+which may result in a low learning speed. The greedy policy
+is problematic in continuous action spaces because it requires                      Xk+1 = Ad Xk + Bd uk + Ed fk ,
+                                                                                                T                                  (3)
+global maximization at every step [26].                                              Xk = qk q̇k
+   To realize RL of robotic impedance control, a model-based
+actor−critic (AC) learning algorithm and a safety-learning strat-    where Xk is the robot state in discrete form, Ad , Bd , and Ed are
+egy are proposed in this article. The optimal impedance control      the discrete forms of Ac , Bc , and Ec , respectively.
+of robots can be automatically learned without knowing the              Impedance control based on the discretized dynamic equation
+system and environment parameters. The innovations of this           is expressed as
+article are as follows.                                                                    u k = K x Xk + K f f k                    (4)
+    1) Robot point stabilization control and impedance control
+        can be learned synchronously by combining robotic and        where Kx and Kf are the control feedback gains of the state and
+        interaction dynamics into an augmented system. The           the external force, respectively. To make the system stable, a
+        impedance property and stability region can be adjusted      way to design the control law is expressed as follows.
+        separately by introducing an impedance index to over-           The external force can generally be described as
+        come the confliction between motion accuracy and inter-                         fk+1 = Af x Xk + Af f fk                     (5)
+        action safety.
+                                                                     where Af x indicates the part in which the external force relates
+    2) A modified deterministic policy gradient algorithm based
+                                                                     to the system state, and Af f indicates the part in which the ex-
+        on [27] is proposed, in which the model-based feature
+                                                                     ternal force relates to itself. Equations (3) and (5) can constitute
+        is integrated into the policy update law. The learning
+                                                                     an augmented system as
+        efficiency can be ensured.
+    3) A safety-learning strategy is proposed to train the optimal          X̄k+1 = Ā
+                                                                                     X̄k + B̄uk ,                       
+        impedance control. For safety reasons, a constant force                        Ad E d              Bd             Xk         (6)
+                                                                            Ā    =               , B̄ =        , X̄k =
+        is provided to the system during the training process. A                      Af x Af f             0             fk
+ZHAO et al.: MODEL-BASED ACTOR−CRITIC LEARNING OF ROBOTIC IMPEDANCE CONTROL IN COMPLEX INTERACTIVE ENVIRONMENT                   13227
+
+
+
+
+where X̄k is the augmented state including the states and the        addition, the impedance index is with clear physical meaning.
+external force, and Ā and B̄ are the augmented system matrix.       The designer can easily adjust the impedance index with the
+   As designers, we want the system to find a balance among          physical understanding.
+tracking behavior, impedance property, and input energy. Then,
+the cost function is defined as                                            III. MODEL-BASED AC LEARNING FOR OPTIMAL
+       1                                                                             IMPEDANCE CONTROL
+ ck =      (qk + Qf fk )T (qk + Qf fk ) + q̇kT Qd q̇k + uk T Ruk
+       2                                                                Although the optimal impedance control law can be obtained
+                                                               (7)   by solving ARE, the system parameters and external stiffness
+where Qd , Qf , and R are the weight factors. Considering that       should be known previously. In practice, the system parameters
+factors Qd and Qf are related to the impedance property, we          and external stiffness are difficult to measure. To cope with this
+name them impedance index. The cost function can be written          difficulty, a model-based AC learning algorithm is proposed to
+in a compacted form based on the augmented state as                  solve the optimal impedance control without knowing the system
+                 ck = 12 X̄T         1   T
+                           k Q̄X̄k + 2 uk Ruk ,
+                                                                     parameters. Then, the impedance control of robots can be learned
+                       ⎡              ⎤                              fully automatically.
+                            1 0 Qf                            (8)       To minimize the cost function defined in (8), a value function
+                 Q̄ = ⎣ 0 Qd 0 ⎦
+                                                                     is defined as the accumulated cost as
+                          Qf 0 Qf 2
+                                                                                              ∞
+                                                                                           1  i−k  T                        
+where Q̄ is the matrix form of the impedance index, which is a                 V X̄k =           γ       X̄i Q̄X̄i + ui T Rui     (14)
+                                                                                           2
+weight matrix of the variables X̄k . The optimal impedance con-                             i=k
+trol can be interpreted as the optimal control of the augmented      where V (X̄k ) is the accumulated cost of ck from i = k to
+system (6) with the impedance index (8).                             infinity. Since the accumulated cost may be infinity when Ā
+   In general, the optimal stable impedance control law can be       is not Hurwitz, a discount factor γ < 1is introduced to make the
+obtained by solving the algebraic Riccati equation (ARE)             value function V (X̄k ) bounded. When Ā is Hurwitz, γ = 1.
+                uk = Kx Xk + Kf fk = KX̄k ,                             Summing (14), the value function can be written in a quadratic
+                                       −1                     (9)    form as [28]
+                K = − R+B̄T PB̄             B̄T PĀ
+                                                                                       1 T             1            T
+                                                                          V X̄k ≈        X̄ PX̄k = X̄k ⊗ X̄k vec (P)              (15)
+where K = [ Kx Kf ], and P satisfies the following ARE:                                2 k             2
+                                                   −1                where ⊗ is the Kronecker product, vec is the vectorization
+  Q̄ − P + ĀT PĀ − ĀT PB̄ R+B̄T PB̄          B̄T PĀ = 0.
+                                                                     operator, and P is a positive definite matrix. Based on the value
+                                                           (10)
+                                                                     function, the critic function is defined as
+  The optimal impedance control law is related to the impedance
+index Q̄.                                                                            Qv X̄k , uk = ck + γV X̄k+1 .                (16)
+  To better choose the impedance index Q̄, its physical mean-
+                                                                       Consequently, the critic function can be written as
+ing, i.e., the connection between the index and the impedance
+capability, should be interpreted.                                                                1
+                                                                                 Qv X̄k , uk = (ϕk ⊗ ϕk )T vec (H)
+  In accordance with (7), we have                                                                 2
+                                                                                                                
+   ck → min                                                                                   X̄k          Hxx Hxu
+                                                                                 withϕk =           ,H =                          (17)
+   (qk + Qf fk )T (qk + Qf fk ) + q̇kT Qd q̇k + uk T Ruk ≈ 0                                   uk          Hux Huu
+                                                            (11)     where H is a weight matrix. The value function defined in (14)
+and                                                                  can be further written in the form of the Bellman equation as
+                    qk
+          Qf = − , if Qd << 1 and R << 1.                  (12)                      1
+                    fk                                                 V X̄k =         X̄T           T
+                                                                                         k Q̄X̄k + uk Ruk
+                                                                                     2
+  Thus, Qf defines the flexibility of the system under impedance
+                                                                                       1  i−k  T                   
+                                                                                         N
+control.
+  On the contrary, if qk + Qf fk = 0, we have                                      +       γ    X̄i Q̄X̄i + ui T Rui
+                                                                                       2
+                                                                                        i=k+1
+                   ck = q̇kT Qd q̇k + uk T Ruk .             (13)
+                                                                                   1
+  Increasing Qd will increase the weight of the speed, which                     =    X̄T           T
+                                                                                        k Q̄X̄k + uk Ruk + γV X̄k+1 .             (18)
+                                                                                   2
+means increasing the damping of the system. Adjusting R is only
+                                                                       Substituting (18)−(16)
+necessary when the system has input saturation [28]. Otherwise,
+R can be a small value.                                                       Qv X̄k , uk − γQv X̄k+1 , uk+1
+                                                                                                                                  (19)
+  Remark 1: Even though the impedance index is related to the                 = ck + V X̄k+1 − γ ck+1 + V X̄k+2              .
+control feedback K, adjusting the impedance index has several
+                                                                       The critic function is expressed as the Bellman equation
+advantages compared to adjusting K. First, the control gain
+solved by the impedance index can stabilize system (6). In                      Qv X̄k , uk = ck + γQv X̄k+1 , uk+1               (20)
+13228                                                          IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 69, NO. 12, DECEMBER 2022
+
+
+
+which is the recursive form of the critic function.                         Equation (28) provides the modified model-based update law
+   From the definition of the critic in (17) and its recursive form      of the actor based on the deterministic policy gradient algorithm.
+(20), the critic evaluation can be performed recursively using           Compared with the update law in (27), the modified update
+the Bellman equation                                                     law works even when X̄k X̄T     k approaches zero. In summary, the
+            1                                    T                       AC   learning algorithm    for impedance     control can be written as
+            2 (ϕk ⊗ ϕk − γϕk+1 ⊗ ϕk+1 ) vec (H)                          follows.
+                                                                    (21)
+            = 12 X̄T               T
+                     k Q̄X̄k + uk Ruk .                                     Critic update:
+                                                                            The critic update law is given as
+   Subsequently, the unknown matrix H can be updated using
+                                                                                                                                      
+the recursive least square algorithm as                                                   T i ϕTe,k                T          Hxx Hxu
+                                                                       ∇vec   H  i
+                                                                                     =                      c   −ϕ     vec                    .
+                                                                                       1+ϕT       i
+                                                                                            e,k T ϕe,k
+                                                                                                              k    e,k        Hux Huu
+                                 T i ϕTe,k   c k −  ϕ T
+                                                      e,k vec(Hi
+                                                                 )
+  vec Hi+1 = vec Hi +                                                ,                                                                     (29)
+                                                  T
+                                         1 + ϕe,k Ti ϕe,k                   Actor update:
+                                                                            The evaluation of the actor is expressed as
+                           Ti ϕe,k ϕTe,k T
+                                           i
+          T i+1
+                =T −  i
+                                              ,
+                                                                                                    2α 
+                                                                                                         N
+                          1 + ϕTe,k Ti ϕe,k
+                                                                                         ∇Ki =                  Hux +Huu Ki .              (30)
+                                                                                                     N
+           ϕe,k = ϕk ⊗ ϕk − γϕk+1 ⊗ ϕk+1                            (22)                                k=1
+
+where Ti is a weight matrix in the ith iteration, which is to adjust          Theorem 1: Given the augmented system (6) with the critic
+the learning speed of the critic. With the critic function to hand,        and actor update laws (29) and (30), the learned actor has the
+the actor can be directly learned from the critic. The common              form
+approach used to determine the actor is to find the maximization                                                       −1
+                                                                                 uk = KX̄k , K = − R+γ B̄T PB̄              γ B̄T PĀ     (31)
+of the critic function
+                                                                           where K and P are equivalent to those in (9) and (10) when
+                     K = arg max Qv X̄k , uk                        (23)   γ = 1. The control law K minimizes the value function (14)
+                              uk
+                                                                           over all stabilizing controls. The detailed proof is provided in
+where K is the control policy, including state and force feedback.         the Appendix.
+To accelerate the learning speed, a deterministic policy gradient             Remark 2: The control law obtained by RL is equivalent to
+algorithm was proposed in [27], in which the policy was updated            the control law solved using ARE. However, the RL algorithm
+in the direction of the critic function gradient                           does not require preknown system and environment parameters.
+                                                     
+            Ki+1 = Ki + αEX̄k ∇K Qv X̄k , uk                  (24)
+                                                                           IV. SAFETY-LEARNING STRATEGY FOR IMPEDANCE CONTROL
+where ∇K Qv (X̄k , uk ) is the critic function gradient with re-
+spect to the control policy, EX̄k [∇K Qv (X̄k , uk )] is the expec-           For RL, exploration probe noise is normally required during
+tation function of the gradient, and α is the learning rate.               training. The probe noise may result in a safety issue when
+   In accordance with the chain rule, the gradient descent of the          a robot interacts with the environment. Accordingly, a safety-
+critic with K can be expressed as the gradient descent of the              learning strategy is investigated in this part.
+critic with uk multiplied by the gradient descent of uk with K                The interaction between the robot and environment is compli-
+                                                                       cated, which may lead to different Af x and Af f . If the dynamics
+  EX̄k ∇K Qv X̄k , uk =EX̄k ∇uk Qv X̄k , uk ∇K uk .                        of the external force change, the system should be learned
+                                                                (25)       again to adapt to the new environment. This learning process is
+   Equations (9) and (17) are substituted into (25), and the model         inconvenient and time-consuming. Also, the new environment
+information can be added to the update law                                 could be dangerous which is not suitable for a training process,
+                                                                       such as for the robot machining task.
+ EX̄k ∇K Qv X̄k , uk =EX̄k (2Hux+2Huu K) X̄k X̄T              k     .
+                                                                              To cope with it, we follow the idea of transfer learning.
+                                                                (26)
+                                                                           Although the training environment is not identical to the testing
+   On the basis of the average gradient update law, the evaluation
+                                                                           environment, the learned result can be transferred to the testing
+of the actor can be expressed as
+                                                                           environment if the impedance control satisfies some conditions.
+                         (i+1)N
+                    2α                                                  In general, the training environment is S1 = (Af x,1 , Af f,1 ), and
+ Ki+1 = Ki +                         Hux +Huu Ki     X̄k X̄T
+                                                           k        (27)   the testing environment is S2 = (Af x,2 , Af f,2 ). The question is
+                    N
+                         k=iN +1                                           how to choose an impedance index, such that the learned result
+where i indicates the ith update of the actor. The update law ap-          can transfer to the testing environment.
+proaches zero when X̄k X̄T k is small. To eliminate the influence
+                                                                              In the training scene, we choose a constant force to train
+of the system state to the update law, X̄k X̄T
+                                             k can be removed
+                                                                           the robot system, considering that a constant force is easy to
+                                                                           exert and does not introduce a safety issue. Mathematically, the
+                                   (i+1)N
+                         2α                                               training environment is
+          K   i+1
+                    =K + i
+                                             Hux +Huu Ki .          (28)
+                         N                                                                        Af x = 0, Af f = 1.                     (32)
+                                   k=iN +1
+ZHAO et al.: MODEL-BASED ACTOR−CRITIC LEARNING OF ROBOTIC IMPEDANCE CONTROL IN COMPLEX INTERACTIVE ENVIRONMENT                             13229
+
+
+
+                                                                             Initial Qf and Qd are given, where Qf depends on the desired
+                                                                             impedance flexibility, and Qd influences the response speed of
+                                                                             the system. A model-based AC learning algorithm is then used to
+                                                                             train the state and force feedback gains in training environment
+                                                                             S1 = (Af x,1 , Af f,1 ). After training, the impedance control is
+                                                                             testified in the testing environment S2 = (Af x,2 , Af f,2 ). If the
+                                                                             controlled system is unstable in the testing environment, it is
+                                                                             possible to increase Qd or decrease Qf to change the impedance
+                                                                             property. Since Qd and Qf decouple the system convergence
+                                                                             speed and the robot flexibility, the designer can easily adjust the
+                                                                             impedance index according to the task.
+
+                                                                                                 V. SIMULATION RESULTS
+                                                                                The model-based AC learning of impedance control and
+                                                                             the safety-learning strategy are investigated by the numerical
+                                                                             simulation. In the simulation, a robot interacts with an external
+                                                                             spring, as shown in Fig. 1. We assume that one joint (wrist joint)
+                                                                             is controlled, and the acceleration of the joint is the input. The
+                                                                             dynamic equation can be simplified to a second-order system as
+                                                                              Xk+1= AXk+ Buk+ Ef     k,                    
+                                                                                   1 0.05              0              0          q
+                                                                              A=           ,B =            ,E =           , Xk = k
+                                                                                   0 1              0.05           0.25          q̇k
+                                                                                                                                    (36)
+Fig. 2.   Flowchart of the safety-learning strategy for impedance control.   where
+                                                                                       
+                                                                                         fk = 0.1, in training
+                                                                                                                            .       (37)
+                                                                                         fk = kext (qk + 0.1) , in testing
+  After learning, an impedance control which is stable in S1 is
+obtained. We have                                                               In training, a constant external force is given, i.e., kext = 0.
+                                                                             After training, the controlled robot interacts with the testing en-
+                      λ (Ad + Bd Kx )2 < 1.                        (33)
+                                                                             vironment, where kext is the stiffness of the testing environment.
+   When the external force is related to the system state (Af x =           The impedance index is
+0), the criterion of the system stability is changed. In this case,
+                                                                                             Qd = 0.25, Qf = 1, R = 10−4 .                  (38)
+the eigenvalue of the interactive system is
+             λ ((Ad + Bd Kx ) + (Ed + Bd Kf ) Af x )                 (34)      The control policy is
+
+which is unnecessarily stable.                                                            uk = K1 qk + K2 q̇k + Kf fk = KX̄k .              (39)
+   To find the boundary of the stability region, the maximum                    To evaluate the performance of the learned result, the learned
+permissible external stiffness at which the system remains stable            error is defined as
+can be calculated. Af x can be expressed as [ kext dext ], where
+kext is the external stiffness and dext is the external damping.                                  ηerror = K − KARE                       (40)
+The maximum permissible external stiffness can be calculated
+                                                                             where K is the learned controller, and KARE is the controller
+by
+                                                                             solved using (10) with the given system parameters.
+  max (kext )                                                               The learning process of model-based AC learning in the
+  withλ (Ad + Bd Kx ) + (Ed + Bd Kf ) kext 0 2 < 1                         noise-free case is depicted in Fig. 3(a) and (b). Model-based AC
+                                                            (35)             learning has high learning efficiency, where the learned control
+where max(kext ) indicates the maximum permissible stiffness                 can approach KARE within 100 s. When noise is added in the
+in the interaction environment. max(kext ) can be considered an              system (the variance of noise is 0.02), the learned results have
+index to show the robust region of the system. If the learned                a small deviation from KARE , but the convergence process is
+result has large maximum permissible stiffness, it can be easily             stable, as shown in Fig. 3(c) and (d).
+transferred to the interaction environment and without introduc-                For comparison, the neural network-based AC learning al-
+ing the stability issue.                                                     gorithm is used to solve the same issue. The critic function is
+   However, in practice, the system parameters and external                  described by a two-layer neural network
+stiffness are unknown, and the maximum permissible stiffness                                              
+cannot be directly calculated. Thus, a safety-learning strategy
+                                                                                                
+                                                                                                n
+                                                                                                                        T 
+                                                                                         ϕk =         ReLU Wϕ,i X̄k uk 1                    (41)
+is presented to adjust the impedance index, as shown in Fig. 2.                                 i=1
+13230                                                           IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 69, NO. 12, DECEMBER 2022
+
+
+
+
+                                                                             Fig. 5. Comparison results of model-based and neural network-based
+                                                                             AC learning. (a) System response under 1N external force. (b) System
+                                                                             response when it interacts with a spring kext = 10N/rad.
+
+
+
+
+Fig. 3. Controller and the error index during learning when model-
+based AC learning is used. (a), (b) Noise-free. (c), (d) Variance of noise
+is 0.02.
+                                                                             Fig. 6.   Min (Reλ) and max(kext ) with the increase of Qd .
+
+
+
+
+                                                                             longer than the model-based AC learning algorithm since more
+                                                                             unknown parameters exist. Also, the learned results deviate
+                                                                             from KARE even in the noise-free case. The reason is that the
+                                                                             neural network critic is an approximate function, and ∇u ϕk = 0
+                                                                             cannot always result K = KARE . By comparison, Theorem 1
+                                                                             shows that the equivalence of the model-based AC learning
+                                                                             impedance control to KARE . Fig. 5 shows the comparison results
+                                                                             of model-based and neural network-based AC learning, where
+                                                                             Fig. 5(a) shows the system response under 1N external force,
+                                                                             and Fig. 5(b) shows the system response when it interacts with
+Fig. 4. (a) Controller and (b) error index during learning when neural       a spring kext = 10N/rad. Due to the deviation of the controller,
+network-based AC learning is used.                                           the controlled systems show different responses. In model-based
+                                                                             AC learning, the controlled system has the flexibility of 1 rad/N,
+                                                                             which satisfies the desired flexibility.
+where ReLU() is the rectified linear unit, and n is the number                  The following simulations show the criterion to choose the
+of hidden nodes, which equals 5. The update law of the neural                impedance index. Fig. 6 shows the tendency of the minimum
+network critic is                                                            real part of eigenvalues and the maximum permissible external
+                            1            1 T                                 stiffness of the system with changed Qd and Qf . The left y-axis
+           ϕk+1 − γϕk ≈ X̄T    k Q̄X̄k + uk Ruk .         (42)               of Fig. 6 shows the minimum real part of eigenvalues, which
+                            2            2
+                                                                             indicates the convergence speed of the system. The right y-axis is
+   The actor is the same as (39)                                             the maximum permissible external stiffness when the controlled
+                             uk = KX̄k .                             (43)    system interacts with an external spring. When Qd increases,
+                                                                             the maximum permissible external stiffness increases. The con-
+  The update law of the actor is based on the deterministic policy           sequence is a low convergence speed of the original system.
+gradient algorithm [27]                                                      When Qf decreases, the maximum permissible external stiffness
+                                                                             increases, but the minimum real part of eigenvalues remains the
+               K i+1 = K i + αEuk [∇u ϕk ∇K uk ] .                   (44)
+                                                                             same. Decreasing Qf will not influence the convergence speed
+   The learning process of neural network-based AC learning                  of the original system, but the flexibility of the robot will be
+in the noise-free case is depicted in Fig. 4. The learning time              reduced. The impedance index Qf and Qd are decoupled with
+of neural network-based AC learning (about 1500 s) is much                   each other.
+ZHAO et al.: MODEL-BASED ACTOR−CRITIC LEARNING OF ROBOTIC IMPEDANCE CONTROL IN COMPLEX INTERACTIVE ENVIRONMENT                      13231
+
+
+
+
+                                                                     Fig. 8. Safety-learning strategy of impedance control for robot−human
+                                                                     interaction.
+
+
+
+
+Fig. 7.   Stability map of the interactive system.
+
+
+
+
+   The stability map of the system under model-based AC learn-
+ing impedance control can be obtained due to the decoupling
+property of Qf and Qd , as shown in Fig. 7. The area of the
+stability map shows the stability region when the controlled
+system interacts with environments. The area decreases with
+the increase of the external stiffness. This map can be used as a
+guide to choose Qf and Qd . As Qf and Qd are weight factors of
+the cost function, they are not sensitive to the parameters of the
+original system. Also, the stability map is monotonic with Qf
+and Qd , which is friendly for designers. For example, if Qf = 1
+and Qd = 0.025, the robot is unstable when it interacts with the
+external spring kext = 10N/rad. The designer can either reduce       Fig. 9. State and the control gains during the learning process.
+Qf or enhance Qd to stabilize the interactive system.                (a), (b) Qd = 0.01. (c), (d) Qd = 0.1.
+   Remark 3: The criterion to transfer the learned control to a
+new environment is whether the system can stably interact with
+the new environment. When the system is unstable, Qd or Qf can       Case 1: human −robot interaction
+be adjusted, and the system should be trained again. Given that
+Qf and Qd are decoupled, adjusting Qd only influences the               Robots with impedance control can be used for the
+convergence speed of the system, whereas adjusting Qf only           human−robot interaction. However, the stiffness of a human arm
+influences the impedance flexibility. The decoupling character-      is unknown or even time-varying. Therefore, a safety-learning
+istic helps the designer choose a suitable impedance index.          process is used to train the impedance control law of the robot.
+                                                                     Initially, the impedance index is Qd = 0.01, Qf = 1, and R =
+                                                                     10−4 . Only the wrist joint is to be controlled.
+                    VI. EXPERIMENTAL RESULTS                            The training process is shown in Fig. 9(a) and (b). After
+                                                                     100 s training, the impedance control law can be obtained. The
+   In this section, experiments are conducted on a UR5 robot to
+                                                                     impedance control input is
+verify the model-based AC learning algorithm. The robot system
+is shown in Fig. 8. A force sensor is set at the end of the robot               uk = KX̄k ,
+arm. The robot is controlled using the robot operating system.                                              T                    (45)
+                                                                                K = K1 K2 Kf , X̄k = qk q̇k fk
+The discount factor γ is 0.8, and the learning rate α is 0.01. The
+control period is set to 0.05 s. The maximum episode is set to 10    where qk is the wrist joint angle, q̇k is the angular velocity, and
+and each episode includes 10 s training time. Thus, the training     fk is the interaction force.
+can be finished within 100 s. A random exploration is required          In the testing environment, no external force exists in the
+for RL. To ensure a safe training, a virtual constant force is       first episode (first 10 s). The system is stable and returns to
+provided in the force sensor to build the training environment.      the null position. In the second episode, a human palm resists
+13232                                                      IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 69, NO. 12, DECEMBER 2022
+
+
+
+
+                                                                       Fig. 11.   Impedance control for robot machining.
+
+
+
+
+Fig. 10. Robot interacts with a human palm after learning.
+(a) Qd = 0.01. (b) Qd = 0.1.
+
+
+
+
+the motion trail of the robot. When the robot interacts with
+the human palm, an unstable interaction exists, and the robot
+cannot stay in the human palm, as shown in Fig. 10(a). In the
+human−robot interaction scene, the flexibility of the robot Qf
+should not change, such that the human can tutor the motion of
+the robot with the same force. Therefore, Qd is enhanced to 0.1
+to increase the stability region. The robot is trained again under
+the new impedance index, as shown in Fig. 9(c) and (d). With
+the increased Qd , the robot has a low convergence speed but has
+a stable response when it interacts with the human palm. The
+flexibility of the robot is unchanged, as shown in Fig. 10(b). It
+should be noticed that the stiffness of the human palm is not
+constant. At the beginning of the human−robot collision, the           Fig. 12. Control gain during learning. (a) Qf = 0. (b) Qf = 0.5.
+stiffness of the human palm is large. The stiffness is reduced         (c) Qf = 0.2.
+when the human is familiar with the interaction. This is the
+reason that a large interaction force is generated in the first
+interaction scene.                                                     Qf = 0, Qf = 0.5, and Qf = 0.2. When the flexibility of the
+                                                                       robot is zero, the robot is under position control. Large Qf
+Case 2: Robot Machining                                                means high flexibility. Other parameters are the same (Qd = 0.1
+                                                                       and R = 10−4 ). The flexibility of the shoulder and elbow joint
+   Robots with impedance control can be used for robot ma-             is set to zero (Qf = 0) because those joints are far from the
+chining. During machining, a robot works like a spring and             interaction position. The training process is depicted in Fig. 12.
+adapts to the workpiece surface to provide a constant machining        The impedance control of the robot can be obtained after 100 s
+force. The workpiece is a fixed aluminum alloy plate, and its          training.
+stiffness is unknown. To find the suitable impedance property             After learning, robot machining experiments are conducted.
+of the machining robot, the safety-learning strategy is used to        The control input of each joint during robot machining is
+learn the impedance control. The flexibility of the robot highly
+influences the machining quality. A high flexibility of the robot       uk = Kx (Xk − Xr,k ) + Kf fk ,
+                                                                                                         T                      T
+may introduce vibration since a force-induced vibration may be          Kx = K1 K2 , Xk = x1k x2k , Xr,k = x1r,k x2r,k
+excited due to the vibration of the grinding head. A low flexibility                                                                (46)
+of the robot may result in a large grinding force and damages          where Xr,k is the desired trajectory of each joint.
+the workpiece.                                                            Fig. 13 shows the angle of the wrist joint and the correspond-
+   The robot machining system is illustrated in Fig. 11. The           ing grinding force. When Qf = 0 , the robot is under the position
+shoulder, elbow, and wrist joints are controlled. A grinding head      control. In this case, a large grinding force is introduced, and
+is added to the end-effector of the robot. The wrist joint is tested   the average grinding force is approximately 40 N. The large
+with different Qf to show the comparison results in terms of           grinding force results in the damage of the workpiece surface,
+ZHAO et al.: MODEL-BASED ACTOR−CRITIC LEARNING OF ROBOTIC IMPEDANCE CONTROL IN COMPLEX INTERACTIVE ENVIRONMENT                            13233
+
+
+
+                                                                            Two experiments were conducted, in terms of human−robot in-
+                                                                            teraction and robot machining. The experimental results indicate
+                                                                            that the robot can achieve a good interaction property after 100
+                                                                            s training.
+                                                                               Currently, model-based AC learning is efficient for linear or
+                                                                            linearized systems. In the future, the extension of model-based
+                                                                            AC learning to nonlinear systems will be studied.
+
+                                                                                                       VII. APPENDIX
+                                                                              Proof of Theorem 1 Substituting (15) into (16), the critic
+                                                                            function can be expressed as
+                                                                             Qv X̄k , uk = ck + γV X̄k+1
+                                                                                                                              T
+                                                                             = 12 X̄k Q̄X̄k + uk T Ruk + 12 γ X̄k+1 ⊗ X̄k+1 vec (P) .
+                                                                                                                                     (A1)
+                                                                               Since X̄k+1 = ĀX̄k + B̄uk , (a1) can be further expressed
+                                                                            as
+                                                                             Qv X̄k , uk = 12 X̄T        2 T            1  T T
+                                                                                                k Q̄+γ Ā PĀ X̄k + 2 γ X̄k Ā PB̄uk
+                                                                               1    T T              1    T         T
+                                                                             + 2 γuk B̄ PĀX̄k + 2 uk R + γ B̄ PB̄ uk .
+                                                                                                                                 (A2)
+                                                                              The critic can be written in compact form as
+
+Fig. 13. Wrist joint angle and the interaction force as well as the                     Qv X̄k , uk  ≈ 12(ϕk ⊗ ϕk )T vec (H),
+surface quality of the workpiece. (a) Qf = 0. (b) Qf = 0.5. (c) Qf = 0.2.                             X̄k            Hxx Hxu              (A3)
+                                                                                         withϕk =           ,H =
+                                                                                                       uk            Hux Huu
+as shown in Fig. 13(a). When Qf = 0.5, the robot has high                   with
+flexibility. The vibration of the grinding hand can induce large
+                                                                                      Hxx = Q̄ + γ 2 ĀT PĀ, Hxu = γ ĀT PB̄,
+vibrations of the robot arm. When it interacts with the workpiece,
+the vibration is reinforced. As a result, the grinding force shows                    Hux = γ B̄T PĀ, Huu = R + γ B̄T PB̄.
+large oscillation, and the surface texture of the workpiece is
+uneven, as shown in Fig. 13(b). When Qf = 0.2, the robot has                   On the basis of the actor update law in (28), the steady actor
+a suitable flexibility. An almost constant grinding force can be            is achieved when
+                                                                                              2α 
+obtained, and a uniform surface quality is achieved, as shown in                                   N
+
+Fig. 13(c).                                                                                        (Hux +Huu K) = 0.                      (A4)
+                                                                                              N
+   In the human−robot interaction and robot machining tasks,                                      k=1
+
+the learning environment is distinguished with the testing en-                Substituting (a3) into (a4), we have
+vironment. The impedance control can be learned in safe en-                           −1                                −1
+vironment and used in complex interaction environment. The                      K = −Huu Hux = − R+γ B̄T PB̄                 γ B̄T PĀ.   (A5)
+experimental results verify the feasibility of model-based AC                 Then, substituting the actor (a5) into the Bellman equation
+learning and the safety-learning strategy for the impedance                 (14), one obtains
+control of robots. Designers can easily adjust the impedance
+                                                                             1 T          1             1          1
+index, and the robot can realize a stable interaction with the                 X̄ PX̄k = X̄T   Q̄X̄k + uk T Ruk + γ X̄T  PX̄k+1 .
+complex environment.                                                         2 k          2 k           2          2 k+1
+                                                                                                                             (A6)
+                                                                              Combining (a5) and (a6) yields
+                         VII. CONCLUSION                                                                                      −1
+                                                                             Q̄−P+γ ĀT PĀ−γ 2 ĀT PB̄ R+γ B̄T PB̄             B̄T PĀ = 0.
+   In this article, a model-based AC learning algorithm was                                                                                (A7)
+proposed to learn the optimal impedance control of robots.                  When γ = 1, (a7) is equivalent to (10), and the policy (a5) is
+The impedance control was formulated into an optimization                   equivalent to (9). The equivalence between the policy from RL
+problem, and the impedance of the system can be adjusted using              and that from the ARE is proved.
+an impedance index. The model-based AC learning algorithm                      The following part shows that the learned control minimizes
+was used to learn impedance control. Given a model constraint,              the defined value function (14) over all stabilizing controls. Note
+the learning process is rapid and reliable. The learned control             that
+gain is equivalent to the optimal impedance control gain solved                                ∞
+                                                                            1 T            1  T                              1 T
+using ARE. A safety-learning strategy was also proposed. The                  X̄k PX̄k =          X̄i PX̄i − X̄T i+1 PX̄i+1 + X̄∞ PX̄∞ .
+learning process is under a constant force, but the learned control         2              2                                       2
+                                                                                             i=k
+can be further transferred to different interaction environments.                                                                          (A8)
+13234                                                               IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 69, NO. 12, DECEMBER 2022
+
+
+
+
+   Since X̄T
+           ∞ PX̄∞ = 0, we have
+                                                                                  [11] D. Braun, M. Howard, and S. Vijayakumar, “Optimal variable stiffness
+                                                                                       control: Formulation and application to explosive movement tasks,” Auton.
+                      ∞
+1 T          1  T                                                                   Robots, vol. 33, no. 3, pp. 237–253, 2012.
+  X̄k PX̄k =     X̄i PX̄i − X̄T
+                              i+1 PX̄i+1
+                                                                                  [12] K. Kronander and A. Billard, “Stability considerations for variable
+2            2                                                                         impedance control,” IEEE Trans. Robot., vol. 32, no. 5, pp. 1298–1305,
+                     i=k
+                                                                                       Oct. 2016.
+    1  T                                    
+        ∞                                                                         [13] Y. Li and S. S. Ge, “Impedance learning for robots interacting with
+                                         −1
+ =−          X̄i −Q̄+γ 2 ĀT PB R+γBT PB BT PĀ X̄i                                    unknown environments,” IEEE Trans. Control Syst. Technol., vol. 22, no. 4,
+    2                                                                                  pp. 1422–1432, Jul. 2014.
+       i=k
+                                                                                  [14] Y. Li, G. Ganesh, N. Jarrassé, S. Haddadin, A. Albu-Schaeffer, and E.
+                                             
+  +γ X̄T    T            T T           T T
+        i Ā PBui + γui B PĀX̄i +γui B PBui .
+                                                                                       Burdet, “Force, impedance, and trajectory learning for contact tooling and
+                                                                                       haptic identification,” IEEE Trans. Robot., vol. 34, no. 5, pp. 1170–1182,
+                                               (A9)                                    Oct. 2018.
+                                                                                  [15] Q. Xu and X. Sun, “Adaptive impedance control of robots with reference
+   Substituting (a9) into the value function (15), we have                             trajectory learning,” IEEE Access, vol. 8, pp. 104967–104976, 2020.
+                                                                                  [16] A. Dietrich and C. Ott, “Hierarchical impedance-based tracking control
+ V X̄k                                                                               of kinematically redundant robots,” IEEE Trans. Robot., vol. 36, no. 1,
+     1
+       
+       ∞
+                 T     T     T
+                                                                                       pp. 204–221, Feb. 2020.
+ = 2     γ i−k
+               X̄i Q̄X̄i + ui Rui                                                 [17] J. Kober, A. Wilhelm, E. Oztop, and J. Peters, “Reinforcement learning
+        i=k                                                                            to adjust parametrized motor primitives to new situations,” Auton. Robots,
+ − 12 X̄T          1 T
+                        PX̄k = 12 X̄T
+        k PX̄k + 2 X̄k            k PX̄k                                             vol. 33, no. 4, pp. 361–379, 2012.
+       
+       ∞                                                                         [18] T. Mori, Y. Nakamura, M. A. Sato, and S. Ishii, “Reinforcement learn-
+                                            −1
+ + 12     γ i−k γ 2 X̄T
+                      i   ĀT PB R+γBT PB BT PĀ X̄i                                   ing for CPG-driven biped robot,” Assoc. Advance. Artif. Intell., vol. 4,
+      i=k                                                                             pp. 623–630, 2004.
+ +γ X̄T    T              T T
+       i Ā PBui +γui B PĀX̄i +ui
+                                         T
+                                           R+γBT PB ui                            [19] N. Mitsunaga, C. Smith, T. Kanda, H. Ishiguro, and N. Hagita, “Robot
+                                                   (A10)                               behavior adaptation for human-robot interaction based on policy gradient
+                                                                                       reinforcement learning,” J. Robot. Soc. Jpn., vol. 24, no. 7, pp. 820–829,
+which can be written as                                                                2006.
+                                                                                  [20] H. J. Kim, M. I. Jordan, S. Sastry, and A. Y. Ng, “Autonomous helicopter
+                              ∞                                                       flight via reinforcement learning,” in Proc. Adv. Neural Inf. Process. Syst.,
+   V X̄k = 12 X̄T k PX̄k + 2
+                            1
+                                  γ i−k                                                2004, pp. 799–806.
+                             i=k       T                                        [21] B. Kim, J. Park, S. Park, and S. Kang, “Impedance learning for robotic
+                        −1
+     ui + R+γBT PB γBT PĀX̄i                                                          contact tasks using natural actor-critic algorithm,” IEEE Trans. Syst., Man,
+                                                                                     Cybern., Part B (Cybern.), vol. 40, no. 2, pp. 433–443, Apr. 2010.
+                                           −1
+   × R+γBT PB ui + R+γBT PB γBT PĀX̄i .                                          [22] M. Bogdanovic, M. Khadiv, and L. Righetti, “Learning variable impedance
+                                                                                       control for contact sensitive tasks,” IEEE Robot. Automat. Lett., vol. 5,
+                                                        (A11)                          no. 4, pp. 6129–6136, Oct. 2020.
+  Equation (a11) achieves its minimum when uk =                                   [23] M. Oikawa, T. Kusakabe, K. Kutsuzawa, S. Sakaino, and T. Tsuji, “Rein-
+                                                                                       forcement learning for robotic assembly using non-diagonal stiffness ma-
+−(R+γ B̄T PB̄)−1 γ B̄T PĀX̄k , which is equal to the steady                           trix,” IEEE Robot. Automat. Lett., vol. 6, no. 2, pp. 2737–2744, Apr. 2021.
+actor in (9) when γ = 1. Consequently, the learned control                        [24] J. Buchli, E. Theodorou, F. Stulp, and S. Schaal, “Variable impedance
+minimizes the value function (14). This completes the proof.                          control a reinforcement learning approach,” in Robotics: Science and
+                                                                                       Systems VI. London, U.K.: MIT Press, 2011, pp. 153–160.
+                                                                                  [25] Z. Li, J. Liu, Z. Huang, Y. Peng, H. Pu, and L. Ding, “Adaptive impedance
+                              REFERENCES                                               control of human–robot cooperation using reinforcement learning,” IEEE
+                                                                                       Trans. Ind. Electron., vol. 64, no. 10, pp. 8013–8022, Oct. 2017.
+ [1] L. Peternel, T. Petrič, and J. Babič, “Human-in-the-loop approach for      [26] J. Peters and S. Schaal, “Natural actor-critic,” Neurocomputing, vol. 71,
+     teaching robot assembly tasks using impedance control interface,” in Proc.        no. 7-9, pp. 1180–1190, 2008.
+     IEEE Int. Conf. Robot. Automat., May 2015, pp. 1497–1502.                    [27] D. Silver, G. Lever, N. Heess, T. Degris, D. Wierstra, and M. Riedmiller,
+ [2] X. Zhao, B. Tao, L. Qian, Y. Yang, and H. Ding, “Asymmetrical nonlinear           “Deterministic policy gradient algorithms,” in Proc. Int. Conf. Mach.
+     impedance control for dual robotic machining of thin-walled workpieces,”          Learn., 2014, pp. 387–395.
+     Robot. Comput.-Integr. Manuf., vol. 63, 2020, Art. no. 101889.               [28] X. Zhao, B. Tao, L. Qian, and H. Ding, “Model-based actor-critic learning
+ [3] S. P. Buerger and N. Hogan, “Complementary stability and loop shaping             for optimal tracking control of robots with input saturation,” IEEE Trans.
+     for improved human–robot interaction,” IEEE Trans. Robot., vol. 23, no. 2,        Ind. Electron., vol. 68, no. 6, pp. 5046–5056, Jun. 2021.
+     pp. 232–244, Apr. 2007.
+ [4] A. Cherubini, R. Passama, A. Crosnier, A. Lasnier, and P. Fraisse, “Col-
+     laborative manufacturing with physical human–robot interaction,” Robot.
+     Comput.-Integr. Manuf., vol. 40, pp. 1–13, 2016.
+ [5] A. Safavi and M. H. Zadeh, “Model-based haptic guidance in surgical skill
+     improvement,” in Proc. IEEE Int. Conf. Syst., Man, Cybern., Oct. 2015,
+     pp. 1104–1109.
+ [6] J. Koivumäki and J. Mattila, “Stability-guaranteed impedance control
+     of hydraulic robotic manipulators,” IEEE/ASME Trans. Mechatronics,
+     vol. 22, no. 2, pp. 601–612, Apr. 2017.                                                             Xingwei Zhao received B.S. and M.S. degrees
+ [7] N. Hogan, “Impedance control: An approach to manipulation: Part II—                                 from the University of Duisburg-Essen, Duis-
+     Implementation,” J. Dyn. Syst., Meas., Control, vol. 107, no. 1, pp. 8–16,                          burg, Germany, in 2012 and 2013, respectively,
+     1985.                                                                                               and the Ph.D. degree from the Technical Uni-
+ [8] B. D. Argall and A. G. Billard, “A survey of tactile human–robot interac-                           versity of Berlin, Berlin, Germany, in 2017, all in
+     tions,” Robot. Auton. Syst., vol. 58, no. 10, pp. 1159–1176, 2010.                                  mechanical engineering.
+ [9] S. Cremer, S. K. Das, I. B. Wijayasinghe, D. O. Popa, and F. L. Lewis,                                 He is currently an Associate Research Fellow
+     “Model-free online neuroadaptive controller with intent estimation for                              with the State Key Laboratory of Digital Manu-
+     physical human–robot interaction,” IEEE Trans. Robot., vol. 36, no. 1,                              facturing Equipment and Technology, Huazhong
+     pp. 240–253, Feb. 2020.                                                                             University of Science and Technology (HUST),
+[10] E. Burdet et al., “Stability and motor adaptation in human arm move-                                Wuhan, China. His research interests mainly
+     ments,” Biol. Cybern., vol. 94, pp. 20–32, 2006.                             include nonlinear dynamics, robot control, and robotic manufacture.
+ZHAO et al.: MODEL-BASED ACTOR−CRITIC LEARNING OF ROBOTIC IMPEDANCE CONTROL IN COMPLEX INTERACTIVE ENVIRONMENT                                13235
+
+
+
+                        Shibo Han received the B.Eng. and M.Eng.                                     Zhouping Yin (Member, IEEE) received the
+                        degrees in mechanical engineering from the                                   B.S., M.S., and Ph.D. degrees in mechanical en-
+                        Huazhong University of Science and Tech-                                     gineering from the Huazhong University of Sci-
+                        nology, Wuhan, China, in 2018 and 2021,                                      ence and Technology (HUST), Wuhan, China, in
+                        respectively. He is currently working toward                                 1994, 1996, and 2000, respectively.
+                        the Ph.D. degree in mechanical engineer-                                        He is currently a Professor with the School
+                        ing with the Department of Mechanical En-                                    of Mechanical Science and Engineering, HUST.
+                        gineering, National University of Singapore,                                 He has been a “Cheung Kong” Chair Professor
+                        Singapore.                                                                   with HUST since 2009. His research interests
+                           His research interests include distributed con-                           include electronic manufacturing equipment and
+                        trol, multiagent systems, and intelligent robot                              technology, RFID technology and applications,
+technologies.                                                                and digital manufacturing and applications.
+                                                                               Dr. Yin was awarded the China National Funds for Distinguished
+                                                                             Young Scientists in 2006.
+
+                                                                                                    Han Ding (Senior Member, IEEE) received the
+                                                                                                    Ph.D. degree in mechanical engineering from
+                                                                                                    the Huazhong University of Science and Tech-
+                                                                                                    nology (HUST), Wuhan, China, in 1989.
+                          Bo Tao (Member, IEEE) received the B.S. and
+                                                                                                      Supported by the Alexander von Humboldt
+                          Ph.D. degrees in mechanical engineering from
+                                                                                                    Foundation, he was with the University of
+                          the Huazhong University of Science and Tech-                              Stuttgart, Stuttgart, Germany, from 1993 to
+                          nology (HUST), Wuhan, China, in 1999 and
+                                                                                                    1994. He was with the School of Electrical and
+                          2007, respectively.
+                                                                                                    Electronic Engineering, Nanyang Technological
+                            After being a Postdoctor from 2007 to 2009,
+                                                                                                    University, Singapore, from 1994 to 1996. He
+                          he has been an Associate Professor in 2009                                has been a Professor with HUST since 1997. He
+                          and a Professor in 2013 with the School of Me-
+                                                                             is a “Cheung Kong” Chair Professor with Shanghai Jiao Tong University,
+                          chanical Science and Engineering, HUST, and
+                                                                             Shanghai, China. His research interests include robotics, multiaxis ma-
+                          he is currently a Changjiang Distinguished Pro-
+                                                                             chining, and equipment automation.
+                          fessor with HUST. He has authored or coau-            Dr. Ding was elected as a Member of the Chinese Academy of Sci-
+thored more than 80 papers in international journals. His research in-
+                                                                             ences in 2013.
+terests include intelligent manufacturing and robotics technologies.
+

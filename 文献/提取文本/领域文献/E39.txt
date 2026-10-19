@@ -1,0 +1,1010 @@
+        IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025                                                                                      9571
+
+
+
+
+                   Model-Based Predictive Impedance Variation
+                         for Obstacle Avoidance in Safe
+                          Human–Robot Collaboration
+                             Julian M. Salt Ducaju , Björn Olofsson , and Rolf Johansson , Life Fellow, IEEE
+
+
+           Abstract— Human–robot collaboration (HRC) in manufactur-
+        ing environments requires that physical safety can be guaranteed.
+        Control methods that implicitly regulate the interaction forces
+        between a controlled robot and its environment, such as
+        impedance control, are often used for safety in HRC. However,
+        these methods could be complemented by restricting the robot
+        operational space for additional safety guarantees. In this context,
+        obstacle avoidance might benefit from considering a prediction
+        of the controlled-robot motion and/or the behavior of the human
+        collaborator. To this end, we proposed to include linearized Safety
+        Control Barrier Functions (SCBFs) in a linear Model Predictive
+        Control (MPC) strategy for robot impedance variation online.
+        The convex optimization problem that was obtained from our
+        proposal presented two advantages compared to nonlinear MPC
+        alternatives. First, optimality was ensured in our method under
+        linearity assumptions on human guidance and linearized robot
+        dynamics, whereas a controller synthesized by nonlinear MPC
+        strategies would depend on the fundamental characteristics of the
+        problem. Second, our method enabled implementation at a faster
+        control frequency, thus allowing a rapid adaptation to changes
+        occurring in the robot environment. Finally, experimental val-
+        idation was performed using a Franka Emika Panda robot in
+        a human–robot collaborative scenario, and the stability of the
+        method was shown using Lyapunov theory.
+                                                                                          Fig. 1. A human–robot collaborative scenario where an operator was guiding
+           Note to Practitioners—Modern-day industrial manufacturing                      a Franka Emika Panda robot mounted on a table.
+        environments are characterized by collaboration between human
+        operators and robot manipulators. In this scenario, where
+        humans and robots share workspace, physical safety is required.                   avoidance. It was shown in experiments with a real robot that
+        This research aims to improve safety in human–robot collab-                       adding prediction capabilities reduced the risk of undesired
+        oration by proposing a novel robot control strategy. In our                       collisions, while also decreasing the robot trajectory error. More-
+        approach, the interaction forces between the controlled robot                     over, the method could be implemented at a fast rate so that
+        and its environment were regulated implicitly using impedance                     the robot could react rapidly to changes in its environment.
+        control, to allow, among other interactions, that an operator                     Also, this implementation allowed to achieve a minimal variation
+        could manually guide the robot. Then, obstacle avoidance was                      with respect to the nominal impedance behavior of the robot.
+        included to modify the robot impedance behavior for restricting                   To conclude, this method is intended for scenarios where a robot
+        undesired collisions with, for example, the operator head, while                  is required to interact with its, possible restricted, environment:
+        ensuring stability of the method. Our main contribution is that                   for example, a robot with a drill attached to its end-effector that
+        the proposed formulation allows to consider a prediction of the                   is being guided to modify its trajectory, but where the operator
+        robot motion and/or the operator behavior for robot obstacle                      should not be allowed to accidentally be harmed; or a robot
+                                                                                          performing a polishing task where a section of the polished object
+                                                                                          should remain unpolished. Therefore, using the proposed robot
+          Received 11 April 2024; revised 10 September 2024; accepted 15 November         control strategy, a possible extension of this research would be to
+        2024. Date of publication 18 December 2024; date of current version 2 April       provide an improved prediction of the human operator intention
+        2025. This article was recommended for publication by Associate Editor            depending on the desired robotic task and the role of the operator.
+        Z. Chen and Editor P. Rocco upon evaluation of the reviewers’ comments. This
+        work was supported in part by the Wallenberg AI, Autonomous Systems and              Index Terms— Physical human–robot interaction (pHRI),
+        Software Program (WASP). (Corresponding author: Julian M. Salt Ducaju.)           robot safety, model predictive control (MPC), impedance control,
+          Julian M. Salt Ducaju and Rolf Johansson are with the Department of             safety control barrier functions (SCBFs).
+        Automatic Control, LTH, Lund University, 223 63 Lund, Sweden (e-mail:
+        julian.salt_ducaju@control.lth.se).
+          Björn Olofsson is with the Department of Automatic Control, LTH, Lund
+        University, 223 63 Lund, Sweden, and also with the Division of Vehicular                                     I. I NTRODUCTION
+        Systems, Department of Electrical Engineering, Linköping University, 581 83
+        Linköping, Sweden.
+          Digital Object Identifier 10.1109/TASE.2024.3508718                             F     ORMER industrial settings, characterized by a fixed-
+                                                                                                structure workspace, present limitations when addressing
+                               1558-3783 © 2024 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                             See https://www.ieee.org/publications/rights/index.html for more information.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        9572                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+        current manufacturing trends, in which mass production has                        legged robots [13] and mobile robots [14], where SCBFs
+        been replaced for mass customization, i.e., smaller vol-                          were combined with Model Predictive Control (MPC) strate-
+        umes of products are manufactured during shorter time                             gies to include longer temporal-horizon predictions for safety
+        frames [1]. As an attempt to improve human contribution,                          improvement. However, nonlinear MPC strategies were pro-
+        in terms of intelligence, dexterity, and responsiveness, in this                  posed in [13], [14], which caused their optimization problem
+        rapidly changing industrial environment, human–robot collab-                      to depend on the fundamental characteristics of the problem,
+        oration (HRC) has increased its relevance in recent years [2].                    thus no guarantees for global optimality could be provided
+        Several methods for HRC involve a physical interaction                            from the obtained solution. Additionally, the longer computa-
+        between humans and robots (pHRI), such as kinesthetic                             tional times of the nonlinear MPC strategies prevented their
+        teaching, where human guidance is used to modify a robot                          implementation executing at a fast rate, hence reducing the
+        trajectory [3]; or human–robot cooperation, where a robot                         robot capacity to react to changes in their environment, which
+        provides proactive assistance to a human operator [4].                            is especially relevant in safety-related robotic scenarios.
+           The most important requirement of any collaborative manu-                         In this paper, we address the problem of improving safety
+        facturing scenario is that physical safety can be guaranteed for                  in HRC by considering a longer temporal-horizon predic-
+        all humans, robots, and any other actor present in the shared                     tion of the behavior of both the controlled robot and the
+        workspace. To achieve this, indirect force control methods,                       human operator involved. To this end, we propose to vary
+        such as impedance control [5], [6], are often used. Impedance                     the impedance behavior of a robot manipulator using a linear
+        control improves physical safety in HRC by implicitly regu-                       MPC strategy that includes the forward-invariance condition
+        lating the interaction forces between the controlled robot and                    of a SCBF that is linearized at each time-step. This MPC
+        its environment, which also allows physical guidance of the                       formulation presented results in a convex quadratic optimiza-
+        robot. However, the interaction-force regulation achieved by an                   tion problem that could be solved at the control rate of a
+        impedance-control strategy might not be sufficient to ensure                      real robot (1 kHz), while ensuring optimality in the proposed
+        safety in HRC applications, e.g., if fragile equipment was                        method under linearity assumptions on human guidance and
+        located in the shared workspace, or if further protection was                     linearized robot dynamics. Additionally, a Lyapunov function
+        desired for the most sensitive body parts of human operators,                     is used to provide global asymptotic stability guarantees and
+        such as their heads. In these scenarios, it is necessary to                       real experiments were performed to evaluate the method on a
+        constrain the available operational space of the robot by                         robot.
+        creating restricted zones that the robot should avoid.                               The paper is organized as follows: Sec. II introduces the
+           Safety Control Barrier Functions (SCBFs) [7] have been                         dynamics model used for impedance control of the robot
+        extensively used in recent years to bound the operational                         manipulator. Then, Sec. III presents a linearized barrier func-
+        space of robot manipulators [8], [9], [10], [11], [12] since                      tion for robot obstacle avoidance, which is used as a linear
+        they provide formal forward-invariance conditions to ensure                       inequality constraint in the optimization problem developed
+        that a robot does not leave a safe set of states, i.e., a robot                   in Sec. IV for safe human–robot collaboration. The method
+        that started its motion in its allowed operational space would                    proposed in Sec. IV was evaluated in simulations, included
+        not invade a restricted zone. To achieve a minimally-invasive                     in Sec. V, and experiments with a real robot, presented in
+        modification of the nominal behavior of the robot, SCBFs                          Sec. VI. Finally, a discussion is included in Sec. VII and
+        have been included as inequality constraints in a quadratic                       conclusions are drawn in Sec. VIII.
+        optimization problem whose goal was to minimize the differ-
+        ence between a nominal control signal and a control signal                                                     II. M ODELING
+        that would satisfy the safety requirements imposed by the                           First, we show how a Cartesian impedance controller acting
+        SCBFs [7]. Convexity guarantees in this formulation ensured                       on the rigid-body dynamics of a robot can be written as a
+        optimality, and allowed a fast execution of this safety strategy                  Linear Parameter-Varying (LPV) model.
+        at the sampling frequency of the controlled robot, which
+        can be as fast as 1 kHz. Moreover, in the context of HRC,
+        SCBFs have been considered to adapt the acceleration of a                         A. Robot Rigid-Body Dynamics
+        robot depending on a human–robot separation distance [10],                           The rigid-body dynamics of the robot can be written in the
+        resulting in a safety improvement for human–robot contacts.                       joint space of the robot, q ∈ Rn , as [15]
+        Then, regarding safety in pHRI, SCBFs have been considered
+                                                                                                         M(q)q̈ + C(q, q̇)q̇ + G(q) = τ + τ ext                     (1)
+        to modify an impedance control structure for robot obstacle
+        avoidance [11], [12].                                                             where M(q) ∈ Rn×n is the generalized inertia matrix,
+           Furthermore, so far, SCBF-based proposals to constrain                         C(q, q̇) ∈ Rn×n describes the Coriolis and centripetal forces
+        the operational space of robot manipulators [8], [9], [10],                       effects, G(q) ∈ Rn captures the gravity-induced torques, and
+        [11], [12] have been formulated as 1-step quadratic opti-                         τ ∈ Rn represents the input torques, n being the number of
+        mization problem, thus not containing prediction capabilities                     joints of the robot. Finally, τ ext ∈ Rn represents the external
+        regarding robot motion and/or the behavior of the operator.                       torques.
+        The advantages of prediction for collision avoidance have                            Moreover, the rigid-body equation of the robot can be
+        been studied for other types of robotic systems, such as                          rewritten in terms of its end-effector pose ξ ∈ Rm which is
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        SALT DUCAJU et al.: MODEL-BASED PREDICTIVE IMPEDANCE VARIATION FOR OBSTACLE AVOIDANCE IN SAFE HRC                                                           9573
+
+
+                                                                                                                 T
+                                                                                          where x = 1ξ T , 1ξ̇ T shows the global asymptotic stability
+                                                                                                      
+        composed by the end-effector’s position and orientation:
+                                                                                          of the impedance robot behavior in Eq. (6) for α > 0 satisfying
+                    Mξ (q)ξ̈ + Cξ (q, q̇)ξ̇ + G ξ (q) = F + F ext                 (2)              s
+                                                                                                   λ         2λm,K          λm,D          
+                           m                                                                            m,K
+        where F ∈ R is the input force, and, for a fully-actuated                             min           ,       ,                        > α (13)
+        nonredundant robot (n = m), Mξ ∈ Rm×m , Cξ ∈ Rm×m , and                                      λ M,Mξ λ M,D 2(λ M,Mξ + kC ||1ξ ||)
+        G ξ ∈ Rm are equal to
+                                                                                          where λm,5 and λ M,5 are the smallest and largest eigenvalues
+           Mξ = J −T (q)M(q)J −1 (q)                                              (3)     of a matrix 5, respectively, and kC is a positive constant such
+           Cξ = J −T (q)(C(q, q̇) − M(q)J −1 (q) J˙(q, q̇))J −1 (q)               (4)     that for all x, y, z ∈ Rn [19]
+
+           Gξ = J    −T
+                          (q)G(q)                                                 (5)                      ||Cξ (x, y)z|| ≤ kC ||y||||z||         (14)
+                                                                                                Proof: The Lyapunov candidate (12) is strictly positive
+        assuming that the Jacobian relative to the base frame of the                      for
+        robot, J (q) ∈ Rm×m , has full rank [16]; see [17] for a                                                               s
+        review of Jacobian inversion techniques in the neighborhood                                                                λm,K
+                                                                                                                          α<                                       (15)
+        of singular joint configurations.                                                                                          λ M,Mξ
+
+        B. Robot Impedance Control                                                           Moreover, considering that the matrix Ṁ ξ (q) − 2Cξ (q, q̇)
+                                                                                          is skew symmetric [18, Ch. 2], the time-derivative of the
+          To achieve a Cartesian impedance control of the robot                           Lyapunov candidate (12) is equal to
+        end-effector [5], [6], i.e., a mass-spring-damper relationship
+        between the Cartesian pose variation from its reference,                                V̇ (x) = −α1ξ T Cξ (q, q̇)1ξ̇ + α1ξ̇ T Mξ (q)1ξ̇
+        1ξ = ξd − ξ (ξd being the Cartesian pose reference) and                                            − 1ξ̇ T D1ξ̇ − α1ξ T K 1ξ + α1ξ T D1ξ̇                  (16)
+        the external Cartesian force F ext ,
+                                                                                          Then, defining the upper bound on certain terms:
+                    F ext = Mξ (q)ξ̈ + (Cξ (q, q̇) + D)ξ̇ −K 1ξ                   (6)
+                                                                                                                     1            1                         2
+        the input force F in Eq. (2) should be equal to                                             −1ξ̇ T D1ξ̇ ≤ − 1ξ̇ T D1ξ̇ − λm,D 1ξ̇                          (17)
+                                                                                                                     2            2
+                                F = K 1ξ −D ξ̇ + G ξ (q)                          (7)            α1ξ̇ T Mξ (q)1ξ̇ ≤ αλ M,Mξ 1ξ̇
+                                                                                                                                2
+                                                                                                                                                                   (18)
+                                                                                                                                              2
+        where K ∈          m
+                          S++ and D ∈          m
+                                               (S++ denoting symmetric
+                                              S++                                           −α1ξ Cξ (q, q̇)1ξ̇ ≤ αkC 1ξ
+                                                                                                    T
+                                                                                                                                        1ξ̇                        (19)
+        positive-definiteness) are diagonal matrices that represent the
+        control-induced stiffness and damping, respectively.                              it follows that
+          Remark 1: The control-induced inertia was chosen equal to                                           1           T 
+                                                                                                 V̇ (x) ≤ −      1ξ̇ − α1ξ D 1ξ̇ − α1ξ
+                                                                                                                                       
+        the robot inertia Mξ (q) to avoid inertia shaping [18, Ch. 3.2],                                      2
+        so that the input force F would not require feedback from the                                                            1
+                                                                                                            + α1ξ T α2 D − K 1ξ − λm,D 1ξ̇
+                                                                                                                                           2
+        external forces.                                                                                                         2
+          Moreover,        by    choosing     the    state    vector  as                                                       2           2
+                                                                                                            + αkC 1ξ 1ξ̇ + αλ M,Mξ 1ξ̇                             (20)
+        x = [1ξ T , 1ξ̇ T ]T ∈ R2m , the linearized system is
+                                                                                          which is equivalent to
+                                ẋ = A(q, q̇)x + B(q)u                            (8)
+                                                                                                                        1         T 
+                                                                                                        V̇ (x) ≤ −        1ξ̇ − α1ξ D 1ξ̇ − α1ξ
+                                                                                                                                                
+        where the input u ∈ Rm is equal to                                                                                                                         (21)
+                                                                                                                        2
+                                         u = F ext                                (9)     for
+        and the matrices that define the system are equal to                                                2λ
+                                                                                                                m,K        λm,D           
+                                                                                                        min         ,                       >α                     (22)
+                                                                                                             λ M,D 2(λ M,Mξ + kC ||1ξ ||)
+                                                           
+                       0m                     Im
+             A=                                                                  (10)
+                   −Mξ−1 (q)K −Mξ−1 (q)(Cξ (q, q̇) + D)                                   Therefore, if α > 0 satisfies (13), the Lyapunov candidate
+                                                                                          function V (x) is strictly positive and its time-derivative V̇ (x)
+                            
+                      0m
+             B=                                                                  (11)
+                   −Mξ−1 (q)                                                              is strictly negative.                                           □
+                                                                                             Additionally, since Mξ (q), K , D ∈ S++    m
+                                                                                                                                          , a passive map
+        where Im ∈ Rm×m represents an identity matrix, and Mξ (q) is
+                                                                                          from the external force F ext to 1ξ̇ is guaranteed,
+        invertible since J (q) is also invertible [12, Lemma III.1].
+           Furthermore, the impedance control resulting in Eq. (8)                                                        1         T 
+                                                                                                   V̇ < 1ξ̇ T F ext −       1ξ̇ − α1ξ D 1ξ̇ − α1ξ
+                                                                                                                                                  
+        has shown to be globally asymptotically stable [12]. For                                                          2
+        completeness, a short version of the proof is provided here,                                    < 1ξ̇ T F ext                                              (23)
+        see [12, Lemma III.2] for an extended version of this proof.
+           Proposition 1: The time-varying Lyapunov function                              where the passivity condition valid for passive environments
+                                                                                          is defined analogously
+                      1 T              1
+         V (x, t) =     1ξ̇ Mξ (q)1ξ̇ + 1ξ T K 1ξ + α1ξ T Mξ (q)1ξ̇                                                       Z t
+                      2                2                                                            V (x, t) − V (x, 0) <     1ξ̇ T (τ )F ext (τ )dτ (24)
+                                                                (12)                                                                0
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        9574                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+                       III. ROBOT O BSTACLE AVOIDANCE                                     closest of these two points to the position of the robot, ρ. The
+           Robot obstacle avoidance can be achieved by defining a                         linearized inequality constraint is equal to
+        safe set of robot states and ensuring that the robot would stay
+                                                                                                                      h         i        
+                                                                                                       (ρint − ρobs )T I3 , γ1 I3 z − ρint ≥ 0         (36)
+        inside this set. For this, a barrier function h : D −→ R was
+        defined for all x ∈ D ⊂ R2m based on the condition that the                       which is equivalent to a linear inequality constraint in x (34)
+        distance from the robot position, ρ(x) ∈ R3 , to an obstacle
+        located at position ρobs ∈ R3 would always be greater than or                                                      ABF x ≤ bBF                             (37)
+        equal to a safety distance Ds ∈ R as
+                                                                                          with
+                          h(x) = ||ρ(x) − ρobs || − Ds ≥ 0                       (25)
+                                                                                                                                h                   i
+                                                                                                           ABF = (ρint − ρobs )T I3 ,         1
+                                                                                                                                                I
+                                                                                                                                              γ 3       Tx         (38)
+        which is equivalent to                                                                             bBF = (ρint − ρobs )T (ρd − ρint )                      (39)
+                          h(x) = (ρ(x) − ρobs )          2
+                                                             − Ds2 ≥ 0           (26)        Remark 2: The linear inequality constraint (37) satisfies the
+           The forward-invariance of the safe set C ⊆ D defined by                        forward-invariance condition in Eq. (28) of the safe set C,
+        the barrier function in (26),                                                     and is equivalent to linearizing a protective surface
+                                                                                                                                              h that wasi
+                                                                                          defined using an impedance variable equal to I3 , γ1 I3 z
+                              C = {x ∈ R2m | h(x) ≥ 0}                           (27)     around the obstacle.
+        can be ensured if the following inequality constraint is satis-
+        fied [7]                                                                            IV. M ODEL P REDICTIVE VARIABLE I MPEDANCE (PVI)
+                                                                                                              C ONTROLLER
+                                   ḣ(x) + γ h(x) ≥ 0                            (28)
+                                                                                             A linear model predictive controller was designed to vary
+        where γ > 0.                                                                      the impedance behavior of a robot using the safety condition of
+           Moreover, the forward-invariance condition (28) of the safe                    Eq. (37) defined in Sec. III to allow robot obstacle avoidance
+        set C can be rewritten for a variable z = [ρ T , ρ̇ T ]T as a                     for safe HRC.
+        quadratic constraint
+                                z T A z z + Bz z + C z ≥ 0                       (29)     A. Optimization Problem
+                                                                                             The proposed model predictive controller solves, at every
+        where
+                                                                                          sampling step k, an optimization problem that minimizes the
+                                        γ I3
+                                                        
+                                                    I3                                    difference between the behavior of the robot and a reference
+                               Az =                                              (30)
+                                         I3         03                                    impedance behavior defined by reference states x r and inputs
+                                Bz = −2ρobs γ I3 ,
+                                              T
+                                                                                          u r throughout a prediction horizon h p . This is equivalent to
+                                                                
+                                                      I3                         (31)
+                               C z = γ (ρobs ρobs − Ds )
+                                         T           2
+                                                                                 (32)     the minimization of the cost function
+                                                                                                                    k+h p h
+        which is equivalent to a quadratic inequality constraint in x
+                                                                                                                    X
+                                                                                                     L(Uk, p ) =            (xir − xi )T Q(xir − xi )
+                                x T A x x + Bx x + C x ≥ 0                       (33)                              i=k+1
+                                                                                                                                                          i
+                                                                                                                   + (u ri−1 − u i−1 )T R(u ri−1 − u i−1 )         (40)
+        since
+                                              ρd                                          with Uk, p = [u Tk , . . . , u Tk+h p −1 ]T ∈ Rmh p being the sequence
+                                                 
+                                   z=               − Tx x                       (34)
+                                             03×1                                         of computed inputs to the system throughout the control
+                                                                                          horizon (which was chosen to have the same length as the
+        with A x , Bx , and C x defined analogous to A z , Bz , and C z , and                                                                 2m           m
+                                                                                          prediction horizon, h c = h p ). Also, Q ∈ S++          and R ∈ S++ in
+        where
+                                                                                        Eq. (40) are symmetric positive-definite matrices that penalize,
+                                    I3 03 03 03                                           respectively, the system states and inputs variation from their
+                            Tx =                                         (35)
+                                    03 03     I3 03                                       impedance reference at every time step.
+                                                                                             The minimization of the cost function in Eq. (40) was sub-
+        and ρd is the Cartesian position reference. Also, 0m ∈ Rm×m
+                                                                                          ject to two types of constraints. First, the robot should exhibit
+        represents a zero matrix, and a zero-velocity reference was
+                                                                                          impedance properties. To this purpose, the continuous-time
+        assumed.
+                                                                                          impedance model of the robot of Eq. (8) was discretized using
+           Furthermore, since including a quadratic constraint would
+                                                                                          a zero-order-hold (ZOH) [20] sampling method
+        cause an optimization problem to be a Quadratically Con-
+        strained Quadratic Program (QCQP), which is NP-hard in                                            xk+ j = 8xk+ j−1 + 0u k+ j−1                             (41)
+        its general case, the quadratic inequality constraint (29) was                                                           Z Ts
+                                     T
+        linearized around z int = [ρint , 0]T , ρint being the intersection                                      8 = e ATs , 0 =       e As ds B                   (42)
+                             −− →
+        between the vector ρobs ρ and a sphere with center at ρobs and                                                                    0
+
+        radius equal to the safety distance Ds . Since this sphere-vector                 with Ts being the sampling period of the system, which affects
+        pair would intersect at two points, ρint would be chosen as the                   the duration of the prediction horizon.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        SALT DUCAJU et al.: MODEL-BASED PREDICTIVE IMPEDANCE VARIATION FOR OBSTACLE AVOIDANCE IN SAFE HRC                                                                 9575
+
+
+
+           Second, obstacle avoidance was implemented in the opti-                        with M p ∈ R2mh p ×mh p and N p ∈ R2mh p ×2m being
+        mization problem as an inequality constraint to ensure that
+                                                                                                        0                   ... 0
+                                                                                                                                      
+                                                                                                                    0
+                                                                                                                                                  8
+                                                                                                                                                     
+        the states of the system fulfilled the linearized condition for                             80             0               0 
+                                                                                                                                                 . 
+        forward-invariance of Eq. (37) of the safe set C at every                            Mp =  .                ..     .       .. , N p =  .. 
+                                                                                                   
+        time-step over the prediction horizon                                                       .   .            .       . .    .
+                                                                                                                                                 8h p
+                                                                                                     8h p −1 0 8h p −2 0 . . . 0
+                                       ABF xk+ j ≤ j bBF                         (43)
+                                                                                                                                                      (50)
+                                                                 j
+           Remark 3: Note the use of superscript in the inequality
+        constraint (43). This superscript highlighted that j bBF might                    Moreover, the safety condition in Eq. (43) is equivalent to
+        take different values for each time-step k + j of the prediction                                                    p
+                                                                                                                                ABF X k, p ≤ p bBF                        (51)
+        horizon since it would depend on the, possibly time-varying,
+        position reference ρd , as seen in Eq. (39).                                              p
+                                                                                          with ABF ∈ R          h p ×h p          p
+                                                                                                                           and bBF ∈ R       hp
+                                                                                                                                                   being
+           As a summary, the optimization problem solved at each
+        time-step k in the proposed Model Predictive Variable
+                                                                                                                 p
+                                                                                                                     ABF = diag([ABF , . . . , ABF ])                     (52)
+        Impedance (PVI) formulation is                                                                            p
+                                                                                                                      bBF = [ bBF , . . . , bBF ]
+                                                                                                                                 1            hp       T
+                                                                                                                                                                          (53)
+              Uk,∗ p = min L(Uk, p )                                                      where diag(·) forms a block diagonal matrix from a given
+                         Uk, p
+                                                                                          list of matrices. Also, Eq. (51) is equivalent, in terms of the
+                         s.t. xk+ j = 8xk+ j−1 + 0u k+ j−1 ,                              sequence Uk, p of inputs over the prediction horizon, to
+                                  ABF xk+ j ≤ j bBF ∀ j ∈ [1, . . . , h p ]      (44)
+                                                                                                                           T Uk, p ≤ W1 + W2 xk                           (54)
+        B. Human-Guidance Force Estimation                                                where
+           In addition to the estimation of the robot motion provided                                 T = p ABF M p , W1 = p bBF , W2 = − p ABF N p                       (55)
+        by the equality constraint in Eq. (41), a prediction of human
+        guidance can be included in the optimization problem. To this                        Additionally, if these expressions are rewritten in terms of
+        end, a linear model was chosen to describe the temporal varia-                    the error dynamics
+        tion of the external force throughout the prediction horizon of
+                                                                                                        Ũ k, p = Uk,r p − Uk, p , X̃ k, p = X k,
+                                                                                                                                               r
+                                                                                                                                                  p − X k, p              (56)
+        the MPC. In discrete time, the external force was modeled by
+                                                                                          the cost function of Eq. (40) is equivalent to
+                                      j = Fk + r k (tk+ j − tk )
+                                  ext      ext
+                                 Fk+                                             (45)
+        where rk is related to the estimated rate of change of this                                   L(Ũ k, p ) = X̃ Tk, p Q p X̃ k, p + Ũ Tk, p R p Ũ k, p (57)
+        signal over the prediction horizon, which is updated at each                      where Q p  = diag
+                                                                                                                      
+                                                                                                                              ..., Q
+                                                                                                                                        
+                                                                                                                                              ∈ R2mh p ×2mh p and
+        sampling step k.                                                                                            Q,mh
+                                                                                          R p = diag R, . . . , R ∈ R            p ×mh p
+                                                                                                                                           and the inequality con-
+                                                         j ∀ j ∈ [1, . . . , h p ]
+                                                     ext
+           Moreover, the prediction of Fk+                                                straint (54) could be rewritten as:
+        determined the reference input sequence,
+                          h                                  iT                                                        Te Ũ k, p ≤ W1,e + W2,e x̃ k                      (58)
+                  Uk,r p = (u rk )T , . . . , (u rk+h p −1 )T ∈ Rmh p       (46)
+                                                                                          where
+        used in the cost function of Eq. (40), as shown in the
+        continuous-time input (9) of the impedance-controlled system.                        Te = −T, W1,e = W1 − Uk,r p + W2 xkr , W2,e = −W2                            (59)
+        Additionally, the reference state sequence,                                                                                 r
+                                                                                             Finally, since the system reference (X k,        r
+                                                                                                                                       p and Uk, p ) followed
+                           h                                iT                            the same desired impedance behavior that was imposed as an
+                    r
+                  X k, p =  (x r
+                               k+1 )T
+                                      , . . . , (x r
+                                                   k+h p )T
+                                                               ∈ R2mh p (47)              equality constraint of Eq. (41) of the optimization problem,
+        determined by the desired impedance properties of Eq. (41)                        the equality constraint in terms of the error dynamics is
+        and the reference input sequence Uk,r p .                                         equivalent to
+                                                                                                                       X̃ k, p = M p Ũ k, p + N p x̃ k                   (60)
+        C. Optimality
+                                                                                          for M p and N p defined in (50).
+           Proposition 2: An analytic expression for the optimal solu-
+                                                                                             Once the optimization problem (44) has been expressed in
+        tion to the optimization problem presented in Eq. (44) can be
+                                                                                          terms of its error dynamics sequence, it is straightforward to
+        derived.
+                                                                                          see that the cost function of Eq. (57), when considering the
+             Proof: The optimization problem of Eq. (44) could be
+                                                                                          equality constraint (60), is equal to
+        expressed as a function of the entire sequence of states over
+        the prediction horizon,                                                                   L u (Ũ k, p ) = Ũ Tk, p F Ũ k, p + 2Ũ Tk, p G x̃ k + x̃ Tk H x̃ k   (61)
+                                    T
+                         X k, p = [xk+1 , . . . , xk+h
+                                                   T
+                                                       p
+                                                         ]T ∈ R2mh p             (48)     for
+        Then, the equality constraint (41) is equivalent to                                     F = M Tp Q p M p + R p , G = M Tp Q p N p , H = N pT Q p N p
+                                   X k, p = M p Uk, p + N p xk                   (49)                                                                                     (62)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        9576                                                                           IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+          Then, Lagrange multipliers λk could be used to form the                                                    V. S IMULATIONS
+        Lagrangian [21]                                                                          The empirical evaluation of the PVI method was started
+                  L(Ũ k, p ) = Ũ Tk, p F Ũ k, p + 2Ũ Tk, p G x̃ k + x̃ Tk H x̃ k          by performing simulations with a two-dimensional double
+                                                                                              integrator system, which might be used for robot manipulators
+                                + 2λTk (Te Ũ k, p − W1,e − W2,e x̃ k )                (63)   if their maximally-allowed accelerations are conservatively
+                                                                                              chosen [22], [23]. The input u ∈ R2 to this system was equal
+        By completion of squares, this expression is equal to
+                                                                                              to the acceleration of the system
+                                                 
+                                             T x̃ x
+                                                      T
+           L(Ũ k, p ) = Ũ k, p + F G, Te
+                                     −1
+                                                                                                                         u = ρ̈ ∈ R2
+                                              
+                                                         F                                                                                                         (70)
+                                                  λk
+                                                                                              with the position of the system being ρ = [ρx , ρ y ]T ∈ R2 .
+                                                
+                                               x̃ x 
+                        Ũ k, p + F −1 G, TeT          + x̃ Tk H x̃ k
+                                      
+                                                 λk                                           Additionally, analogous to the impedance controller for the
+                            T                                                             robot dynamics in Eq. (7), an impedance behavior could be
+                             x̃ k          T T −1
+                                                               T
+                                                                     x̃ k
+                        −            G, Te F G, Te                                            achieved for the double-integrator model with
+                             λk                                        λk
+                                T                                                                 u = u 0 + 1u, u 0 = K 1ρ − D ρ̇, 1ρ = ρd − ρ
+                                                
+                        − 2λk W1,e + W2,e x̃ k                              (64)                                                                                   (71)
+
+        Therefore, the optimal control sequence is equal to                                   such that the continuous-time impedance behavior of the
+                                                                                            system, with state vector x = [1ρ T , 1ρ̇ T ]T ∈ R4 was
+                           ∗        −1
+                                           T
+                                               x̃ k                                          modeled by
+                        Ũ k, p = −F G, Te,k                                           (65)
+                                                λ∗k                                                                                  
+                                                                                                                 02       I2        02
+                                                                                                          ẋ =                 x+         1u      (72)
+        where only the inequality constraints that were active at time-                                         −K       −D         −I2
+        step k were considered (Te,k and λ∗k ). The minimal cost
+        function                                                                              where K = k I2 and D = d I2 , with k, d > 0.
+                                                                                                 Moreover, for the simulations performed, it was desired
+                        min L(Ũ k, p ) = L(Ũ ∗k, p )                                        that a system with initial position ρ0 = [0, 0]T followed a
+                                                                                              trajectory determined by a constant speed of 0.4 m/s along
+                                          = x̃ Tk H − G T F −1 G x̃ k
+                                                                 
+                                                   T                                         each direction, which yielded a position reference at each
+                                                                T ∗
+                                            + λ∗k Te,k F −1 Te,k   λk                  (66)   discrete time-step k equal to:
+                                                                                                                                     
+        was obtained from the optimal control sequence of Eq. (65).                                                                  1
+                                                                                                                 ρd,k = ρd,k−1 + 0.4    T            (73)
+                                                                 □                                                                   1 s
+                                                                                              with Ts being the discrete-sampling period of the system,
+        D. Stability in Error Dynamics                                                        which was chosen as 0.1 s for this simulation. The PVI
+                                                                                              controller of Eq. (44) was used to achieve robot obstacle
+           Proposition 3: Asymptotic stability guarantees for the error                       avoidance, and the resulting optimization problem was solved
+        dynamics of the proposed PVI controller can be provided.                              using the convex optimization solver CVXGEN [24].
+             Proof: Since the equality constraint of the optimization                                                                             ForTthis
+                                                                                              simulation, the obstacle was located at ρobs = 2, 1.5 m,
+        problem in Eq. (41) ensures that both the solution obtained
+                                                                                              with a safety distance of Ds = 0.5 m.
+        from the PVI controller and the reference behavior of the
+                                                                                                 Furthermore, the control-induced stiffness and damping
+        system (defined by the state and input references, x r and u r ),
+                                                                                              were chosen as k = 1 and d = 1/γ for γ = 1.5 and the
+        followed the desired robot impedance behavior, the error
+                                                                                              total simulation time was 10 s. Also, regarding the parameters
+        dynamics could be described with
+                                                                                              of the MPC optimization problem, the control and prediction
+                             x̃˙ = A(q, q̇)x̃ + B(q)(u r − u)                          (67)   horizons were chosen as h p = h c = 10, and the states
+                                                                                              and input penalization with respect to their reference in the
+        where                                                                                 cost function of Eq. (40) were Q = I4 and R = 0.1I2 ,
+                                              T                                              respectively.
+                               x̃ = x r − x = 1ξ  ḟ T T
+                                              f , 1ξ
+                                                      
+                                                                                       (68)      Figures 2 and 3 show the simulation results of modifying the
+                                                                                              impedance behavior of a two-dimensional double integrator
+           Moreover, the Lyapunov function that was used to show the                          for robot obstacle avoidance using PVI. Determined by the
+        global asymptotic stability for the system dynamics in Eq. (8)                        PVI controller, the system closely followed the reference
+        can also be used to show the global asymptotic stability for                          until a detour was commanded to avoid the forbidden area
+        the system error dynamics of the proposed PVI controller by                           that surrounded the obstacle (Fig. 2). Once the commanded
+        replacing x for x̃ in Eq. (12):                                                       detour was not needed anymore for obstacle avoidance, the
+                       1 T            1 T                                                     system was able to converge to its nominal path. Addi-
+         V (x̃, t) =     1ξ
+                         ḟ Mξ (q)1ξ
+                                  ḟ + 1ξ
+                                        f K 1ξ
+                                            f + α1ξ T Mξ (q)1ξ
+                                                            ḟ
+                                                                                              tionally, the input commanded to the system is shown in
+                       2              2
+                                                            (69)                              Fig. 3. The conservative acceleration values seen in this
+                                                                                              figure justified the use of a double integrator model for this
+        for analogous conditions on α > 0 as the ones in Eq. (13). □                          simulation.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        SALT DUCAJU et al.: MODEL-BASED PREDICTIVE IMPEDANCE VARIATION FOR OBSTACLE AVOIDANCE IN SAFE HRC                                                           9577
+
+
+
+
+        Fig. 2. Simulated path traversed by the robot compared to its reference path.
+
+                                                                                          Fig. 4.     3D rendering of the path ρ traversed by the end-effector of
+                                                                                          the MPC-controlled robot for different values of γ (28). The unmodified
+                                                                                          path, ρun , showed the path that the robot would follow with its nominal
+                                                                                          impedance behavior. The plotted sphere was centered at the obstacle position
+                                                                                          ρobs and its radius was equal to the safety distance Ds .
+
+
+
+                                                                                          prediction horizons lasted 1 s, divided into ten discrete-time
+        Fig. 3.   Temporal evolution of the input signal throughout the simulation.       steps (h p = h c = 10) that were equally spaced at 0.1 s.
+                                                                                          Also, the penalization of the states and inputs with respect
+                                                                                          to their reference in the cost function of Eq. (40) was chosen
+                                  VI. E XPERIMENTS                                        as Q = I6 and R = 0.1I3 , respectively, and all the experiments
+           The empirical evaluation of the proposed method was                            presented lasted 10 s, t ∈ [0, tmax = 10] s.
+        extended with a series of experiments performed with a real
+        robot in an experimental setup that allowed human–robot                           B. Robot Obstacle Avoidance in Free Motion and Influence
+        collaboration. The PVI solution was compared to a previous                        of the Selection of γ
+        formulation [12] where prediction was not considered, to high-                       The behavior of the robot was evaluated for a scenario
+        light the benefits of using a model-predictive scheme in these                    where, in the absence of external guidance force, the nominal
+        collaborative applications.                                                       impedance behavior of the robot would have resulted in an
+                                                                                          unmodified robot path, ρun , that collided with an obstacle,
+        A. Experimental Setup                                                             as shown in Fig. 4. Figure 4 also shows the 3D plot of
+                                                                                          the path ρ, traversed by the PVI-controlled robot. The initial
+           The experimental setup that was used to evaluate the method                    position of the robot relative to its base frame was equal
+        on a real robot consisted of a Franka Emika Panda robot [25]                      to ρ0 = [0.358, −0.2, 0.395] m, and the final position of the
+        mounted on a table (as seen in Fig. 1). This robot has seven                      robot was equal to ρF = ρ0 + 1ρ for 1ρ = [0.1, 0.5, 0.1] m.
+        rotational joints, n = 7 > 6 = m, so, the last joint was locked                   The position reference of Eq. (6) of the robot was defined to
+        at θ7 = π/2 rad, and only the first six joints of the robot                       increase linearly with time
+        were controlled. In addition, the controller was running at
+                                                                                                                               1ρ
+        the sampling rate of the Panda robot, equal to 1 kHz, using                                              ρd (t) = ρ0 +      t                (74)
+        a single PC (Intel Xeon CPU E3-1245, 3.7 GHz, 4 cores,                                                                 tmax
+        64-bit), and CVXGEN [24] was used to obtain the optimal                           Also, the obstacle was placed at ρobs = [0.4, 0.0, 0.45] m and
+        control of Eq. (65).                                                              the safety distance was equal to Ds = 0.05 m.
+           Moreover, the nominal robot impedance that enabled HRC                            As seen in Fig. 4, the PVI-based strategy was able to avoid
+        by allowing an operator to guide the robot was defined by a                       any collision between the robot and the obstacle. Additionally,
+        control-induced stiffness, K in Eq. (7), equal to 150 N/m for                     this controller allowed that the path followed by the robot
+        the translational degrees of freedom and equal to 10 N/rad                        converged toward the unmodified path, ρun , once the robot
+        for the rotational degrees of freedom,√and a control-induced                      passed the obstacle. Moreover, it is also observed in Fig. 4
+        damping, D in Eq. (7), equal to 2 K for all degrees of                            that the selection of γ in the forward-invariance condition
+        freedom [26]. Also, the internal controller of the Franka Emika                   in Eq. (28) of the safe set C had a significant influence on
+        Panda robot [25] took care of the gravity compensation, and                       the behavior of the PVI-controlled robot, i.e., a higher value
+        provided the remaining dynamics parameters that were needed                       of γ yielded a less conservative solution, where the robot got
+        to implement Eq. (7).                                                             closer to the obstacle during the trajectory execution. Indeed,
+           Furthermore, regarding the parameters of the MPC opti-                         this observation was supported when the temporal evolution
+        mization problem for the experiments, both the control and the                    of the barrier function h of Eq. (26) was analyzed, as depicted
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        9578                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+
+        Fig. 5. Temporal evolution of the barrier function h in Eq. (26) throughout
+        the experiment for different values of γ in Eq. (28).                             Fig. 7. Temporal evolution of the velocity of the robot end-effector along
+                                                                                          each Cartesian direction x, y, z for the PVI-controlled robot compared to a
+                                                                                          1-step controller formulation [12].
+                                          TABLE I
+                     P ERFORMANCE M ETRICS AS A F UNCTION OF γ
+                                                                                          at the sampling frequency of the robot, i.e., 1 kHz. The same
+                                                                                          value of γ = 5 in Eq. (28) was used for both formulations.
+                                                                                          The advantages of considering a prediction of the robot motion
+                                                                                          for robot obstacle avoidance were apparent in this situation.
+                                                                                             First, the PVI-controlled robot was able to stay less time
+                                                                                          at risk by acting earlier to modify the nominal impedance
+                                                                                          behavior, as shown in Fig. 7, where the temporal evolution
+                                                                                          of the velocity of the robot end-effector is depicted. It can be
+                                                                                          seen in Fig. 7 that before t = 4 s, the PVI-controlled robot
+                                                                                          had started to move away from the obstacle, while the 1-step
+                                                                                          controller commanded the robot to keep a velocity close to
+                                                                                          zero in all its components until after t = 6 s.
+                                                                                             Moreover, the robot-motion prediction, combined with the
+                                                                                          utilization of the temporal evolution of the desired impedance
+                                                                                          behavior of the robot throughout the prediction horizon,
+                                                                                          allowed the PVI controller to reduce the trajectory error.
+                                                                                          This is seen in Fig. 8, which showed a comparison of the
+        Fig. 6. Commanded force F in Eq. (2) to the robot along each Carte-               trajectory of the PVI formulation and the 1-step formulation
+        sian direction x, y, z throughout the experiment for different values of γ        with respect to the unperturbed impedance behavior of the
+        in Eq. (28).
+                                                                                          robot, i.e., without collision avoidance. The PVI controller was
+                                                                                          able to provide a closer tracking of the reference impedance
+        in Fig. 5. Even though the PVI-solution avoided the obstacle                      trajectory, which was quantified using the Mean Absolute
+        for all the analyzed values of γ , it can be seen in Fig. 5 that                  Error (MAE) between the nominal (unperturbed) and the
+        the robot motion was less conservative for higher values of γ .                   actual position of the robot end-effector
+                                                                                                                               |ρun,k − ρk |
+                                                                                                                         PN
+        This was also observed when analyzing the minimum distance
+        between the robot and the obstacle (Dmin ), and the duration                                        MAE(ρ) = k=0                               (75)
+                                                                                                                                 N
+        of the deviation from the nominal impedance behavior (tdur ),
+                                                                                          where N = f · tmax and f = 1000 Hz since experimental data
+        as seen in Table I.
+                                                                                          were recorded in these experiments at the sampling rate of the
+           Furthermore, Fig. 6 shows the difference in the commanded
+                                                                                          Panda robot (1 kHz). For the trajectory described in Fig. 8, the
+        forces to the robot, F in Eq. (2), along each Cartesian direction
+                                                                                          position MAE of the 1-step controller was 0.0553 m, whereas
+        depending on the choice of γ compared to the unperturbed
+                                                                                          the position MAE of the PVI controller was 0.0185 m, which
+        impedance solution with no robot obstacle avoidance. Select-
+                                                                                          implied a reduction of 66.5% of the position MAE. Also, for
+        ing a higher value of γ allowed the robot to achieve a less
+                                                                                          the PVI controller, the deviation from the nominal trajectory
+        conservative solution where a smaller deviation with respect to
+                                                                                          lasted 3.8 s, compared to the 5.8 s that it lasted for the 1-step
+        the nominal impedance behavior, both in terms of the amount
+                                                                                          controller.
+        of time deviating from the nominal impedance behavior, and
+                                                                                             Additionally, it should be highlighted that not only did the
+        in terms of the magnitude of the deviation, was observed.
+                                                                                          PVI controller execute a collision-avoidance strategy earlier
+                                                                                          than the 1-step alternative, but also, since it was able to
+        C. Comparison With a 1-Step Solution in Free Motion                               consider a prediction of the robot motion and the desired robot
+           The collision-avoidance situation in free motion described                     behavior throughout its prediction horizon, the PVI controller
+        in Sec. VI-B was used for comparing the PVI solution with                         could pursue a different, and better, path for obstacle avoidance
+        respect to a 1-step formulation [12], which was also executed                     than its 1-step counterpart.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        SALT DUCAJU et al.: MODEL-BASED PREDICTIVE IMPEDANCE VARIATION FOR OBSTACLE AVOIDANCE IN SAFE HRC                                                                     9579
+
+
+
+
+                                                                                              Fig. 9. Mean Absolute Error (MAE) of the predicted external force along
+                                                                                              the negative z-direction throughout the PVI prediction horizon for different
+                                                                                              models.
+
+        Fig. 8. Trajectory followed by the robot end-effector along Cartesian direc-
+        tion x, y, z for both the predictive controller (PVI) and a 1-step controller [12],
+        with respect to the unperturbed, nominal, impedance behavior.
+
+
+
+        D. External Force Prediction
+           An additional advantage of the PVI strategy is that it could
+        include a prediction model of the external force applied to the
+        robot by a human operator guiding it throughout its prediction
+        horizon, which could be used to improve the performance
+        of the system. The low-complexity linear model for external
+        force prediction introduced in Sec. IV-B was evaluated and
+        compared to a model that considered a constant external force                         Fig. 10. Predicted external force for a human-guidance situation along the
+        throughout the entire prediction horizon. For this constant-                          negative z-direction. F ext denotes the measured external force and F̂ ext        ext
+                                                                                                                                                                        ze , F̂ c ,
+                                                                                              and F̂ ext denote the zero, constant, and linear predictions of the external  force,
+        force model, both the value of the external force at the current                             l
+                                                                                              respectively, for a prediction time of 0.5 s.
+        time and a zero value of the external force were considered
+        as its constant value.
+           Additionally, the linear model could be estimated based on                         the actual external force was computed for each time step j
+        sensor data available at the estimation time                                          of the prediction horizon h p as
+                                    t|tk = Ftk + rk (t − tk )
+                                 F̂ ext      ext
+                                                                                     (76)                             PN       ext              ext
+                                                                                                                        k=0 F̂ k+0.1 f · j|k − Fk+0.1 f · j
+        where F̂ ext                                                                                  MAE( F̂ j ) =
+                                                                                                               ext
+                                                                                                                                                            (78)
+                 t|tk is the prediction made at time tk of the value of the                                                           N
+        external force at time t. The slope rk of the linear model was
+        chosen proportional to the Cartesian acceleration of the robot                        where j = [1, . . . , h p ], N = f · tmax , and f = 1000 Hz
+        at time tk , which was recalculated at the sampling rate of the                       because of the sampling rate of the robot, as in Eq. (75).
+        robot using a least-squares method that considered the previous                       The external-force MAE for the different estimation models is
+        Nr = 10 values of the Cartesian acceleration as a moving                              shown in Fig. 9 for an experiment where the guidance force
+        average to avoid the detrimental effects of measurement noise,                        was exerted along the negative z-direction.
+                                                                                                 As seen in Fig. 9, the linear model significantly outper-
+                                 (tk−i − t¯Nr )(ρ̈ k−i − ρ̈ Nr )
+                            P Nr
+                                                                                              formed the constant model that used the initial external force
+                      rk ∝ i=1 P Nr                                (77)                       measurement as its constant value. Also, both of these models
+                                    i=1 (tk−i − t Nr )
+                                                  ¯ 2
+                                                                                              clearly outperformed the constant zero model, except for the
+        where t¯Nr and ρ̈ Nr are, respectively, the averages of tk−i and                      last time-steps of the prediction horizon, where the current
+        ρ̈ k−i for i ∈ [1, . . . , Nr ].                                                      state of the robot was not useful for predicting the external
+            Moreover, the accuracy of the different models proposed                           force. Moreover, the advantage of using the linear model with
+        to estimate the guidance force was studied for a situation                            respect to the constant model became more evident when
+        where an operator was trying to move the robot away from                              analyzing the temporal evolution of the predicted external
+        its nominal trajectory. Because of the impedance behavior of                          force in each of these two models compared to the measured
+        the robot with respect to its reference, the operator would                           force. This is seen in Fig. 10, where the results of the
+        be required to apply a greater force to move the robot                                prediction of the human guidance situation for a prediction
+        away from its nominal trajectory, the further away the robot                          time of 0.5 s ( j = 5) are shown.
+        was positioned with respect to this trajectory. Therefore, the                           As expected, the constant model appeared as a delayed ver-
+        external force would be expected to increase linearly in this                         sion of the measured external force signal, with a delay equal
+        scenario. To evaluate the accuracy of these models used to                            to the prediction time, which was equal to 0.5 s in Fig. 10.
+        predict the external force, the MAE between the predicted and                         On the other hand, the linear model was able to achieve a
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        9580                                                                       IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+
+        Fig. 11. 3D rendering of the path traversed by the robot end-effector con-
+        trolled using PVI, ρP , compared to the path traversed by the robot end-effector   Fig. 12.    A human–robot collaborative scenario where the operator was
+        controlled using a 1-step controller, ρ1 , when a simulated guidance force f s     guiding the robot to teach a peg-in-hole task in the presence of an obstacle
+        in (79) was applied to the robot along the negative z-direction. The plotted       (a camera).
+        sphere was centered at the obstacle position ρobs and its radius was equal to
+        the safety distance Ds .
+
+                                                                                           On the contrary, whereas when the robot was controlled using
+        faster response to the changes in the measured external force,                     a 1-step formulation it got stuck in the surroundings of the
+        which might be useful for safety-critical scenarios.                               obstacle.
+
+
+        E. Comparison With a 1-Step Solution During Human                                  F. Human Guidance for an Assembly Task in the Presence of
+        Guidance                                                                           an Obstacle
+           To obtain a fair comparison between the proposed PVI con-                          The proposed PVI controller was evaluated in a collabora-
+        troller and a 1-step controller in a human-guidance situation,                     tive scenario that involved human guidance with an obstacle
+        the same external force should be applied to the robot for each                    present in the shared workspace. Manual guidance of a robot
+        of these two controllers. To this end, a simulated guidance                        could be used to correct the Cartesian reference, ξd in Eq. (6),
+        force f s (t) was used. The simulated force f s (t) consisted of                   for a robot assembly task after the requirements of this task
+        a sinusoidal signal with an amplitude of 30 N and a period                         had changed, e.g., a peg-in-hole task where the position of
+        of 3 s (to resemble the external force originated from human                       the hole had changed. Additionally, a camera mounted on the
+        guidance seen in Fig. 10), and was applied to the robot along                      same table as the robot was present in the shared workspace
+        the negative z-direction                                                           to be used for visual quality inspection of the workpieces
+                                                                                           involved in the assembly [27]. From the human-guidance
+                                    2π
+                     f s (t) = −30 sin( (t − 2)), t ∈ [2, 3.5]s    (79)                    perspective, an accidental collision between the camera and
+                                     3                                                     the guided robot should be avoided to refrain from any damage
+           Moreover, the trajectory used to compare the PVI solu-                          to the camera or the other workpieces and to obtain a valid
+        tion to a 1-step controller in this human-guidance situa-                          manual correction for the robot trajectory. An overview of the
+        tion considered that the initial position of the robot was                         experimental scenario is shown in Fig. 12.
+        ρ0 = [0.357, −0.2, 0.395] m, and that the desired position of                         In this experimental scenario, the human operator was
+        the robot varied linearly (Eq. (74)) during 10 s until reach-                      instructed to manually guide the robot to achieve its task
+        ing the final reference position ρF = [0.357, −0.2, 0.1] m.                        completion, i.e., the insertion of the peg in the hole, in the
+        Additionally, the obstacle was positioned to intersect with the                    shortest time and path possible. However, the presence of the
+        nominal trajectory: ρobs = [0.357, −0.2, 0.2] m with radius                        camera in the shared workspace would condition the manual
+        equal to Ds = 0.05 m.                                                              trajectory correction. The initial position of the robot relative
+           Figure 11 shows the 3D plot of the path ρP traversed by the                     to its base frame was equal to ρ0 = [0.3, −0.19, 0.683] m, and
+        robot controlled using the PVI formulation, compared with                          the position reference of the robot varied linearly (Eq. (74))
+        the path obtained when using a 1-step controller alternative                       during 10 s until reaching the final reference position
+        without predictive capabilities, ρ1 . It can be seen that, for                     ρF = [0.087, 0.34, −0.55] m. Also, the camera was placed at
+        the human-guidance scenario illustrated in Fig. 11, even                           ρobs = [0.38, 0.0, 0.33] m and the safety distance was equal
+        though the 1-step controller started deviating from the nominal                    to Ds = 0.05 m.
+        trajectory earlier than the PVI controller (t = 1.4 s for the                         A comparison between the input force, F in Eq. (2),
+        1-step controller versus t = 2.35 s for the PVI controller), the                   commanded to the robot when using the proposed PVI con-
+        longer-time prediction of the robot motion and the guidance                        troller, and the reference robot impedance behavior for this
+        force allowed the PVI-controlled robot to circuit the obstacle.                    collaborative scenario was shown in Fig. 13. It can be seen in
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        SALT DUCAJU et al.: MODEL-BASED PREDICTIVE IMPEDANCE VARIATION FOR OBSTACLE AVOIDANCE IN SAFE HRC                                                           9581
+
+
+
+                                                                                          of 20.6 µs, using a single PC with the hardware specifications
+                                                                                          described in Sec. VI-A.
+
+                                                                                                                     VII. D ISCUSSION
+                                                                                             In this paper, we have proposed an approach to include
+                                                                                          SCBFs in a linear MPC strategy so that a longer-time horizon
+                                                                                          prediction could be considered for safety in HRC. A compari-
+                                                                                          son of the proposed method with alternative methods found in
+                                                                                          literature is discussed in this section. Also, possible limitations
+                                                                                          and extensions of the proposal are commented.
+
+                                                                                          A. Comparison of the Proposal With Alternative Methods
+        Fig. 13. Input force, F in Eq. (2), commanded to the robot by the PVI
+        controller of Eq. (44) compared to the reference robot impedance behavior in
+                                                                                             The advantages in terms of safety obtained by consider-
+        Eq. (7) for an assembly task in the presence of an obstacle.                      ing a prediction of both the motion of the controlled robot
+                                                                                          manipulator and the human collaborator, compared to 1-step
+                                                                                          formulations [12], were shown in the experimental evaluation
+                                                                                          presented in Sec. VI. First, this prediction allowed a reduction
+                                                                                          of the trajectory error and decreased the time where a risk
+                                                                                          of obstacle collision was present. Additionally, the prediction
+                                                                                          capabilities of the proposed method prevented that the con-
+                                                                                          trolled robot would get stuck near an obstacle and allowed the
+                                                                                          robot to converge to its nominal trajectory after the obstacle.
+                                                                                             Moreover, the linear MPC considered in our method sat-
+                                                                                          isfied the forward-invariance condition of Eq. (28) for the
+                                                                                          set of robot states that guaranteed safety during HRC, and
+                                                                                          resulted in a convex quadratic optimization problem that was
+                                                                                          solved within the control frequency of a real robot, i.e., in less
+                                                                                          than 1 ms, which is significantly faster than the computa-
+        Fig. 14. External force recorded from the manual correction for an assembly       tional time of previously proposed nonlinear, nonconvex, MPC
+        task in the presence of an obstacle, and prediction at time t = 1.5 for the
+        external force between t = 1.5 s and t = 2.5 s using the linear model
+                                                                                          formulations, i.e., around 40 Hz [13] and 35 Hz [14]. Also,
+        in Eqs. (76) and (77).                                                            multi-layer strategies where a slow nonlinear MPC solution
+                                                                                          was combined with a faster 1-step quadratic optimization
+                                                                                          problem solved at the control frequency of a robot (400 Hz
+        Fig. 13 that the PVI controller allowed the robot to behave in                    in [13]), would not allow the use of a longer-time prediction at
+        an equal manner to the reference robot impedance behavior,                        a fast rate to rapidly adapt to changes in the robot environment.
+        until a force input variation was necessary to avoid that the peg                    Additionally, the control signal obtained from nonlinear
+        would invade the safety distance with respect to the camera.                      MPC would depend on the characteristics of the problem,
+        Then, it is also shown in Fig. 13 that after the manually-guided                  whereas, as shown in Sec. IV-C, optimality was guaran-
+        robot stopped being at a risk-of-collision situation, the PVI                     teed in our proposal under linearity assumptions on human
+        controller allowed the robot to resume the reference robot                        guidance and linearized robot dynamics, to achieve con-
+        impedance behavior.                                                               vexity in the optimization problem formulated in Eq. (44).
+           Moreover, the external force recorded from human manual                        It becomes apparent that inaccuracies occurring when model-
+        guidance for this collaborative scenario is shown in Fig. 14.                     ing the dynamic behavior of the robot and the manual robot
+        The response of the human operator to the robot impedance                         guidance might compromise the performance of the proposal.
+        variation commanded by the PVI controller can be seen in                          However, in Sec. VI, the proposed formulation that includes
+        Fig. 14. Additionally, the prediction of the external force                       such linearity assumptions was experimentally evaluated in
+        obtained using the linear model in Eqs. (76) and (77) is shown                    robot obstacle avoidance scenarios, and suitable results were
+        in Fig. 14 for a time (t = 1.5 s) when the PVI controller                         obtained both in the presence of manual robot guidance and
+        started to command a robot impedance that differed from its                       in its absence.
+        reference to achieve obstacle avoidance. It can be observed                          Furthermore, previous contributions also considered varying
+        in Fig. 14 that the linear model accurately predicted (with a                     the impedance behavior of a robot using MPC, although
+        MAE at t = 1.5 s equal to 1.4 N for the entire prediction                         they did not integrate SCBFs to enforce safety con-
+        horizon) the guidance force applied by the human operator at                      straints [28], [29]. Additionally, contrary to the proposed
+        this time.                                                                        method, the dynamics of the robot was not considered in
+           Furthermore, the optimization problem formulated in                            the problem constraints of these MPC formulations, and only
+        Eq. (44) for the proposed PVI controller took on average                          the robot kinematics were considered. Disregarding the robot
+        95.8 µs to solve for this experiment, with a standard deviation                   dynamics in this context was shown to cause potential safety
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        9582                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+        violations [11], critical in human–robot collaborative scenar-                       Furthermore, the empirical evaluation of the proposed PVI
+        ios. Also, the computational time achieved in [28] and [29]                       method in Secs. V and VI considered a fixed obstacle,
+        caused their implementation executing at slow frequencies                         i.e., ρobs in Eqs. (38) and (39) would be constant. However, the
+        and/or considering only a small number of discrete time-steps                     proposed method would be able to encode a position-varying
+        in their prediction horizons.                                                     obstacle in its optimization problem, as seen in Eq. (43).
+                                                                                          An overview of methods to detect the obstacle motion and
+                                                                                          suggested additional sensors needed for this was provided
+        B. Possible Limitations and Extensions of the Proposal                            in [32]. Additionally, the aforementioned fast implementation
+           The guidance force that would be exerted by a human                            of the proposed PVI method would be beneficial to handle
+        operator cannot always be predicted. The experimental val-                        possible inaccuracies in the modeling of obstacle motion.
+        idation provided in Sec. VI showed how a basic linear model
+        could be used to predict the temporal variation of the external                                             VIII. C ONCLUSION
+        force signal based on sensor data available at computation                           Safety in HRC can be improved by considering a longer
+        time. The mass-spring-damper behavior imposed by the nom-                         prediction time horizon of the motion of the controlled robot
+        inal impedance controller in Eq. (6) defined the relationship                     and the human-collaborator guidance. To this purpose, stable
+        between the human guidance force and the robot deviation                          impedance behavior of a robot manipulator was varied by
+        from its reference trajectory which motivated the selection of                    including linearized SCBFs for robot obstacle avoidance in a
+        this linear model. However, the sensor data available might                       linear MPC strategy that ensured optimality. Our MPC-based
+        not always provide an accurate prediction, e.g., it can be                        proposal was evaluated in experiments using a real robot
+        seen in Fig. 10, how the external-force data recorded before                      manipulator that was controlled at a fast rate (1 kHz) to allow
+        human interaction had started could not be used to predict the                    fast reaction to changes occurring in the robot environment.
+        increase in external force shown in this figure. Additionally,                    These experiments showed that adding prediction capabilities
+        an accurate prediction of early instances of human guidance                       to a robot controller led to a reduced time at risk of collision,
+        force was achieved using this linear model for a collaborative                    improved obstacle bypassing, and decreased the trajectory
+        scenario in the presence of an obstacle, as shown in Fig. 14.                     error caused by obstacle avoidance.
+        Accurately predicting such increases in guidance force would
+        allow anticipatory action for safety-critical scenarios.                                                   ACKNOWLEDGMENT
+           However, the prediction for other instances of human                             The authors are members of the ELLIIT Strategic Research
+        guidance might not be as accurate, as shown in Fig. 9,                            Area at Lund University.
+        which provided the external force MAE for an entire human
+        guidance event. In addition, the complexity of pHRI in                                                          R EFERENCES
+        industrial environments might exceed the guidance force                            [1] C. Schou, J. S. Damgaard, S. Bøgh, and O. Madsen, “Human-robot
+        scenarios considered when evaluating the proposed method.                              interface for instructing industrial tasks using kinesthetic teaching,” in
+                                                                                               Proc. IEEE ISR, Seoul, South Korea, Oct. 2013, pp. 1–6.
+        For example, they could involve unexpected or accidental                           [2] A. Cencen, J. C. Verlinden, and J. M. P. Geraedts, “Design method-
+        human–robot interactions. The reduced computational times                              ology to improve human–robot coproduction in small- and medium-
+        achieved by the proposed method would be advantageous                                  sized enterprises,” IEEE/ASME Trans. Mechatronics, vol. 23, no. 3,
+                                                                                               pp. 1092–1102, Jun. 2018.
+        in these, possibly rapidly-changing, scenarios. Nevertheless,                      [3] S. Wrede, C. Emmerich, R. Grünberg, A. Nordmann, A. Swadzba, and
+        more complex strategies that incorporate further information                           J. Steil, “A user study on kinesthetic teaching of redundant robots in
+        regarding the intention of the human operator [4], [30], and/or                        task and configuration space,” J. Hum.-Robot Interact., vol. 2, no. 1,
+                                                                                               pp. 56–81, Mar. 2013.
+        consideration of biomechanical models of the human operator
+                                                                                           [4] T. Liu, E. Lyu, J. Wang, and M. Q.-H. Meng, “Unified intention
+        and measure the corresponding muscle activity [31], could                              inference and learning for human–robot cooperative assembly,” IEEE
+        be integrated with our method to improve the prediction of                             Trans. Autom. Sci. Eng., vol. 19, no. 3, pp. 2256–2266, May 2021.
+        physical human–robot interaction.                                                  [5] N. Hogan, “Impedance control: An approach to manipulation:
+                                                                                               Parts I–III,” J. Dyn. Syst., Meas., Control, vol. 107, no. 1, pp. 1–24,
+           Moreover, even though the reference trajectory in the exper-                        1985.
+        iments was chosen as a straight line with constant speed,                          [6] R. Johansson and M. W. Spong, “Quadratic optimization of impedance
+        the nominal impedance dynamics, shown in Eq. (8), resulted                             control,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), San Diego,
+                                                                                               CA, USA, Mar. 1994, pp. 616–621.
+        in a PVI reference velocity of variable speed. This can be                         [7] A. D. Ames, S. Coogan, M. Egerstedt, G. Notomista, K. Sreenath,
+        seen in the trajectory plot of Fig. 8 (yellow dashed line).                            and P. Tabuada, “Control barrier functions: Theory and applications,”
+        Additionally, the proposed method provided valid empirical                             in Proc. IEEE 18th Eur. Control Conf. (ECC), Naples, Italy, May 2019,
+                                                                                               pp. 3420–3431.
+        results under curved trajectories with non-constant speed.                         [8] C. T. Landi, F. Ferraguti, S. Costi, M. Bonfè, and C. Secchi, “Safety
+        These variations in speed were induced by the application                              barrier functions for human–robot interaction with industrial manipula-
+        of the proposed method for obstacle avoidance in earlier                               tors,” in Proc. 18th Eur. Control Conf. (ECC), Naples, Italy, Jun. 2019,
+                                                                                               pp. 2565–2570.
+        time-steps of the experiments, as seen in the 3D path rendering
+                                                                                           [9] A. Singletary, S. Kolathaya, and A. D. Ames, “Safety-critical kine-
+        of Fig. 4 and in the velocity plot of Fig. 7. For these reasons,                       matic control of robotic systems,” IEEE Control Syst. Lett., vol. 6,
+        the proposed method should remain valid for more complex                               pp. 139–144, 2022.
+        reference trajectories, especially since such trajectories would                  [10] F. Ferraguti, M. Bertuletti, C. T. Landi, M. Bonfè, C. Fantuzzi, and
+                                                                                               C. Secchi, “A control barrier function approach for maximizing per-
+        be considered in the optimization problem of the PVI method,                           formance while fulfilling to ISO/TS 15066 regulations,” IEEE Robot.
+        as seen in Eq. (41).                                                                   Autom. Lett., vol. 5, no. 4, pp. 5921–5928, Oct. 2020.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+        SALT DUCAJU et al.: MODEL-BASED PREDICTIVE IMPEDANCE VARIATION FOR OBSTACLE AVOIDANCE IN SAFE HRC                                                           9583
+
+
+
+        [11] M. Rauscher, M. Kimmel, and S. Hirche, “Constrained robot control            [31] L. Peternel and A. Ajoudani, “After a decade of teleimpedance: A sur-
+             using control barrier functions,” in Proc. IEEE/RSJ Int. Conf. Intell.            vey,” IEEE Trans. Human-Machine Syst., vol. 53, no. 2, pp. 401–416,
+             Robots Syst. (IROS), Daejeon, South Korea, May 2016, pp. 279–285.                 Apr. 2023.
+        [12] J. M. S. Ducaju, B. Olofsson, A. Robertsson, and R. Johansson, “Robot        [32] Z. Saleem, F. Gustafsson, E. Furey, M. McAfee, and S. Huq, “A review
+             Cartesian compliance variation for safe kinesthetic teaching using safety         of external sensors for human detection in a human robot collaborative
+             control barrier functions,” in Proc. IEEE 18th Int. Conf. Autom. Sci. Eng.        environment,” J. Intell. Manuf., vol. 3, pp. 1–25, Apr. 2024.
+             (CASE), Mexico City, Mexico, Aug. 2022, pp. 2259–2266.
+        [13] R. Grandia, A. J. Taylor, A. D. Ames, and M. Hutter, “Multi-layered
+             safety for legged robots via control barrier functions and model pre-
+             dictive control,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), Xi’an,
+             China, May 2021, pp. 8352–8358.
+        [14] J. Zeng, B. Zhang, and K. Sreenath, “Safety-critical model predictive
+             control with discrete-time control barrier function,” in Proc. IEEE                                   Julian M. Salt Ducaju received the B.Sc. and
+             Amer. Control Conf. (ACC), New Orleans, LA, USA, May 2021,                                            M.Sc. degrees in aeronautical engineering from the
+             pp. 3882–3889.                                                                                        Polytechnic University of Valencia (UPV), Valen-
+        [15] B. Siciliano and O. Khatib, Springer Handbook of Robotics. Cham,                                      cia, Spain, in 2016 and 2018, respectively, and the
+             Switzerland: Springer, 2016.                                                                          Ph.D. degree in robotics and automatic control from
+        [16] O. Khatib, “A unified approach for motion and force control of                                        the Department of Automatic Control, LTH, Lund
+             robot manipulators: The operational space formulation,” IEEE J. Robot.                                University, Sweden, in 2024. His research interests
+             Autom., vol. RA-3, no. 1, pp. 43–53, Feb. 1987.                                                       include physical human–robot interaction (pHRI)
+        [17] S. Chiaverini, B. Siciliano, and O. Egeland, “Review of the damped                                    and force control for robots.
+             least-squares inverse kinematics with experiments on an industrial
+             robot manipulator,” IEEE Trans. Control Syst. Technol., vol. 2, no. 2,
+             pp. 123–134, Jun. 1994.
+        [18] C. Ott, Cartesian Impedance Control of Redundant and Flexible-Joint
+             Robots. Springer, 2008.
+        [19] V. Santibáñez and R. Kelly, “Strict Lyapunov functions for control of                                 Björn Olofsson received the M.Sc. degree in engi-
+             robot manipulators,” Automatica, vol. 33, no. 4, pp. 675–682, 1997.                                   neering physics and the Ph.D. degree in automatic
+        [20] K. J. Åström and B. Wittenmark, Computer-Controlled Systems: Theory                                   control from Lund University, Sweden, in 2010
+             and Design. North Chelmsford, MA, USA: Courier Corporation, 2013.                                     and 2015, respectively. He is currently an Asso-
+        [21] R. Johansson, Model-Based Predictive and Adaptive Control. Lund,                                      ciate Professor with the Department of Automatic
+             Sweden: KFS Studentbokhandel, Jan. 2020.                                                              Control, Lund University, and also affiliated with
+        [22] B. Bäuml, T. Wimböck, and G. Hirzinger, “Kinematically optimal catch-                                 the Department of Electrical Engineering, Linköping
+             ing a flying ball with a hand-arm-system,” in Proc. IEEE/RSJ Int. Conf.                               University, Sweden. His research interests include
+             Intell. Robots Syst. (IROS), Taipei, Taiwan, Oct. 2010, pp. 2592–2599.                                motion control for robots and vehicles, optimal
+        [23] M. M. G. Ardakani, B. Olofsson, A. Robertsson, and R. Johansson,                                      control, system identification, and statistical sensor
+             “Model predictive control for real-time point-to-point trajectory gen-                                fusion.
+             eration,” IEEE Trans. Autom. Sci. Eng., vol. 16, no. 2, pp. 972–983,
+             Apr. 2019.
+        [24] J. Mattingley and S. Boyd, “CVXGEN: A code generator for embedded
+             convex optimization,” Optim. Eng., vol. 13, no. 1, pp. 1–27, Mar. 2012.
+        [25] Franka Emika. (2019). Panda–Data Sheet. [Online]. Available: https://                                  Rolf Johansson (Life Fellow, IEEE) received the
+             download.franka.de/documents/100010_Product%20Manual%20Franka                                          M.Sc. degree in technical physics, the Bachelor of
+             %20Emika%20Robot_10.21_EN.pdf                                                                          Medicine degree, the Ph.D. degree in control theory,
+        [26] M. Karlsson, A. Robertsson, and R. Johansson, “Convergence of dynam-                                   and the M.D. degree from Lund University, Sweden,
+             ical movement primitives with temporal coupling,” in Proc. Eur. Control                                in 1977, 1980, 1983, and 1986, respectively.
+             Conf. (ECC), Limassol, Cyprus, Jun. 2018, pp. 32–39.                                                     He was appointed as a Professor in 1999.
+        [27] L. Zhou, L. Zhang, and N. Konz, “Computer vision techniques in                                         Since 1993, he has been the Director of the Robotics
+             manufacturing,” IEEE Trans. Syst. Man, Cybern. Syst., vol. 53, no. 1,                                  Laboratory, Lund University. In 1993, he published
+             pp. 105–117, Jan. 2023.                                                                                the book System Modeling and Identification (Pren-
+        [28] Z. Jin, D. Qin, A. Liu, W.-a. Zhang, and L. Yu, “Model predictive                                      tice Hall, Englewood Cliffs, NJ, USA). He is a
+             variable impedance control of manipulators for adaptive precision-                                     member of the Bárány Society, and a fellow of
+             compliance tradeoff,” IEEE/ASME Trans. Mechatronics, vol. 28, no. 2,         the Royal Physiographic Society, Section of Medicine. He was awarded
+             pp. 1174–1186, Apr. 2023.                                                    the 1995 Biomedical Engineering Prize (the Ebeling Prize) of Swedish Society
+        [29] M. Bednarczyk, H. Omran, and B. Bayle, “Model predictive impedance           of Medicine for his distinguished contribution to the study of human balance
+             control,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), Paris, France,      through the application and development of system analysis and robotics.
+             May 2020, pp. 4702–4708.                                                     He was a co-recipient of the EURON Technology Transfer Award in 2004
+        [30] C. Y. Wong, L. Vergez, and W. Suleiman, “Vision-and tactile-based con-       and 2007, and the ICRA2012 Best Automation Paper Award. He is an
+             tinuous multimodal intention and attention recognition for safer physical    Associate Editor of Intelligent Service Robotics and International Journal of
+             human–robot interaction,” IEEE Trans. Autom. Sci. Eng., vol. 21, no. 3,      Adaptive Control and Signal Processing as well as an Editor of Mathematical
+             pp. 3205–3215, Apr. 2023.                                                    Biosciences.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:00:00 UTC from IEEE Xplore. Restrictions apply.
+

@@ -1,0 +1,594 @@
+       IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 2, APRIL 2022                                                                                             1737
+
+
+
+
+                  An Optimal Variable Impedance Control With
+                         Consideration of the Stability
+                        Zhehao Jin , Andong Liu , Wen-an Zhang , Member, IEEE, and Li Yu , Member, IEEE
+
+
+          Abstract—This letter presents an approach to develop a vari-                   using a gradient-based method to reduce the trajectory tracking
+       able impedance controller with considerations of the optimality                   error. The aforementioned methods generate impedance trajec-
+       and stability. Firstly, an original optimal variable law is designed              tories in an offline manner, which is suitable for structured tasks,
+       via demonstration learning, through which the Gaussian mixture
+       model/Gaussian mixture regression (GMM/GMR) algorithm is em-                      such as polish or wipe tasks. However, these methods may fail
+       ployed to transfer the human impedance functions to the robot. By                 or lose their optimality when the contacted environments are
+       using the formulation of the GMR result, the regression task can                  variable, which is common in unstructured tasks. Some works
+       be completed without using the ground-truth information of the                    overcome this issue by online planning the impedance parame-
+       human impedance parameters. To ensure the stability, a minimal                    ters. LQR-based methods are commonly used to generate the op-
+       complementary input is designed for the learned second-order
+       impedance system. We transform the design problem to a con-                       timal impedance parameters online for handling the uncertainty
+       strained convex optimization problem, of which the constraints                    of the contact-force variation [8], [9] or human-demonstrated
+       are related to a Lyapunov function. A criterion for choosing the                  reference trajectories [10]–[12].
+       Lyapunov functions is presented to ensure the feasibility of the                     The aforementioned methods, including online and offline
+       problem, and an analytical solution is computed. The proposed                     methods, only consider the optimality of the variable law. None
+       approach is verified by the robotic-assisted rehabilitation and tra-
+       jectory reproduction experiments conducted on a 7-DOF Franka                      of them analyzes the stability of the obtained second-order
+       Panda robot.                                                                      impedance systems. However, stability somehow represents
+                                                                                         the contact safety which should never be neglected. In [13],
+          Index Terms—Variable impedance control, demonstration
+       learning, stability and optimality.
+                                                                                         [14], tank-based methods were presented to ensure the passivity
+                                                                                         by suppressing the energy injected by the variable impedance
+                                                                                         parameters. In [15], a stability condition for varying stiffness
+                                   I. INTRODUCTION                                       parameter was presented by designing a special Lyapunov can-
+           MPEDANCE control is a basic control architecture for                          didate function.
+       I   contact-rich robotic tasks [1]. However, constant impedance
+       control may limit impedance control applications in structured
+                                                                                            Though time-dependent variable laws have been shown their
+                                                                                         effectiveness in some results, they are still not flexible enough
+       environments due to the lack of flexibility. Variable impedance                   to deal with environmental changes since the corresponding
+       control (VIC) is more consistent with biological machines [2]                     impedance systems are non-autonomous. Humans generally
+       and can extend the robot skills to more complex tasks. Thus, in                   modulate their impedance parameters according to the environ-
+       recent years, numerous works [3], [4] have been done to explore                   ment state, and this property is inherited by the second type of
+       the VIC benefits.                                                                 VIC, of which the variable law is state-dependent. Recent years,
+          Existing VIC design methods can be generally classified into                   reinforcement learning (RL) algorithms are popular to design
+       two categories. The first one designs time-dependent variable                     state-dependent variable laws. According to the complexities of
+       laws. In [5], [6], impedance controllers were incorporated into                   tasks, different RL algorithms can be used, such as classical
+       the dynamic movement primitives framework and optimized                           RL algorithm used in [16] and deep RL (DRL) algorithm used
+       by using the policy improvement with path integrals algo-                         in [17]. To ensure the stability, action space of the DRL algorithm
+       rithm, which finally generated impedance-parameter trajecto-                      was constrained by a theoretical bound in [18]. One of the main
+       ries. In [7], damping and stiffness trajectories were obtained by                 drawbacks of these RL-based methods is that the variable laws
+                                                                                         are generally trained in simulations, and thus, their practicability
+          Manuscript received September 18, 2021; accepted January 3, 2022. Date         are largely influenced by the gaps between simulation and real
+       of publication January 11, 2022; date of current version January 20, 2022.        environments.
+       This letter was recommended for publication by Associate Editor C. Yang              Another more intuitive way to design state-dependent variable
+       and Editor J. Kober upon evaluation of the reviewers’ comments. This work
+       was supported in part by the National Natural Science Foundation of China         laws is using regression algorithms. The most representative
+       under Grant 61973275, in part by the Zhejiang Provincial Natural Science          algorithm may be the Gaussian mixture model/Gaussian mixture
+       Foundation of China under Grant LD21F030002, and in part by the Fundamental       regression (GMM/GMR) algorithm due to its stochastic back-
+       Research Funds for the Provincial Universities of Zhejiang RF-A2020004.
+       (Corresponding author: Andong Liu.)                                               ground and concise form [19], [20]. In [21], some constraints
+          The authors are with the College of Information Engineering, Zhejiang Uni-     were introduced into the GMM optimization step to make
+       versity of Technology, Hangzhou 310032, China (e-mail: jzhzjut@outlook.com;       the resulted GMR system be stable. However, the constrained
+       lad@zjut.edu.cn; wazhg@hotmail.com; lyu@zjut.edu.cn).
+          Digital Object Identifier 10.1109/LRA.2022.3141759                             optimization problem is very complex and the optimization
+
+                                2377-3766 © 2022 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                              See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+        1738                                                                                    IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 2, APRIL 2022
+
+
+
+        algorithm actually searches a balance between the stability                       control law
+        and optimality in practical applications. A control Lyapunov                                                        
+                                                                                               τ = HJ + M −1 (f − Dẋ) − J˙q̇ + C q̇ + g − J T f                     (3)
+        function-based method to ensure the stability of systems learned
+        by general regression algorithms was proposed in [22]. Different
+                                                                                          where J + is the pesudo-inverse of the robot Jacobian J. The
+        with [21], the result in [22] was obtained by solving convex
+                                                                                          human is asked to drag the robot to complete multiple trajectories
+        optimization problems which have analytical solutions, and thus
+                                                                                          which are served as the demonstration date set.
+        is more efficient and practically useful. However, the result
+                                                                                             In the learning stage, the robot is asked to imitate human
+        was derived for the first-order system and can not be directly
+                                                                                          impedance behaviors, i.e., to generate suitable forces to repro-
+        used for some second-order systems, such as the impedance
+                                                                                          duce trajectories. Thus, the specific problem is how to establish
+        system considered in this letter. Another problem for fitting
+                                                                                          the relationship between the estimated human force and the
+        state-dependent variable laws by using regression algorithms
+                                                                                          current robot state. We establish the following human (limb)
+        is that the ground truth of the human impedance parameters are
+                                                                                          impedance model [23]:
+        difficult to be obtained by directly using sensors.
+           In this letter, we present an approach to design an optimal                                         f = −Kh (e, ė)e − Dh (e, ė)ė                       (4)
+        and stable state-dependent impedance variable law based on
+        GMM/GMR without using ground truth of human impedance                             where e = x − xd represents the motion error, and xd is the
+        parameters. Main contributions are listed as follows:                             goal position which is known. We can also consider the attitude
+           1) A simple constraint is introduced into the GMM optimiza-                    error by simply expanding the dimensions of the corresponding
+        tion step to make the resulted GMR system be consistent with the                  vectors and matrices in (4). It should be noted that human
+        impedance system, and hence we can skip the complicated works                     stiffness Kh and damping Dh are state-dependent, which raises
+        to obtain the ground-truth information of human impedance                         difficulties to directly measure such impedance parameters.
+        parameters. Moreover, the constrained optimization problem is                     Without these measured ground-truth parameters, traditional
+        transformed as an unconstrained problem which can be easily                       regression methods, including neural networks, least-squares,
+        solved.                                                                           etc., are invalid.
+           2) To ensure the stability of the learned impedance system, we                    Another problem is that we can not ensure the stability of the
+        extend the Lyapunov function-based method presented in [22]                       following system which is obtained by substituting the learned
+        for the first-order system to the second-order system, among                      human impedance model (4) in to system (2)
+        which we present a criterion for choosing the Lyapunov function                                M ë + (D + Dh (e, ė)) ė + Kh (e, ė)e = 0                  (5)
+        to ensure the feasibility of the problem.
+           3) We propose an approach to design a quadratic Lyapunov                          Remark 1: We considered goal-directed motions in this paper,
+        candidate function which satisfies the presented criterion. Based                 that is ẋd = ẍd = 0. Thus, ë = ẍ and ė = ẋ. Also, the proposed
+        on the designed Lyapunov candidate function, we can stabilize                     method introduced in Section III can be easily extended to the
+        the learned impedance system with an optimal input law in                         case where ẋd = 0 and ẍd = 0.
+        analytical form.                                                                     Since the formulation of Dh (e, ė) or Kh (e, ė) can be very
+           The proposed method is validated by various experiments                        complex, the stability analyses are difficult to be directly con-
+        conducted on the 7-DOF Franka Panda robot.                                        ducted. Motivated by [22], a complementary input u ∈ Rn is
+                                                                                          introduced into the system (5) to stabilize it as
+                               II. PROBLEM STATEMENT                                               M ë + (D + Dh (e, ė)) ė + Kh (e, ė)e + M u = 0                (6)
+           We consider the following m-DOF robot dynamic model                            Since the introduction of u will reduce the optimality obtained
+                        H(q)q̈ + C(q, q̇)q̇ + g(q) = J f + τ  T
+                                                                                   (1)    by the demonstration learning, it is expected to be as small as
+                                                                                          possible. The minimal complementary input u is computed by
+        where q ∈ Rm is the joint position, H(q) ∈ Rm×m , C(q, q̇) ∈                      solving the following convex optimization problem
+        Rm×m and g(q) ∈ Rm are the inertia matrix, Corio-
+                                                                                                             1 T
+        lis/centripetal matrix, and gravity vector, respectively. Matrix                              min      u u                                                   (7)
+        J(q) ∈ Rn×m is the robot Jacobian, the vector f ∈ Rn is the                                          2
+                                                                                                            T
+                                                                                                             ∂s  (A(s)s + Bu) ⩽ −ρ(s), s = 0
+        contact force and n is the dimension of the work space. In                                    s.t. ∂V
+        the considered task, the robot is required to learn the human-                                      ∂V  T                                                   (8)
+                                                                                                             ∂s    (A(s)s + Bu) = 0, s = 0
+        impedance behaviors by his/her demonstrations. In the demon-
+        stration stage, the robot is governed by the following impedance                  where
+        law:                                                                                                       T
+                                                                                                   s= e        ė
+                                      M ẍ + Dẋ = f                               (2)               
+                                                                                                          On×n                           In×n
+        where x ∈ Rn represents the robot position in the work space,                          A(s) =
+        M ∈ Rn×n and D ∈ Rn×n are the inertia and damping ma-                                          −M −1 Kh (e, ė)           −M −1 (D + Dh (e, ė))
+        trices, respectively, and they are both positive definite. The                                            T
+        impedance law (2) can be achieved by the following dynamic                                B = On×n In×n                                                      (9)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: OPTIMAL VARIABLE IMPEDANCE CONTROL WITH CONSIDERATION OF THE STABILITY                                                                          1739
+
+
+
+       Positive definite function V (s) serves as the Lyapunov candidate                 By denoting hk (s) = p(k|s), the GRM result p(f |s) can be
+       function and satisfies V (s) → ∞ when s → ∞. If we define                       computed as
+       ρ(s) as a positive definite function, all feasible solution of the
+       optimization problem (7), (8) can make the system (6) be glob-
+                                                                                                                        K
+                                                                                                                                              
+                                                                                                              μf |s =         hk (s) Ak s + bk
+       ally asymptotically stable (GAS) at s = 0. However, due to the                                                   k=1
+       specific formulation of the matrix B, the feasibility of the above                                                     −1
+       optimization problem is determined by the chosen Lyapunov                                               Ak = Σkf s Σkss
+       candidate function V (s). Thus, a criterion for choosing V (s)
+       to raise a feasible optimization problem for any s is the key to                                         bk = μkf − Ak μks                                 (12)
+       design the minimal complementary input.                                           Compared the formulations of the above GMR result and the
+          Concluded by the above discussion, the main purpose of this                    system (4), it is not difficult to find that these two formulations
+       paper are given as follows                                                        will be consistent if we constrain bk = 0. The estimated human-
+          1) To estimate human-impedance functions Kh (e, ė) and                        impedance model will be
+       Dh (e, ė) without using their ground-truth information.
+                                                                                                                              K
+          2) To present a criterion for choosing V (s) which could ensure
+                                                                                                            f = μf |s =           hk (s)Ak s
+       the feasibility of the optimization problem (7), (8). We also
+                                                                                                                            k=1
+       propose an approach to design a quadratic V (s) which satisfies                                                                          
+       the presented criterion, and derive the minimal u in an analytical                                      = −Kh (e, ė)          −Dh (e, ė) s               (13)
+       form.
+                                                                                          Parameters θ is obtained by solving the following constrained
+                                 III. METHODOLOGY                                        GMM optimization problem
+                                                                                                                            N n   T
+       A. Demonstration Learning for Human Impedance Functions                                                      1
+                                                                                                min J(θ) = −                    log(pθ (st,n , ft,n ))            (14)
+         In this subsection, we present a constrained GMM/GMR                                     θ                Tn N n=1 t=1
+       approach to learn human-impedance functions Kh (e, ė) and                         subject to
+       Dh (e, ė) without using their ground-truth information. After                                                 ⎧ k
+       human demonstrations, we can obtain a demonstration data set                                                   ⎪
+                                                                                                                      ⎪ b =0
+                                                                                                                      ⎨ Σk  0
+       D = {st,n , ft,n }Tt=1,n=1
+                           n ,N
+                                  .
+         We assume that (s, f ) follows the GMM as                                                                    ⎪
+                                                                                                                      ⎪ 0 < πk < 1
+                                                                                                                      ⎩ I
+                                                                                                                          i=1 π = 1
+                                                                                                                               k
+                                          K
+                            p(s, f ) =         p(k)p(s, f |k)                               Remark 2: Constraints bk = 0, k = 1, . . . , K considered
+                                         k=1                                             in [21] were used for stabilization purpose. In this letter, they are
+                                                      T                                used to ensure the consistency between the GMR result (12) and
+                         p(s, f |k) = N ( s        f        |μk , Σk )                   the system (4), and hence we can skip the complicated works
+                                             T                                         to obtain the ground-truth information of human impedance
+                                 μk = μks μkf                                            parameters.
+                                                                                           The above optimization problem can be approxi-
+                                       Σkss Σksf                                         mated by an unconstrained problem after using the
+                                 Σ =
+                                  k
+                                                                                (10)
+                                       Σkf s Σkf f                                       variable-change trick. Define the new parameters as
+                                                                                         θ = {ω1 , . . . , ωk , L1 , . . . , Lk , μ1s , . . . , μks } such that
+       where K is the number of the Gaussian components,                                                           ⎧
+                                                                                                                   ⎪                 eω k
+                                                                                                                   ⎨ π = K
+                                                                                                                          k
+       k denotes the index of the Gaussian component, μk                                                                           k=1 e
+                                                                                                                                            ωk
+
+       and Σk represent the mean value and covariance matrix                                                            Σk = Lk LTk + δI                        (15)
+                                                                                                                   ⎪
+                                                                                                                   ⎩ μk = Ak μk
+       of the k th Gaussian component, respectively. By denot-                                                            f             s
+       ing p(k) = π k , all parameters needed to trained are θ =
+       {π 1 , . . . , π K , μ1 , . . . , μK , Σ1 , . . . , ΣK }. Given an input s, the   where Lk is a lower triangular matrix, and δ ∈ R+ . We can
+       posterior distribution p(f |s) can be computed as                                 obtain the following unconstrained optimization problem which
+                                                                                         is approximately equivalent with (14)
+                                     K
+                                                                                                                            N     T
+                        p(f |s) =         p(k|s)p(f |s, k)                                                          1         n
+
+                                                                                                min J(θ) = −                    log(pθ (st,n , ft,n ))            (16)
+                                    k=1                                                           θ                Tn N n=1 t=1
+                                          p(s|k)p(k)
+                        p(k|s) =         K                                               where pθ (st,n , ft,n ) is obtained by substituting new parameters
+                                         k=1 p(s|k)p(k)                                  into pθ (st,n , ft,n ) according to (15). It should be noted that the
+                     p(f |s, k) = N (f |μf |s,k , Σf |s,k )                              gap between optimization problems (16) and (14) is caused by
+                                                   −1                                  the term Σk = Lk LTk + δI where we fix a small enough δ to
+                        μf |s,k = μkf + Σkf s Σkss         (s − μks )           (11)     ensure the positive definite property.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+        1740                                                                                    IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 2, APRIL 2022
+
+
+
+           Remark 3: In this subsection, we consider the case when ẋd =                    Proof: Since A is Hurwitz, we can compute a positive-
+        0 and thus the component ė in s equals to the velocity ẋ which                  definite matrix P by solving (20) for any positive-definite matrix
+        can be directly collected by using the robot sensor. However,                     Q. Consider the Lyapunov candidate function V (s) = sT P s, its
+        if ẋd = 0, we can still obtain the component ė by computing it                 derivative along the system ṡ = As can be computed as
+        as ė = ẋ − ẋd since ẋd is always known for us. The value of                                                       T
+        ẍd will not influence the approach proposed in this subsection.                                V̇ = sT (P A + A P )s = −sT Qs ≤ 0                          (22)
+        Thus, we claim that the approach proposed in this subsection                      Consider the criterion proposed in Proposition 1, for any s
+        still works for the case ẋd = 0 and ẍd = 0.
+                                                                                                         ∂s = 0, the formulation of ∂s must be
+                                                                                          satisfying B T ∂V                          ∂V
+
+                                                                                                                T                    
+        B. Minimal Complementary Input Design                                                                 ∂V
+                                                                                                                      = ( ∂V
+                                                                                                                          ∂e ) T
+                                                                                                                                 , 01×n           (23)
+                                                                                                              ∂s
+           In this subsection, we firstly present a criterion for designing
+        the Lyapunov candidate function V to ensure the feasibility of                    Then, we have
+        the convex optimization problem (7), (8). Then, we propose an                                                T                    T
+                                                                                                                 ∂V                     ∂V
+        approach to design a typical quadratic V which satisfies the                                                       A(s) =                 A
+                                                                                                                 ∂s                     ∂s
+        presented criterion. Finally, we compute the analytical solution                                                                           
+        u for the convex optimization problem (7), (8) with the designed                                                          = 01×n , ( ∂V ) T                 (24)
+                                                                                                                                             ∂e
+        quadratic V .
+           Proposition 1: The optimization problem (7), (8) is feasible                   due to the special formulations of A(s) and A. Thus, for any s
+                                                      ∂s = 0, the following
+        for any s if and only if when s satisfies B T ∂V                                                 ∂s = 0, we have
+                                                                                          satisfying B T ∂V
+        inequality holds.                                                                                       T               T
+                                 T                                                                         ∂V                 ∂V
+                              ∂V                                                                                    A(s)s =            As
+                                      A(s)s + ρ(s) ⩽ 0                 (17)                                   ∂s                ∂s
+                               ∂s
+                                                                                                                                    = V̇
+          Proof: When s = 0, the feasibility of the optimization prob-
+        lem is determined by the feasibility of the inequality equation                                                             = −sT Qs ≤ 0                    (25)
+                       T                         T                                    If we set ρ(s) = αsT Qs, α ∈ (0, 1] we can obtain
+                     ∂V                         ∂V
+                           Bu ≤ −ρ(s) −                 A(s)s        (18)                                      T
+                     ∂s                          ∂s                                                          ∂V
+                                                                                                                    A(s)s + ρ(s) ⩽ 0                                (26)
+                                  T                                                                          ∂s
+                               ∂s B = 0, we will always have feasible
+        Thus, when s satisfies ∂V
+                                                                                          which completes the proof.                                 
+                                                 ∂s = 0, the left side is
+        solutions. Otherwise, if s satisfies B T ∂V
+                                                                                             Based on the Lyapunov function V designed in Proposition
+        always 0, and the inequality is hold only if ρ(s) + ( ∂V
+                                                              ∂s ) A(s)s
+                                                                  T
+                                                                                          2, we can derive a complementary input u which can make the
+        ≤ 0.
+                                                                                          system (6) be GAS at s = 0 by analytically solving the convex
+           When s = 0, the optimization problem (7), (8) is always
+                                                                                          optimization problem (7), (8).
+        feasible, e.g., u = 0. And in this case, the inequality (17) is
+                                                                                             Theorem 1: The complementary input
+        always hold, which completes the proof.                           
+                                                                                                          
+           Directly designing the Lyapunov candidate function V ac-                                         0, 2 sT P A(s)s + αsT Qs ≤ 0
+                                                                                                     u=          T             T                   (27)
+        cording to the criterion presented in the Proposition 1 is difficult.                               − 2 s 2PsTA(s)s+αs
+                                                                                                                       P BB T P s
+                                                                                                                                  Qs T
+                                                                                                                                    B P s, else
+        We here introduce an approach to design a typical quadratic V .
+           Proposition 2: A pair of functions (V (s), ρ(s)) which                         can make the system (6) be GAS at s = 0, if α ∈ (0, 1], P, Q
+        satisfies the criterion proposed in Proposition 1 can be                          are constructed according to the Proposition 2.
+        designed as                                                                          Proof: The KKT conditions of the convex optimization prob-
+                                                                                         lem (7), (8) are
+                                   V (s) = sT P s                                                ⎧  T                       T
+                                   ρ(s) = αsT Qs
+                                                                        (19)                     ⎪
+                                                                                                 ⎪
+                                                                                                      ∂V
+                                                                                                             A(s)s + ρ(s) + ∂V       Bu ⩽ 0
+                                                                                                 ⎪
+                                                                                                 ⎨λ ⩾ 0
+                                                                                                       ∂s                      ∂s
+                                                                                                                              ∂V T           (28)
+        where constant α ∈ (0, 1], Q is any positive-definite matrix, and                        ⎪   λ ∂V
+                                                                                                              T
+                                                                                                                      +       +              =0
+                                                                                                 ⎪
+                                                                                                 ⎪        ∂s    A(s)s    ρ(s)     ∂s    Bu
+        P is positive-definite matrix obtained by solving the following                          ⎩
+        matrix equation                                                                              u + λB T ∂V
+                                                                                                               ∂s = 03
+
+                                              T                                           where λ is the dual variable. By solving the KKT conditions, we
+                                   P A + A P = −Q                                (20)     can obtain the following solution
+                                                                                                           ⎧  T
+        where A is the matrix following the form                                                           ⎨ 0, ∂V       A(s)s + ρ(s) ⩽ 0
+                                                                                                      u=
+                                                                                                                   ∂s
+                                                                                                                  ∂V T
+                                  0n×n                                                                          ( ∂s ) A(s)s+ρ(s)
+                                                                                                           ⎩ − ∂V T
+                                                                                                                                                     (29)
+                                             In×n                                                                                 B T ∂V
+                                                                                                                                      ∂s , else
+                         A=                                                      (21)                             ( ∂s ) BB T ∂V
+                                 −K n×n −Dn×n                                                                                 ∂s
+
+                                                                                          If the Lyapunov candidate function V satisfies the Proposition
+        and K, D are matrices such that A is Hurwitz.                                     1, then we can conclude that ( ∂V
+                                                                                                                         ∂s ) A(s)s + ρ(s) > 0 implies
+                                                                                                                             T
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: OPTIMAL VARIABLE IMPEDANCE CONTROL WITH CONSIDERATION OF THE STABILITY                                                                          1741
+
+
+
+
+            ∂s = 0, which ensure the rationality of the second row of
+       B T ∂V
+       the above solution. By substituting V , ρ designed in Proposition
+       2 into the above solution, we can obtain
+                        
+                          0, 2 sT P A(s)s + αsT Qs ≤ 0
+                   u=          T             T                      (30)
+                          − 2 s 2PsTA(s)s+αs
+                                     P BB T P s
+                                                Qs T
+                                                  B P s, else
+       Thus, the complementary input u is optimal, which implies it
+       can make the system (6) be GAS at s = 0 and completes the
+       proof.                                                              
+          Remark 4: In this paper, we consider the case when ẍd =
+       ẋd = 0 to simplify the formulation of the convex optimization
+       problem (7), (8). If ẋd = 0 and ẍd = 0, the input u in constraints
+       (8) should be replaced by u = u + ud where ud = −M −1 ẍd −
+       Dẋd . In this case, the results in Proposition 1 and Proposition 2
+       will not be changed since they do not depend on the specific form
+       of u. The resulted optimal u in Theorem 1 can still be derived
+       by solving corresponding modified KKT conditions. Thus, we
+       claim that the approach still works in the case when ẋd = 0 and
+       ẍd = 0.
+
+                                   IV. EXPERIMENTS
+          In this section, two experiments are conducted to show the
+       effectiveness of the proposed method. The first experiment is
+       a robotic-assisted rehabilitation task where the robot is asked
+       to mimic a therapist to provide supported force for a patient
+       in order to complete some motions. The motion is limited in
+       one dimension in order to visualize some results. The second
+       experiment is a trajectory reproduction task where the robot is
+       asked to reproduce some trajectories in three-dimensional space
+       via VIC after human demonstrations.                                               Fig. 1. Results for human-impedance learning. (a) Learning results for human-
+                                                                                         stiffness function kh (e, ė). (b) Learning results for human-damping function
+       A. Robotic-Assisted Rehabilitation Experiment                                     dh (e, ė).
+
+          In this experiment, a therapist is firstly asked to drag the
+       robot to generate one-dimensional motions, through which we
+                                                                                         Q and α are chosen as
+       can collect a demonstration data set D. Then, a patient is                                                    ⎧     
+       asked to generate a goal-directed motion, and the robot will                                                  ⎪
+                                                                                                                     ⎪       0 1
+                                                                                                                     ⎪
+                                                                                                                     ⎨A =
+       simultaneously provide supported force fs = fh + fc where                                                             2 10
+       fh = −dh (e, ė)ė − kh (e, ė)e and fc = −mu are estimated ther-                                                                                          (31)
+                                                                                                                     ⎪
+                                                                                                                     ⎪ Q = I2×2
+       apist’s force and complementary force, respectively. The func-                                                ⎪
+                                                                                                                     ⎩
+                                                                                                                       α = 0.5
+       tions dh (e, ė), kh (e, ė) and u are designed by using the method
+       introduced in Section III. Since the motion is limited in one-                    which are determined by trail-and-errors in simulations.
+       dimensional space, the symbols are written as their lowercases.                      In the first type, we evaluate the proposed method when there
+       Robot impedance parameters in (2) are set as m = 1, d = 1.                        is no patient force. This type directly relates with the system (6).
+          The demonstration data set contains 10 goal-directed motions                   The experiment results are shown in Fig. 2. As we can see in
+       trajectories of (e, ė, fh ). For GMM/GMR-based demonstration                     Fig. 2(c) and Fig. 2(d), the whole process can be divided into
+       learning, we set the number of Gaussian components K = 5.                         three stages, i.e., the initial stage, middle stage and final stage.
+       The human-impedance learning results are shown in Fig. 1. It can                  In the initial stage, the therapist behaves like a negative damping
+       be found in Fig. 1(a) that the large kh only appears in the small-                system to rapidly increase the velocity. In the middle stage,
+       error area, which implies that the spring-like force dominates                    the spring-like force appears and the damping will increase
+       the therapist’s force only in the small-error area. When the error                to prevent the large velocities. In the final stage, the error is
+       is large and the velocity is small, the therapist’s force can be                  small, and the large positive stiffness and damping will appear
+       represented by a negative damping system, which is reflected in                   to stabilize the system. Thus, the positive spring-damping system
+       Fig. 1(b). Fig. 1(b) also shows that the damping will increase                    only appears in the final stage. These trajectories are consistent
+       to suppress large velocities. These properties are determined                     with the human-impedance functions shown in Fig. 1.
+       by the therapist’s demonstrations. Three different types of the                      Another interesting phenomenon is that the complementary
+       experiments are conducted. In these experiments, values of A,                     input u almost keeps 0 through entire motions, which implies
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+        1742                                                                                       IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 2, APRIL 2022
+
+
+
+
+        Fig. 2. Robot-rehabilitation experiment results for type1. (a) Error and ve-         Fig. 4. Robot-rehabilitation experiment results for type2. (a) Error and ve-
+        locity trajectories. (b) Force trajectories. (c) Therapist’s stiffness trajectory.   locity trajectories. (b) Force trajectories. (c) Therapist’s stiffness trajectory.
+        (d) Therapist’s damping trajectory.                                                  (d) Therapist’s damping trajectory.
+
+
+
+
+                                                                                             Fig. 5. Robot-rehabilitation experiment results for type3. (a) Error and ve-
+                                                                                             locity trajectories. (b) Force trajectories. (c) Therapist’s stiffness trajectory.
+                                                                                             (d) Therapist’s damping trajectory.
+
+
+
+                                                                                             by the patient’s unsuitable force is considered. The experiment
+                                                                                             result is shown in Fig. 5. The unsuitable patient force causes the
+                                                                                             large velocity which is judged as the unstable behavior. Thus,
+                                                                                             an opposite complementary input u is applied to decrease the
+                                                                                             velocity and stabilize the system.
+        Fig. 3. Vector field diagrams. (a) Vector field diagram of the system (5).
+        (b) Vector field diagram of the system (6).                                          B. Three-Dimensional Trajectories Reproduction
+                                                                                                In this subsection, three-dimensional trajectory reproduction
+                                                                                             experiments are conducted. Similar to the robotic-assisted re-
+        that the system (6) nearly inherits the optimal property from                        habilitation experiment, a human is firstly asked to drag the
+        the demonstration learning. To show this phenomenon more                             robot to complete some three-dimensional trajectories, and then
+        clearly, we plot the vector field diagrams of the systems (5)                        the robot is required to reproduce these trajectories by using
+        and (6) as Fig. 3. It can be found from Fig. 3(a) that the                           the proposed approach. We consider two different cases, where
+        demonstration-learning algorithm performed poorly in the area                        the robot products trajectories from areas near and away from
+        far away from the demonstration data set, such as areas with                         the demonstration data set, respectively. Moreover, in the first
+        negative (e, ė) and positive (e, ė). As a result, the systems (5)                  case, the proposed approach is compared with a neural network
+        will be unstable in these areas. This issue can be solved by                         (NN)-based demonstration learning approach in which the hu-
+        introducing the complementary input u into the system, which                         man impedance ground-truth information need to be collected.
+        is reflected in Fig. 3(b). The color in the Fig. 3(b) represents                     In these experiments, we decouple the three dimensions and deal
+        the value of the complementary input u. It can be found that the                     with each dimension separately, that is we assume that matrices
+        unstable area is corrected by u while the original stable area is                    M , D, Dh and Kh in (5) are diagonal. For each dimension,
+        not affected, which is the expected situation considering both                       we use the same parameters as those in the robotic-assisted
+        the optimality and stability.                                                        rehabilitation experiments.
+           In the second type of experiments, the patient is also asked to                      Experiment results for the first case are shown in Fig. 6,
+        perform the goal-directed motion. Experiment results are shown                       where solid lines and dot lines in Fig. 6(a), (b) represent
+        in Fig. 4. As we can see, the system is still stable without                         the reproduction trajectories and demonstration trajectories,
+        serious corrections. In the third type, an un-normal case caused                     respectively. Labels, i.e., the human impedance ground-truth
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: OPTIMAL VARIABLE IMPEDANCE CONTROL WITH CONSIDERATION OF THE STABILITY                                                                                    1743
+
+
+
+
+                                                                                           Fig. 7. Three-dimensional trajectory reproduction in area away from the
+       Fig. 6. Comparative results of the proposed approach and the NN-based               demonstration data set. (a) Error trajectories before re-training. (b) Velocity
+       approach. (a) Error trajectories of the proposed approach and the NN-based          trajectories before re-training. (c) Error trajectories after re-training. (d) Velocity
+       approach. (b) Velocity trajectories of the proposed approach and the NN-based       trajectories after re-training.
+       approach. (c) Force trajectories of the proposed approach. (d) Force trajectories
+       of the NN-based approach. (e) Human stiffness trajectories of the proposed
+       approach and the NN-based approach. (f) Human damping trajectories of the
+       proposed approach and the NN-based approach.                                        the velocity trajectories are far away from the demonstration
+                                                                                           trajectories in this time. Thus, the estimated human-impedance
+                                                                                           functions (human force) will perform poorly, which further
+                                                                                           causes more serious scenes. The issue can be solved by adding
+       information used in the NN-based approach, are collected by
+                                                                                           additional demonstration trajectories. As we can see in 7(c) and
+       using the estimation method proposed in [24]. As we can
+                                                                                           Fig. 7(d), three additional demonstration trajectories, i.e., T6, T7
+       see, the start area of the reproduction trajectories is near with
+                                                                                           and T8, are added into the demonstration data set, and we retrain
+       the demonstration area, and reproduction trajectory shapes of
+                                                                                           the human-impedance functions on the new demonstration data
+       the proposed and NN-based approaches are both similar with the
+                                                                                           set. The newly reproduced trajectories are consistent with the
+       demonstration trajectories, which validates the effectiveness of
+                                                                                           demonstration trajectories.
+       these two demonstration learning approaches. Moreover, we can
+       find that compared with the NN-based approach, the trajectory
+       shape of the proposed approach is more close to demonstration                                                      V. CONCLUSION
+       shapes. The reproduction-inaccuracy of the NN-based approach                           In this paper, we presented a novel approach to design an opti-
+       might be caused by the unavoidable estimation error during                          mal and stable VIC algorithm, where the optimality and stability
+       the label collecting process. Fig. 6(c) and Fig. 6(d) show the                      were achieved by using the GMM/GMR-based demonstration
+       force trajectories of the proposed approach and NN-based ap-                        learning algorithm and Lyapunov function-based method, re-
+       proach, respectively. We can find that the corresponding force                      spectively. In the demonstration learning, the special formula-
+       trajectories of these two approaches are similar since these                        tion of the GMR result was utilized to fit the human-impedance
+       approaches derive similar variable impedance laws (reflected in                     functions without using the ground-truth information. To ensure
+       Fig. 6(e) and Fig. 6(f)). However, the complementary input ux ,                     the stability, we introduced a complementary input into the
+       uy and uz which are used to correct the unstable reproduction                       learned second-order impedance system and designed it by
+       behaviors is larger in NN-based approach, which implies that the                    solving a convex optimization problem with Lyapunov function-
+       proposed approach is more stable than NN-based approach. This                       related constraints. We gave the criterion and method to design
+       advantage may benefit from the special form of the GRM result.                      the Lyapunov function to ensure the feasibility of the optimiza-
+          Experiment results for the second case are shown in Fig. 7(a)                    tion problem, and derived an analytical solution. Finally, the
+       and Fig. 7(b). We can find that if we choose start area away                        effectiveness of the proposed approach was validated by two
+       from the demonstration trajectories, the shape of the reproduc-                     practical experiments.
+       tion trajectories will be different from these of the demonstra-                       In this paper, a typical quadratic Lyapunov candidate function
+       tion trajectories. This phenomenon is common for learning-                          that satisfies the feasibility criterion given in Proposition 1
+       based algorithms and usually served as a performance index                          was presented, and function parameters were determined by
+       for these algorithms. Since the experiments are conducted in                        trial-and-errors in simulations. However, both the function for-
+       three-dimensional space and the inputs for human-impedance                          mulation and function parameters are not optimal for the demon-
+       functions are error-velocity pairs, this phenomenon can be se-                      stration data set, which may decrease the reproduction accuracy
+       rious. For example, as in 7(a), although the error may be close                     of the proposed demonstration learning approach. Thus, deter-
+       to the demonstration trajectories in a certain period of time,                      mining an optimal Lyapunov candidate function satisfying the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+        1744                                                                                      IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 2, APRIL 2022
+
+
+
+        feasibility criterion by using learning or optimization approaches                  [12] L. Rozo, D. Bruno, S. Calinon, and D. G. Caldwell, “Learning optimal
+        will be considered in our future works.                                                  controllers in human-robot cooperative transportation tasks with position
+                                                                                                 and force constraints,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst.,
+                                                                                                 Sep. 2015, pp. 1024–1030.
+                                           REFERENCES                                       [13] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+                                                                                                 impedance control with variable stiffness,” in Proc. IEEE Int. Conf. Robot.
+         [1] N. Hogan, “Impedance control: An approach to manipulation,” in Proc.                Automat., May 2013, pp. 4948–4953.
+             Amer. Control Conf., pp. 304–313, Jun. 1984.                                   [14] F. Ferraguti et al., “An energy tankbased interactive control architecture
+         [2] C. Yang, G. Ganesh, S. Haddadin, S. Parusel, A. Albu-Schaeffer, and                 for autonomous and teleoperated robotic surgery,” IEEE Trans. Robot.,
+             E. Burdet, “Human-like adaptation of force and impedance in stable and              vol. 31, no. 5, pp. 1073–1088, Oct. 2015.
+             unstable interactions,” IEEE Trans. Robot., vol. 27, no. 5, pp. 918–930,       [15] K. Kronander and A. Billard, “Stability considerations for variable
+             Oct. 2011.                                                                          impedance control,” IEEE Trans. Robot., vol. 32, no. 5, pp. 1298–1305,
+         [3] M. Sharifi, A. Zakerimanesh, J. K. Mehr, A. Torabi, V. K. Mushah-                   Oct. 2016.
+             war, and M. Tavakoli, “Impedance variation and learning strategies             [16] F. Dimeas and N. Aspragathos, “Reinforcement learning of variable ad-
+             in human-robot interaction,” IEEE Trans. Cybern., to be published,                  mittance control for human-robot co-manipulation,” in Proc. IEEE/RSJ
+             doi: 10.1109/TCYB.2020.3043798.                                                     Int. Conf. Intell. Robots Syst., Sep. 2015, pp. 1011–1016.
+         [4] J. Arnold and H. Lee, “Variable impedance control for pHRI: Impact on          [17] R. Martin-Martin, M. A. Lee, R. Gardner, S. Savarese, J. Bohg, and A.
+             stability, agility, and human effort in controlling a wearable ankle robot,”        Garg, “Variable impedance control in end-effector space: An action space
+             IEEE Robot. Automat. Lett., vol. 6, no. 2, pp. 2429–2436, Apr. 2021.                for reinforcement learning in contact-rich tasks,” in Proc. IEEE/RSJ Int.
+         [5] F. Stulp, J. Buchli, A. Ellmer, M. Mistry, E. A. Theodorou, and S. Schaal,          Conf. Intell. Robots Syst., Nov. 2019, pp. 1010–1017.
+             “Model-free reinforcement learning of impedance control in stochas-            [18] S. A. Khader, H. Yin, P. Falco, and D. Kragic, “Stability-guaranteed rein-
+             tic environments,” IEEE Trans. Auton. Mental Develop., vol. 4, no. 4,               forcement learning for contact-rich manipulation,” IEEE Robot. Automat.
+             pp. 330–341, Dec. 2012.                                                             Lett., vol. 6, no. 1, pp. 1–8, Jan. 2021.
+         [6] C. Yang, C. Zeng, C. Fang, W. He, and Z. Li, “A DMPs-based framework           [19] K. Kronander and A. Billard, “Learning compliant manipulation through
+             for robot learning and generalization of humanlike variable impedance               kinesthetic and tactile human-robot interaction,” IEEE Trans. Haptics,
+             skills,” IEEE/ASME Trans. Mechatronics, vol. 23, no. 3, pp. 1193–1203,              vol. 7, no. 3, pp. 367–380, Jul.-Sep. 2014.
+             Jun. 2018.                                                                     [20] R. Joel, K. Klas, F. Farbod, B. Jonas, and e. B. Aud, “Learning motions
+         [7] Y. Li and S. S. Ge, “Impedance learning for robots interacting with                 from demonstrations and rewards with time-invariant dynamical systems
+             unknown environments,” IEEE Trans. Control Syst. Technol., vol. 22, no. 4,          based policies,” Auton. Robots, vol. 42, no. 1, pp. 45–64, 2018.
+             pp. 1422–1432, Jul. 2014.                                                      [21] S. M. Khansari-Zadeh and A. Billard, “Learning stable nonlinear dynam-
+         [8] H. Modares, I. Ranatunga, F. L. Lewis, and D. O. Popa, “Optimized                   ical systems with Gaussian mixture models,” IEEE Trans. Robot., vol. 27,
+             assistive human-robot interaction using reinforcement learning,” IEEE               no. 5, pp. 943–957, Oct. 2011.
+             Trans. Cybern., vol. 46, no. 3, pp. 655–667, Mar. 2016.                        [22] S. M. Khansari-Zadeh and A. Billard, “Learning control lyapunov function
+         [9] Z. Li, J. Liu, Z. Huang, Y. Peng, H. Pu, and L. Ding, “Adaptive impedance           to ensure stability of dynamical system-based robot reaching motions,”
+             control of human-robot cooperation using reinforcement learning,” IEEE              Robot. Auton. Syst., vol. 62, no. 6, pp. 752–765, Jun. 2014.
+             Trans. Ind. Electron., vol. 64, no. 10, pp. 8013–8022, Oct. 2017.              [23] Y. Li and S. S. Ge, “Human-robot collaboration based on motion in-
+        [10] J. R. Medina, D. Sieber, and S. Hirche, “Risk-sensitive interaction control         tention estimation,” IEEE/ASME Trans. Mechatronics, vol. 19, no. 3,
+             in uncertain manipulation tasks,” in Proc. IEEE Int. Conf. Robot. Automat.,         pp. 1007–1014, Jun. 2014.
+             pp. 502–507, May 2013.                                                         [24] M. Rahman, R. Ikeura, and K. Mizutani, “Investigation of the impedance
+        [11] S. Calinon, D. Bruno, and D. G. Caldwell, “A task-parameterized proba-              characteristic of human arm for development of robots to cooperate with
+             bilistic model with minimal intervention control,” in Proc. IEEE Int. Conf.         humans,” JSME Int. J. Ser. C. Mech. Systems, Mach. Elements Manuf.,
+             Robot. Automat., May 2014, pp. 3339–3344.                                           vol. 45, no. 2, pp. 510–518, Jan. 2002.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:07:53 UTC from IEEE Xplore. Restrictions apply.
+

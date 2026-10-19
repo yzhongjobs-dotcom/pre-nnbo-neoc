@@ -1,0 +1,1123 @@
+       IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023                                                                                                 3705
+
+
+
+
+            Impedance Learning for Human-Guided Robots in
+                 Contact With Unknown Environments
+             Xueyan Xing , Etienne Burdet , Member, IEEE, Weiyong Si, Chenguang Yang , Senior Member, IEEE,
+                                          and Yanan Li , Senior Member, IEEE
+
+
+          Abstract—Previous works have developed impedance control to                     K, Kv , Ke                Coefficients of the disturbance and control
+       increase safety and improve performance in contact tasks, where                                              matrix.
+       the robot is in physical interaction with either an environment                    Ks , Kvs , kps , xes      Spatial form of K, Kv , kp , xe .
+       or a human user. This article investigates impedance learning
+       for a robot guided by a human user while interacting with an                       Af , Ad , Ac              Parameters of the proposed adaptive
+       unknown environment. We develop automatic adaptation of robot                                                impedance learning method.
+       impedance parameters to reduce the effort required to guide the                    v                         Velocity of the robot end-effector.
+       robot through the environment, while guaranteeing interaction                      V                         Lyapunov function of the system (for sta-
+       stability. For nonrepetitive tasks, this novel adaptive controller can                                       bility analysis).
+       attenuate disturbances by learning appropriate robot impedance.
+       Implemented as an iterative learning controller, it can compen-                    E                         Total tracking error.
+       sate for position dependent disturbances in repeated movements.                    M , B, g                  Inertia, Coriolis coefficient, and gravity of
+       Experiments demonstrate that the robot controller can, in both                                               the robot.
+       repetitive and nonrepetitive tasks: first, identify and compensate for             xh , xr                   Reference positions of the human and
+       the interaction, second, ensure both contact stability (with reduced                                         robot.
+       tracking error) and maneuverability (with less driving effort of
+       the human user) in contact with real environments, and third, is                   u                         Robot control input.
+       superior to previous velocity-based impedance adaptation control                   K̂, K̂ v , k̂p            Estimations of K, K v , kp , where
+       methods.                                                                                                     kp = −Kxe .
+         Index Terms—Human–robot–environment interaction control,                         K̂ s , K̂ vs , k̂ps       Estimations of K s , K vs , kps .
+       impedance control, learning control.                                               A, Av , Ap , Λ            Parameters of the proposed iterative
+                                                                                                                    impedance learning method.
+                                                                                          ξ                         Integration variable of space (for stability
+                                    NOMENCLATURE                                                                    analysis).
+                                                                                          a j , bj , c j            Parameters of the velocity-based adapta-
+       x                          Position of the robot end-effector.                                               tion in (24).
+       xe                         Rest position of the environment.                       PE                        Capability of the method in terms of con-
+       d                          Environmental disturbance.                                                        tact stability.
+                                                                                          Kh , Khv                  Stiffness and viscosity matrices of the hu-
+          Manuscript received 23 December 2022; accepted 28 April 2023. Date of                                     man arm.
+       publication 23 June 2023; date of current version 4 October 2023. This work        fh                        Interaction force between the human and
+       was supported in part by the U.K. EPSRC under Grant EP/T006951/1, in part                                    robot.
+       by the (Chinese) State Key Laboratory of Robotics and Systems (HIT) under
+       Grant SKLRS-2022-KF-16, and in part by the European Commission under               eh , e                    Tracking errors of the human and robot.
+       Grant ICT-871803 CONBOTS. This paper was recommended for publication               Ti                        ith iteration period for repetitive tasks.
+       by Associate Editor D. Lee and Editor P. R. Giordano upon evaluation of the        T                         Maximum iteration period for repetitive
+       reviewers’ comments. (Corresponding author: Yanan Li.)
+          This work involved human subjects or animals in its research. Approval of all                             tasks.
+       ethical and experimental procedures and protocols was granted by Sciences and      η, μ                      Parameters of the improved Λ.
+       Technology Cross-Schools Research Ethics Committee of Sussex University,           σ                         Integration variable of time (for stability
+       and the UWE Faculty Research Ethics Committee under Application No.
+       ER/YL557/1, and FET-2122-59, respectively.                                                                   analysis).
+          Xueyan Xing and Yanan Li are with the Department of Engineer-                   J                         Index of driving effort of the human user.
+       ing and Design, University of Sussex, BN1 9RH Brighton, U.K. (e-mail:              PF                        Capability of the method in terms of ma-
+       xx92@sussex.ac.uk; yl557@sussex.ac.uk).
+          Etienne Burdet is with the Department of Bioengineering, Imperial College                                 neuverability.
+       of Science, Technology and Medicine, SW7 2AZ London, U.K. (e-mail: ebur-
+       det@ic.ac.uk).
+          Weiyong Si and Chenguang Yang are with the Bristol Robotics Laboratory,
+       University of the West of England, BS16 1QY Bristol, U.K. (e-mail: weiy-
+                                                                                                                     I. INTRODUCTION
+       ong.si@uwe.ac.uk; cyang@ieee.org).                                                      ARIOUS robotic applications, such as (tele)operating a
+          Color versions of one or more figures in this article are available at
+       https://doi.org/10.1109/TRO.2023.3281483.
+          Digital Object Identifier 10.1109/TRO.2023.3281483
+                                                                                          V    microrobot, demand a robot to be guided by a human
+                                                                                          while interacting with the environment. Most existing robotic
+
+                                1552-3098 © 2023 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                              See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3706                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+        interaction control schemes focus on achieving an effective in-                      Facing uncertain human behaviors, a number of works es-
+        teraction either with the human operator, or with an environment.                 timate the human impedance or intention to dynamically ad-
+        However, during the execution of many human–robot interaction                     just the robot’s impedance parameters for efficient and stable
+        tasks, the robot may concurrently interact with an environment,                   interaction. For instance, it has been proposed to regulate the
+        for example, during human-guided tooling. This interaction may                    robot impedance using muscle activity measured with surface
+        destabilize the movement, affect task performance, and fatigue                    electromyography, although the underlying control is limited
+        the human operator. Our vision to avoid these shortcomings is                     by the large signal variability and neural constraints [1], [2].
+        for a robot to understand the human intention, while learning                     To address these limitations, several approaches used the force
+        to compensate for identified reproducible interaction dynamics                    and position information of the human limb, which can be
+        during movement.                                                                  directly measured by sensors, to infer their impedance and adjust
+           When a human user guides a robot to complete a tooling task,                   the robot’s impedance correspondingly [3], [4]. Other works
+        such as cutting, polishing, or drilling, they need to exert a force               estimate intention or characteristics of the human partner, e.g.,
+        on the robot to move it along the planned trajectory and achieve                  trajectory in [5] or human impedance in [6] and [7] for adjust-
+        satisfying tooling performance. For instance, as a human user                     ment of the robot’s impedance. Alternatively, a velocity-related
+        carries out a carving task, they need to apply a certain force to                 heuristic rule scheme has been considered in [4] and [8] to adjust
+        manipulate the blade along a desired trajectory. If the engraved                  robot impedance, rather than relying on the human partner’s
+        plate is of hard texture, there will be a large resistive disturbance             behavior. In addition, several works considered that human
+        that will degrade the carving performance. If the human user                      movements obey a certain probability distribution that can be
+        wants to maintain the carving quality, more effort is needed to                   identified to infer their intention [9]. Based on time-series data,
+        overcome the unknown disturbance. In this case, a robot that                      the motion intention was estimated using the sparse Bayesian
+        complies with human movement while concurrently attenuating                       learning method in [10], and an adaptive impedance control
+        environmental disturbance is required.                                            algorithm was developed for effective human–robot collabo-
+           To analyze the interaction of the human operator with the                      ration. Instead of adjusting the robot’s impedance, the robot’s
+        robot and its environment, we define maneuverability as the                       reference trajectory can be updated to achieve efficient human–
+        degree of difficulty to guide the robot for completing a task                     robot interaction [11]. A review of human–robot interaction
+        in the presence of environmental perturbations. The more easily                   control can be found in [12]. However, previous works do not
+        the human operator can guide the robot, the higher the maneu-                     explicitly consider concurrent interactions between the robot,
+        verability. We also define contact stability as the capability for                human operator, and environment.
+        the robot to ensure good task performance despite environmental
+        perturbations. The robot should both i) allow the human operator
+        to easily move and flexibly operate the robot, thus yielding high
+        maneuverability, and ii) complete the task with a small error                     B. Existing Works on Robot–Environment Interaction
+        in the presence of perturbation from the environment, such as                        Contact tooling tasks by definition involve a desired inter-
+        vibration due to a nonhomogeneous material and undesirable                        action between the robot and the environment. Control theory
+        friction, i.e., the contact stability has to be guaranteed. Usu-                  has been used to consider robot–environment interaction sta-
+        ally, the contact stability is guaranteed at the expense of the                   bility, and to develop impedance adaptation. In [13], [14], and
+        maneuverability, or vice versa. When the human user tries to                      [15], the interaction force between the robot and the human
+        improve their performance, i.e., to reduce the tracking error,                    was considered as an environmental force, where neural and
+        they need more effort to compensate for the disturbance, which                    iterative learning controls were used to mitigate its negative
+        will result in decreasing maneuverability. Conversely, with less                  effect. Different from [13], [14], and [15], the adaptive control
+        human control effort, the task performance will be deteriorated                   strategy in [16] could generate the desired interaction force
+        due to the negative effects of the disturbance. In other words,                   between robot and environment by adjusting the feedforward
+        maneuverability and contact stability are hard to ensure concur-                  force, impedance, and trajectory of the robot. Reinforcement
+        rently. Our goal is to develop an interaction controller that makes               learning approaches have also been proposed to determine the
+        robots able to interact with their environment, while offering                    optimal impedance parameters of the robot controller to achieve
+        both high maneuverability and contact stability to the human                      desired robot–environment interaction performance [17], [18],
+        operator.                                                                         [19], [20]. A reward function including contact information,
+                                                                                          e.g., the interaction force, was used to determine the optimal
+                                                                                          impedance parameters of the robot controller to achieve desired
+        A. Previous Works in Human–Robot Interaction
+                                                                                          robot–environment interaction performance [21]. Fuzzy logic
+           How to design a robot controller for intuitive and efficient                   controllers have also been developed for impedance adaptation
+        human–robot interaction is a prevalent research topic in the                      of the robot. Based on a fuzzy neural network learning algorithm,
+        robotics field. Robots that interact with humans to perform                       an adaptive controller was designed in [22] for adjusting the
+        their functions include rehabilitation robots, robotic exoskele-                  impedance parameters of the robot so as to produce smooth
+        tons, collaborative robots (cobots) for micro manipulation and                    control even during transitions from free movement to contact.
+        industrial assembly, and semiautonomous vehicles. Impedance                       However, the controllers designed in [13], [14], [15], [16],
+        control is often used on these contact robots to yield a compliant                [17], [18], [19], [20], [21], and [22] do not consider a human
+        interaction of a robot with its human operator.                                   operator.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                3707
+
+
+
+                                                                                         yield stable interaction behavior is described in Section V.
+                                                                                         Section VI presents an experiment to test the effectiveness of
+                                                                                         the proposed impedance learning scheme in interaction with
+                                                                                         real environments. Finally, Section VII concludes this article
+                                                                                         and analyzes the advantage of the proposed control method by
+                                                                                         comparing with the existing velocity-based adaptation method.
+                                                                                         The variables used in this article are listed in the Nomenclature.
+
+                                                                                                              II. PROBLEM FORMULATION
+                                                                                         A. Dynamics of Human–Robot–Environment Interaction
+       Fig. 1. Human–robot–environment interaction: A robot is guided by a human
+       operator while in physical contact with an environment.                              We aim to design a controller for a human-guided robot that
+                                                                                         can stably interact with an environment. The dynamics of the
+                                                                                         n-degree of freedom (DoF) human-guided robot can be modeled
+       C. Contributions of This Article on                                               as
+       Human–Robot–Environment Interaction
+                                                                                                            M ẍ + B ẋ + g = fh + d + u                            (1)
+          Different from the aforementioned works that considered
+       either the interaction between robot and environment, or the                      where x = [x1 , . . . , xn ]T ∈ Rn is the position vector of the
+       interaction between robot and human, we will consider here                        end-effector, M ∈ Rn×n is the inertia matrix of the robot,
+       both the human operator and the environment. We will design                       B ∈ Rn×n is the positive definite matrix related to the Coriolis
+       a robot controller that automatically infers the intention of the                 force, g ∈ Rn is the gravity force on the robot, fh ∈ Rn is the
+       human and adapts to an uncertain environment by learning the                      vector of the measured interaction force signals, d ∈ Rn is the
+       resulting impedance to improve the task performance. It is not a                  disturbance due to the interaction with an unknown environment,
+       simple combination of two controllers for robot–environment                       and u ∈ Rn is the robot command vector. In the model in
+       interaction and human–robot interaction, as the two control                       (1), parameters of the robot M , B, g are time-varying and
+       objectives can be contradictory, leading to a conflicting trade-                  state-related, but their arguments are omitted in this article to
+       off between maneuverability and contact stability as discussed                    facilitate the readability.
+       above. Our idea is to maintain the robot’s maneuverability by                        In this article, the human force fh is expected to be minimized,
+       inferring the human intent while only introducing additional                      even with an environmental disturbance d. While both fh and
+       impedance to deal with the environmental disturbance and, thus,                   d are external forces on the robot controller, fh is considered
+       ensure contact stability. As a result, both the maneuverability and               “desirable” as it indicates the human’s planned trajectory, and d
+       the contact stability can be ensured during the human–robot–                      is “undesirable” as it may cause instability.
+       environment interaction, and the conflict between the human                          The interaction force can be modeled as [23]
+       effort and the task performance is addressed.
+                                                                                            f h = M ẍh + B ẋh − K h eh − K hv ėh , eh = x − xh
+          The designed impedance learning strategy can be applied to
+                                                                                                                                                (2)
+       both nonrepetitive tasks, such as engraving or drawing, in the
+       form of adaptive learning, and repetitive tasks, such as grinding                 where xh ∈ Rn is the desired position vector of the human that
+       or polishing, in the form of iterative learning. In the collaborative             is unknown to the robot, K h ∈ Rn×n and K hv ∈ Rn×n are
+       tasks considered in this article, the robot is guided by the human                stiffness and viscosity matrices of the human arm, and eh ∈ Rn
+       user that assists them to complete a task in the presence of                      is the tracking error between xh and x. The first two terms of
+       uncertain environmental disturbances. As illustrated by Fig. 1,                   (2) correspond to the feedforward force to compensate for the
+       the human user holds the robot and their interaction force can be                 system dynamics and the last two terms to muscle viscoelasticity.
+       measured by a force sensor. Simultaneously, the robot interacts                   Notice that (2) is not used in the following robot controller
+       with the environment for a certain tooling task. As the interaction               design, but only for analysis purpose. If the robot is without
+       force between the robot and the environment is typically subject                  disturbance and only with gravity compensation, i.e., d = 0 and
+       to significant noise, it is not measured by a force sensor. Instead,              u = g, then combining (1,2) yields
+       due to repetitive interaction and periodicity of the environmental
+       parameters, the disturbance from the environment can be learned                                 M ëh + (B + K hv )ėh + K h eh = 0                          (3)
+       by the robot.                                                                     which shows that the robot can stably follow xh corresponding
+          The rest of this article is organized as follows. Section II                   to the human’s motion intent and the instability in practice is
+       formulates dynamics of and issues with the human-guided                           largely caused by the environmental disturbance.
+       robot in contact with the environment. An adaptive variable                          Since the human force can guide the robot to the desired
+       impedance control is developed in Section III for nonrepetitive                   position without disturbance and control, under such an ideal
+       tasks. Section IV presents an iterative control method with                       case, the robot passively follows the desired human trajectory
+       variable impedance learning for repetitive tasks considering                      as expected and eh ≈ 0. Then, using (2), we have
+       position dependent disturbances. An experiment to test the al-
+       gorithm’s ability to identify a known virtual environment and                                              M ẍh + B ẋh = f h .                             (4)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3708                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+         If we define the reference position vector of the robot as xr ∈                  III. IMPEDANCE CONTROL DESIGN FOR NONREPETITIVE TASKS
+        Rn , replacing xh in (4) with xr yields
+                                                                                            For the nonrepetitive task considered in this section, the
+                                 M ẍr + B ẋr = f h .                             (5)    coefficients K and K v of the disturbance in (6) and the rest
+                                                                                          position of the environment xe are constant. Then, an adaptive
+        With (5), the reference trajectory of the robot xr is available for               impedance control is designed as
+        the impedance control designed in the following sections.
+                                                                                                         u = −K̂ x − K̂ v ẋ − k̂p − Ke ė + g                      (11)
+        B. Stability Analysis for Human–Robot–Environment                                 with impedance learning laws
+        Interaction                                                                                                                 ˙
+                                                                                                  ˙               ˙
+                                                                                                 K̂ = ė xT Af , K̂ v = ė ẋT Ad , k̂p = Ac ė                     (12)
+           This section analyzes the system stability to develop an
+        impedance learning controller for an ideal case with measurable                   where e ∈ Rn is the tracking error of the robot
+        disturbance. Let us consider a general viscoelastic model of the
+                                                                                                                          e = x − xr                                (13)
+        environment:
+                                                                                          and Af , Ad , Ac , Ke ∈ Rn×n are positive definite diagonal
+                               d = K(x − xe ) + K v ẋ                             (6)    matrices.
+        where K ∈ Rn×n and K v ∈ Rn×n are the coefficients of the                            Equation (12) can be used to compute K̂, K̂ v , and k̂p for
+        disturbance and xe ∈ Rn is the rest position of the environment.                  the control of (11). For example, K̂ can be computed from
+           When there is no external disturbance and the robotic control                  K̂(t + Δt) = ėxT Af Δt + K̂(t) using Euler integration with
+        is designed only for gravity compensation, i.e., u = g and d =                    a predefined initial value K̂(0), where Δt denotes the sampling
+        0, according to (1)                                                               time. In (12), we know that K̂, K̂ v , and k̂p update depending
+                                                                                          on the variation speed of the tracking error ė, and the position
+                                    M ẍ + B ẋ = f h                              (7)
+                                                                                          x and velocity ẋ of the system. Since the disturbance d in (6)
+        in which f h is driving the robot toward xh as shown in (4) and                   can be rewritten as d = Kx − Kxe + K v ẋ, it is related to
+        the interaction system is stable if (7) holds.                                    the position x, the velocity ẋ of the system, as well as the rest
+           If only the gravity compensation is considered in the robotic                  position of the environment xe . As a result, the controller will
+        controller, considering the system in (1) with u = g and the                      update its three parameters according to the current tracking
+        disturbance d in (6), the model of the human-guided robot can                     performance, which is indicated by ė, and the current degree of
+        be rewritten as                                                                   disturbance, which is indicated by x and ẋ. Besides, according
+                                                                                          to the backward difference method, ẋr can be represented as
+                            M ẍ + B̄ ẋ + C̄ x + ā = f h                         (8)
+                                                                                                                 xr (t) − xr (t − Δt)
+                                                                                                                ẋr =                 ,
+        where                                                                                                             Δt
+                    B̄ = B − K v , C̄ = −K , ā = K xe .                           (9)    where Δt is the sampling time, and thus,
+                                                                                                              xr (t) − 2xr (t − Δt) + xr (t − 2Δt)
+        It is clear that when the disturbance is resistive to the robot                               ẍr =
+        movement, i.e., the matrices K and K v are positive definite,                                                         (Δt)2
+        the human-guided robot in (8) could become unstable in the                        according to [24]. By substituting the expressions of
+        presence of large disturbances because of the undesired terms                     ẋr and ẍr into (5), the reference trajectory of the
+        B̄, C̄ x, and ā in (9), such that more human effort is needed                    robot xr (t) used in (13) can be updated using xr (t) =
+        for a stable contact. Therefore, to achieve a stable contact with                 [(Δt)2 fh − M xr (t − 2Δt) + (BΔt + 2M )xr (t − Δt)]
+        the environment while maintaining the robot’s maneuverability,                    ×(M + BΔt)−1 .
+        a robotic controller is required to attenuate the effect of the                      Substituting (11) into (1) yields
+        disturbance.
+                                                                                             M ẍ + (B + K̂ v )ẋ + K̂ x + Ke ė + k̂p = f h + d (14)
+           According to the model in (1), if the environmental distur-
+        bance d is measurable, a robot controller with gravity compen-                    which can be rewritten as
+        sation can be designed as
+                                                                                                      M ẍ + B̌ ẋ + Č x + Ke ė + ǎ = f h + d                    (15)
+                                       u = −d + g                                (10)
+                                                                                          where
+        such that (7) holds even with the disturbance. This would enable                                 B̌ ≡ B + K̂ v , Č ≡ K̂ , ǎ ≡ k̂p .                       (16)
+        the human to use little effort to ensure the contact stability
+        and guide the robot. In practical operation, the environmental                       From (16), it is clear that the impedance matrices B̌, Č, ǎ
+        disturbance is hard to be accurately estimated. In the following                  are regulated according to the variation of the disturbance d
+        two sections, an impedance controller is designed based on                        with learning laws in (12). When K̂x + K̂ v ẋ + k̂p ≃ Kx +
+        the human-guided robot model in (1), which does not require                       K v ẋ − K xe , (7) holds with an additional assistive force Ke ė
+        knowledge of d and xh to guarantee the contact stability and                      provided by the robot such that the human can guide the robot
+        the robot maneuverability.                                                        with f h free from the disturbance.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                3709
+
+
+
+                                                                                         adaptive impedance control proposed in Section III for repetitive
+                                                                                         tasks, making it suitable for space-related disturbances with
+                                                                                         varying coefficients. The subscript s is used for space-related
+                                                                                         variables and time-related variables are without s. The subscript
+                                                                                         i of a variable denotes its iteration number.
+                                                                                            In the ith iteration, the spacial form of the environmental
+                                                                                         disturbance di in (6) is written as
+                                                                                                            di = K s (xi − xes ) + K vs ẋi                       (19)
+       Fig. 2. Control block diagram of the human-guided robot for nonrepetitive
+       and repetitive tasks.
+                                                                                         where Ks , Kvs ∈ Rn×n , and xes ∈ Rn are the spatial form
+                                                                                         of K, Kv , and xe , respectively, which satisfy K s,i =
+          Using (5), (6), (11), eq. (1) can be rewritten as                              K s,i−1 , K vs,i = K vs,i−1 , xes,i = xes,i−1 .
+                                                                                           Based on the disturbance in (19), the robot control u is
+                   M ë + (B + K e ) ė = K̃ x + K̃ v ẋ + k̃p                  (17)     redesigned as
+       where K̃, K̃ v ∈ Rn×n , and k̃p ∈ Rn are defined as                                          ui = −K̂ i xi − K̂ v,i ẋi − k̂p,i − Ke ėi + g               (20)
+            K̃ = K − K̂, K̃ v = K v − K̂ v , k̃p = kp − k̂p                     (18)     where the control parameter matrix K e ∈ Rn×n keeps the
+       while kp = −K xe .                                                                same for each iteration, and impedance parameter matrices
+          Using these notations, we can formulate Theorem 1: For                         K̂ i ∈ Rn×n , K̂ v,i ∈ Rn×n , and k̂p,i ∈ Rn are updated in time
+       an n-DoF human-guided robot used in a nonrepetitive task,                         as
+                                                                                                          
+       the adaptive impedance control strategy in (11) and (12) can                                          K̂ i−1 + ėi xTi AΛ for t ∈ [0, Ti ]
+       eliminate the adverse effect of the disturbance d and regulate                             K̂ i =
+                                                                                                                    K̂ i−1 for t ∈ (Ti , T ]
+       the robot behavior so that the stability of the closed-loop system                                 
+       in (17), (18) is guaranteed in the presence of d. The proof of                                        K̂ v,i−1 + ėi ẋTi Av Λ for t ∈ [0, Ti ]
+       Theorem 1 is provided in Appendix A.                                                    K̂ v,i =
+                                                                                                                     K̂ v,i−1 for t ∈ (Ti , T ]
+          Theorem 1 indicates that the disturbance can be learned using                                   
+       our adaptive impedance control scheme, thus the controller in                                         k̂p,i−1 + Ap Λ ėi for t ∈ [0, Ti ]
+       (11) enables (7) to hold for the closed-loop interaction system.                          k̂p,i =                                               (21)
+                                                                                                                   k̂p,i−1 for t ∈ (Ti , T ]
+       As impedance learning in (12) regulates the robot impedance
+       to compensate for the effect of the disturbance during the inter-                 where A, Av , and Ap are Rn×n diagonal matrices with pos-
+       action, the human user does not need to overcome the contact                      itive constant elements, Ti ∈ [0, T ] is the actual learning time
+       instability caused by the disturbance, and the effort to steer the                of the ith iteration, T is the maximum iteration period, Λ =
+                                                                                                                                            −1
+       robot is reduced. The abovementioned control process can be                       diag{λ1 · · · λn } ∈ Rn×n in which λj = |v j | and v j ∈ R is
+       found in Fig. 2.                                                                  the current robot velocity along the jth dimension, j = 1, . . . , n.
+          In (11), u is derived by analyzing the stability of the disturbed                 In traditional iterative learning control, a fixed iteration period
+       human–robot–environment interaction system based on Lya-                          is needed to ensure system stability. However, humans never
+       punov’s stability theory [25]. We first need to select a Lyapunov                 repeat a movement with exactly the same time duration [27]. In
+       function of the system [V in (32) in Appendix A] that includes                    our proposed method, the learning laws in (21) are designed as
+       the tracking error and the estimation error of the disturbance                    piecewise functions. Based on this, we use the method in [15]
+       parameters that we want to minimize, then u is designed to                        and introduce Λ to deal with the varying iteration period.
+       make the controlled system stable through V̇ ≤ 0.                                 When the current velocity increases, the learning speed will
+          For the designed control u, the initial values of the estimated                correspondingly decrease due to the decrease of Λ, so that the
+       control parameters in (11), K̂(0), K̂ v (0), k̂p (0), affect the                  possible spatial inconsistency caused by the varying velocity can
+       transient performance but not the steady-state performance, and                   be corrected with our proposed update laws, and the stability
+       they are typically initialized as zero. However, the learning                     of the human–robot–environment interaction system can be
+       parameters Af , Ad , Ac in (12) should be manually tuned to                       guaranteed. With the maximum iteration period T , the controller
+       be large enough to provide adequate convergence speed of the                      updates its coefficients for t ∈ [0, Ti ] and stops updating for the
+       controlled system.                                                                rest of the duration since there is no valuable information to be
+                                                                                         learned. T could be theoretically set to be large enough to cover
+         IV. ITERATIVE IMPEDANCE CONTROL FOR HUMAN-GUIDED                                all possibilities so that the actual learning time Ti can eventually
+                       ROBOT IN REPETITIVE TASKS                                         achieve it in the sense of lim Ti = T [15], [28]. However, if T is
+                                                                                                                     i→∞
+          When the robot performs a repetitive task, the environment                     too large, the control period will be correspondingly extended,
+       has spatial periodicity, thus, the disturbance can be considered                  which will reduce the control efficiency. Therefore, T should
+       as a function of the position as discussed in [26]. To further                    be determined according to the task execution time. In practice,
+       elaborate, instead of constant matrices, coefficients of the                      T can be set slightly larger than the prescribed movement time
+       disturbance are spatially periodic, i.e., their values are the same               (e.g., as 4’30” for a 4’ planned duration) to guarantee that the
+       for the same position in different iterations. We modify here the                 task can be completed.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3710                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+                                                                                          and guides the robot to track the target trajectory with the cursor
+                                                                                          on the GUI. The H-MAN robot is equipped with an ATI Mini 40
+                                                                                          force/torque sensor at the handle. Since the virtual disturbance
+                                                                                          is introduced in software as a part of the control input of the
+                                                                                          robot (instead of stemming from interaction with a physical
+                                                                                          environment), the force measured by the load cell is only from
+                                                                                          the human.
+                                                                                             To evaluate our proposed adaptive impedance control, the
+                                                                                          following three control conditions were compared.
+                                                                                             1) Control off: The robot control was 0.
+                                                                                             2) Velocity-based: The velocity-based impedance adaptation
+                                                                                                 proposed in [4]
+        Fig. 3. Experimental setup with H-MAN robot to test the algorithm on a virtual
+        environment interaction.                                                                                                
+                                                                                                   uj = − min aj e−bj |ẋj | , cj ẋj , aj , bj , cj > 0 (24)
+           Substituting (5), (6), (20) into (1) yields                                           where j = 1, 2 stands for x or y axis.
+                                                                                             3) Impedance learning: The proposed control method with
+               M ëi + (B + K e ) ėi = K̃ i xi + K̃ v,i ẋi + k̃p,i             (22)
+                                                                                                 impedance learning was used.
+        where K̃ i , K̃ v,i ∈ Rn×n , and k̃p,i ∈ Rn are defined as                           Each subject was instructed on how to use the H-MAN robot,
+                                                                                          and then practiced the task. Recording began when the subject
+          K̃ i = K i − K̂ i , K̃ v,i = K v,i − K̂ v,i , k̃p,i = kp,i − k̂p,i              felt confident in performing the task. Each subject carried out
+                                                                        (23)              five trials in each of the three control conditions, whose order
+        where kp,i = −K i xe,i .                                                          was unknown to them.
+           With above-mentioned equations, we can formulate Theorem                          Sections V-A–C present the results of a representative subject,
+        2: For the n-DoF human-guided robot described by (1) in                           and the overall performance of the six subjects is described in
+        repetitive tasks, the iterative impedance control strategy in (20)                Section V-D.
+        with impedance learning laws in (21) can guarantee the stability
+        of the closed-loop system in (22) and (23) in the presence of                     A. Nonrepetitive Task
+        environmental disturbance, i.e., (7) is satisfied with the proposed                  In the nonrepetitive task, the target displayed on the GUI
+                                                                                                                                    π              π
+        control. The proof of this theorem is presented in Appendix B,                    moved in a circular trajectory [10 cos( 4.5 t) 10 sin( 4.5 t)]T cm.
+        where the robot control is first designed to be space-related to                  One trial consisted of tracking this trajectory once. The
+        conform with (19) and then transformed to time domain for                         disturbance was set as d = [dx dy ]T = [20 x1 + 4 ẋ1
+        implementation.                                                                   20 x2 + 4 ẋ2 ]T N.
+           The block diagram of the resulting human-guided robot con-                        The velocity-based control in (24) was implemented with
+        trol for repetitive tasks is shown in Fig. 2. In order to avoid                   a1 = a2 = 500, b1 = b2 = 3, and c1 = c2 = 50. Impedance
+        K̂, K̂ v , and k̂p becoming too large when the robot veloc-                       learning was implemented using the controller in (11),
+        ity is close to zero, λj defined in (21) can be revised with                     (12) with parameters K e =
+                           −1                                                                                            0.1I 2 , Af = 0.5 I 2 , Ad = I 2 ,
+                     |v j | , if |v j | ≥ μ                                                                              10
+        λj =                  −1              , where a constant η is added               Ac = 0.05 I 2 , where I 2 =
+                                                                                                                         01
+                                                                                                                              .
+                 (|v j | + η) , if |v j | < μ
+                                                                                             The maneuverability defined in this article was evaluated
+        to λj when |v j | is less than a positive constant μ.
+                                                                                          using the l2 -norm of the instantaneous tracking error e , while
+                                                                                          the contact stability was measured using the human effort, J, to
+                  V. CONTROL VALIDATION WITH H-MAN ROBOT
+                                                                                          drive the robot
+           To test the ability of the proposed impedance controller to                                                T0
+        identify the environmental disturbances and stably compensate                                           J = |f Th (t)v(t)| dt                    (25)
+        for it, an experiment was implemented on a planar H-MAN robot                                                       0
+
+        with a virtual, software designed disturbance. The experiment                     where T0 is the task duration and v is the velocity of the
+        was approved by the Sciences and Technology Cross-Schools                         interaction system. To evaluate the disturbance identification,
+        Research Ethics Committee of Sussex University, U.K. (refer-                      the learned two-dimension disturbance d̂ for nonrepetitive tasks
+        ence number ER/YL557/1). Six human subjects without known                                                          T
+        sensorimotor impairment were recruited, who all gave their                                        dˆ = dˆx dˆy          = K̂ x + K̂ v ẋ + k̂p              (26)
+        informed consent prior to participating. International units are
+        used in the following, unless specified.                                          can be analyzed, where K̂, K̂ v , k̂p are coefficients of the
+           The experimental setup with the planar H-MAN robot is                          disturbance learned according to (12).
+        shown in Fig. 3. A graphical user interface (GUI) is designed to                     Fig. 4(a) shows the trajectories of a representative subject
+        display the target trajectory and the cursor indicating the handle’s              in one trial. In Fig. 4(a), the dashed black line, corresponding
+        position. In the experiment, the human operator holds the handle                  to the subject guiding the robot without control and without
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                3711
+
+
+
+
+       Fig. 4. Results of a representative subject for the nonrepetitive task with the H-MAN robot, in the conditions of control off (in red), velocity-based adaptation
+       (blue) and with the proposed adaptive impedance learning method (green). (a) Actual trajectories over one trial in each condition. (b) Average learned and actual
+       disturbance. (c) Average tracking error magnitude with ± standard deviation (std) error bars. (d) Average effort of the user with ± std error bars.
+
+
+       disturbance, serves as a reference for best possible guidance.                       In our experiment, when the human subject stopped at a
+       This reference trajectory slightly deviates from the 10 cm radius                 position for the prescribed time, we consider that the human
+       circle, due to the H-MAN sensing error from cable deformation                     completed the task. Since Ti in our proposed method in (21) is
+       and to the variability of exerted force. We see in Fig. 4(a) that                 the time required by the human movement in the ith iteration to
+       in the control off condition the disturbance largely affects the                  complete the movement, it is computed as the time recorded by
+       tracking error performance so that an effective control strategy is               the timer of the robot achieving speed below the specified thresh-
+       necessary to mitigate this negative effect. Although the velocity-                old minus this prescribed time. The abovementioned method of
+       based impedance adaptation improves the tracking performance,                     obtaining Ti is also adaptable for the experiment with Panda
+       there is still tracking error with this method which does not                     robot in Section VI-B.
+       model the environment interaction. Fig. 4(c) and (d) suggests                        The iterative impedance learning in (20), (21) was imple-
+       that the proposed impedance learning controller yields a better                   mented with the parameters K e = 0.1 I 2 , A = I 2 , Av =
+       tracking performance while decreasing the effort to drive the                     Ap = 0.05 I 2 , η = 1, μ = 0.01, T = 24 s. The iterative learn-
+       robot for tracking the moving target. This arises as this controller              ing scheme was compared with the conditions of control off and
+       accurately identifies the virtual environment. Fig. 4(b) indeed                   velocity-based impedance adaptation in (24) with parameters
+       shows that the disturbance d is well identified.                                  a1 = a2 = 500, b1 = b2 = 2, c1 = c2 = 100. The maneuver-
+                                                                                         ability and the contact stability were evaluated from the last
+                                                                                         iteration of the five trials, where the effort metric J in (25) is
+                                                                                         restricted to the last iteration’s period
+       B. Repetitive Task
+          In the repetitive task, one trial consists of guiding                                                        Tm
+       the robot during four iterations to track a target mov-                                                  J=        |f Th,m (t) v(t)| dt                    (27)
+       ing on a smaller circle. The target trajectory is defined                                                        0
+
+       as [5 cos(0.25π t) 5 sin(0.25π t)]T cm in the presence of
+       disturbance d = [dx dy ]T N where dx = 28(sin 160x)2 x +                          where Tm is the last iteration’s duration and m equals 4 for
+       4(sin 80x)2 ẋ and dy = 28(cos 240y)2 y + 4(cos 40y)2 ẏ.                         this experiment. Similarly, the learned disturbance in (26) is
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3712                                                                                            IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+
+        Fig. 5. Results for a repetitive task carried out by a representative subject (same subject as Fig. 4) with the H-MAN robot, in the three conditions of control off
+        (red), with the velocity-based adaptation (blue) and with the proposed iterative impedance learning method in the last (4th) iteration (green). (a) Actual trajectories
+        over one trial. (b) Average learned and actual disturbances. (c) Average tracking error magnitude with ± std error bars. (d) Average effort of the user with ± error
+        std bars.
+
+        redefined as                                                                         proposed impedance learning method deals with different levels
+                                                                                             of disturbance in both nonrepetitive and repetitive tasks.
+               dˆ = dˆx dˆy = K̂ m xm + K̂ v,m ẋm + k̂p,m
+                           T
+                                                                                    (28)        Performance and effort were investigated at increasing lev-
+                                                                                             els L = 1, 2, 3, 4, 5 of disturbance. For the nonrepetitive task
+        where K̂ m , K̂ v,m , k̂p,m are computed from (21).                                  the disturbance was (with x1 , x2 in m and ẋ1 , ẋ2 in m/s)
+           Fig. 5(a) shows the trajectory in the three control conditions                    d = [dx dy ]T N where dx = 8(1 + 5 L)x1 + 0.4(1 + 2 L)ẋ1
+        over one trial of each subject. Here also the disturbance has a                      and dy = 8(1 + 5 L)x2 + 0.4(1 + 2 L)ẋ2 . The disturbance for
+        significant effect on tracking performance relative to the refer-                    the repetitive task was with dx = 20(1 + 3 L)(sin 10x1 )2 x1 +
+        ence trajectory (without disturbance and without control), which                     8(1 + L)(sin 10x1 )2 ẋ1 and dy = 20(1 + 3 L)(cos 10x2 )2 x2 +
+        is partly addressed by the velocity-based adaptation. In com-                        8(1 + 1 L)(cos 10x2 )2 ẋ2 . Five trials were carried out with each
+        parison, the proposed impedance learning method reduces the                          control condition, which were presented in the same pseudoran-
+        tracking error [see Fig. 5(c)] to a minimum, and also minimizes                      dom order as before.
+        the effort to drive the robot [see Fig. 5(d)]. The average learned                      Tracking performance representing the contact stability was
+        and the actual disturbance of four iterations are illustrated in Fig.                analyzed using the total error
+        5(b). We see that the disturbance learned by iterative impedance
+        learning laws in (21) converges to the actual values. In compar-                                                           T
+        ison with the nonrepetitive tracking task above, the controller                                                    E≡        e(t) dt                             (29)
+                                                                                                                                    0
+        can now identify a more complex disturbance which contributes
+        to the good performance of our proposed method.
+                                                                                             where T is the nonrepetitive task duration or the duration of the
+                                                                                             last iteration for the repetitive task.
+        C. Performance With Disturbance at Different Levels
+                                                                                                To evaluate the improvement of contact stability and maneu-
+          An additional experiment with the H-MAN was carried out                            verability, we calculate the decrease of total error and effort with
+        by the same subject as before in order to explore how our                            velocity-based adaptation and impedance learning relative to the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                       3713
+
+
+
+
+       Fig. 6. Relative reduction of total tracking error and effort with disturbances of increasing magnitude (defined in the text) (a) in the nonrepetitive task and (b) in
+       the repetitive task.
+
+
+
+
+       Fig. 7. Results of experiment carried out by six human subjects with the H-MAN robot and different control conditions, to validate the proposed impedance
+       learning on a virtual disturbance. Average and ± std of total tracking error and effort are over the five trials (a) in the nonrepetitive task and (b) in the repetitive
+       task where only the last iteration (of the five trials) is considered.
+
+
+       control off condition, respectively, using                                           impedance learning does not offer an obvious advantage over
+                                                                                           the velocity-based method to reduce the tracking error for an
+                   EN −Eex
+                             × 100 for velocity-based adaptation                            environmental disturbance of small amplitude. However, in both
+         PE = ENE−E    N
+                                                                                   (30)
+                     EN
+                         de
+                            ×  100 for impedance learning                                   the nonrepetitive and repetitive tasks, the tracking performance
+                                                                                           benefits increase with the disturbance level, exhibiting less
+                   JN −Jex
+                            × 100 for velocity-based adaptation                             tracking error at higher levels. Due to the limited capability of
+         PF = JNJ−J   N
+                                                                                   (31)
+                     JN
+                        de
+                            × 100 for impedance learning                                    controllers in improving trajectory tracking performance and the
+                                                                                            limitation of the robot platform, no further improvement over
+       where EN , Eex , and Ede are values of E defined in (29) in                          L = 3 is observed in Fig. 6(b).
+       the conditions of control off, with the velocity-based adaptation                       Fig. 6 shows that the effort reduction with both the velocity-
+       and with the proposed impedance learning method, respectively;                       based and impedance learning control increases with the distur-
+       similarly, JN , Jex , and Jde are, respectively, the values of J                     bance level in the nonrepetitive and repetitive tasks. However the
+       [defined in (25) for nonrepetitive tasks and (27) for repeti-                        benefits of the impedance learning approach are larger compared
+       tive tasks]. According to (30), (31), PE and PF indicate the                         to the velocity-based approach.
+       improvement of trajectory tracking accuracy and effort-saving
+       using velocity-based and proposed controls, respectively. The
+                                                                                            D. Overall Results of Multiple Subjects With H-MAN Robot
+       higher value the index is, the greater improvement brought by the
+       controller. The parameters of the velocity-based and proposed                           We can see in Fig. 7 that the proposed control with impedance
+       controllers were maintained as in Sections V-A–B.                                    learning outperforms the velocity-based control in improving the
+          Fig. 6 shows the average percentage index PE and PF of                            tracking performance and minimizing effort for both nonrepet-
+       five trials in different tasks. As we see in Fig. 6(a) and (b),                      itive and repetitive tasks, which demonstrates its advantages
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3714                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+
+        Fig. 8. Experimental setups for 3-D tasks in contact with the environment. (a) Franka Emika Panda robot with 7-DoFs used in the experiments. (b) Mechanism
+        with handle to separate measurement of the user applied interaction force from the interaction with the environment. (c) Nonrepetitive carving task. (d) Repetitive
+        grinding task and the CAD schematic drawing of the 3-D surface.
+
+        in ensuring the contact stability and maneuverability of the                          To decouple the human force from the environmental inter-
+        interaction system.                                                                action, a mechanism was fixed between the robot extremity and
+                                                                                           the tool, as shown in Fig. 8(b). This mechanism was designed
+                                                                                           to measure the force exerted by the operator and separate it
+                VI. APPLICATION TO 3-D TASKS WITH UNKNOWN                                  from tool interaction with the environment. The Franka control
+                               ENVIRONMENT                                                 interface provides the current status of the robot and an external
+           A second experiment was carried out to test the efficiency                      workstation PC was connected with the Panda robot via Eth-
+        of impedance learning control in 3-D tasks involving unknown                       ernet to realize real-time control at 1 kHz. Joint position and
+        environment’s interactions, as well as its robustness to the                       velocity as well as the force exerted on the robot were recorded
+        variability of duration when humans repeat a movement. As                          at 1 kHz.
+        shown in Fig. 8(a), subjects guided a 7-DoF Franka Emika                              The experiment protocol was approved by the UWE Research
+        Panda robot along a reference shape previously traced by the                       Ethics Committee (UWE REC REF No: FET-2122-59). A total
+        robot while interacting with a cordless rotary carving tool and                    of 12 human subjects without known sensorimotor impairment
+        a grinding tool as shown in Fig. 8(c) and (d), respectively.                       were recruited to carry out one of the two tasks with the Panda
+        Compared with the software designed disturbance in Section V,                      robot (with six subjects for each of them), who gave their in-
+        the disturbance in this section arises from the contact with the                   formed consent prior to participation. Each subject was allowed
+        environment due to the hard texture of the environment and                         to practice until becoming familiar with the robot guidance and
+        the vibration caused by the high-frequency rotation of the tool.                   the carving or grinding task. They then carried out five trials in
+        This experiment tests whether the interaction model of (6) is                      each of the conditions control off, velocity-based control in (24)
+        valid in this case and if the controller yields stable and efficient               and impedance learning as described in Section V, and were
+        movement assistance to the human operator.                                         naive to the conditions tested.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                  3715
+
+
+
+
+       Fig. 9. Results of a representative subject in the nonrepetitive carving task with the Panda robot, in control off (grey), with velocity-based control (green), and
+       with the proposed adaptive impedance learning method (blue). (a) “8” carved by the human user. (b) Average norm of path error with ± std error bars. (c) Average
+       effort of the human user with ± std error bars.
+
+
+         Sections VI-A–B show detailed results of a representative,                       four iterations [m = 4 for (27), (28)], i.e., four times back and
+       while the overall results of the six subjects are provided in                      forth. The parameters were set as a1 = a2 = 200, b1 = b2 = 5,
+       Section VI-C.                                                                      c1 = c1 = 10 for the velocity-based adaptation and
+                                                                                          K e = 200I 2 , A = Av = 100 I 2 , Ap = 350 I 2 , η = 0.001,
+       A. Nonrepetitive Carving Task                                                      μ = 0.005, T = 8 s, a1 = a2 = 200, b1 = b2 = 5, c1 = c1 =
+                                                                                          10 for impedance learning.
+          In the nonrepetitive carving task, an “8” shape in red color was
+                                                                                             The results of a representative subject are shown in Fig. 10. We
+       first traced by the robot on a hard wooden board with a cordless
+                                                                                          see in the photos of grinding performance of Fig. 10(a) that all
+       rotary carving tool, as shown in Fig. 8(c). Then, each subject
+                                                                                          iterations of the first trial deviate from the reference with control
+       guided the robot along this shape once for a trial in the three con-
+                                                                                          off and velocity-based adaptation, without any apparent learning
+       trol conditions. Velocity-based adaption was implemented with
+                                                                                          taking place. This bias is caused by the non-negligible robot
+       a1 = a2 = 200, b1 = b2 = 10, c1 = c2 = 20, and impedance
+                                                                                          mechanical impedance experienced when guiding the robot
+       learning with K e = 150I 2 , Af = Ad = Ac = 1000 I 2 .
+                                                                                          along the 3-D surface. To analyze how the tracking performance
+          The time to carry out the tasks between different trials varies.
+                                                                                          changes with iterations, the 3-D recorded data is reproduced in
+       To be able to compare different trials of a subject and between
+                                                                                          Fig. 10(b), which shows the path from the average of back and
+       subjects, the errors in all trials of all subjects were normalized
+                                                                                          forth movements in all iterations. We see that the velocity-based
+       to the average duration of a representative subject.
+                                                                                          method yields a slight improvement, but performance does not
+          Fig. 9(a) shows the character carved by a representative sub-
+                                                                                          improve over the iterations. With iterative impedance learning,
+       ject in the first trial of the three control conditions. The average
+                                                                                          the first iteration similarly deviates from the desired path, but
+       norm of the path error e and the average effort J of the human
+                                                                                          the movement approaches it more with each iteration.
+       user defined in (25) of five trials is shown in Fig. 9(b) and (c),
+                                                                                             Fig. 10(c) shows the resulting error and standard deviation er-
+       respectively. Both the path error and driving effort in the last
+                                                                                          ror bars as a function of normalized time, in the last iteration over
+       trial are lowered slightly using the velocity-based control, and
+                                                                                          the five trials. The average driving effort in (27) is shown in Fig.
+       reduced more using impedance learning.
+                                                                                          10(d). Overall, Fig. 10 exhibits that the velocity-based approach
+                                                                                          enables limited performance improvement, while impedance
+       B. Repetitive Grinding Task                                                        learning results in a clear decrease in both path error and the
+          In the repetitive grinding task, a cordless rotary tool was                     driving effort.
+       mounted on the designed mechanism to grind a rough 3D-printed
+       surface, as shown in Fig. 8(d). An arc was first traced by the
+       robot on the 3-D surface as the reference for the subjects before                  C. Experiment Results of Multiple Subjects for Carving and
+                                                                                          Grinding Tasks
+       recording. Then, each subject held the force sensor and carried
+       out trials to grind the 3-D surface along the reference. Five trials                 Fig. 11(a) and (b) shows average values of total path error
+       were completed in each condition, where one trial consists of                      E defined in (29) and average effort J, respectively, over the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3716                                                                                           IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+
+        Fig. 10. Results of a representative subject (same subject as Fig. 9) in the repetitive grinding task with the Panda robot. (a) Three C-shaped trajectories grinded
+        by the human user. (b) Actual trajectories of the human user in the 3-D space in four iterations. (c) Norm of path errors with ± std error bars. (d) Average effort of
+        the human user with ± std error bars.
+
+
+
+
+        Fig. 11. Total error and effort of six subjects in the carving and grinding tasks carried out on the Panda robot with control off, velocity-based adaptation and
+        impedance learning. Each column shows the average and ± std error bars.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                3717
+
+
+
+       six subjects that carried out each experiment. We see in Fig.                     role where time delay exists in the teleoperation system. In this
+       11 that the velocity-based adaptation algorithm reduces the                       case, even if the human operator makes more control effort,
+       tracking error and effort relative to control off in two tasks with               they may still fail to handle the contact between the robot and
+       a limitation as the disturbance cannot be fully compensated for.                  the environment. One of our future works will be investigation
+       By comparison, the proposed impedance method reduces them                         of this hypothesis.
+       more, exhibiting less error and effort than with velocity-based
+       control. These results suggest that impedance learning can han-                                                        APPENDIX A
+       dle temporal variability in human movements, and ensure both                                                       PROOF OF THEOREM 1
+       contact stability and maneuverability in the presence of a real                      This Appendix describes the proof of Theorem 1 in Sec-
+       environment.                                                                      tion III. To attenuate the undesired effect of the unknown en-
+                                                                                         vironment during trajectory tracking, both tracking error and
+                                   VII. DISCUSSION                                       estimation errors are minimized. We, therefore, introduce the
+                                                                                         Lyapunov function candidate
+          For a human-guided robot, environmental disturbances can
+       result in contact instabilities, requiring the human to increase                       V = V1 + V 2 + V 3 + V 4
+       their control effort at the expense of loss of maneuverability. In
+                                                                                                                               1  j T j
+                                                                                                                           n
+       this article, to concurrently ensure contact stability and maneu-                               1 T              1
+                                                                                              V1 =       ė M ė , V2 =           k̃   k̃
+       verability, a novel impedance control scheme was developed.                                     2                2 j=1 Ajf
+       This was first done for nonrepetitive tasks, where the robot
+                                                                                                             1  j T j              1  j 2
+                                                                                                             n                                    n
+       updates its impedance to adapt to the disturbance with con-                                     1                       1
+                                                                                              V3 =              k̃v k̃v , V4 =           k̃                       (32)
+       stant coefficients. An iterative impedance control strategy was                                        j
+                                                                                                       2 j=1 Ad                2 j=1 Ajc p
+       then designed to handle disturbances with varying space-related
+       coefficients. With the proposed control, the human effort can                     where V1 is a quadratic function of the robot tracking error, and
+       be reduced with stable interaction and the robot can follow the                   V2 , V3 , V4 denote the squared estimation errors of disturbance
+                                                                                                           j   j
+       desired trajectory in the presence of environmental disturbances.                 coefficients; k̃ , k̃v ∈ Rn are, respectively, the jth column
+       The larger the disturbance, the more obvious the advantage of the                 vectors of Rn×n matrices K̃ and K̃ v , where j = 1, 2, . . . , n;
+       proposed strategy. The effectiveness of the proposed impedance                    k̃pj ∈ R is the jth element of Rn vector k̃p in (18); positive
+       control scheme for both nonrepetitive and repetitive tasks was                    constants Ajf , Ajd , Ajc ∈ R are the jth diagonal elements of
+       validated in experiments to identify a known virtual interaction                  Rn×n matrices Af , Ad , Ac , respectively.
+       and to test performance in interaction with real environments.                        Using (17) and the skew-symmetry property, i.e., ζ T ( 12 Ṁ −
+          The experiments also showed that our impedance learn-                          B)ζ = 0 for ∀ζ ∈ Rn , the derivative of V1 is
+       ing controller outperforms the commonly used velocity-based                                                                          
+       impedance adaption of [4]. Similar to our method, the velocity-                                V̇1 = ėT −Ke ė + K̃x + K̃ v ẋ + k̃p .          (33)
+       based adaptation method considers both interactions with the
+       human operator and the environment. It infers the human’s                         Taking the derivatives of V2 , V3 , V4 and using (12) yields
+                                                                                                            1  j T ˙ j
+       active intention according to human’s velocity, while the robot                                  n                          n  
+                                                                                                                                          j T
+       controller cancels the effect of the environmental disturbance.                       V̇2 = −         j
+                                                                                                                 k̃     k̂   = −       k̃     ė xj   (34)
+       However, this method does not involve any learning techniques,                                  j=1 Af                     j=1
+
+       and the selection of its parameters requires prior knowledge                                              1  j T ˙ j           j T
+                                                                                                                 n                            n
+       about the task. Namely, the degree of the relationship between                          V̇3 = −            j
+                                                                                                                    k̃ v  k̂ v = −      k̃v ė ẋj                (35)
+       the control input and the velocity of the system should be                                            j=1 Ad                j=1
+       properly reflected when setting the parameters A = diag{aj },                                             n                    n
+                                                                                                                      1   ˙
+       B = diag{bj }, C = diag{cj }. For instance, parameters A                                V̇4 = −              k̃ j k̂ j = −
+                                                                                                                  j p p
+                                                                                                                                      k̃pj ėj                    (36)
+       and C should be selected according to the possible range of                                           j=1 Ac               j=1
+       velocities of the task so that a variation of the damping within                            j     j
+       [C , A ] can be obtained.                                                         where k̂ , k̂v ∈ Rn are the jth column vectors of Rn×n matrices
+          In contrast, the impedance learning controller introduced in                   K̂ and K̂ v , and k̂pj , xj , ej ∈ R are the jth elements of Rn
+       this article uses an explicit model of the environment interaction.               vectors k̂p , x, and e.
+       As a consequence, it does not require prior knowledge of the                        Then, V̇ can be computed by summing up (33)–(36) as
+       environment to guarantee the stability of the system, as was
+       proved in the appendices and verified in the experiments carried                        V̇ = V̇1 + V̇2 + V̇3 + V̇4
+       out in real environments.                                                                                                      n
+          The proposed controller may be extended to teleoperation,                                = ėT −Ke ė + K̃x + K̃ v ẋ + k̃p −   k̃pj ėj
+       where impedance learning can ensure the contact stability be-                                                                                    j=1
+       tween the remote robot and its environment, while no additional                                           n    j T          n      j T
+       control effort is required from the human operator. The learning                                −              k̃    ėxj −          k̃v ėẋj
+       capability of the proposed controller may play a more significant                                     j=1                     j=1
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3718                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+
+                  = − ėT Ke ė ≤ 0                                              (37)     where Ve,i denotes the robot tracking error; Vk,i , Vv,i , and Vp,i
+                                                                                          are estimation errors of the coefficients of the disturbance rep-
+                                                                  j T
+        where the term ėT K̃x is canceled by − nj=1 (k̃ ) ėxj ,                         resented by the introduced Ψ functions; Ω = {x, 0 ≤ t ≤ T };
+                                j T                                                       j                 j
+                                                                                          k̃s,i ∈ Rn and k̃vs,i ∈ Rn are the jth column vectors of Rn×n
+        ėT K̃ v ẋ by − nj=1 (k̃v ) ėẋj , and ėT k̃p by − nj=1 k̃pj ėj .
+           Applying [29, Lemma A.6], it then follows                                      matrices K̃ s,i = K s − K̂ s,i and K̃ vs,i = K vs − K̂ vs,i , re-
+                                                                                                          j
+                                                                                          spectively; k̃ps,i  ∈ R is the jth element of Rn vector k̃ps,i =
+                                   lim ė = lim ë = 0                           (38)
+                                   t→∞         t→∞                                        kps − k̂ps,i ; sgn(·) is the sign function; positive constants
+        and with (17)                                                                     αj , αvj , αpj ∈ R are the jth diagonal elements of Rn×n matrices
+                                                                                        A, Av , Ap , respectively. Since the stability of the iterative
+                            lim       K̃x + K̃ v ẋ + k̃p = 0                    (39)     learning control is verified from the perspective of iterations
+                            t→∞
+                                                                                          instead of time, Vk,i , Vv,i , and Vp,i are, respectively, designed
+        so that the environmental disturbance can be estimated and the
+                                                                                          to be in an integral form of functions Ψks,i , Ψvs,i , and Ψps,i
+        human can easily guide the robot even with the disturbance of
+                                                                                          in one iteration.
+        an unknown environment.                                     
+                                                                                              Since
+                                                                                                                n  sj
+                                      APPENDIX B                                                            1           1  j T          j
+                                                                                                    Vk,i =                  k̃     sgn v j k̃s,i dξ j
+                                  PROOF OF THEOREM 2                                                        2 j=1 0 αj s,i
+          In the space domain, the robot controller in (20) can be                                                       t
+                                                                                                                            1  j T       j
+                                                                                                                    n
+        rewritten as follows:                                                                                 1
+                                                                                                          =                   j
+                                                                                                                                k̃s,i sgn v j k̃s,i ξ˙j dσ
+                                                                                                              2 j=1       0 α
+               ui = −K̂ s,i xi − K̂ vs,i ẋi − k̂ps,i − Ke ėi + g               (40)
+                                                                                                                         t
+                                                                                                                            1  j T  j  j
+                                                                                                                    n
+        where space-related impedance matrices K̂ s,i ∈ Rn×n and                                              1
+                                                                                                          =                   j
+                                                                                                                                k̃s,i  v k̃s,i dσ > 0               (42)
+        K̂ vs,i ∈ Rn×n and vector k̂ps,i ∈ Rn should be updated with                                          2 j=1       0 α
+        the position change of the robot.
+           The undesired effect of the unknown environment is expected                    and similarly
+                                                                                                                     t
+                                                                                                                          1  j T  j  j
+        to be canceled by the robot during trajectory tracking, which is                                       n
+                                                                                                          1
+        both to minimize the tracking error and improve the environment                          Vv,i =                    j
+                                                                                                                             k̃vs,i  v k̃vs,i dσ > 0                (43)
+        identification. Consequently, a Lyapunov function candidate is                                    2 j=1         0 αv
+
+        designed as follows to prove the stability of the controlled                                                 t
+                                                                                                                          1  j   j 2
+                                                                                                               n
+        human-guided robot in Section IV                                                                1
+                                                                                                 Vp,i =                    j
+                                                                                                                              v      k̃ps,i dσ > 0                  (44)
+                                                                                                        2 j=1           0 αp
+                  Vi = Ve,i + Vk,i + Vv,i + Vp,i
+                                                                                         where σ is an integration variable of time, the system Lyapunov
+                        1 T                      1
+                 Ve,i = ε̇i M ε̇i , Vk,i =           Ψks,i (ξ) dξ                         function in (41) is positive and satisfies Vi > 0.
+                        2                        2 Ω
+                                                                                           The following cases are considered for stability analysis.
+                        1                             1                                      Case 1: t ∈ [0, Ti ]. In such a case, εi = ei holds and taking
+                 Vv,i =       Ψvs,i (ξ) dξ , Vp,i =          Ψps,i (ξ) dξ
+                        2 Ω                           2 Ω                                 the derivative of Ve,i yields
+                        
+                             ei , if t ∈ [0,
+                                            Ti ]                                                                                      1
+                  εi =                                                                                             V̇e,i = ėTi M ëi + ėTi Ṁ ėi .
+                          ei (Ti ) , if t ∈ Ti , T                                                                                     2
+                                                                                                                                                                    (45)
+
+                 ξ = ξ 1 · · · ξ n , dξ = dξ 1 · · · dξ n                                 Based on the skew-symmetry property [25], substituting (22)
+                           1         T           1                                    into (45) yields
+         Ψks,i (ξ) = α11 k̃s,i (ξ) sgn v 1 k̃s,i (ξ) · · ·                                                                                       
+                                                                                              V̇e,i = ėTi −Ke ėi + K̃ i xi + K̃ v,i ẋi + k̃p,i . (46)
+                      1  n           T
+                                                   n     n
+                           k̃s,i (ξ) sgn (v ) k̃s,i (ξ)
+                     αn                                                                   The integral of (46) can be calculated as
+                           1           T          1                                              t
+         Ψvs,i (ξ) = α11 k̃vs,i (ξ) sgn v 1 k̃vs,i (ξ) · · ·
+                        v                                                                   Ve,i =      V̇e,i dσ + Ve,i (0)
+                                                                     
+                      1  n            T                                                                 0
+                           k̃      (ξ)       sgn  (v n
+                                                       ) k̃
+                                                            n
+                                                                 (ξ)                                    t                                              
+                              vs,i                          vs,i
+                     αvn                                                                           =          ėTi −Ke ėi + K̃ i xi + K̃ v,i ẋi + k̃p,i dσ .
+                                 1               2                                                    0
+         Ψps,i (ξ) = α11 sgn v 1 k̃ps,i         (ξ)         ···                                                                                                     (47)
+                        p
+
+                                                   2                                   Define
+                      1           n        n
+                          sgn  (v   )   k̃ ps,i (ξ)                              (41)
+                     αpn                                                                                                ΔVe,i = Ve,i − Ve,i−1                       (48)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                                          3719
+
+
+
+       and then we have                                                                     Summing up inequalities (49), (61), (62), (63) yields
+                  t                                                                             t                                            
+         ΔVe,i ≤     ėTi −Ke ėi + K̃ i xi + K̃ v,i ẋi + k̃p,i dσ .                       ΔVi ≤     ėTi −Ke ėi + K̃ i xi + K̃ v,i ẋi + k̃p,i dσ
+                       0                                                                                 0
+                                                                                  (49)                                      t
+                                                                                                              n
+                                                                                                                 1                           
+                                                                                                                                            j T  j
+          Similarly, we define                                                                         −                               k̃i         v Δk̂i dσ
+                                                                                                                                                                    j
+                                                                                                                 α j
+                                                                                                             j=1             0
+                                ΔVk,i = Vk,i − Vk,i−1                             (50)
+                                                                                                              n             t                    T  
+                                                                                                                    1                       j
+                                                                                                                                                      v j  Δk̂jv,i dσ
+                                   ΔVv,i = Vv,i − Vv,i−1                          (51)                 −                                   k̃v,i
+                                                                                                                  j
+                                                                                                             j=1 αv            0
+                                   ΔVp,i = Vp,i − Vp,i−1 .                        (52)
+                                                                                                                            t
+                                                                                                              n
+                                                                                                                    1                     
+                                                                                                                                     j  j
+       Then, according to (42), we get                                                                 −                           k̃p,i       j
+                                                                                                                                          v Δk̂p,i dσ.                                       (64)
+                                                                                                                  j
+                            sj          T                                                                j=1 αp            0
+                 1
+                     n
+                         1             j           j
+        ΔVk,i =                     k̃ s,i    sgn v j k̃s,i
+                 2 j=1 αj 0                                                              Substituting (21) into inequality (64), we have
+                                                                                                     t                                           
+                       j T       j         j T      j
+                     − k̃s,i sgn v j k̃s,i−1 + k̃s,i sgn v j k̃s,i−1                       ΔVi ≤        ėTi −Ke ėi + K̃ i xi + K̃ v,i ẋi + k̃p,i dσ
+                                                                                                         0
+                       j     T                                                                                   t                                         t         
+                                      j                                                                    n                                           n
+                                                                                                                                                                          j T
+                     − k̃s,i−1 sgn v j k̃s,i−1 dξ j .             (53)                                −                      j
+                                                                                                                           k̃p,i ėji dσ −                              k̃i     ėi xji dσ
+                                                                                                            j=1     0                                j=1        0
+       Define                                                                                                       t
+                                                                                                              n
+                                                                                                                                   j
+                                                                                                                                           T
+                     ΔK̂ s,i (ξ) = K̂ s,i (ξ) − K̂ s,i−1 (ξ)                      (54)                 −                       k̃v,i            ėi ẋji dσ
+                                                                                                             j=1       0
+                     ΔK̂ vs,i (ξ) = K̂ vs,i (ξ) − K̂ vs,i−1 (ξ)                   (55)                        t
+                                                                                                   = −             ėTi K e ėi dσ ≤ 0                                                       (65)
+                     Δk̂ps,i (ξ) = k̂ps,i (ξ) − k̂ps,i−1 (ξ)                      (56)                        0
+
+       and thus, we have                                                                 where eji ∈ R and xji ∈ R are the jth elements of ei ∈ Rn and
+                    K̃ s,i (ξ) − K̃ s,i−1 (ξ) = −ΔK̂ s,i (ξ)                      (57)   xi ∈ Rn , respectively.
+                                                                                           Case 2: t ∈ (Ti , T ]. According to the definition of εi and
+                    K̃ vs,i (ξ) − K̃ vs,i−1 (ξ) = −ΔK̂ vs,i (ξ)                   (58)   (47), (48), one gets
+                    k̃ps,i (ξ) − k̃ps,i−1 (ξ) = −Δk̂ps,i (ξ).                     (59)     ΔVe,i ≤ Ve,i (t)
+                                                                                                    Ti                                            
+       Using (57), (53) can be rewritten as
+                                   sj                                                         =       ėTi −Ke ėi + K̃ i xi + K̃ v,i ẋi + k̃p,i dσ.
+                        1
+                           n
+                                1             j
+                                                  T          j                                       0
+            ΔVk,i = −                      k̃ s,i    sgn v j Δk̂s,i                                                                                                                          (66)
+                        2 j=1 αj 0
+                        j     T                                                          Observing (21), it is known that K̂ i , K̂ v,i , and k̂p,i stop
+                                                 j
+                     + k̃s,i−1 sgn v j Δk̂s,i dξ j                                       updating during t ∈ (Ti , T ] so that ΔK̂ i = ΔK̂ v,i = Δk̂p,i =
+                                                                                         0. Then, according to (61)–(63), the following inequality holds:
+                               n           sj                          T
+                             1                            j    1   j
+                                                                                                      ΔVk,i + ΔVv,i + ΔVp,i
+                      =−       j
+                                                        k̃s,i + Δk̂s,i
+                             α             0                    2                                                    T i  T
+                         j=1                                                                                  n
+                                                                                                                 1              
+                                                                                                                           k̃i v j  Δk̂i dσ
+                                                                                                                             j           j
+                                      j                                                              ≤−
+                           × sgn v j Δk̂s,i dξ j                                  (60)                       j=1
+                                                                                                                  j
+                                                                                                                 α 0
+       and thus, one gets                                                                                           n               Ti                     T  
+                                                                                                                            1                        j
+                                                                                                                                                                v j  Δk̂jv,i dσ
+                                                    t                                                     −                                     k̃v,i
+                                                            j T  j
+                                     n                                                                                  j
+                                        1                               j
+                                                                                                                   j=1 αv              0
+                   ΔVk,i ≤ −              j
+                                                          k̃i       v Δk̂i dσ .   (61)
+                                        α           0                                                                               Ti
+                                    j=1                                                                            n
+                                                                                                                           1                           
+                                                                                                                                                  j  j    j
+       Similarly, using (43), (58) and (44), (59) yields                                                     −         j
+                                                                                                                                                k̃p,i  v Δk̂p,i dσ.                          (67)
+                                                                                                                  j=1 αp               0
+                           n        t        T  
+                                1          j
+                                                  v j  Δk̂jv,i dσ
+             ΔVv,i ≤ −           j
+                                        k̃ v,i                                    (62)      Combing inequalities (66), (67), we have
+                          j=1 αv 0
+                                                                                            ΔVi = ΔVe,i + ΔVk,i + ΔVv,i + ΔVp,i
+                                            t
+                                n
+                                      1                    
+                                                     j  j   j                                    Ti                                          
+              ΔVp,i ≤ −                            k̃p,i v Δk̂p,i dσ .            (63)
+                                    j                                                           ≤     ėTi −Ke ėi + K̃ i xi + K̃ v,i ẋi + k̃p,i dσ
+                               j=1 αp          0
+                                                                                                        0
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+        3720                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 39, NO. 5, OCTOBER 2023
+
+
+
+                                     Ti         
+                                                 j T  j
+                           n                                                                [7] C. Mitsantisuk, K. Ohishi, and S. Katsura, “Variable mechanical stiffness
+                              1                                  j
+                      −                        k̃i        v Δk̂i dσ                             control based on human stiffness estimation,” in Proc. IEEE Int. Conf.
+                          j=1
+                              αj     0                                                          Mechatronics, 2011, pp. 731–736.
+                                                                                            [8] V. Duchaine and C. M. Gosselin, “General model of human-robot co-
+                           n         Ti               T                                    operation using a novel velocity based variable impedance control,” in
+                                1                j
+                                                           v j  Δk̂jv,i dσ
+                      −        j
+                                                k̃v,i                                           Proc. Joint EuroHaptics Conf. Symp. Haptic Interfaces Virtual Environ.
+                          j=1 αv     0                                                          Teleoperator Syst., 2007, pp. 446–451.
+                                                                                            [9] J. R. Medina, H. Börner, S. Endo, and S. Hirche, “Impedance-based
+                                     Ti                                                        Gaussian processes for modeling human motor behavior in physical and
+                          n
+                                1                 
+                                             j  j    j
+                     −        j
+                                           k̃p,i  v Δk̂p,i dσ.                    (68)          non-physical interaction,” IEEE Trans. Biomed. Eng., vol. 66, no. 9,
+                                                                                                pp. 2499–2511, Sep. 2019.
+                         j=1 αp      0
+                                                                                           [10] K. Li, H. Zhao, T. Nuchkrua, Y. Yuan, and H. Ding, “Sparse bayesian
+                                                                                                learning-based adaptive impedance control in physical human-robot
+          As a result, similar to inequalities (64), (65) in case 1 with                        interaction,” in Proc. IEEE Int. Conf. Robot. Biomimetics, 2018,
+        t = Ti , we obtain                                                                      pp. 2379–2385.
+                                  Ti                                                      [11] X. Xing, K. Maqsood, D. Huang, C. Yang, and Y. Li, “Iterative
+                                                                                                learning-based robotic controller with prescribed human-robot interaction
+                        ΔVi ≤ −       ėTi Ke ėi dσ ≤ 0.           (69)                        force,” IEEE Trans. Autom. Sci. Eng., vol. 19, no. 4, pp. 3395–3408,
+                                            0                                                   Oct. 2022.
+                                                                                           [12] Y. Li et al., “A review on interaction control for contact robots through
+           Combining inequalities (65), (69), we see that ΔVi ≤ 0 holds                         intent detection,” Prog. Biomed. Eng., vol. 4, no. 3, pp. 1–21, 2022.
+        in both cases 1 and 2. Consequently, as the initial energy of                      [13] W. He, S. S. Ge, Y. Li, E. Chew, and Y. S. Ng, “Neural network control of
+        the human–robot system is bounded, Vi is monotonically de-                              a rehabilitation robot by state and output feedback,” J. Intell. Robot. Syst.,
+                                                                                                vol. 80, no. 1, pp. 15–31, 2015.
+        creasing with iterations when ΔVi < 0. Since Vi is defined to                      [14] W. He, C. Xue, X. Yu, Z. Li, and C. Yang, “Admittance-based con-
+        be positive, according to the definition of Vi in (41), it indicates                    troller design for physical human-robot interaction in the constrained task
+        that                                                                                    space,” IEEE Trans. Autom. Sci. Eng., vol. 17, no. 4, pp. 1937–1949,
+                                                                                                Oct. 2020.
+                     lim K̃ s,i = lim K̃ vs,i = lim k̃ps,i = 0 .                  (70)     [15] Y. Li, X. Zhou, J. Zhong, and X. Li, “Robotic impedance learning for
+                     i→∞                 t→∞                  t→∞                               robot-assisted physical training,” Front. Robot. AI, vol. 6, 2019, Art. no. 78.
+                                                                                           [16] Y. Li, G. Ganesh, N. Jarrassé, S. Haddadin, A. Albu-Schaeffer, and E.
+        When ΔVi = 0, it gives rise to                                                          Burdet, “Force, impedance, and trajectory learning for contact tooling and
+                                                                                                haptic identification,” IEEE Trans. Robot., vol. 34, no. 5, pp. 1170–1182,
+                                           ėi = ëi = 0                          (71)          Oct. 2018.
+                                                                                           [17] A. Fayazi, N. Pariz, A. Karimpour, and S. H. Hosseinnia, “Robust position-
+        thus                                                                                    based impedance control of lightweight single-link flexible robots inter-
+                                                                                                acting with the unknown environment via a fractional-order sliding mode
+                                                                                                controller,” Robotica, vol. 36, pp. 1920–1942, 2018.
+                               K̃ i xi + K̃ v,i ẋi + k̃p,i = 0                   (72)     [18] F. Stulp, J. Büchli, A. Ellmer, M. Mistry, E. A. Theodorou, and S. Schaal,
+                                                                                                “Model-free reinforcement learning of impedance control in stochas-
+        according to (22). As a result, the disturbance can be estimated                        tic environments,” IEEE Trans. Auton. Ment. Develop., vol. 4, no. 4,
+        by the proposed impedance learning method and the robot can                             pp. 330–341, Dec. 2012.
+        follow the desired trajectory of the human in the presence of                      [19] J. Luo et al., “Reinforcement learning on variable impedance controller
+                                                                                                for high-precision robotic assembly,” in Proc. Int. Conf. Robot. Autom.,
+        disturbances. Theorem 2 is thus verified.                                               2019, pp. 3080–3087.
+                                                                                           [20] R. Martan-Martan, M. A. Lee, R. Gardner, S. Savarese, J. Bohg, and A.
+                                                                                                Garg, “Variable impedance control in end-effector space: An action space
+                                    ACKNOWLEDGMENT                                              for reinforcement learning in contact-rich tasks,” in Proc. IEEE/RSJ Int.
+           The authors would like to thank A. Sena and H. Godaba for                            Conf. Intell. Robots Syst., 2019, pp. 1010–1017.
+                                                                                           [21] M. Bogdanovic, M. Khadiv, and L. Righetti, “Learning variable impedance
+        their careful reading and comments on the manuscript.                                   control for contact sensitive tasks,” IEEE Robot. Autom. Lett., vol. 5, no. 4,
+                                                                                                pp. 6129–6136, Oct. 2020.
+                                                                                           [22] H. Huang and C. Yang, and C. L. P. Chen, “Optimal robot–environment in-
+                                               REFERENCES                                       teraction under broad fuzzy neural adaptive control,” IEEE Trans. Cybern.,
+         [1] A. Ajoudani, N. Tsagarakis, and A. Bicchi, “Tele-impedance: Teleopera-             vol. 51, no. 7, pp. 3824–3835, Jul. 2021.
+             tion with impedance regulation using a body–machine interface,” Int. J.       [23] E. Burdet, D. W. Franklin, and T. E. Milner, Human Robotics: Neurome-
+             Robot. Res., vol. 31, no. 13, pp. 1642–1656, 2012.                                 chanics and Motor Control. Cambridge, MA, USA: MIT Press, 2013.
+         [2] L. Peternel, N. Tsagarakis, and A. Ajoudani, “A human–robot co-               [24] M. Bin Suleiman, Z. B. Binti Ibrahim, and A. F. N. Bin Rasedee, “Solution
+             manipulation approach based on human sensorimotor information,” IEEE               of higher-order odes using backward difference method,” Math. Problems
+             Trans. Neural Syst. Rehabil. Eng., vol. 25, no. 7, pp. 811–822, Jul. 2017.         Eng., vol. 2011, pp. 1–18, 2011.
+         [3] R. Ikeura and H. Inooka, “Variable impedance control of a robot for           [25] J.-J. E. Slotine and W. Li, Applied Nonlinear Control. Englewood Cliffs,
+             cooperation with a human,” in Proc. IEEE Int. Conf. Robot. Autom., 1995,           NJ, USA: Prentice-Hall, 1991.
+             vol. 3, pp. 3097–3102.                                                        [26] C.-L. Chen and Y.-H. Yang, “Position-dependent disturbance rejec-
+         [4] R. Ikeura, T. Moriguchi, and K. Mizutani, “Optimal variable impedance              tion using spatial-based adaptive feedback linearization repetitive con-
+             control for a robot and its application to lifting an object with a human,”        trol,” Int. J. Robust Nonlinear Control, vol. 19, no. 12, pp. 1337–1363,
+             in Proc. IEEE Int. Workshop Robot Hum. Interactive Commun., 2002,                  2009.
+             pp. 500–505.                                                                  [27] E. Burdet, R. Osu, D. W. Franklin, T. Yoshioka, T. E. Milner, and M.
+         [5] Y. Li and S. S. Ge, “Human–robot collaboration based on motion in-                 Kawato, “A method for measuring endpoint stiffness during multi-joint
+             tention estimation,” IEEE/ASME Trans. Mechatronics, vol. 19, no. 3,                arm movements,” J. Biomech., vol. 33, no. 12, pp. 1705–1709, 2000.
+             pp. 1007–1014, Jun. 2014.                                                     [28] D. Shen and J. Xu, “Adaptive learning control for nonlinear systems with
+         [6] T. Tsumugiwa, R. Yokogawa, and K. Hara, “Variable impedance control                randomly varying iteration lengths,” IEEE Trans. Neural Netw. Learn.
+             based on estimation of human arm stiffness for human-robot cooperative             Syst., vol. 30, no. 4, pp. 1119–1132, Apr. 2019.
+             calligraphic task,” in Proc. IEEE Int. Conf. Robot. Autom., 2002, vol. 1,     [29] M. S. D. Queiroz, D. M. Dawson, S. P. Nagarkatti, and F. Zhang, Lyapunov-
+             pp. 644–650.                                                                       Based Control of Mechanical Systems. Berlin, Germany: Springer, 2012.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+       XING et al.: IMPEDANCE LEARNING FOR HUMAN-GUIDED ROBOTS IN CONTACT WITH UNKNOWN ENVIRONMENTS                                                                   3721
+
+
+
+                                  Xueyan Xing received the B.S. degree in automation                                 Chenguang Yang (Senior Member, IEEE) received
+                                  from Northeastern University, Shenyang, China, in                                  the Ph.D. degree in control engineering from the
+                                  2015, the M.S. degree in control engineering from                                  National University of Singapore, Singapore, in 2010.
+                                  the Harbin Institute of Technology, Harbin, China, in                                 He received a postdoctoral training in human
+                                  2017, and the Ph.D. degree in control theory and con-                              robotics from the Imperial College London, London,
+                                  trol engineering from Beihang University, Beijing,                                 U.K. His research interest lies in human–robot inter-
+                                  China, in 2020.                                                                    action and intelligent system design.
+                                     She was a Research Fellow with the Department                                      Dr. Yang was the recipient of U.K. EPSRC UKRI
+                                  of Engineering and Design, University of Sussex,                                   Innovation Fellowship and individual EU Marie Curie
+                                  Brighton, U.K., from 2020 to 2022. She is currently                                International Incoming Fellowship. As the lead au-
+                                  a Research Fellow with the Continental-NTU Corpo-                                  thor, he was also the recipient of the IEEE Transac-
+       rate Lab, Nanyang Technological University, Singapore. Her current research         tions on Robotics Best Paper Award (2012) and IEEE Transactions on Neural
+       interests include physical human–robot interaction, distributed control and op-     Networks and Learning Systems Outstanding Paper Award (2022). He is the
+       timization, and vibration control.                                                  Corresponding Co-Chair of IEEE Technical Committee on Collaborative Au-
+                                                                                           tomation for Flexible Manufacturing, a Fellow of Institute of Engineering and
+                                                                                           Technology (IET), a Fellow of Institution of Mechanical Engineers (IMechE),
+                                                                                           and a Fellow of British Computer Society (BCS).
+                                Etienne Burdet (Member, IEEE) received the M.S.
+                                degree in mathematics, the M.S. degree in physics,
+                                and the Ph.D. degree in robotics from ETH-Zurich,
+                                Zurich, Switzerland, in 1990, 1991, and 1996, respec-
+                                tively.
+                                   He is currently a Professor and a Chair of Human
+                                Robotics with Imperial College London. He uses an
+                                integrative approach of neuroscience and robotics
+                                to investigate human sensorimotor control, and to
+                                design efficient assistive devices and training systems
+                                for neuro-rehabilitation, which are tested in clinical                                Yanan Li (Senior Member, IEEE) received the
+       trials and commercialized. His main research interest is in human–machine                                      B.Eng. and M.Eng. degrees in automatic control from
+       interaction.                                                                                                   the Harbin Institute of Technology, Harbin, China, in
+                                                                                                                      2006 and 2008, respectively, and the Ph.D. degree in
+                                                                                                                      robotics from the National University of Singapore,
+                                                                                                                      Singapore, in 2013.
+                                 Weiyong Si received the M.S. degree in aerospace                                        From 2015 to 2017, he was a Research Associate
+                                 engineering from the Beijing Institute of Technology,                                with the Department of Bioengineering, Imperial Col-
+                                 Beijing, China, in 2018. He is currently working                                     lege London, London, U.K. From 2013 to 2015, he
+                                 toward the Ph.D. degree in robotics with Bristol                                     was a Research Scientist with the Institute for In-
+                                 Robotics Laboratory, University of the West of Eng-                                  focomm Research, Agency for Science, Technology
+                                 land, Bristol, U.K.                                       and Research, Singapore. He is currently a Senior Lecturer in Control Engi-
+                                    His research interests include robot skill learning,   neering with the Department of Engineering and Design, University of Sussex,
+                                 teleoperation, and robot control.                         Brighton, U.K. His general research interests include human–robot interaction,
+                                                                                           robot control, and control theory and applications.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:47:16 UTC from IEEE Xplore. Restrictions apply.
+

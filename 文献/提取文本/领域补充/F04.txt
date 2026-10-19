@@ -1,0 +1,913 @@
+        2380                                                           IEEE TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, VOL. 31, NO. 6, NOVEMBER 2023
+
+
+
+
+        Safe Machine-Learning-Supported Model Predictive
+              Force and Motion Control in Robotics
+                                              Janine Matschek , Johanna Bethge , and Rolf Findeisen
+
+
+
+           Abstract— Many robotic tasks, such as human-robot interac-                     furthermore often limited with respect to the flexibility to
+        tions or the handling of fragile objects, require tight control and               formulate the force-motion control task in a structured manner.
+        limitation of appearing forces and moments alongside sensible                        This work proposes a flexible learning-supported model
+        motion control to achieve safe yet high-performance operation.
+        We propose a learning-supported model predictive force and                        predictive motion and force control scheme, which ensures
+        motion control scheme that provides stochastic safety guarantees                  the safe satisfaction of force and motion constraints despite
+        while adapting to changing situations. Gaussian processes (GPs)                   uncertainty in the wrench model.
+        are used to learn the uncertain relations that map the robot’s                       Model predictive control (MPC), an optimization-based
+        states to the forces and moments. The model predictive controller                 control strategy, allows considering constraints or limita-
+        uses these Gaussian process models to achieve precise motion
+        and force control under stochastic constraint satisfaction. As                    tions while optimizing the system’s predicted behavior. MPC
+        the uncertainty only occurs in the static model parts — the                       schemes are by now widely used for robotic tasks, includ-
+        output equations — a computationally efficient stochastic MPC                     ing the explicit consideration or limitation of forces, see
+        formulation is used. analysis of recursive feasibility of the optimal             e.g., [8], [9], [10], [11], [12]. A series of motion and force
+        control problem and convergence of the closed loop system for the                 control schemes using MPC exist [13], [14], [15], [16], [17],
+        static uncertainty case are given. Chance constraint formulation
+        and back-offs are constructed based on the variance of the                        spanning from hybrid motion and force control [13], admit-
+        Gaussian process to guarantee safe operation. The approach is                     tance control [14], [15] to unified approaches for MPC force
+        illustrated on a lightweight robot in simulations and experiments.                control [16], [17].
+           Index Terms— Chance-constraints, constraint-satisfaction,                         Most results, however, rely on the availability of good force
+        force control, Gaussian processes (GPs), machine learning,                        models. They can, e.g., be obtained via the identification of
+        model predictive control (MPC), motion control, robotics, safety.                 tailored linear and nonlinear spring and damper models [18].
+                                                                                          However, the resulting models are often limited in their pre-
+                                   I. I NTRODUCTION                                       cision. Machine learning approaches can be used to overcome
+                                                                                          this challenge, allowing for data-driven or hybrid modeling.
+        R     OBOTS are increasingly used for interactive and coop-
+              erative tasks in a wide range of applications, which
+        require safe interaction with the environment. For instance,
+                                                                                          We use Gaussian processes (GPs) [19], [20] to capture and
+                                                                                          learn the state-force interactions. Force modeling via GPs is,
+        robots should safely support humans in production processes,                      e.g., considered in [21], [22], [23], [24], and [25]. Learning of
+        without the traditional separation between the robotic and                        friction and grasping forces using GPs is considered in [21]
+        human coworkers [1]. Robots, furthermore, should reliably                         and [22], while [23] uses GPs to process sensor data from a
+        assist physicians in medical treatments [2], should securely                      tactile array. Contact forces occurring in human-robot inter-
+        support elderly people [3], or should help in rehabilitation                      actions are considered in [24] via GPs. The interaction of a
+        tasks [4]. Safe interaction requires tight motion control limiting                robot with a static environment using GPs to obtain a learned
+        the forces and appearing moments.                                                 contact force model for MPC is considered in [25].
+           While many force control schemes exist, most do not ensure                        This work proposes a combined robot motion and force
+        the satisfaction of constraints, e.g., with respect to the appear-                control scheme. An MPC scheme is presented assuming
+        ing forces and moments [5], [6], [7]. Existing approaches are                     that forces and moments are described by an (unknown or
+                                                                                          uncertain) static mapping of the robot’s states and inputs.
+          Manuscript received 7 January 2023; accepted 3 March 2023. Date of              This mapping is learned using GPs while ensuring constraint
+        publication 6 April 2023; date of current version 23 October 2023. This work
+        was supported in part by the Deutsche Forschungsgemeinschaft with GRK             satisfaction on the forces with high probability to ensure safe
+        2297 and within the Federal Ministry of Economics and Climate Protection          interaction. Compared to [8], [9], [10], [11], [12], [13], [14],
+        (BMWK) funded Project Aurora under Grant 03VP06731K. Recommended                  [15], [16], [17], [25], [26], [27], [28], [29], [30], and [31], we
+        by Associate Editor C. N. Jones. (Corresponding author: Rolf Findeisen.)
+          Janine Matschek and Rolf Findeisen are with the Control and                     propose to combine first-principle models, e.g., linear spring
+        Cyber-Physical Systems Laboratory, TU Darmstadt, 64289 Darmstadt,                 models, with GP models. The resulting hybrid model is used
+        Germany (e-mail: janine.matschek@iat.tu-darmstadt.de; rolf.findeisen@iat.         in a MPC scheme for combined motion and force control.
+        tu-darmstadt.de).
+          Johanna Bethge is with the Laboratory of Systems Theory and Auto-               As only the static mapping from the states to the forces
+        matic Control, Otto-von-Guericke-Universität Magdeburg, 39106 Magdeburg,          is learned, it is not necessary to propagate the influence of
+        Germany (e-mail: johanna.bethge@ovgu.de).                                         the resulting (“output”) uncertainty through the dynamics to
+          Color versions of one or more figures in this article are available at
+        https://doi.org/10.1109/TCST.2023.3262987.                                        ensure safe operation, as often considered in other learning-
+          Digital Object Identifier 10.1109/TCST.2023.3262987                             supported MPC schemes [32], [33], [34], [35], [36]. Inspired
+                               1063-6536 © 2023 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                             See https://www.ieee.org/publications/rights/index.html for more information.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        MATSCHEK et al.: SAFE MACHINE-LEARNING-SUPPORTED MODEL PREDICTIVE FORCE AND MOTION CONTROL                                                                  2381
+
+
+
+                                                                                          supposed to write on a delicate surface limiting the maximum
+                                                                                          force, see Fig. 1, a robot that should polish a surface with
+                                                                                          desired intensity, or a robot that should interact safely with
+                                                                                          a human not exceeding a certain force. To achieve this goal,
+                                                                                          we fuse model-based predictive motion and force controller
+                                                                                          with Gaussian process based machine-learning to capture the
+                                                                                          occurring, often difficult to model, forces.
+                                                                                             MPC allows tackling a wide variety of force and motion
+                                                                                          control tasks [12], [13], [14], [15], [17], [25], [29], span-
+                                                                                          ning from direct and indirect force control to joint hybrid
+                                                                                          motion/position and force control. We focus on hybrid position
+                                                                                          and force control, where some positions, as well as specific
+        Fig. 1. Example application: a lightweight robot equipped with a robotic          forces/moments, should be controlled jointly [7], [43].
+        hand should write on a soft surface.
+                                                                                             Specifically, we focus on motions where a robot should
+                                                                                          move (with a tool) along a “surface,” cf., Fig. 1. To do so,
+        by [33], [35], [37], [38], [39], [40], and [41], we utilize                       the interaction forces need to be tightly controlled and should
+        the variance in the hybrid output model to tighten the MPC                        be limited for safety reasons. To account for changing envi-
+        constraints. In contrast to existing works, however, we tighten                   ronments and to improve performance, the controller should
+        only the constraints mapping from the states to the “output”                      be able to adapt and learn based on data. We formalize this
+        (=forces), instead of using tubes [42] for state constraint                       task in Sections II-A and II-B.
+        tightening of the dynamics. Since the tightening is based on
+                                                                                          A. Constrained Safe Force and Motion Control
+        the variances it leads to a chance constraint formulation of
+        the MPC.                                                                             We consider that the dynamical system for the motion
+           The main contribution of this work is the development of                       and force control task, e.g., a robot and its environment,
+        a safe force and motion control scheme combining Gaussian                         is described by the nonlinear dynamics
+        process model learning and MPC where model uncertainty                                             ẋ(t) = f (x(t), u(t)),        x(0) = x0                (1a)
+        enters the static mapping from the states to the controlled
+                                                                                                           y(t) = h(x(t)).                                         (1b)
+        variables. We derive stability/recursive feasibility conditions
+        for the learning-supported predictive controller. In the pre-                     Here, t ∈ R represents the time, x(t) ∈ Rn x denotes the state,
+        dictive controller, the uncertainty estimates provided by the                     and u(t) ∈ Rn u is the input of the system. The states might
+        Gaussian process are integrated as chance constraints to guar-                    for example describe the angular positions and velocities of
+        antee stochastic constraint satisfaction. As the uncertainty is                   the robot, while the inputs might represent the torques in
+        related to the “static output” mapping, one can calculate it                      the joints. The map f : Rn x × Rn u → Rn x describes the
+        offline efficiently, i.e., there is no need for computational                     dynamics, while the “output” y(t) ∈ Rn y , given by h : Rn x →
+        intense online propagation through the system dynamics.                           Rn y maps the states to the variables of interest – the controlled
+        The approach allows offline learning, as well as learning in                      variables, such as positions, velocities, forces, and moments.1
+        between batches of iterative tasks. Summarizing, the uncer-                       We assume, for simplicity of presentation, that full-state
+        tainty estimates allow us to find suitable back-offs of the                       measurements are available. Note that the output does not
+        constraints to robustify the model predictive controller. The                     relate to measured variables, it is used to evaluate the control
+        theoretical findings are illustrated in simulations and experi-                   performance via the controlled variables. Section VI presents
+        ments considering force and motion control of a lightweight                       an example of force and motion control of a lightweight robot,
+        KUKA robot, see Fig. 1.                                                           cf., Fig. 1.
+           The remainder of the article is structured as follows. The                        We want to satisfy constraints on the states, inputs, and
+        considered, learning supported control problem is introduced                      outputs, which are given by the sets X ⊂ Rn x , Y ⊂ Rn y , and
+        in Section II. Section III proposes the model predictive                          U ⊂ Rn u , i.e., to limit the forces, torques, or states. Depending
+        force controller. It is extended by a Gaussian-process-learning                   on the formulation, these will be hard – set based – constraints,
+        component, which is introduced in Section IV. The overall                         or probabilistic constraints, see Section V. With respect to the
+        resulting learning-supported force controller is presented in                     sets we assume that
+        Section V. Section VI illustrates the proposed approach in                           Assumption 1: The sets X , Y are closed, and U is compact.
+        simulations and experiments for a lightweight robot. Finally,                        With respect to the dynamical system, we furthermore
+        Section VII concludes this work with a summary and an                             assume that as follows.
+        outlook.                                                                             Assumption 2: f and h are sufficiently often continuously
+                                                                                          differentiable and locally Lipschitz.2 Furthermore, for any
+                                 II. P ROBLEM S ETUP                                        1 The output y might also explicitly depend on the input u. While the
+                                                                                          derived results hold for this case, we do not consider the influence of the
+           We aim to develop a control scheme that guarantees safe                        inputs directly for simplicity of presentation.
+        interaction and satisfaction of force constraints, e.g., between a                  2 One might relax this condition to only hold in a region of interest, which
+        robot and its environment. An example might be a robot that is                    we avoid to streamline the presentation.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        2382                                                           IEEE TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, VOL. 31, NO. 6, NOVEMBER 2023
+
+
+
+        continuous input signal with u(τ ) ∈ U and for all x0 ∈ X ,                         1) h̃(x) fits the data, i.e., h̃(xi ) ≈ ŷi for (xi , ŷi ) ∈ D, while
+        (1) admits a unique absolutely continuous solution.                                     trading off between complexity and consistency.
+           The goal is to follow a given reference path, which is                           2) The error (h̃(x) − h(x)) can be bounded.
+        defined as a geometric curve in the “output” space, as good as                    We outline in Section IV how to use GPs to achieve this task.
+        possible while satisfying constraints. For example, the robot                     We use the resulting hybrid model in a tailored MPC scheme to
+        shown in Fig. 1 should write on a flexible and possibly                           achieve safe motion and force control, as outlined in Section V.
+        uneven surface. Hence, it should follow a given path while
+        keeping forces at desired values and constrained, even under                       III. M ODEL P REDICTIVE F ORCE AND M OTION C ONTROL
+        disturbances and uncertainty. The reference path is given by                         MPC is a model-based approach that repeatedly solves an
+        the following equation:                                                           optimal control problem [47], [48]. It allows controlling linear
+                      P := yr ∈ Rn y yr = rpf (θ (t))
+                            
+                                                                   (2)                    and nonlinear systems, the direct consideration of constraints,
+                                                                                          as well as preview information about disturbances, changing
+        with the parametrization rpf : 2 → Rn y . Note that the refer-                    references, and paths [44]. The possibility to explicitly account
+        ence only indirectly depends on the time via the path parameter                   for constraints makes MPC a valuable tool for the con-
+        θ(t) ∈ 2 = [−1, 0]. The evolution of the path parameter over                      trol and decision-making of autonomous systems and robots.
+        time is not fixed a priori — it is adjusted by the controller                     Constraint consideration enables safe operation by limiting
+        online [13], [44], [45], which provides additional degrees of                     torques, robot positions, velocities, or forces and taking obsta-
+        freedom that can be exploited by the controller. For example,                     cles directly into account, as outlined in the following.
+        in case of disturbances, the controller can adjust the reference
+        speed while compensating for the disturbance, thus avoiding                       A. Optimal Control Problem Formulation
+        performance deterioration, cf., [13].                                               For path following motion and force control (Task 1) we
+           Given the reference path P, we aim to solve the following                      propose to use a tailored sampled-data MPC formulation [13],
+        task [13], [45], [46].                                                            [45], [46]. At every sampling time tk an optimal control
+           Task 1 (Path Following Force and Motion Control): Given                        problem, exploiting the reference speed along the path as an
+        the system (1) and path P, design a controller that achieves.                     additional degree of freedom, is solved
+           1) Convergence: The “output” (1b) should converge to the                               min Jpf ēpf , θ̄ , ū, v̄, x̄, z̄
+                                                                                                                                     
+                                                                                                                                                  (4a)
+               set P, i.e., lim y(t) − rpf (θ (t)) = 0.                                              ū,v̄
+                              t→∞
+           2) Forward Motion Along the Path: The reference rpf (θ (t))                              s.t. ∀τ ∈ [0, T ]
+               moves along P in the direction of increasing θ values,                                    x̄˙ (τ ) = f (x̄ (τ ) , ū (τ )) ,        x̄ (0) = x (tk )       (4b)
+               i.e., θ̇ (t) ≥ 0 and lim θ (t) = 0.
+                                    t→∞                                                                      z̄˙ (τ ) = g (z̄ (τ ) , v̄ (τ )) ,   z̄ (0) = z (tk )        (4c)
+           3) Constraint Satisfaction: The states, inputs, and “outputs”
+                                                                                                             θ̄ (τ ) = l (z̄ (τ ))                                        (4d)
+               should satisfy x ∈ X , u ∈ U, and y ∈ Y.
+        Note that y and the path P can describe (desired) motions                                            ēpf (τ ) = rpf (l (z̄ (τ )) − h (x̄ (τ ))                   (4e)
+        and forces/moments. Hence, one can include constraints on                                            x̄ (τ ) ∈ X ,      ū (τ ) ∈ U, h (x̄ (τ )) ∈ Y              (4f)
+        the forces by choosing appropriate constraint sets.                                                  z̄ (τ ) ∈ Z,      v̄ (τ ) ∈ V, θ̄ (τ ) ∈ 2                   (4g)
+           In comparison to earlier works [13], [45], [46], we consider
+                                                                                                             (x̄ (T ) , z̄ (T )) ∈ Fpf .
+                                                                                                                                ⊤
+                                                                                                                                                                          (4h)
+        that the “output” mapping h might be unknown or uncertain,
+        as relations between the robot’s states, the environment and the                  Predictions are indicated by ¯·. Besides the system dynamics
+        forces/moments are, in general, challenging to model. To do                       (4b), a “virtual reference dynamics” (4c)–(4d) is used, which
+        so, we use methods from machine learning, as outlined in the                      allows shaping the dynamics of the speed along the path [13],
+        following subsection.                                                             [45]. The virtual (reference) state, input, and output are z(t) ∈
+                                                                                          Rn z , v(t) ∈ R, and θ (t) ∈ R, which are described by the
+                                                                                          virtual system dynamics g : Rn z × R → Rn z and the virtual
+        B. Learning-Supported Force/Output Modeling
+                                                                                          output l : Rn z → R. The virtual input v provides an additional
+           We propose to use a hybrid model combining machine                             degree of freedom in the optimal control problem allowing
+        learning and the first principle model components. The hybrid                     to adjust the reference path progress/evolution. The constraint
+        model is used in the controller to predict, control, and limit                    (4h) Fpf ⊆ (X × Z) ∩ (h −1 (Y) × l −1 (2)) is a final terminal
+        the forces for a reliable and safe operation. It is given by the                  region constraint. It is used to ensure repeated feasibility and
+        following equation:                                                               stability/convergence [13], [45].
+                                                                                             The cost function penalizes the error epf (t) (4e) to achieve
+                               h̃(x) = h fp (x) + h ml (x)                        (3)
+                                                                                          path following:
+        where the first principle part h fp : Rn x → Rn y encodes prior                                                      Z T
+                                                                                           Jpf ēpf , θ̄ , ū, v̄, x̄, z̄ :=     L pf ēpf (τ ), θ̄ (τ ), ū(τ ), v̄(τ ) dτ
+                                                                                                                                                                       
+        knowledge, while h ml : Rn x → Rn y is obtained from data via
+                                                                                                                                0
+        machine-learning achieving the following task.
+                                                                                                                                              + E pf (x̄(T ), z̄(T )) .    (5)
+           Task 2 (Output/Force Model Learning): Learn a hybrid
+        model h̃(x) = h fp (x) + h ml (x) exploiting data D such that as                  Here, L pf : Rn y × R × Rn u × R → R+   0 is a stage cost and
+        follows.                                                                          E pf : Rn x × Rn z → R+
+                                                                                                                0 is a terminal penalty term.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        MATSCHEK et al.: SAFE MACHINE-LEARNING-SUPPORTED MODEL PREDICTIVE FORCE AND MOTION CONTROL                                                                      2383
+
+
+
+            State, input and output constraints are enforced by                           For dimension i, we assume that noisy observations F̂i are
+        (4f) and (4g) (Task 1.3). Forward motion along the path                           available that origin from
+        (Task 1.2) is ensured by requiring that 2 := [−1, 0] and                                                       F̂i = h i (x) + ηi                                (6)
+        that θ̇ ≥ 0.
+            The optimal control problem is solved at all sampling times                   where the mapping h i (the considered force component of
+        tk . From the resulting optimal input signal, only the first part                 h) from the system state x ∈ Rn x to the measured variable
+        until the next sampling instant is used and the optimization is                   F̂i ∈ R is corrupted by the uncertainty or noise ηi . This noise
+        repeated in a receding-horizon fashion.                                           is assumed to follow an independent, identically distributed
+            Convergence to the path/stability of the path following MPC                   Gaussian distribution ηi ∼ N (0, σi2 ) with zero mean and
+        can be guaranteed, similar to standard MPC, by suitable                           variance σi2 .
+        choice of the cost function and the terminal constraints [44],                       We use a GP to model the underlying function h ml,i in h̃ i
+        [45]. We consider that the following assumptions and condi-                       which approximates h i via
+        tions hold.                                                                                      h ml,i (x) ∼ GP m(x), κ x, x ′ .
+                                                                                                                                       
+                                                                                                                                                       (7)
+            Assumption 3: The stage cost L pf : Rn y × R × Rn u ×
+        R v → R+
+           n                                                                              Here, m(x) ∈ R denotes the mean of the GP and κ(x, x ′ ) ∈ R
+                    0 is continuous and lower bounded by a class K∞
+        function α1 such that L pf (epf , θ, u, v) ≥ α1 (∥(epf , θ −θend )⊤ ∥).           denotes the covariance. This covariance is a measure of the
+            Assumption 4: The terminal cost E pf : Rn x × Rn z → R+                       joint variability of two random variables and the function
+                                                                             0 is
+        positive semi-definite and cont. differentiable in x and z, and                   κ : Rn x × Rn x → R is positive semi-definite and symmet-
+        the terminal set Fpf ⊆ X × Z is closed. Furthermore, for all                      ric. Once a prior assumption on the mean and covariance
+        (x̃, z̃)⊤ ∈ Fpf there exist inputs (u F , vF )⊤ (·) ∈ U × V such                  function is posed, the training of the GP is performed to
+        that for all τ ∈ [0, Ts )                                                         obtain posterior distributions. The GP is trained on the data
+                                                                                          D := (x, F̂), where x := (x 1 , . . . , x n D )⊤ and F̂ := ( F̂ 1 −
+            ∂ E pf ∂ E pf     f (x(τ ), u F (τ ))
+                                              
+                  ,        ·                                                              h fp,i (x 1 ), . . . , F̂ n D − h fp,i (x n D ))⊤ . The superscript i in x i , F̂ni
+             ∂x     ∂z        g(z(τ ), vF (τ ))                                           with i = 1, 2, . . . , n D enumerates the available measuring
+                                 + L pf epf (τ ), θ (τ ), u F (τ ), vF (τ ) ≤ 0           instances. The training determines the hyperparameters φ ∈
+                                                                           
+                                                                                          Rn φ of the GP, which include the parameters of the mean
+        and that x(τ ) = x(τ, x̃|u F ) and z(τ ) = z(τ, z̃|vF ) stay in Fpf ,             and covariance functions as well as the noise variance. The
+        i.e., Fpf is control invariant.                                                   number of the hyperparameters n φ depends hereby on the assu-
+           Following [44], [45] one can establish the following result.                   med prior structure, i.e., on the specific choice of the mean
+           Theorem 1: If Assumptions 1–4 hold, and if the optimal                         and covariance functions. Often an estimate of the most
+        control problem (4) is initially feasible, then (4) is recursively                likely hyperparameters is obtained via the maximization of the
+        feasible and the path-following error epf converges to zero                       logarithmic marginal likelihood [19], [20]. Given these hyper-
+        under sampled-data NMPC.                                                          parameters, the posterior distribution of the GP conditioned
+           For details, we refer to [45] and [44]. We use the outlined                    on the prior and the data can be derived. The joint posterior
+        path following the MPC scheme as a basis and adjust it in                         distribution at previously seen data points x and at the query
+        Section V to guarantee constraint satisfaction/safety despite                     point x ∗ is given by the following equation:
+        the uncertainty due to the hybrid uncertain output model.
+                                                                                                                                              K + σ2I
+                                                                                                                                                                 
+                                                                                                  F̂                          m(x)                            k
+                                                                                                               ∼   GP                     ,
+                                                                                            h ml,i (x ∗ )                    m (x ∗ )           k⊤       κ (x ∗ , x ∗ )
+                             IV. G AUSSIAN P ROCESSES
+                                                                                          where m(x) := (m(x 1 ), . . . , m(x n D ))⊤ . The covariance matrix
+           We propose to use GPs to learn the unknown output                              K specifies the covariance between all of the training data
+        mapping h ml . GPs are stochastic processes that follow an                        points and is given by the following equation:
+        infinite-dimensional joint normal distribution [19], [20]. They
+                                                                                                           κ x 1, x 1               κ x 1, x n D
+                                                                                                                                               
+        have gained increasing attention in the control commu-                                                             ···
+                                                                                                         κ x 2, x 1                κ x 2, x n D 
+                                                                                                                                                
+                                                                                                                           ···
+                                                                                                        
+        nity [35], [49], [50], [51], [52], [53], [54]. We propose to use
+                                                                                                  K =                                            .
+                                                                                                                ..         ..              ..
+                                                                                                        
+        GPs, as they provide robustness against noise, the inclusion of
+                                                                                                                 .             .            .
+                                                                                                                                                  
+                                                                                                                                                 
+        physical knowledge, and their stochastic nature allows fitting
+                                                                                                          κ x ,x
+                                                                                                              n      1     · · · κ (x , x )
+                                                                                                                                        n     n
+                                                                                                                       
+                                                                                                                D                         D     D
+        data without overfitting (Task 2.1). Furthermore, GPs provide a
+        posterior uncertainty measure to calculate a reliability bound                    The cross covariance between the trainings and the
+        (Task 2.2), which can be used to achieve safe operation as                        query points is given by k := (κ(x 1 , x ∗ ), κ(x 2 , x ∗ ), . . . ,
+        outlined in Section V-A.                                                          κ(x n D , x ∗ ))⊤ . Hence, the GP posterior is given by the pos-
+                                                                                          terior mean function m + : Rn x → R that is defined by the
+                                                                                          following equation:
+        A. Gaussian Process Force Modeling                                                                                         −1            
+                                                                                              m + x ∗ := m x ∗ + k ⊤ K + σ 2 I            F̂ − m (x) (8)
+                                                                                                                  
+          In the following, we focus on modeling a part of the out-
+        put/controlled variable, e.g., the contact forces, in dependence                  and the posterior covariance κ + : Rn x × Rn x → R that is
+        on the state of the system/robot. In general, multiple output                     given by the following equation:
+        parts F ∈ Rn F with n F > 1 can be considered. In such a case                                                                       −1
+                                                                                                κ + x ∗ , x ∗ := κ x ∗ , x ∗ − k ⊤ K + σ 2 I
+                                                                                                                           
+        multiple 1-D GPs or a multidimensional GP could be used.                                                                                 k.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        2384                                                           IEEE TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, VOL. 31, NO. 6, NOVEMBER 2023
+
+
+
+          V. L EARNING -S UPPORTED M ODEL P REDICTIVE F ORCE                                   Proof: The output function h is given by h(x) =
+                         AND M OTION C ONTROL                                             E(h̃(x)) = h fp (x) + m(x) + k ⊤ (K + σ 2 I )−1 ( F̂ − m(x)),
+           We aim for precise and safe control of robot motions                           where the entries of K and k are K i, j = κ(x i , x j ) and
+        and interaction forces under constraint satisfaction. To do so,                   k i = κ(x i , x) with i, j ∈ {1, . . . , n D } cf., (3) and (8). Dif-
+        we use GPs for hybrid modeling of the system output (1b)                          ferentiability of h is guaranteed via the differentiability of the
+        while we assume negligible model plant mismatch in the                            summands. Local Lipschitz continuity of h on each compact
+        system dynamics (1a) in combination with MPC. We exploit                          set X̃ ⊂ X follows since the restriction of any continuously
+        the fact that the “output” model uncertainty does not need                        differentiable function on a compact set is Lipschitz.
+        to be propagated through the dynamics of the system and                               Corollary 1: Provided that Assumptions 1–5 hold. Then
+        can be used for constraint tightening: In MPC, predictions                        the model predictive feedback resulting from repeatedly solv-
+        are performed with the model. If the prediction model of the                      ing (4) using the nominal learned output model (3) for predic-
+        dynamical system is uncertain, i.e., contains a GP, uncertainty                   tion without model-reality mismatch and noise is recursively
+        needs to be propagated through the system andthe resulting                        feasible, and the control error converges to zero.
+        distribution is typically non-Gaussian [35]. When the uncer-                          Common prior mean and covariance functions that allow
+        tainty only appears in the output projection, such uncertainty                    satisfying Assumption 5 are the squared exponential covari-
+        propagation is unnecessary. Therefore, the output variance,                       ance, periodic covariances, or specific parametrization of the
+        which reflects the uncertainty in the model, does not need to                     Matérn covariance [20].
+        be approximated. The posterior of the GP forms a Gaussian
+        distribution over the full prediction horizon without neces-                      B. Ensuring Safety – Output Chance Constraint MPC
+        sarily growing over time or becoming increasingly uncertain.
+                                                                                             Neglecting the uncertainty in the output does not allow
+        We show how this structure leads to a simplified stochastic
+                                                                                          to ensure constraint satisfaction. We outline how to use the
+        MPC formulation and derive a tailored chance-constrained
+                                                                                          posterior variance to include a measure of the modeling
+        formulation.
+                                                                                          errors in the controller and thus increase safety. To do so,
+           We start the discussion by considering that the model
+                                                                                          we reformulate the output constraints as chance constraints
+        uncertainty is neglected in the MPC controller. Afterward,
+                                                                                          and tighten them by a set that includes most of the uncertainty.
+        we consider how the covariance of the GPs can be used
+                                                                                          Doing so requires that the following assumption with respect
+        for constraint tightening to achieve safe control via chance-
+                                                                                          to the error of the hybrid model holds.
+        constrained MPC.
+                                                                                             Assumption 6: There exists a finite bound b j : X̃ → R for
+                                                                                          each approximation error (h j (x) − E(h̃ j (x))) on a compact
+        A. Nominal MPC – Neglecting the Uncertainty of the                                set X̃ ⊂ Rn x such that p(|h j (x) − E(h̃ j (x))| > b j (x)) < 1 −
+        Learned Model                                                                     ϵ for all x ∈ X̃ , j ∈ {1, . . . , n y } and ϵ ∈ (0, 1), where p
+           In practice, the model uncertainty is often neglected in the                   denotes the probability.
+        MPC predictions, i.e., a nominal MPC scheme with the learned                         Deriving such bounds is, for example, outlined in [55]
+        model is used. The (unknown) output h in the prediction is                        and [56]. In practice, often the posterior variance of a GP
+        replaced by the learned hybrid model h̃(x) = h fp (x) + h ml (x).                 is assumed to approximate these error bounds b j directly,
+        In the case of the hybrid model outlined in Section VI-A we                       cf., [38], [41], [52]. It has been reported that this posterior
+        use the mean value for the prediction. The optimal control                        variance can lead to an underestimation of the uncertainty,
+        problem (4) with the hybrid output model (3) in constraint (4e)                   especially in multistep-ahead predictions [50]. In our setup,
+        remains otherwise unchanged.                                                      no uncertainty propagation is needed. Hence, we exploit
+           As a first step, we establish recursive feasibility and con-                   multiples of the posterior standard deviation as a measure for
+        vergence with the learned output model, assuming that the                         the approximation quality. Including chance constraints for the
+        GP matches reality ideally, i.e., E(h̃(x)) = h(x), and that no                    output, the optimal control problem (4) is slightly modified.
+        noise is present: σ y (x) = (κ + (x, x))1/2 = 0. To do so, the GP                 In particular the control error (4e) is changed into
+        part of the hybrid model must satisfy the conditions required                                                                        
+        for Theorem 1, i.e., Assumptions 1–4. Only Assumption 2,                                      epf (τ ) = rpf (l(z(τ ))) − E h̃ (x(τ )) .          (9)
+        specifically the smoothness of the output model, is critical. The
+                                                                                             This way, the control error and objective function are
+        required smoothness can be ensured by posing the following
+                                                                                          deterministic. Also, the output constraints in (4f) are altered
+        conditions on the GP part of the learned output map.
+                                                                                          into chance constraints p(h̃(x(τ )) ∈ Y) ≥ pY , where pY ∈
+           Assumption 5: The prior mean and covariance function m :
+                                                                                          (0, 1) denotes a chosen probability for the satisfaction of the
+        Rn x → R, κ : Rn x × Rn x → R, and the first-principles model
+                                                                                          constraints. This chance constraint can be reformulated into
+        part h fp : Rn x → Rn y are continuously differentiable for all                                                   
+        x, x ′ ∈ X .                                                                                            E h̃(x(τ )) ∈ Ỹ                     (10)
+           Provided that these conditions hold, we can establish the
+        following lemma.                                                                  where the modified constraint set Ỹ is defined via Ỹ := Y
+           Lemma 1: Assumption 5 implies that the learned output                          ⊖ R. The set R is constructed via the respective confidence
+        function h : Rn x → Rn y is continuously differentiable and                       level or error bound that belong to the desired reliability pY .
+        locally Lipschitz for all x ∈ X .                                                 For example, R = [−2σ y (x), 2σ y (x)] for a 1-D output with
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        MATSCHEK et al.: SAFE MACHINE-LEARNING-SUPPORTED MODEL PREDICTIVE FORCE AND MOTION CONTROL                                                                  2385
+
+
+
+
+                                                                                          Fig. 3. Illustration of the base frame and the reference for the robot writing
+                                                                                          task.
+
+                                                                                          by Assumption 7. Moreover, we pose additional conditions on
+                                                                                          the nonemptyness of the intersection of Ỹ and h −1 (Ỹ) which
+                                                                                          is necessary for an (initial) feasible solution to exist.
+                                                                                             Observation 1: Given that Assumptions 1–7 hold, then the
+                                                                                          output chance constrained predictive controller is recursively
+                                                                                          feasible with the probabilistic satisfaction of the constraints
+                                                                                          and the control error epf from (9) converges to zero.
+                                                                                             Note that the constraint satisfaction of the true outputs h(x)
+                                                                                          with respect to Y can be guaranteed only with probability pY .
+
+                                                                                                              VI. A PPLICATION E XAMPLE
+                                                                                             The benefits of a learning-supported MPC force controller
+                                                                                          are shown here in a robotic application example. The robot
+                                                                                          should follow a Cartesian reference path. At the same time,
+        Fig. 2. Constraint tightening. (a) Based on the posterior variance (gray area)
+        of the output model the original constraints (red dashed line) are tightened.     the robot is in contact with a flexible surface and should
+        (b) Based on the maximum value σ y,max of the posterior variance (gray area)      apply a desired force along the Cartesian reference normal
+        the original constraints (red dashed) are tightened.                              to the contact surface. As an illustrative example, we use
+                                                                                          a calligraphic writing task, where different contact forces
+                                                                                          along the reference are desired. The y- and z-axes of the
+        pY ≈ 95.45, where σ y is the standard deviation of the learning                   base frame are parallel to the whiteboard surface, while the
+        based output h̃(x). Alternatively, the constraint tightening can                  x-axis is normal to the surface, see also Fig. 3. The position
+        consider the worst case realization of the uncertainty over a                     reference is a sinusoidal curve depicted as a black line in
+        compact set X̃ such that σ y,max := max σ y (x) is used in the                    Fig. 3 and the force reference is indicated via a blue shaded
+                                                      x∈X̃
+                                                                                          area along the x-axis. Since the reference consists of 3-D,
+        construction of R instead of σ y . Fig. 2 illustrates the constraint
+                                                                                          we consider the control of three joints of the robot to obtain
+        tightening. In both cases, we need to ensure the existence of
+                                                                                          a square input–output structure n y = n u = 3.
+        solutions and (initial) feasibility of the optimal control problem
+        with tightened constraints. Therefore, we rely on the following
+        assumptions.                                                                      A. Robot and Force Model
+           Assumption 7: The tightened output set Ỹ is closed. Fur-                         The derivation of the dynamical system equation based on
+        thermore, the intersection of the state constraint set X and the                  first principles is given in Appendix A. In this section, the
+        preimage h −1 (Ỹ) of the tightened output constraint set Ỹ is                   hybrid output modeling is discussed in more detail. The system
+        nonempty and contains the reference rpf .                                         outputs are given via y = ( pe,y , pe,z , Fn , z 1 )⊤ , where pe,y
+           When considering the uncertainty in the output via tightened                   and pe,y are the Cartesian end-effector (pen tip) position in
+        constraints, the following output chance constrained MPC                          y- and z-direction. These are obtained via the direct kine-
+        setup is used.                                                                    matics of the robot. The third output Fn ∈ R denotes the
+           1) Output Chance Constraint MPC: In the repeatedly solved                      normal contact force between the pen and the whiteboard in
+        optimal control problem (4), the learned output model h̃(x) =                     x-direction of the base frame and θ = z 1 represents the path
+        h fp (x)+h ml (x) is used in the control error formulation epf (9).               parameter. We assume that sufficiently precise first-principle
+        Furthermore, the tightened output constraint set Ỹ instead of                    output models for pe,y , pe,z exist. In contrast, the contact
+        Y is used in (4f) and (4h).                                                       forces also depend on the robots surroundings and can vary in
+           In comparison to the nominal case, alterations in the output                   their complexity arbitrarily. Therefore, the modeling of the
+        constraints are performed. In contrast to classical stochastic                    contact forces is performed with a hybrid model. We use
+        MPC, the state constraints remain untouched by uncertainty.                       a simple first-principle models to capture the basic physical
+        Hence, stability/convergence results can be established simi-                     knowledge and enhance extrapolation. It is supported by a
+        larly as in Section V-A. The assumption on the closedness of Ỹ                   Gaussian process to increase the model accuracy and flexibil-
+        is the only assumption at stake, which is, however, guaranteed                    ity. To underline the benefits of the hybrid model (increased
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        2386                                                           IEEE TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, VOL. 31, NO. 6, NOVEMBER 2023
+
+
+
+                                                                                          is assumed to be placed parallel to the y-z-plane of the robot’s
+                                                                                          base frame, the penetration depth is defined along the x-axis
+                                                                                          with an assumed initial contact position of −0.49 m.
+                                                                                             As can be seen in Fig. 5 (left), the linear model (solid gray
+                                                                                          line) is a poor approximation of the measured forces. The
+                                                                                          root mean square error between the linear force model output
+                                                                                          and the data is 1.06 N. The nonlinear force model (black
+                                                                                          dashed line) approximates the interaction forces better than
+                                                                                          the linear one, cf., Fig. 5, middle. The corresponding root
+        Fig. 4. Penetration depth δ is the distance between the end-effector pose
+        pe = h fk (q) and the initial contact position p0 along the normal of the
+                                                                                          mean square error is 0.91 N. The hybrid model can also take
+        environment surface. The resulting normal force Fn is modeled as a function       the non-perfect alignment of the whiteboard as well as small
+        of δ.                                                                             unevenness and stiffness changes of it into account. This
+                                                                                          can also be seen in Fig. 5, middle and bottom. While the
+        model accuracy and uncertainty quantification for robustifica-                    contact forces are often underestimated by the linear model,
+        tion), three different modeling schemes are investigated and                      the nonlinear spring model sometimes overestimates them, see
+        compared in the following.                                                        Fig. 5 (center) in y ∈ [0.16, 0.22] or Fig. 5 (bottom middle)
+           Among the purely elastic models, which can be used to                          in z ∈ [0.66, 0.7]. In contrast, the hybrid model nicely fits
+        quantify the interaction, are the linear spring model of the                      the data without overfitting its noise. It shows a root mean
+        Hook                                                                              square error of 0.41 N, which corresponds to an error reduction
+                             Fn,Hk := h Fn,Hk (x) = K e δ                        (11)     of 61% compared to the linear spring model and of 55%
+                                                                                          compared to the nonlinear model.
+        and the nonlinear spring model of Hertz
+                             Fn,Hz := h Fn,Hz (x) = K e δ α                      (12)     B. Controller Setup
+        where K e ∈ R is a spring constant and the coefficient α ∈ R+                        Using the hybrid model, a model predictive controller is
+                                                                       0
+        introduces nonlinearity and is equal to 1.5 in the original work                  implemented. The simulations of the system are performed in
+        of Hertz. The penetration depth δ is shown in Fig. 4. As the                      MATLAB and the optimal control problem is solved using
+        third model, we propose a hybrid model composed of a linear                       ACADO [58]. In the experiments, the fast research interface
+        spring model and a GP via h ml (x) ∈ R. It is given by the                        establishes the communication between the KUKA lightweight
+        following equation:                                                               robot and the work station PC [59]. Joint torques are sent over
+                                                                                          the interface as inputs to the robot and the robot’s inbuild
+                 Fn,HkGP := h Fn,HkGP (x) = K e h δ (q) + h ml (x).              (13)     joint position and velocity sensors are used to measure the
+                                                                                          states which are sent back to the PC. A CAN-bus builds
+           1) Training Data: The parameters of the first-principle
+                                                                                          the connection to the wrist force-torque sensor [60], which
+        models are estimated on data that was collected by a baseline
+                                                                                          provides the contact force data. The communication interface
+        controller. This baseline controller is outlined in [13] for
+                                                                                          for the control of the robot from MATLAB was designed
+        a similar control task. Multiple runs of the controller are
+                                                                                          in [61]. The sensor interface is outlined in [62]. Fig. 6
+        performed in the vicinity of the original reference. The full
+                                                                                          describes this overall setup. For the following simulations and
+        available dataset consists of 20 000 data points, where each
+                                                                                          experiments, the same cost function and control parameters
+        data point represents the measured joint angle positions and
+                                                                                          are used, which are given in Appendix B.
+        the corresponding contact force, as depicted in Fig. 5 as gray
+        crosses. The training data used for the GP consisted of 85 data
+        points, which is a subset of the evaluation dataset. These points                 C. Simulation Results
+        are shown in Fig. 5 (right-hand side) as black crosses. They                         1) Learning-Supported Hybrid Force Control Simulation:
+        have been chosen with 0.015 rad minimum Euclidean distance                        First simulations are performed following a reference path.
+        in terms of the angular positions between each other to obtain                    In these simulations, no model-plant mismatch in the dynamic
+        an equally spread coverage of the considered space.                               equations is assumed. Instead, a simulated mismatch in the
+           2) Modeling and Learning Results: Fig. 5 plots from top to                     contact forces is considered. To do so, a purely data-based
+        bottom the measured and modeled forces over the Cartesian                         force model using 515 data points was trained. Since this
+        x-, y-, and z-directions of the base frame. Additionally to                       model is using more than six times as much data as the hybrid
+        the data, the results for the linear spring (Fig. 5, left), the                   GP, it gives an even better representation of the true contacts.
+        nonlinear spring (Fig. 5, middle), and the hybrid model (Fig. 5,                  Note that the computational demand for GP inference grows in
+        right) are depicted. An optimization-based identification of                      general cubically with the amount of data points. Thus, such
+        the parameters resulted in K e = 341.56 for the linear, and                       a big GP model is neither suited for fast online simulations
+        K e = 2.5276 · 108 , α = 3.7651 for the nonlinear model.                          nor the use of a real-time optimal controller. Nevertheless,
+        The latter was parameterized using a two-stage identification                     it allows us to test model-plant mismatch in simulations.
+        procedure [57]. The hybrid model combines the linear model                           The Cartesian end-effector position in this simulation in the
+        with a Gaussian process with zero prior mean and squared                          y-z-plane can be seen in Fig. 7. The reference path is shown
+        exponential prior covariance function. Since the board surface                    in a black dashed line, while the simulated robot position is
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        MATSCHEK et al.: SAFE MACHINE-LEARNING-SUPPORTED MODEL PREDICTIVE FORCE AND MOTION CONTROL                                                                  2387
+
+
+
+
+        Fig. 5. Comparison of linear (left), nonlinear (middle), and hybrid force model (right) plotted over the Cartesian x-direction (top), y-direction (middle), and
+        z-direction (bottom).
+
+
+
+
+        Fig. 6. Linux Work station PC with Ubuntu 12.04 and an Intel Xeon(R)
+        X5675 processor with 3.07 GHz x6 connected to the KUKA robot via the
+        fast research interface (FRI) and to the force/torque sensor via can bus.
+
+
+        depicted as blue solid line. To achieve an optimal tracking
+        performance, the model predictive controller is adjusting the
+        reference evolution. The virtual system states are depicted in                    Fig. 7.   Cartesian end-effector position in simulations.
+        Fig. 8. The path parameter θ starts at −1 and moves toward
+        its end value 0 without exceeding it. The non-admissible area,
+        i.e., the area where the constraints are violated, is depicted                       The evolution of the contact force over time is depicted in
+        as a red-shaded area. The path parameter derivative is shown                      Fig. 9. The model-plant mismatch in the output equation leads
+        in Fig. 8, bottom. As can be seen, the path-following control                     to a deviation of the achieved contact force from its reference,
+        formulation leads to a nontrivial velocity profile. It enables                    cf., Fig. 9. Even though the MPC prediction model claims
+        optimal path following while considering limitations, e.g.,                       that the contact force is close to the reference (thin gray line),
+        in the joint velocities.                                                          the true contact force (blue solid line) deviates from it. The
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        2388                                                           IEEE TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, VOL. 31, NO. 6, NOVEMBER 2023
+
+
+
+                                                                                          black thin line. As can be seen in Fig. 10, the disturbance
+                                                                                          pushes the robot away from the board between t = 8 and t =
+                                                                                          9 s, which leads to smaller forces. The hybrid GP model (thin
+                                                                                          black line) overestimates the contact forces in this area, such
+                                                                                          that it calculates minimum forces of 0.1 N in the untightened
+                                                                                          case. However, the simulated force of the large GP (blue line)
+                                                                                          is falling below zero, i.e., indicating that the robot has lost
+                                                                                          contact. Hence, the original lower constraint of 0 N is violated,
+                                                                                          due to the model-plant mismatch. In contrast, the tightened
+                                                                                          constraints prevent this contact loss, cf., Fig. 10 right. They
+                                                                                          become active at around t = 8.5 s, limit the occurring force
+        Fig. 8. Virtual system in simulation. The path parameter θ (top) is constrained   error, and introduce a safety margin such that the true force
+        to non-positive values (red area depicts constraints) while the path speed        (blue line) obeys the original force constraints, cf., Fig. 10,
+        (represented by θ̇ , bottom) is restricted to non-negative values for forward
+        motion.                                                                           right. Hence, safe and stable contact between the robot and the
+                                                                                          whiteboard is guaranteed at least with the chosen probability
+                                                                                          despite the occurring disturbance.
+                                                                                             3) Comparison to First-Principle Model-Based Controllers:
+                                                                                          Additional simulation studies are performed to compare the
+                                                                                          closed-loop control performance of the learning-supported
+                                                                                          controller with controllers using the first-principle models.
+                                                                                          To do so, the same controller parameters are used as listed in
+                                                                                          Section VI-B for all simulations. The difference between the
+                                                                                          three controller setups compared in this section lies mainly
+                                                                                          in the force output model. The linear first-principle model,
+                                                                                          the nonlinear first-principle model, and the hybrid model
+                                                                                          from Section VI-A are used, respectively. Fig. 11 shows the
+                                                                                          system outputs for the linear spring model (Hk), the nonlinear
+                                                                                          force model (Hz), and the hybrid model (Hk + GP). As can
+                                                                                          be seen, the influence of the different force models on the
+                                                                                          performance in the position-controlled subspace (Cartesian
+        Fig. 9. Contact force in simulation. Simulated force (blue solid line) and        x- and y-direction) is comparably small. A clear difference
+        predictions inside the optimal control problem (thin gray solid line). The dark   between the controller performances can be seen in the force-
+        red area depicts original constraints, medium red shows constraint tightening
+        based on state-dependent variances, light red area depicts shrunken constraints   controlled output, cf., Fig. 11 left. The model-plant mismatch
+        for state-independent over-approximation of uncertainty.                          in the linear case (depicted as a gray solid line) is so large,
+                                                                                          that a constraint violation of the maximum and minimum
+        original force constraint (dark red area) might be violated due                   force limit occurs. In the nonlinear case, all constraints on
+        to this model-plant mismatch. To cope for this model-plant                        the contact forces are satisfied and the root mean square force
+        mismatch the original force constraint is adjusted using the                      control error is 0.77 N. Still, the hybrid case outperforms the
+        posterior variance of the GP. The reliability of the hybrid GP                    nonlinear force model MPC, cf., Fig. 11. The controller with a
+        model along the motion is calculated via the 2σ y confidence                      hybrid model shows a root mean square error for the force of
+        bound. It is tightening the original constraint (0, 6 N), which                   0.25 N. This corresponds to a force error reduction of 91.3%
+        is indicated by the medium red area. An over-approximation                        compared to the MPC with linear force model and 67.5% with
+        of this uncertainty-related tightening is performed, which is                     respect to the MPC with nonlinear first-principle force model.
+        indicated by the light red area in Fig. 9. The resulting robustly
+        tightened box constraints are (0.7, 5.3 N). The MPC controls                      D. Experimental Validation
+        the system such that the force model predictions stay inside                         The controlled system outputs for the experimental val-
+        the feasible area (white space). Hence, the true contact force                    idation of the learning-supported model predictive con-
+        (blue solid line) stays inside the original constraints of (0, 6 N)               troller are shown in Fig. 12 in blue dash-dotted lines.
+        with a chosen probability.                                                        For comparison, the MPC with linear and nonlinear spring
+           2) Disturbance Rejection: Additionally, a disturbed case is                    force models are depicted in Fig. 12 in gray solid and
+        considered to underline the effect of the constraint tightening.                  black dashed lines, respectively. Compared to the simulation
+        In this case, an additive input disturbance at the fourth joint                   results, an additional model-plant mismatch in the dynamics
+        of −1.3 Nm occurs between t = 8 and t = 9 s. The effect                           as well as additional noise in the sensor readings occur.
+        on the contact force is illustrated in Fig. 10. The resulting                     Therefore, all controllers show larger control errors in the
+        contact force without constraint tightening is depicted in the                    experiments compared to the simulation studies. Due to the
+        left subplot. Additionally, the disturbed simulation results with                 large model-plant mismatch in the linear force model, the con-
+        constraint tightening are plotted in Fig. 10 right. For both                      troller even became unstable, cf., Fig. 12 gray line. The MPCs
+        cases, the prediction used inside the controller is plotted as                    with nonlinear and hybrid force model perform better than the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        MATSCHEK et al.: SAFE MACHINE-LEARNING-SUPPORTED MODEL PREDICTIVE FORCE AND MOTION CONTROL                                                                  2389
+
+
+
+
+        Fig. 10.   Comparison of control performance for using original constraints and tightened constraints when disturbance occurs.
+
+
+
+
+        Fig. 11.   Comparison of controllers with first-principle and hybrid force model in simulation.
+
+
+
+
+        Fig. 12.   Comparison of controllers with first-principle and hybrid force model in experiment.
+
+
+
+                                                                                          simulations but also in experiments. Moreover, the MPC with
+                                                                                          nonlinear first-principle force model violates the maximum
+                                                                                          force constraints, see the black line in Fig. 12 (left). The GP
+                                                                                          not only approximates the real forces more accurately but also
+                                                                                          enables the variance-based constraint tightening for increased
+                                                                                          safety. Fig. 13 underlines that the controller is real-time
+                                                                                          feasible, showing the computation time of the experimental
+                                                                                          implementation. Real-time feasibility is given due to the total
+        Fig. 13. Total calculation time Tcalc (blue) in each sampling instance and its    calculation time Tcalc (blue) being smaller than the sampling
+        main components, the sensor communication delay Tsens and the calculation         time of Ts = 0.01 s at all times.
+        time of the optimal control problem TOCP .
+                                                                                                                 VII. C ONCLUSION
+        linear case. Their performance in the position-controlled sub-                       This article proposes a learning-supported model predictive
+        space is comparable, see Fig. 12 (middle and right). Compar-                      controller for hybrid position and force control. It exploits that
+        ing their force control errors shows that the learning-supported                  the stochastic uncertainty affects only the static model parts,
+        controller shows around 12% smaller maximum errors and                            e.g., mappings from states to the controlled variables, and
+        around 14% smaller average control errors. Hence, the superior                    not the dynamics itself. Driven by the increasing demand for
+        force tracking performance of the learning-supported con-                         sensitive, and interactive, yet safe robots, we propose a model-
+        troller over the first-principle-based MPC is not only valid in                   and data-based controller that directly controls the forces of the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        2390                                                              IEEE TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, VOL. 31, NO. 6, NOVEMBER 2023
+
+
+
+        robot along with its motion. The model predictive controller                      robot depicted in Fig. 1. Hence, n q = 3 and x =
+        considers directly constraints on inputs, states, and outputs.                    (q1 , q2 , q4 , q̇1 , q̇2 , q̇4 )⊤ , where qi denotes the angle of the ith
+        This way, constraints for positions, motions, and forces are                      joint. The configuration-dependent inertia matrix of the robot
+        satisfied. A path following predictive controller is used, where                  is denoted by B : Rn q → Rn q ×n q . The input u represents the
+        the reference speed is adjusted during runtime to provide an                      joint actuation torques. The Coriolis and centrifugal effects
+        additional degree of freedom to the MPC. A Gaussian process                       are captured by C : Rn q × Rn q → Rn q ×n q . While the
+        supports the controller with learned hybrid force models. The                     gravitational force τg : Rn q → Rn q for a rigid link manipulator
+        presented approach achieves improved approximation quality                        depends only on joint positions, the friction torque τ f :
+        compared to standard first-principle force models and addi-                       Rn q → Rn q can be modeled via viscous and Coulomb friction
+        tionally improves the closed-loop system performance.                             such that depends on joint velocities. We consider contact
+           Moreover, additional robustness is achieved by using the                       of the robot with the environment at the end-effector. The
+        stochastic uncertainty description of the Gaussian process                        contact forces and moments occurring at the end-effector in
+        force model. It builds the basis for constraint tightening that                   a 3-D Cartesian space are captured by F ∈ R6 . They can
+        allows for safe and reliable contacts even in case of distur-                     be mapped to the corresponding joint torques via τext =
+        bances and model-plant mismatch. Further research focuses                         J (q)⊤ F with the manipulator Jacobian J : Rn q → R6×n q .
+        on improving the controller performance via online updates                        The model parameters are taken from [61], supplemented by
+        of the force models. Furthermore, changing environmental                          the modifications presented in [62] to account for the used
+        conditions, such as moving objects or cooperating robots,                         force-torque sensor. The standard deviation σ of the noise is
+        should be addressed in future research. For example, learning                     approximately 0.0388 N. This dynamical model is used for
+        from past measurements/batches might allow to build up an                         simulations as well as for prediction in the MPC. In contrast
+        increasing set of possible models that allow transfering and                      to [61], N (x) = 0 is considered, as we use gravity compensa-
+        adapting knowledge between different situations. Moreover,                        tion provided by the internal KUKA controller. Furthermore,
+        online adaptation and learning are promising, yet leads to                        friction and Coriolis effects only have a minor influence on
+        challenges such as a priori unknown constraints that we aim                       small velocities, as considered here. Finally, a compensation of
+        to address in future works, for example using the approach                        external torques, e.g., due to the environment contact, outside
+        presented in [63].                                                                of the predictive controller is added to the optimal inputs.
+                                                                                          For the virtual system dynamics, a double integrator ż 1 = z 2 ,
+                                  A PPENDIX A                                             ż 2 = v is used with virtual input v and virtual output z 1 = θ .
+                    C ONSIDERED L IGHTWEIGHT ROBOT M ODEL
+           The model of the robotic manipulator is derived based on                                                  A PPENDIX B
+        first principles using the Lagrangian formulation [64] leading                                         C ONTROLLER PARAMETERS
+        to                                                                                   A quadratic cost function is used, where: L pf =
+          
+              ẋ1
+                                                                                         (epf , θ )Q(epf
+                                                                                            ⊤            ⊤ , θ ⊤ )⊤ + (u ⊤ , v)R(u ⊤ , v)⊤ , E = (x ⊤ , z ⊤ )Q
+                                                                                                                                              pf               E
+           ..                                                                           (x ⊤ , z ⊤ )⊤ . The weightings are Q = diag(9 · 106 , 9 · 106 , 6, 1 ·
+           . 
+          
+           ẋn q 
+                                                                                         102 ), R = diag(6, 6, 6, 6), Q E = diag(0, 0, 0, 0, 0, 0, 1 ·
+                   
+          ẋn q +1                                                                      102 , 0). The prediction horizon spans T = 150 ms, while the
+           . 
+                                                                                        sampling time is Ts = 10 ms.
+           ..                                                                              The state constraints are X          = [−170◦ , 170◦ ]×
+               ẋ2n q                                                                     [−120◦ , 120◦ ] × [−120◦ , 120◦ ] × [−0.04          rad s−1 ,
+                
+                                                 xn q +1
+                                                                                         0.04 rad s−1 ] × [−1 rad s−1 , 1 rad s−1 ] × [−0.05 rad s−1 ,
+                                                    ..                                    0.03 rad s−1 ]. The virtual states in path following are
+                                                     .
+                                                               
+           
+           
+                                                                
+                                                                                         constrained by Z = [−1, 0] × [0 s−1 , 1 s−1 ]. Furthermore,
+          =
+                                   x 2n q
+                                                                
+                                                                                         box constraints on the input and virtual inputs are present:
+                                                                                        U = [−13 Nm, 10 Nm] × [−5 Nm, 5 Nm] × [−5 Nm, 5 Nm],
+                 x1 , . . . , xn u−J x1 , . . . , xn F − N (x) 
+                                                               
+              −1                     ⊤
+                                                                                          V = [−10 s−2 , 0.5 s−2 ], while the contact force should
+                                                            
+           B
+                                         q                            q
+                                                                                          satisfy [0, 6 N].
+                |                                  {z                              }
+                                                  f (x,u)
+         N (x)                                                                                                           R EFERENCES
+                                   
+                            xn q +1                                                        [1] E. Matheson, R. Minto, E. G. Zampieri, M. Faccio, and G. Rosati,
+                               ..  + τ x                                                      “Human–robot collaboration in manufacturing applications: A review,”
+                                          n q +1 , . . . , x 2n q
+                                                                  
+          = C(x)               . 
+                 
+                                       f                                                       Robotics, vol. 8, no. 4, p. 100, Dec. 2019.
+                                                                                           [2] J. Matschek, T. Gonschorek, M. Hanses, N. Elkmann, F. Ortmeier, and
+                            x2n q                                                              R. Findeisen, “Learning references with Gaussian processes in model
+                + τg x 1 , . . . , x n q .
+                                        
+                                                                                               predictive control applied to robot assisted surgery,” in Proc. Eur. Control
+                                                                                               Conf. (ECC), May 2020, pp. 362–367.
+        Here, x1 , . . . , xn q denote the joint angles, while xn q +1 , . . . ,           [3] S. Bedaf, G. J. Gelderblom, and L. de Witte, “Overview and catego-
+                                                                                               rization of robots supporting independent living of elderly people: What
+        x2n q represent the joint angle velocities. For the exam-                              activities do they support and how far have they developed,” Assistive
+        ple, we use joints one, two, and four of the lightweight                               Technol., vol. 27, no. 2, pp. 88–100, Apr. 2015.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        MATSCHEK et al.: SAFE MACHINE-LEARNING-SUPPORTED MODEL PREDICTIVE FORCE AND MOTION CONTROL                                                                      2391
+
+
+
+         [4] P. Maciejasz, J. Eschweiler, K. Gerlach-Hahn, A. Jansen-Troy, and              [28] I. Lenz, R. Knepper, and A. Saxena, “DeepMPC: Learning deep latent
+             S. Leonhardt, “A survey on robotic devices for upper limb rehabili-                 features for model predictive control,” in Proc. Robot., Sci. Syst., Rome,
+             tation,” J. Neuroeng. Rehabil., vol. 11, no. 1, pp. 1–29, 2014.                     Italy, 2015.
+         [5] V. Villani, F. Pini, F. Leali, and C. Secchi, “Survey on human–                [29] Z. Erickson, H. M. Clever, G. Turk, C. K. Liu, and C. C. Kemp, “Deep
+             robot collaboration in industrial settings: Safety, intuitive interfaces and        haptic model predictive control for robot-assisted dressing,” in Proc.
+             applications,” Mechatronics, vol. 55, pp. 248–266, Nov. 2018.                       IEEE Int. Conf. Robot. Autom. (ICRA), May 2018, pp. 1–8.
+         [6] A. Zacharaki, I. Kostavelis, A. Gasteratos, and I. Dokas, “Safety bounds       [30] J. Sheng and M. W. Spong, “Model predictive control for bilateral
+             in human robot interaction: A survey,” Saf. Sci., vol. 127, Jul. 2020,              teleoperation systems with time delays,” in Proc. Can. Conf. Electr.
+             Art. no. 104667.                                                                    Comput. Eng., vol. 4, May 2004, pp. 1877–1880.
+         [7] L. Villani and J. De Schutter, “Force control,” in Springer Handbook of        [31] J. S. Ladoiye, D. S. Necsulescu, and J. Sasiadek, “Control of force in
+             Robotics, B. Siciliano and O. Khatib, Eds. Cham, Switzerland: Springer,             surgical robots with random time delays using model predictive control,”
+             2016, pp. 195–220.                                                                  in Proc. Int. Conf. Inform. Control, Automat. Robot. Springer, 2018,
+         [8] M. D. Killpack, A. Kapusta, and C. C. Kemp, “Model predictive control               pp. 407–428.
+             for fast reaching in clutter,” Auto. Robots, vol. 40, no. 3, pp. 537–560,      [32] J. Kocijan and R. Murray-Smith, Nonlinear Predictive Control With
+             Mar. 2016.                                                                          a Gaussian Process Model (Lecture Notes in Computer Science),
+         [9] D. Müller, A. Mayer, and O. Sawodny, “Model predictive force control                vol. 3355. Berlin, Germany: Springer, 2005, pp. 185–200.
+             for robots in compliant environments with guaranteed maximum force,”           [33] B. Likar and J. Kocijan, “Predictive control of a gas–liquid separation
+             in Proc. Amer. Control Conf. (ACC), Jul. 2019, pp. 1355–1360.                       plant based on a Gaussian process model,” Comput. Chem. Eng., vol. 31,
+        [10] B. B. Kocer, T. Tjahjowidodo, and G. G. L. Seet, “Model predictive                  no. 3, pp. 142–152, 2007.
+             UAV-tool interaction control enhanced by external forces,” Mechatron-          [34] J. Umlauft, T. Beckers, and S. Hirche, “Scenario-based optimal control
+             ics, vol. 58, pp. 47–57, Apr. 2019.                                                 for Gaussian process state space models,” in Proc. Eur. Control Conf.
+        [11] I. Mitsioni, Y. Karayiannidis, J. A. Stork, and D. Kragic, “Data-driven             (ECC), Jun. 2018, pp. 1386–1392.
+             model predictive control for the contact-rich task of food cutting,”           [35] L. Hewing, J. Kabzan, and M. N. Zeilinger, “Cautious model predictive
+             in Proc. IEEE-RAS 19th Int. Conf. Humanoid Robots (Humanoids),                      control using Gaussian process regression,” IEEE Trans. Control Syst.
+             Oct. 2019, pp. 244–250.                                                             Technol., vol. 28, no. 6, pp. 2736–2743, Nov. 2020.
+        [12] T. Gold, A. Volz, and K. Graichen, “Model predictive position and force        [36] X. Yang and J. M. Maciejowski, “Fault tolerant control using Gaussian
+             trajectory tracking control for robot-environment interaction,” in Proc.            processes and model predictive control,” Int. J. Appl. Math. Comput.
+             IEEE/RSJ Int. Conf. Intell. Robots Syst. (IROS), Oct. 2020.                         Sci., vol. 25, no. 1, pp. 133–148, 2015.
+        [13] J. Matschek, J. Bethge, P. Zometa, and R. Findeisen, “Force feedback           [37] Y. Wang, C. Ocampo-Martinez, and V. Puig, “Robust model predictive
+             and path following using predictive control: Concept and application to a           control based on Gaussian processes: Application to drinking water
+             lightweight robot,” in Proc. IFAC World Congr., 2017, pp. 10243–10248.              networks,” in Proc. Eur. Control Conf. (ECC), Jul. 2015, pp. 3292–3297.
+        [14] K. J. Kazim, J. Bethge, J. Matschek, and R. Findeisen, “Combined               [38] R. Soloperto, M. Müller, S. Trimpe, and F. Allgöwer, “Learning-
+             predictive path following and admittance control,” in Proc. Annu. Amer.             based robust model predictive control with state-dependent uncer-
+             Control Conf. (ACC), Jun. 2018, pp. 3153–3158.                                      tainty,” in Proc. Conf. Nonl. Model Predictive Control (NMPC), 2018,
+                                                                                                 pp. 442–447.
+        [15] A. Wahrburg and K. Listmann, “MPC-based admittance control for
+             robotic manipulators,” in Proc. IEEE 55th Conf. Decis. Control (CDC),          [39] Y. Wang, C. Ocampo-Martinez, and V. Puig, “Stochastic model pre-
+             Dec. 2016, pp. 7548–7554.                                                           dictive control based on Gaussian processes applied to drinking water
+                                                                                                 networks,” IET Control Theory Appl., vol. 10, no. 8, pp. 947–955, 2016.
+        [16] M. Bednarczyk, H. Omran, and B. Bayle, “Model predictive impedance
+                                                                                            [40] C. J. Ostafew, A. P. Schoellig, and T. D. Barfoot, “Robust constrained
+             control,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), May 2020,
+                                                                                                 learning-based NMPC enabling reliable mobile robot path tracking,” Int.
+             pp. 4702–4708.
+                                                                                                 J. Robot. Res., vol. 35, no. 13, pp. 1547–1563, 2016.
+        [17] T. Gold, A. Völz, and K. Graichen, “Model predictive interaction
+                                                                                            [41] A. Grancharova, J. Kocijan, and T. A. Johansen, “Explicit stochastic
+             control for industrial robots,” in Proc. IFAC World Congr., 2020,
+                                                                                                 predictive control of combustion plants based on Gaussian process
+             pp. 10026–10033.
+                                                                                                 models,” Automatica, vol. 44, no. 6, pp. 1621–1631, 2008.
+        [18] P. Flores and H. M. Lankarani, Contact Force Models for Multibody              [42] W. Langson, I. Chryssochoos, S. V. Raković, and D. Q. Mayne, “Robust
+             Dynamics, vol. 226. Cham, Switzerland: Springer, 2016.                              model predictive control using tubes,” Automatica, vol. 40, no. 1,
+        [19] J. Kocijan, Modelling and Control of Dynamic Systems Using Gaussian                 pp. 125–133, 2004.
+             Process Models. Cham, Switzerland: Springer, 2016.                             [43] B. Siciliano and L. Villani, Robot Force Control. New York, NY,
+        [20] C. Williams and C. Rasmussen, Gaussian Processes for Machine                        USA: Springer, 2012.
+             Learning. Cambridge, MA, USA: MIT Press, 2006.                                 [44] J. Matschek, T. Bäthge, T. Faulwasser, and R. Findeisen, “Nonlinear
+        [21] F. E. Vina B, Y. Bekiroglu, C. Smith, Y. Karayiannidis, and                         predictive control for trajectory tracking and path following: An intro-
+             D. Kragic, “Predicting slippage and learning manipulation affordances               duction and perspective,” in Handbook of Model Predictive Control.
+             through Gaussian process regression,” in Proc. 13th IEEE-RAS Int. Conf.             Cham, Switzerland: Springer, 2019, pp. 169–198.
+             Humanoid Robots (Humanoids), Oct. 2013, pp. 462–468.                           [45] T. Faulwasser and R. Findeisen, “Nonlinear model predictive control for
+        [22] Y. Li and B. Hannaford, “Gaussian process regression for sensorless grip            constrained output path following,” IEEE Trans. Autom. Control, vol. 61,
+             force estimation of cable-driven elongated surgical instruments,” IEEE              no. 4, pp. 1026–1039, Apr. 2016.
+             Robot. Autom. Lett., vol. 2, no. 3, pp. 1312–1319, Jul. 2017.                  [46] T. Faulwasser and R. Findeisen, “Nonlinear model predictive path-
+        [23] T. Horii, F. Giovannini, Y. Nagai, L. Natale, G. Metta, and M. Asada,               following control,” in Nonlinear Model Predictive Control. Berlin,
+             “Contact force estimation from flexible tactile sensor values considering           Germany: Springer, 2009, pp. 335–343.
+             hysteresis by Gaussian process,” in Proc. 4th Int. Conf. Develop. Learn.       [47] J. Rawlings, D. Mayne, and M. Diehl, Model Predictive Control: Theory,
+             Epigenetic Robot., Oct. 2014, pp. 137–138.                                          Computation, and Design. Madison, WI, USA: Nob Hill, 2017.
+        [24] J. R. Medina, H. Borner, S. Endo, and S. Hirche, “Impedance-based              [48] R. Findeisen, L. Imsland, F. Allgöwer, and B. A. Foss, “State and
+             Gaussian processes for modeling human motor behavior in physical and                output feedback nonlinear model predictive control: An overview,” Eur.
+             non-physical interaction,” IEEE Trans. Biomed. Eng., vol. 66, no. 9,                J. Control, vol. 9, nos. 2–3, pp. 190–206, 2003.
+             pp. 2499–2511, Sep. 2019.                                                      [49] X. Yang and J. Maciejowski, “Risk-sensitive model predictive control
+        [25] J. Matschek, R. Jordanowa, and R. Findeisen, “Direct force feedback                 with Gaussian process models,” in Proc. IFAC Symp. Syst. Identificat.
+             using Gaussian process based model predictive control,” in Proc. IEEE               (SYSID), 2015, pp. 374–379.
+             Conf. Control Technol. Appl. (CCTA), Aug. 2020, pp. 8–13.                      [50] L. Hewing, E. Arcari, L. Fröhlich, and M. N. Zeilinger, “On simulation
+        [26] G. Darivianakis, K. Alexis, M. Burri, and R. Siegwart, “Hybrid pre-                 and trajectory prediction with Gaussian process dynamics,” in Proc. 2nd
+             dictive control for aerial robotic physical interaction towards inspection          Conf. Learn. Dyn. Control (L4DC), 2020, pp. 1341–1348.
+             operations,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), May 2014,          [51] J. Kocijan, R. Murray-Smith, C. E. Rasmussen, and B. Likar, “Predic-
+             pp. 53–58.                                                                          tive control with Gaussian process models,” in Proc. IEEE Region 8
+        [27] C. Nadeau, A. Krupa, and J. Gangloff, “Automatic tracking of an organ               EUROCON Comput. Tool, vol. 1, Sep. 2003, pp. 352–356.
+             section with an ultrasound probe: Compensation of respiratory motion,”         [52] G. Cao, E. M.-K. Lai, and F. Alam, “Gaussian process model predictive
+             in Proc. Int. Conf. Med. Image Comput. Comput.-Assist. Intervent.                   control of an unmanned quadrotor,” J. Intell. Robotic Syst., vol. 88, no. 1,
+             Berlin, Germany: Springer, 2011, pp. 57–64.                                         pp. 147–162, Oct. 2017.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+        2392                                                            IEEE TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, VOL. 31, NO. 6, NOVEMBER 2023
+
+
+
+        [53] E. D. Klenske, M. N. Zeilinger, B. Schölkopf, and P. Hennig, “Gaussian                                Johanna Bethge graduated in systems engi-
+             process-based predictive control for periodic error correction,” IEEE                                 neering and engineering cybernetics from Otto
+             Trans. Control Syst. Technol., vol. 24, no. 1, pp. 110–121, Jan. 2016.                                von Guericke University Magdeburg, Magdeburg,
+        [54] L. Hewing, A. Liniger, and M. N. Zeilinger, “Cautious NMPC with                                       Germany and Tampere University of Technology,
+             Gaussian process dynamics for autonomous miniature race cars,” in                                     Tampere, Finland. She received the bachelor’s and
+             Proc. Eur. Control Conf. (ECC), Jun. 2018, pp. 1341–1348.                                             master’s degrees from Otto von Guericke University
+        [55] T. Koller, F. Berkenkamp, M. Turchetta, J. Boedecker, and A. Krause,                                  Magdeburg, in 2013 and 2016, respectively, where
+             “Learning-based model predictive control for safe exploration and rein-                               she is currently pursuing the Ph.D. degree.
+             forcement learning,” 2019, arXiv:1906.12189.                                                            Since 2016, she has been a Research Assistant
+        [56] A. Lederer, J. Umlauft, and S. Hirche, “Uniform error bounds for                                      at Otto von Guericke University Magdeburg. Her
+             Gaussian process regression with application to safe control,” in Proc.                               research interests include learning-supported model
+             Adv. Neural Inf. Process. Syst., 2019, pp. 659–669.                           predictive control and safety guarantees under uncertainty for multi-mode
+        [57] N. Diolaiti, C. Melchiorri, and S. Stramigioli, “Contact impedance            systems, such as autonomous vehicles.
+             estimation for robotic systems,” IEEE Trans. Robot., vol. 21, no. 5,            Dr. Bethge is a fellow of the Research Training Group for Math-
+             pp. 925–935, Oct. 2005.                                                       ematical Complexity Reduction (GRK 2297) of the German Research
+        [58] D. Ariens, H. J. Ferreau, B. Houska, and F. Logist. (Sep. 2020).              Foundation (DFG).
+             ACADO for MATLAB User’s Manual. [Online]. Available:
+             http://acado.sourceforge.net/doc/pdf/acado_matlab_manual.pdf
+        [59] G. Schreiber, A. Stemmer, and R. Bischoff, “The fast research interface
+             for the KUKA lightweight robot,” in Proc. Workshop Innov. Robot
+             Control Architectures Demanding (Research) Appl. (ICRA), 2010,
+             pp. 15–21.
+        [60] Barrett Technology. (Sep. 2022). Barrett Hand and Force/Torque Sensor.
+             [Online]. Available: https://advanced.barrett.com/barretthand
+        [61] V. Bargsten, P. Zometa, and R. Findeisen, “Modeling, parameter identi-
+             fication and model-based control of a lightweight robotic manipulator,”
+             in Proc. IEEE Int. Conf. Control Appl. (CCA), Aug. 2013, pp. 134–139.
+        [62] J. Bethge, “Entwurf und Implementierung einer modellprädiktiven Kraft-
+             und Pfadverfolgungsregelung für Kontaktszenarien in der Robotik,”
+             M.S. thesis, Dept. Control Eng. Autom. Control, OvGU Magdeburg,
+             Magdeburg, Germany, 2016.                                                                               Rolf Findeisen received the Diploma degree in engi-
+        [63] I. Batkovic, M. Ali, P. Falcone, and M. Zanon, “Safe trajectory tracking                                neering cybernetics from the University of Stuttgart,
+             in uncertain environments,” 2020, arXiv:2001.11602.                                                     Stuttgart, Germany, in 1996, the M.S. degree from
+        [64] B. Siciliano, L. Sciavicco, L. Villani, and G. Oriolo, Robotics:                                        the University of Wisconsin–Madison, Madison, WI,
+             Modelling, Planning and Control. London, U.K.: Springer, 2010.                                          USA, in 1997, and the Ph.D. degree from the Uni-
+                                                                                                                     versity of Stuttgart, in 2005.
+                                                                                                                       From 2007 to 2021, he held a Full Pro-
+                                                                                                                     fessorship and led at the Systems Theory and
+                                  Janine Matschek received the bachelor’s and                                        Automatic Control Laboratory, Otto von Guericke
+                                  master’s degrees in systems engineering and engi-                                  University Magdeburg, Magdeburg, Germany. Since
+                                  neering cybernetics from Otto von Guericke Univer-                                 August 2021, he has been directing at the Control
+                                  sity Magdeburg, Magdeburg, Germany, in 2010 and          and Cyber-Physical Systems Laboratory, Technical University of Darmstadt,
+                                  2013, respectively, and the Ph.D. degree in model        Darmstadt, Germany. His research concentrates on the intersection between
+                                  predictive control and machine learning from             control and machine learning, autonomous systems, predictive control, cyber-
+                                  University Magdeburg, Magdeburg, 2021.                   physical systems, uncertainty, and robustness. His group’s work spans a
+                                    She joined the Technical University of Darmstadt,      diverse array of applications, such as robotics, autonomous driving, mecha-
+                                  Darmstadt, Germany, as a Post-Doctoral Researcher,       tronics, biotechnology, systems biology, and battery and energy systems.
+                                  in 2022. Her research interests include machine            Dr. Findeisen was the IPC Co-Chair of the IFAC World Congress 2020.
+                                  learning for predictive control and control in medical   He served as an Editor and an Associate Editor for various prestigious pub-
+        and industrial robotic applications.                                               lications, including IEEE Control Systems Magazine, IEEE T RANSACTIONS
+          Dr. Matschek received the Award for the Best Dissertation of the Faculty         ON N ETWORKED S YSTEMS , and Journal of Optimal Control Applications,
+        of Electrical Engineering, Otto von Guericke University Magdeburg, in 2021.        and Methods and Processes.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 22,2026 at 05:16:24 UTC from IEEE Xplore. Restrictions apply.
+

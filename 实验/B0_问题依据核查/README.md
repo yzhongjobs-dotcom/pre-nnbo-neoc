@@ -10,7 +10,7 @@
 python 实验/B0_问题依据核查/preview_scale_audit.py
 ```
 
-本轮复用候选2环境；此脚本本身不依赖PyTorch或PPO。
+该脚本只需NumPy/SciPy/Matplotlib；不依赖已移除的旧PPO目录。
 
 输出为 `results.json` 和 `footprint_information.png`。图中力矩已除以半宽，信息条件数采用等归一化独立噪声，仅用于显示结构；真实力矩/力噪声比例必须另行标定。
 

@@ -1,0 +1,558 @@
+            2019 International Conference on Robotics and Automation (ICRA)
+            Palais des congres de Montreal, Montreal, Canada, May 20-24, 2019
+
+
+
+
+                                 Residual Reinforcement Learning for Robot Control
+                             Tobias Johannink∗1,3 , Shikhar Bahl∗2 , Ashvin Nair∗2 , Jianlan Luo1,2 , Avinash Kumar1 ,
+                                   Matthias Loskyll1 , Juan Aparicio Ojea1 , Eugen Solowjow1 , Sergey Levine2
+
+
+               Abstract— Conventional feedback control methods can solve                  behavior generalization. Thus, all possible system behaviors
+            various types of robot control problems very efﬁciently by                    must be considered a priori at design time.
+            capturing the structure with explicit models, such as rigid body                 Reinforcement learning (RL) methods hold the promise
+            equations of motion. However, many control problems in mod-
+            ern manufacturing deal with contacts and friction, which are                  of solving these challenges because they allow agents to
+            difﬁcult to capture with ﬁrst-order physical modeling. Hence,                 learn behaviors through interaction with their surrounding
+            applying control design methodologies to these kinds of prob-                 environments and ideally generalize to new scenarios that
+            lems often results in brittle and inaccurate controllers, which               differ from the speciﬁcations at the control design stage.
+            have to be manually tuned for deployment. Reinforcement                       Moreover, RL can handle control problems that are difﬁcult
+            learning (RL) methods have been demonstrated to be capable
+            of learning continuous robot controllers from interactions with               to approach with conventional controllers because the control
+            the environment, even for problems that include friction and                  goal can be speciﬁed indirectly as a term in a reward function
+            contacts. In this paper, we study how we can solve difﬁcult                   and not explicitly as the result of a control action. All of
+            control problems in the real world by decomposing them into a                 these aspects are considered enablers for truly autonomous
+            part that is solved efﬁciently by conventional feedback control               manufacturing systems and important for fully ﬂexible lot-
+            methods, and the residual which is solved with RL. The ﬁnal
+            control policy is a superposition of both control signals. We                 size one manufacturing [1]. However, standard RL methods
+            demonstrate our approach by training an agent to successfully                 require the robot learn through interaction, which can be
+            perform a real-world block assembly task involving contacts                   unsafe initially, and collecting the amount of interaction that
+            and unstable objects.                                                         is needed to learn a complex skill from scratch can be time
+                                                                                          consuming.
+                                     I. I NTRODUCTION
+                                                                                             In this paper, we study control problems that are difﬁcult
+               Robots in today’s manufacturing environments typically                     to approach with conventional feedback control methods.
+            perform repetitive tasks, and often lack the ability to handle                However, the problems possess structure that can be par-
+            variability and uncertainty. Commonly used control algo-                      tially handled with conventional feedback control, e.g. with
+            rithms, such as PID regulators and the computed torque                        impedance control. The residual part of the control task,
+            method, usually follow predeﬁned trajectories with little                     which is the part that must consider contacts and external
+            adaptive behavior. Many manufacturing tasks require some                      object dynamics, is solved with RL. The outputs of the
+            degree of adaptability or feedback to the environment,                        conventional controller and RL are superposed to form the
+            but signiﬁcant engineering effort and expertise is required                   commanded control. The main contribution of this paper is
+            to design feedback control algorithms for these industrial                    a methodology that combines conventional feedback control
+            robots. The engineering time for ﬁne tuning such a controller                 with deep RL methods and is illustrated in Fig. 1. Our main
+            might be similar in cost to the robot hardware itself. Being                  motivation is a control approach that is suitable for real-world
+            able to quickly and easily design feedback controllers for                    control problems in manufacturing, where the exploratory be-
+            industrial robots would signiﬁcantly broaden the space of                     havior of RL is a safety concern and the data requirements of
+            manufacturing tasks that can be automated by robots.                          deep RL can be expensive. We provide a thorough evaluation
+               Why is designing a feedback controller for many tasks                      of our method on a block assembly task in simulation and on
+            hard with classical methods? While conventional feedback                      physical hardware. When the initial orientation of the blocks
+            control methods can solve tasks such as path following                        is noisy, our hand-designed controller fails to solve the task,
+            efﬁciently, applications that involve contacts between the                    while residual RL successfully learns to perform the task in
+            robot and its environment are difﬁcult to approach with                       under 3 hours. This suggests that we could usefully apply
+            conventional control methods. Identifying and characterizing                  our method to practical manufacturing problems.
+            contacts and friction is difﬁcult—even if a physical model
+            provides reasonable contact behavior, identifying the phys-                                            II. P RELIMINARIES
+            ical parameters of a contact interaction accurately is very                      In this section, we set up our problem and summarize the
+            hard. Hence, it is often difﬁcult to achieve adaptable yet                    foundations of classical control and reinforcement learning
+            robust control behavior, and signiﬁcant control tuning effort                 that we build on in our approach.
+            is required as soon as these elements are introduced. Another
+            drawback of conventional control methods is their lack of                     A. Problem Statement - System Theoretic Interpretation
+               ∗ First three authors contributed equally, 1 Siemens Corporation,             The class of control problems that we are dealing with in
+            2 University of California, Berkeley, 3 Hamburg University of Technology.     this paper can be viewed from a dynamical systems point of
+
+            978-1-5386-6027-0/19/$31.00 ©2019 IEEE                                    6023
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on October 04,2026 at 07:06:34 UTC from IEEE Xplore. Restrictions apply.
+                        User Deﬁned
+                          Reward
+                                                                  rt
+
+            st                πθ                            max E[rt ]
+                                                              θ
+
+
+                         User Deﬁned
+                          Controller                +             ut
+
+            Fig. 1: We train an agent directly in the real world to solve a model assembly task involving contacts and unstable objects.
+            An outline of our method, which consists of combining hand-engineered controllers with a residual RL controller, is shown
+            on the left. Rollouts of residual RL solving the block insertion task are shown on the right. Residual RL is capable of
+            learning a feedback controller that adapts to variations in the orientations of the standing blocks and successfully completes
+            the task of inserting a block between them. Videos are available
+                                                                           .    at residualrl.github.io
+
+
+            view as follows. Consider a dynamical system that consists of                 is due to the fact that, for many control objectives, the states
+            a fully actuated robot and underactuated objects in the robot’s               so need to fulﬁll conditions that cannot be expressed as
+            environment. The robot and the objects in its environment                     deviations (errors) from desired states. This is often the case
+            are described by their states sm and so , respectively. The                   when we only know the ﬁnal goal rather than a full trajectory.
+            robot can be controlled through the control input u while the                    Instead of directly designing a feedback control system,
+            objects cannot be directly controlled. However, the robot’s                   we can instead specify the goal via a reward function. These
+            states are coupled with the objects’ states so that indirect                  reward functions can depend on both sm and so , where the
+            control of so is possible through u. This is for example the                  terms that depend on sm are position related objectives.
+            case if the agent has large inertia and is interacting with
+                                                                                          B. Interpretation as a Reinforcement Learning Problem
+            small parts as is common in manufacturing. The states of
+            agent and objects can either be fully observable or they can                      In reinforcement learning, we consider the standard
+            be estimated from measurements.                                               Markov decision process framework for picking optimal
+               The time-discrete equations of motion of the overall dy-                   actions to maximize rewards over discrete timesteps in an
+            namical system comprise the robot and objects and can be                      environment E. At every timestep t, an agent is in a state
+            stated as                                                                     st , takes an action ut , receives a reward rt , and E evolves to
+                                                                                  state st+1 . In reinforcement learning, the agent must learn a
+                       sm,t+1        A(sm,t )        0        sm,t      u
+            st+1 =             =                                     +D t ,               policy ut = π(st ) to   maximize expected returns. We denote
+                       so,t+1      B(sm,t , so,t ) C(so,t ) so,t         0                                           T
+                                                                        (1)               the return by Rt = i=t γ (i−t) ri , where T is the horizon
+            where the states can also be subject to algebraic constraints,                that the agent optimizes over and γ is a discount factor for
+            which we do no state explicitly here.                                         future rewards. The agent’s objective is to maximize expected
+               The type of control objectives that we are interested                      return from the start distribution J = Eri ,si ∼E,ai ∼π [R0 ].
+            in can be summarized as controlling the agent in order                            Unlike the previous section, RL does not attempt to model
+            to manipulate the objects while also fulﬁlling a geometric                    the unknown coupled dynamics of the agent and the object.
+            objective such as trajectory following. It is difﬁcult to solve               Instead, it ﬁnds actions that maximizes rewards, without
+            the control problem directly with conventional feedback                       making any assumptions about the system dynamics. In
+            control approaches, which compute the difference between a                    this paper, we use value-based RL methods. These methods
+            desired and a measured state variable. In order to achieve best               estimate the state-action value function:
+            system performance feedback control methods require well                          Qπ (st , ut ) = Eri ,si ∼E,ui ∼π [Rt |st , ut ]                    (2)
+            understood and modeled state transition dynamics. Finding
+                                                                                                  = Ert ,st+1 ∼E [rt + γ Eut+1 ∼π [Qπ (st+1 , ut+1 )]]           (3)
+            the optimal control parameters can be difﬁcult or even
+            impossible if the system dynamics are not fully known.                        Equation 3 is a recursive version of Equation 2, and is known
+               In (1) the state transition matrices although A(sm ) and                   as the Bellman equation. The Bellman equation allows us to
+            C(so ) are usually known to a certain extent, because they                    estimate Q via approximate dynamic programming. Value-
+            represent rigid body dynamics, the coupling matrix B(sm , so )                based methods can be learned off-policy, making them very
+            is usually not known. Physical interactions such as contacts                  sample efﬁcient, which is vital for real-world robot learning.
+            and friction forces are the dominant effects that B(sm , so )
+            needs to capture, which also applies to algebraic constraints,                                             III. M ETHOD
+            which are functions of sm and so as well. Hence, conven-                        Based on the analysis in Sec. II, we introduce a control
+            tional feedback control synthesis for determining u to control                system that consists of two parts. The ﬁrst part is based
+            so is very difﬁcult, and requires trial and error in practice.                on conventional feedback control theory and maximize all
+            Another difﬁculty for directly designing feedback controllers                 reward terms that are functions of sm . An RL method
+
+                                                                                      6024
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on October 04,2026 at 07:06:34 UTC from IEEE Xplore. Restrictions apply.
+            is superposed and maximizes the reward terms that are                         Algorithm 1 Residual reinforcement learning
+            functions of so .                                                             Require: policy πθ , hand-engineered controller πH .
+                                                                                           1: for n = 0, ..., N − 1 episodes do
+            A. Residual Reinforcement Learning
+                                                                                           2:   Initialize random process N for exploration
+               In most robotics tasks, we consider rewards of the form:                    3:   Sample initial state s0 ∼ E.
+                                    rt = f (sm ) + g(so ).                         (4)     4:   for t = 0, ..., H − 1 steps do
+                                                                                           5:      Get policy action ut = πθ (st ) + Nt .
+            The term f (sm ) is assumed to be a function, which represents                 6:      Get action to execute ut = ut + πH (st ).
+            a geometric relationship of robot states, such as a Euclidean                  7:      Get next state st+1 ∼ p(· | st , ut ).
+            distance or a desired trajectory. The second term of the sum                   8:      Store (st , ut , st+1 ) into replay buffer R.
+            g(so ) can be a general class of functions. Concretely, in our                 9:      Sample set of transitions (s, u, s ) ∼ R.
+            model assembly task, f (sm ) is the reward for moving the                     10:      Optimize θ using RL with sampled transitions.
+            robot gripper between the standing blocks, while g(so ) is the                11:   end for
+            reward for keeping the standing blocks upright and in their                   12: end for
+            original positions.
+               The key insight of residual RL is that in many tasks,                      compared to DDPG. We used the publicly available rlkit
+            f (sm ) can be easily optimized a priori of any environment                   implementation of TD3 [4]. Our method is independent of
+            interaction by conventional controllers, while g(so ) may                     the choice of RL algorithm, and we could apply residual RL
+            be easier to learn with RL which can learn ﬁne-grained                        to any other RL algorithm.
+            hand-engineered feedback controllers even with friction and                                       IV. E XPERIMENTAL S ETUP
+            contacts. To take advantage of the efﬁciency of conventional
+            controllers but also the ﬂexbility of RL, we choose:                             We evaluate our method on the task shown in Fig. 2,
+                                                                                          both in simulation and in the real world. This section
+                                 u = πH (sm ) + πθ (sm , so )                      (5)    introduces the details of the experimental setup and provides
+                                                                                          an overview of the experiments.
+            as the control action, where πH (sm ) is the human-designed
+            controller and πθ (sm , so ) is a learned policy parametrized by              A. Simulated Environment
+            θ and optimized by an RL algorithm to maximize expected
+                                                                                             We use MuJoCo [5], a full-featured simulator for model-
+            returns on the task.
+                                                                                          based optimization considering body contacts, to evaluate our
+               Inserting (5) into (1) one can see that a properly designed
+                                                                                          method in simulation. This environment consists of a simu-
+            feedback control law for πH (sm ) is able to provide exponen-
+                                                                                          lated Sawyer robot arm with seven degrees of freedom and
+            tially stable error dynamics of sm if the learned controller
+                                                                                          a parallel gripper. We command the robot with a Cartesian-
+            πθ is neglected and the sub statespace is stabilizable. This is
+                                                                                          space position controller.
+            equivalent to maximizing (4) for the case f represents errors
+            between actual and desired states.                                            B. Real-World Environment
+               The residual controller πθ (sm , so ) can now be used to                      The real-world environment is largely the same as the
+            maximize the reward term g(so ) in (4). Since the control                     simulated environment, except for the controller, rewards,
+            sequence (5) enters (1) through the dynamics of sm and sm                     and observations. We command the robot with a compliant
+            is in fact the control input to the dynamics of so , we cannot                joint-space impedance controller we have developed to be
+            simply use the a-priori hand-engineered feedback controller                   smooth and tolerant of contacts. The positioning of the block
+            to achieve zero error of sm and independently achieve the                     being inserted is similar to the simulation but the observation
+            control objective on so . Through the coupling of states we                   is estimated from a camera-based tracking system as we do
+            need to perform an overall optimization of (5), whereby                       not have access to ground truth position information.
+            the hand-engineered feedback controller provides internal
+            structures and eases the optimization related to the reward                   C. Overview of Experiments
+            term f (sm ).                                                                   In our experiments we evaluate the following research
+            B. Method Summary                                                             questions:
+               Our method is summarized in Algorithm 1. The key idea                        1) Does incorporating a hand-designed controller im-
+            is to combine the ﬂexibility of RL with the efﬁciency of                            prove the performance and sample-efﬁciency of RL
+            conventional controllers by additively combining a learnable                        algorithms, while still being able to recover from an
+            parametrized policy with a ﬁxed hand-engineered controller.                         imperfect hand-designed controller?
+               As our underlying RL algorithm, we use a variant of                          2) Can our method allow robots to be more tolerant of
+            twin delayed deep deterministic policy gradients (TD3) as                           variation in the environment?
+            described in [2]. TD3 is a value-based RL algorithm for                         3) Can our method successfully control noisy systems,
+            continuous control based off of the deep deterministic policy                       compared to classical control methods?
+            gradient (DDPG) algorithm [3]. We have found that TD3                           1 In all simulation plots, we use 10 random seeds and report a 95%
+            is stable, sample-efﬁcient, and requires little manual tuning                 conﬁdence interval for the mean.
+
+
+                                                                                      6025
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on October 04,2026 at 07:06:34 UTC from IEEE Xplore. Restrictions apply.
+                                       Simulation Learning Curve                                                                                       Real-World Learning Curves
+                               0.8        Residual RL                                                                                         2
+
+
+
+
+                                                                                                                             Average Return
+                                          Only RL
+                Success Rate
+
+
+
+
+                               0.6                                                                                                            3
+
+                               0.4
+                                                                                                                                              4
+                               0.2                                                                                                                                           Residual RL
+                                                                                                                                              5
+                                                                                                                                                                             Only RL
+                               0.0
+                                  0K    100K   200K     300K   400K   500K                                                                        1K        2K        2K        3K
+                                                Timesteps                                                                                                        Timesteps
+
+
+            Fig. 2: Block assembly task in simulation (left) and real-world (right). The task is to insert a block between the two blocks on
+            the table without moving the blocks or tipping them over. In the learning curves, we compare our method with RL without
+            any hand-engineered controller1 . In both simulation and real-world experiments, we see that residual RL learns faster than
+            RL alone, while achieving better performance than the hand-engineered controller.
+
+                                                        V. E XPERIMENTS                   and is added to the control output of the system at every step:
+            A. Sample Efﬁciency of Residual RL                                                                     ut = ut + N (μ, σ 2 )                                                  (6)
+               In this section, we compare our residual RL method with                       To test tolerance to control noise, we set μ = 0 and
+            the human controller alone and RL alone. The following                        vary σ ∈ [0.01, 0.1]. In theory, RL could adapt to a noisy
+            methods are compared:                                                         controller by learning more robust solutions to the task which
+               1) Only RL: using the same underlying RL algorithm                         are less sensitive to perturbations.
+                   as our method but without adding a hand-engineered                        Furthermore, to test tolerance to a biased controller, we
+                   policy                                                                 set σ = 0.05 and vary μ ∈ [0, 0.2]. To optimize the task
+               2) Residual RL: our method which trains a superposition                    reward, RL can learn to simply counteract the bias.
+                   of the hand-engineered controller and a neural network
+                                                                                          D. Sim-to-Real with Residual RL
+                   policy, with RL
+                                                                                             As an alternative to analytic solutions of real-world control
+            B. Effect of Environment Variation                                            problems, we can often instead model the forward dynamics
+               In automation, environments can be subject to noise and                    of the problem (ie. a simulator). With access to such a model,
+            solving manufacturing tasks become more difﬁcult as vari-                     we can ﬁrst ﬁnd a solution to the problem with our possibly
+            ability in the environment increases. It is difﬁcult to manually              inaccurate model, and then use residual RL to ﬁnd a realistic
+            design feedback controllers that are robust to environment                    control solution in the real world.
+            variation, as it might require signiﬁcant human expertise and                    In this experiment, we attempt the block insertion task
+            tuning. In this experiment, we vary the initial orientation of                with the side blocks ﬁxed in place. The hand-engineered
+            the blocks during each episode and demonstrate that residual                  policy πH in this case comes from training a parametric
+            RL can still solve the task. We compare its performance to                    policy in simulation of the same scenario (with deep RL).
+            that of the hand-engineered controller.                                       We then use this policy as initialization for residual RL in
+               To introduce variability in simulation, on every re-                       the real world.
+            set we sampled the rotation of each block inde-                                                            VI. R ESULTS
+            pendently from a uniform distribution U [−r, r], r ∈                             We trained our method to optimize the insertion process
+            {0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3}.                                         in simulation as well as on physical hardware. This section
+               Similarly, in the real world experiments, on every reset                   provides the results of our discussed experiments and shows
+            we randomly rotated each block to one of three orientations:                  the functionality of our method.
+            straight, tilted clockwise, or tilted counterclockwise (tilt was
+            ± 20◦ from original position).                                                A. Sample Efﬁciency of Residual RL
+                                                                                             First, we compare residual RL and pure RL without
+            C. Recovering from Control Noise                                              a hand-engineered controller on the insertion task. Fig. 2
+               Due to a host of issues, such as defective hardware                        shows in simulation and real-world that residual RL achieves
+            or poorly tuned controller parameters, feedback controllers                   a better ﬁnal performance and requires less samples than
+            might have induced noise. Conventional feedback control                       RL alone, both in simulation and on physical hardware.
+            policies are determined a priori and do not adapt their                       Unlike residual RL, the pure RL approach needs to learn the
+            behavior from data. However, RL methods are known for                         structure of the position control problem from scratch, which
+            their ability to cope with shifting noise distributions and are               explains the difference in sample efﬁciency. As samples are
+            capable of recovering from such issues.                                       expensive to collect in the real world, residual RL is better
+               In this experiment, we introduce a control noise, including                suited for solving real-world tasks. Moreover, RL shows a
+            biased control noise, and demonstrate that residual RL can                    broader spatial variance during training and needs to explore
+            still successfully solve the task, while a hand-engineered con-               a wider set of states compared to residual RL, which can be
+            troller cannot. The control noise follows a normal distribution               potentially dangerous in hardware deployments.
+
+                                                                                      6026
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on October 04,2026 at 07:06:34 UTC from IEEE Xplore. Restrictions apply.
+                                                                                                             Real World, Misaligned Blocks                                                  Real World, Control Bias
+                                                                                                     1.0                                                                        1.0
+                                                                                                                  Residual RL                                                                 μ = 0.0
+                                                                                                     0.8          Hand Engineered                                               0.8           μ = 0.1
+
+
+
+
+                                                                                      Success Rate
+
+
+
+
+                                                                                                                                                                 Success Rate
+                                                                                                                                                                                              μ = 0.2
+                                       Misaligned?              No      Yes                          0.6                                                                        0.6
+
+                                      Residual RL              20/20   15/20                         0.4                                                                        0.4
+                                     Hand-engineered           20/20    2/20                         0.2                                                                        0.2
+
+                                                                                                     0.0                                                                        0.0
+                                                                                                        0K            2K           4K          6K          8K                         0     500    1000     1500   2000    2500    3000
+                                                                                                                             Timesteps                                                                  Timesteps
+                                                           (a)                                                               (b)                                                                          (c)
+
+            Fig. 3: Outcome of our residual RL method in different experiments during the block assembly task in the real-world. Success
+            rate is recorded manually by human judgment of whether the blocks stayed upright and ended in the correct position. Plot (a)
+            compares the insertion success of residual RL and hand-designed controller depending on the block orientation during run
+            time. Plot (b) shows the success rate of the insertion process during training, where on every reset the blocks are randomly
+            rotated: straight, tilted clockwise, or tilted counterclockwise (± 20◦ ) and plot (c) shows the increasing success rate of our
+            method for biased controllers as well even as control bias increases.
+                                           Simulation, Eﬀect of Variation            Simulation, Eﬀect of Control Noise                                                         Simulation, Eﬀect of Control Bias
+              Final Average Return
+
+
+
+
+                                                                                                                                                             5
+                                                                                 4
+                                     4
+                                                                                                                                                            10
+                                                                                 6
+                                     5
+                                                                                                                                                            15
+                                                                                 8                                                                                                        Residual RL
+                                     6
+                                                                                                                                                                                          Hand-Engineered
+                                                                                                                                                            20
+                                         0.0       0.1           0.2       0.3               0.02              0.04         0.06        0.08        0.10             0.00                   0.05          0.10      0.15          0.20
+                                                Block Rotation Noise                                       Noise Standard Deviation                                                                Noise Mean
+                                                         (a)                                                          (b)                                                                            (c)
+            Fig. 4: Simulation results for different experiments. In each plot, the ﬁnal average return obtained by running the method for
+            various settings of a parameter is shown. Plot (a) shows that residual RL can adjust to noise in the environment caused by
+            rotation of the blocks in a range of 0 to 0.3 rad. In plot (b), residual RL ﬁnds robust strategies in order to reduce the effect
+            of control noise, as the ﬁnal average return is not greatly affected by the magnitude of noise. Plot (c) shows that residual
+            RL can compensate for biased controllers and maintains good performance as control bias increases, while the performance
+            of the hand-designed controller dramatically deteriorates with higher control bias.
+
+            B. Effect of Environment Variation                                                                              real-world learning curve for the experiment in Fig. 3 (b)
+                                                                                                                            shows that this behavior is gradually acquired over the course
+               In previous set of experiments, both standing blocks                                                         of eight thousand samples, which is only about three hours
+            were placed in their initial position without any position or                                                   of real-world training time.
+            orientation error. In this case, the hand-engineered controller                                                    We further studied the effect of the block orientation
+            performs well, as both blocks are placed such that there is                                                     changing after every reset in simulation. The results are
+            a sufﬁciently large deﬁned gap for insertion. However, once                                                     shown in Fig. 4 (a). The simulation results show that the per-
+            the initial orientation of the blocks is randomized, the gap                                                    formance of the hand-engineered controller decreases as the
+            between the blocks and the goal position does not afford                                                        block rotation angle increases, whereas our control method
+            directly inserting from above. Therefore, the hand-engineered                                                   maintains a constant average performance over different
+            controller struggles to solve the insertion task, succeeding in                                                 variations.
+            only 2/20 trials, while residual RL still succeeds in 15/20
+            trials. These results are summarized in Fig. 3 (a). Rollouts                                                    C. Recovering from Control Noise
+            from the learned policy are included in 1. In this experiment,                                                     In this experiment, we observe that residual RL is able
+            the agent demonstrably learns consistent small corrective                                                       to cope with actuator noise, including biased actuator noise.
+            feedback behaviors in order to slightly nudge the blocks in                                                     Quantitative results for simulation are shown in Fig. 4 (b)
+            the right direction without tipping them over, a behavior that                                                  and (c). In Fig. 4 (c) our method keeps the average return
+            is very difﬁcult to manually specify.                                                                           constant and correct for biased controllers even as control
+               The result of this experiment showcases the strength of                                                      bias increases, whereas the hand-engineered controller can-
+            residual RL. Since the human controller speciﬁes the general                                                    not compensate biased input and its performance deteriorates
+            trajectory of the optimal policy, environment samples are                                                       as control bias increases. The same applies for adding control
+            required only to learn this corrective feedback behavior. The                                                   noise to the control output as shown in Fig. 4 (b).
+
+                                                                                                                      6027
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on October 04,2026 at 07:06:34 UTC from IEEE Xplore. Restrictions apply.
+               For the hardware experiments, only biased actuator noise                      Often, intensive reward shaping is key for RL to succeed at
+            is investigated. These results are shown in Fig. 3 (c). These                 a task and prior work has even considered reward shaping as
+            learning curves show that even as more control bias is intro-                 part of the learning system [15]. Reward shaping in order to
+            duced, training in the real world proceeds without signiﬁcant                 tune agent behavior is a very manual process and recovering
+            issues. This result suggests the potential for RL to address                  a good policy with reward shaping can be as difﬁcult as
+            practical issues in automation such as sensor drift.                          specifying the policy itself. Hence, in our method we allow
+                                                                                          for human speciﬁcation of both rewards and policies—
+            D. Sim-to-Real with Residual RL
+                                                                                          whichever might be more practical for a particular task.
+               The result of the sim-to-real experiment is shown in                          Further work has incorporated more specialized human
+            Fig. 5. In this experiment, each setting was run with three                   knowledge into RL systems. One approach is to use tra-
+            random seeds. Adding policy initialization from simulation                    jectory planners in RL in order to solve robotics tasks [16].
+            signiﬁcantly speeds up both RL and residual RL. In particu-                   However, since the method optimizes trajectory following in-
+            lar, residual RL with policy initialization from simulation                   stead of the task reward, generalization can be difﬁcult when
+            successfully solves the task extremely quickly: in under                      aspects of the environment change. Other work has focused
+            one thousand timesteps of environment interaction. This                       on human feedback [17], [18], [19], [20], [21] to inform
+            method poses a highly sample efﬁcient, practical way to                       the agent about rewards or to encourage safety. However, in
+            solve robotics problems with difﬁcult contact dynamics.                       many robotics tasks, providing enough information about the
+                                   VII. R ELATED W ORK                                    task through incremental human feedback is difﬁcult.
+                                                                                             Another way to include prior knowledge in RL is through
+               Reinforcement learning for robotics holds the promise of
+                                                                                          demonstrations [22], [23], [24], [25], [26], [27]. Demonstra-
+            greater autonomy and reliability, which could be vital to
+                                                                                          tions can substantially simplify the exploration problem as
+            improving our manufacturing processes beyond its current
+                                                                                          the agent begins training having already received examples of
+            limitations. RL methods have been difﬁcult to apply in
+                                                                                          high-reward transitions and therefore knows where to explore
+            robotics because of sample efﬁciency, safety, and stability
+                                                                                          [28]. However, providing demonstrations requires humans
+            issues. Still, RL has been used to allow robots to learn tasks
+                                                                                          to be able to teleoperate the robot to perform the task. In
+            such as playing table tennis [6], swinging up a cartpole
+                                                                                          contrast, our method only requires a conventional controller
+            and balancing a unicycle [7], grasping [8], [9], opening a
+                                                                                          for motion, which ships with most robots.
+            door [10], and general manipulation tasks [11], [12]. RL,
+                                                                                             Prior knowledge can also be induced through neural
+            particularly deep RL, tends to be data-hungry; even learning
+                                                                                          network architecture choices. Deep residual networks with
+            simple tasks can require many hours of interaction. To bring
+                                                                                          additive residual blocks achieved state of the art results
+            these methods into factories and warehouses, they must be
+                                                                                          in many computer vision tasks by enabling training of
+            able to consistently solve complex tasks, multi-step tasks.
+                                                                                          extremely deep networks [29]. In RL, structured control nets
+            One way to enable these methods to solve these complex
+                                                                                          showed improvement on several tasks by splitting the policy
+            tasks is to introduce prior human knowledge into the learning
+                                                                                          into a linear module and a non-linear module [30]. Prior work
+            system, as our method does.
+                                                                                          in adaptive ﬂight control has also considered compensating
+               Prior work in RL has incorporated human prior knowledge
+                                                                                          linearized controllers with neural networks [31]. Most closely
+            for solving tasks in various ways. One such way is reward
+                                                                                          related to our work, residual policy learning concurrently
+            shaping [13], where additional rewards auxiliary to the real
+                                                                                          and independently explores training a residual policy in
+            objective are included in order to guide the agent towards
+                                                                                          the context of simulated long-horizon, sparse-reward tasks
+            the desired behavior. Reward shaping can effectively encode
+                                                                                          with environment variation and sensor noise [32]. Our work
+            a policy. For example, to train an agent to perform block
+                                                                                          instead focuses on achieving practical real-world training of
+            stacking, each step can be encoded into the reward [14].
+                                                                                          contact-intensive tasks.
+
+                                                                                                                   VIII. C ONCLUSION
+                                                                                             In this paper we study the combination of conventional
+                                                                                          feedback control methods with deep RL. We presented a
+                                                                                          control method that utilizes conventional feedback control
+                                                                                          along with RL to solve complicated manipulation tasks
+                                                                                          involving friction and contacts with unstable objects. We
+                                                                                          believe this approach can accelerate learning of many tasks,
+                                                                                          especially those where the control problem can be solved in
+            Fig. 5: Real-world block insertion results using residual RL
+                                                                                          large part by prior knowledge but requires some model-free
+            for sim-to-real transfer. “Sim” indicates that the real-world
+                                                                                          reasoning to solve perfectly. Our results demonstrate that the
+            policy was initialized by reinforcement learning in simula-
+                                                                                          combination of conventional feedback control and RL can
+            tion. Residual RL with simulation initialization successfully
+                                                                                          circumvent the disadvantages of both and provide a sample
+            solves the task with little environment experience required.
+                                                                                          efﬁcient controller that can cope with contact dynamics.
+
+                                                                                      6028
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on October 04,2026 at 07:06:34 UTC from IEEE Xplore. Restrictions apply.
+                                         R EFERENCES                                        [24] A. Rajeswaran, V. Kumar, A. Gupta, J. Schulman, E. Todorov, and
+                                                                                                 S. Levine, “Learning Complex Dexterous Manipulation with Deep
+             [1] U. Kannengiesser, R. Heininger, L. Billy, P. Terpak, M. Neubauer,               Reinforcement Learning and Demonstrations,” in Robotics: Science
+                 C. Stary, D. Majoe, A. Totter, and D. Bonaldi, Lot-Size One Produc-             and Systems, 2018.
+                 tion, 01 2017.                                                             [25] T. Hester, M. Vecerik, O. Pietquin, M. Lanctot, T. Schaul,
+             [2] S. Fujimoto, H. van Hoof, and D. Meger, “Addressing Func-                       B. Piot, D. Horgan, J. Quan, A. Sendonaris, G. Dulac-Arnold,
+                 tion Approximation Error in Actor-Critic Methods,” arXiv preprint               I. Osband, J. Agapiou, J. Z. Leibo, and A. Gruslys, “Learning from
+                 arXiv:1802.09477, 2018.                                                         Demonstrations for Real World Reinforcement Learning,” in AAAI
+             [3] T. P. Lillicrap, J. J. Hunt, A. Pritzel, N. Heess, T. Erez,                     Conference on Artiﬁcial Intelligence, 2018.
+                 Y. Tassa, D. Silver, and D. Wierstra, “Continuous control with deep        [26] M. Večerı́k, T. Hester, J. Scholz, F. Wang, O. Pietquin, B. Piot,
+                 reinforcement learning,” in International Conference on Learning                N. Heess, T. Rothörl, T. Lampe, and M. Riedmiller, “Leveraging
+                 Representations (ICLR), 2016.                                                   Demonstrations for Deep Reinforcement Learning on Robotics
+             [4] V. Pong, S. Gu, M. Dalal, and S. Levine, “Temporal Difference                   Problems with Sparse Rewards,” CoRR, vol. abs/1707.0, 2017.
+                 Models: Model-Free Deep RL For Model-Based Control,” in                    [27] A. Nair, B. Mcgrew, M. Andrychowicz, W. Zaremba, and
+                 International Conference on Learning Representations (ICLR), 2018.              P. Abbeel, “Overcoming Exploration in Reinforcement Learning with
+             [5] E. Todorov, T. Erez, and Y. Tassa, “MuJoCo: A physics engine                    Demonstrations,” in IEEE International Conference on Robotics and
+                 for model-based control,” in IEEE/RSJ International Conference on               Automation (ICRA), 2018.
+                 Intelligent Robots and Systems (IROS), 2012, pp. 5026–5033.                [28] K. Subramanian, C. L. Isbell, and A. L. Thomaz, “Exploration
+             [6] J. Peters, K. Mülling, and Y. Altün, “Relative Entropy Policy Search,”        from Demonstration for Interactive Reinforcement Learning,” in
+                 in AAAI Conference on Artiﬁcial Intelligence, 2010, pp. 1607–1612.              International Conference on Autonomous Agents and Multiagent
+             [7] M. P. Deisenroth and C. E. Rasmussen, “PILCO: A model-based and                 Systems (AAMAS), 2016.
+                 data-efﬁcient approach to policy search,” in International Conference      [29] K. He, X. Zhang, S. Ren, and J. Sun, “Deep Residual Learning for
+                 on Machine Learning (ICML), 2011, pp. 465–472.                                  Image Recognition,” in Conference on Computer Vision and Pattern
+             [8] L. Pinto, J. Davidson, R. Sukthankar, and A. Gupta, “Robust                     Recognition (CVPR), 2016.
+                 Adversarial Reinforcement Learning,” in International Conference on        [30] M. Srouji, J. Zhang, and R. Salakhutdinov, “Structured Control Nets
+                 Machine Learning (ICML), 2017.                                                  for Deep Reinforcement Learning,” in International Conference on
+             [9] S. Levine, P. Pastor, A. Krizhevsky, and D. Quillen, “Learning                  Machine Learning (ICML), 2018.
+                 Hand-Eye Coordination for Robotic Grasping with Deep Learning              [31] E. Johnson and A. Calise, “Pseudo-Control Hedging: A New Method
+                 and Large-Scale Data Collection,” International Journal of Robotics             For Adaptive Control,” in Advances in Navigation Guidance and
+                 Research, 2017.                                                                 Control Technology Workshop, 2000.
+            [10] S. Gu, E. Holly, T. Lillicrap, and S. Levine, “Deep Reinforcement          [32] T. Silver, K. Allen, J. Tenenbaum, and L. Kaelbling, “Residual Policy
+                 Learning for Robotic Manipulation with Asynchronous Off-Policy                  Learning,” dec 2018.
+                 Updates,” IEEE International Conference on Robotics and Automation
+                 (ICRA), 2017.
+            [11] S. Levine, C. Finn, T. Darrell, and P. Abbeel, “End-to-End Training
+                 of Deep Visuomotor Policies,” Journal of Machine Learning Research
+                 (JMLR), vol. 17, no. 1, pp. 1334–1373, 2016.
+            [12] T. Haarnoja, A. Zhou, P. Abbeel, and S. Levine, “Soft Actor-Critic:
+                 Off-Policy Maximum Entropy Deep Reinforcement Learning with a
+                 Stochastic Actor,” in International Conference on Machine Learning,
+                 2018.
+            [13] A. Y. Ng, D. Harada, and S. Russell, “Policy invariance under
+                 reward transformations: Theory and application to reward shaping,”
+                 in International Conference on Machine Learning (ICML), 1999.
+            [14] I. Popov, N. Heess, T. Lillicrap, R. Hafner, G. Barth-maron,
+                 M. Vecerik, T. Lampe, Y. Tassa, T. Erez, M. Riedmiller, and
+                 M. R. Deepmind, “Data-efﬁcient Deep Reinforcement Learning for
+                 Dexterous Manipulation,” CoRR, vol. abs/1704.0, 2017.
+            [15] C. Daniel, M. Viering, J. Metz, O. Kroemer, and J. Peters, “Active
+                 Reward Learning,” in Robotics: Science and Systems (RSS), 2014.
+            [16] G. Thomas, M. Chien, A. Tamar, J. A. Ojea, and P. Abbeel, “Learning
+                 Robotic Assembly from CAD,” in IEEE International Conference on
+                 Robotics and Automation (ICRA), 2018.
+            [17] R. Loftin, J. Macglashan, B. Peng, M. E. Taylor, M. L. Littman,
+                 J. Huang, and D. L. Roberts, “A Strategy-Aware Technique for Learn-
+                 ing Behaviors from Discrete Human Feedback,” in AAAI Conference
+                 on Artiﬁcial Intelligence, 2014, pp. 937–943.
+            [18] W. Saunders, G. Sastry, A. Stuhlmüller, and O. Evans, “Trial
+                 without Error: Towards Safe Reinforcement Learning via Human
+                 Intervention,” in International Conference on Autonomous Agents and
+                 Multiagent Systems (AAMAS), 2018.
+            [19] L. Torrey and M. E. Taylor, “Teaching on a Budget: Agents Advising
+                 Agents in Reinforcement Learning,” in International Conference on
+                 Autonomous Agents and Multiagent Systems (AAMAS), 2013.
+            [20] J. Frank, S. Mannor, and D. Precup, “Reinforcement Learning in the
+                 Presence of Rare Events,” in International Conference on Machine
+                 Learning (ICML), 2008.
+            [21] P. F. Christiano, J. Leike, T. B. Brown, M. Martic, S. Legg, and
+                 D. Amodei, “Deep reinforcement learning from human preferences,”
+                 in Advances in Neural Information Processing Systems (NIPS), 2017.
+            [22] J. Peters and S. Schaal, “Reinforcement learning of motor skills with
+                 policy gradients,” Neural Networks, vol. 21, no. 4, pp. 682–697,
+                 2008.
+            [23] J. Kober and J. Peter, “Policy search for motor primitives in
+                 robotics,” in Advances in Neural Information Processing Systems
+                 (NIPS), vol. 97, 2008, pp. 83–117.
+
+
+                                                                                        6029
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on October 04,2026 at 07:06:34 UTC from IEEE Xplore. Restrictions apply.
+

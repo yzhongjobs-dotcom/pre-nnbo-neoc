@@ -1,0 +1,1182 @@
+                                                                                                                                                                                       1
+
+
+
+
+                                                         Diffusion-Based Impedance Learning for
+                                                             Contact-Rich Manipulation Tasks
+                                                                        Noah Geiger, Tamim Asfour, Neville Hogan and Johannes Lachner
+
+
+
+
+                                            Abstract—Learning-based methods excel at robot motion gen-                    Robots operating in contact-rich and unstructured environ-
+                                         eration but remain limited in contact-rich physical interaction.              ments must bridge these two domains: desired motions must
+                                         Impedance control provides stable and safe contact behavior but               be inferred and represented in the information domain, yet
+                                         requires task-specific tuning of stiffness and damping parameters.
+                                         We present Diffusion-Based Impedance Learning, a framework                    executed through control algorithms that take into account
+                                         that bridges these paradigms by combining generative modeling                 energy exchange with the environment. This requirement is
+                                         with energy-consistent impedance control. A Transformer-based                 critical in assembly, robot-assisted rehabilitation, and other
+                                         Diffusion Model, conditioned via cross-attention on measured ex-              contact-rich tasks where visual feedback may be limited and
+                                         ternal wrenches, reconstructs simulated Zero-Force Trajectories               task success depends on regulating physical interaction rather
+                                         (sZFTs) that represent contact-consistent equilibrium behavior.
+                                         A SLERP-based quaternion noise scheduler preserves geometric                  than simply following a path.
+arXiv:2509.19696v4 [cs.RO] 11 Aug 2026
+
+
+
+
+                                         consistency for rotations on the unit sphere. The reconstructed                  The relation between motion planning (information domain)
+                                         sZFT is used by an energy-based estimator to adapt impedance                  and physical interaction (energy domain) is well described by
+                                         online through directional stiffness and damping modulation.                  mechanical impedance [5]–[7]. Impedance Control has been
+                                         Trained on parkour and robot-assisted therapy demonstrations                  widely adopted to guarantee stability [5] and safety [4] for
+                                         collected via Apple Vision Pro teleoperation, the model achieves
+                                         sub-millimeter positional and sub-degree rotational accuracy                  robots that go in and out of contact. The separation of both
+                                         using only tens of thousands of samples. Deployed in real-                    domains can be formalized by equivalent networks, a gen-
+                                         time torque control on a KUKA LBR iiwa, the approach                          eralization of the equivalent-circuit concept [8], to represent
+                                         enables smooth obstacle traversal and generalizes to unseen tasks,            nonlinear dynamics and arbitrarily complex physical networks
+                                         achieving 100% success in multi-geometry peg-in-hole insertion.               as a combination of primitives [9]–[11].
+                                         The code for all experiments is publicly available on GitHub and
+                                         videos of the experiments are available on the project website.                  While Impedance Control provides a powerful framework
+                                                                                                                       for shaping robot–environment interaction [9], its effectiveness
+                                            Index Terms—Imitation learning, Diffusion Models, Physical                 critically depends on the choice of stiffness and damping pa-
+                                         interaction, Impedance Control
+                                                                                                                       rameters [12]. Too much stiffness can lead to jamming, while
+                                                                                                                       too little can prevent task execution. Selecting these parameters
+                                                                  I. I NTRODUCTION                                     is typically an iterative and time-consuming process, as current
+                                                                                                                       physics-based simulation tools are not yet sufficiently accurate
+                                            Robotic behavior arises from the interaction of two funda-                 or reliable to support fully offline tuning [13].
+                                         mentally different domains. On the one hand, motion planning                     Recent advances in contact-rich manipulation can be di-
+                                         and learning algorithms are based on data processing and                      vided into three main strands: 1) model-based approaches,
+                                         operate on symbolic or numerical representations of virtual                   2) statistical-impedance heuristics, and 3) learning-based ap-
+                                         desired behavior, such as trajectories, poses, or task objectives.            proaches.
+                                         These representations are processed unidirectionally and are                     Model-based approaches incorporate explicit contact dy-
+                                         constrained only by temporal causality (“no output before in-                 namics including friction cones, complementarity constraints,
+                                         put”) and boundedness. They are not subject to physical laws.                 and mixed-integer formulations [14]–[27]. These methods
+                                         In this paper, we refer to this as the information domain [1].                produce behavior consistent with physical contact but face
+                                            Physical interaction with the environment, on the other                    challenges: high computational cost, parameter sensitivity, and
+                                         hand, is governed by bidirectional behavior. It is constrained                limited robustness in unstructured settings. Most approaches
+                                         by physical laws like energy conservation, entropy production,                require task-specific tuning of parameters. The selected con-
+                                         gravity, etc. In this paper, we refer to this as the energy                   trol gains typically do not generalize across environments
+                                         domain [1]. Ignoring these physical constraints will yield                    and tasks. Consequently, these approaches are not ideal for
+                                         robot control problems with stability (passivity) [2], [3] and                unstructured environments with unknown contact dynamics.
+                                         safety [4].                                                                   These limitations motivate the development of learning-based
+                                                                                                                       frameworks capable of inferring and adapting stiffness online
+                                           N. Geiger and T. Asfour are with the Institute for Anthropomatics and       from observed interaction data.
+                                         Robotics, Karlsruhe Institute of Technology, Karlsruhe, Germany; e-mail:
+                                         noah.geiger@student.kit.edu, asfour@kit.edu                                      Between explicit physics-based models and fully learning-
+                                           N. Geiger, N. Hogan, and J. Lachner are with the Department of Mechanical   based policies, a class of statistical-impedance heuristics have
+                                         Engineering, Massachusetts Institute of Technology, Cambridge, USA; N.        emerged within the learning-from-demonstration literature.
+                                         Hogan, and J. Lachner are also with the and Department of Brain and
+                                         Cognitive Sciences, Massachusetts Institute of Technology, Cambridge, USA;    These approaches typically model demonstrated motions using
+                                         e-mail: ngeiger@mit.edu, neville@mit.edu, jlachner@mit.edu                    probabilistic representations such as Gaussian Mixture Mod-
+                                                                                                                                                 2
+
+
+
+els, where the mean trajectory defines the nominal motion and                   force sensing, and compliant kinesthetic teaching to directly
+the covariance is interpreted as a measure of task relevance or                 predict compliance-related quantities for a low-level con-
+confidence [28], [29]. Impedance parameters are then mod-                       troller. In contrast, our approach operates solely on robot
+ulated heuristically based on this statistical variability, with                kinematics and measured interaction wrenches, reconstructing
+higher stiffness assigned to directions of low variance. These                  a contact-consistent equilibrium trajectory from teleoperated
+approaches have shown to be effective for structured tasks                      demonstrations and deriving impedance adaptation through
+with consistent geometry. However, these methods are still                      an energy-based estimator. Conceptually, both ACP’s Virtual
+limited in contact-rich settings where changing environmental                   Target Pose and the proposed equilibrium reconstruction rep-
+constraints are not reflected in the statistical variability of the             resent interaction-conditioned equilibria. However, the former
+demonstrations.                                                                 is directly tracked as a force-generating target, whereas the
+   Learning-based approaches, in contrast, primarily oper-                      latter serves as an intermediate representation for estimating
+ate in the information domain. Reinforcement learning and                       impedance adaptation while the robot continues to follow its
+sampling-based optimization methods [30]–[35] can achieve                       nominal motion reference.
+context-aware behavior, but typically lack an explicit represen-                   In this way, our approach bridges data-driven learning and
+tation of impedance, which prescribes a bidirectional relation-                 energy-consistent control: Diffusion Models explain physi-
+ship between motion and generalized force [36]. Instead, these                  cal interaction by reconstructing contact-consistent equilib-
+methods rely on reward functions that penalize either force or                  ria, while impedance control enforces stability and physical
+position deviations. As a result, they tend to converge toward                  consistency during execution. Our method operates purely on
+admittance-like behaviors that suppress interaction forces or                   robot kinematics and measured interaction wrenches, without
+motion deviations, rather than explicitly regulating impedance.                 relying on visual observations.
+   More recent generative approaches, including diffusion poli-                 We validated the framework on a KUKA LBR iiwa in two
+cies [37], flow-matching policies [38], [39], and Transformer-                  contact-rich scenarios: parkour-style obstacle traversal and
+based policy models [40], [41], have demonstrated impressive                    multi-geometry peg-in-hole insertion. Training data were col-
+performance in motion generation across tasks and embod-                        lected through teleoperation using Apple Vision Pro (AVP)
+iments [42]. However, these methods primarily focus on                          equipped with a markerless pose-tracking framework [44]
+trajectory generation and are typically executed through PD                     integrated into the robot controller. Both tasks expose the
+controllers with fixed proportional and derivative gains to                     limitations of fixed impedance and simple adaptation schemes,
+maintain stability during contact. Compliance in such systems                   which require careful, task-specific parameter tuning and still
+is therefore not explicitly controlled but emerges indirectly                   tend to jam at obstacles or fail to achieve insertion. In con-
+through low control gains. While this strategy can prevent                      trast, Diffusion-Based Impedance Learning achieves consistent
+hardware damage, it provides limited control over physical                      success without manual retuning.
+interaction behavior in contact-rich or safety-critical scenarios                  This result is particularly noteworthy in the peg-in-hole
+where deliberate impedance modulation is essential.                             experiments, as the Diffusion Model was not trained on this
+   This paper addresses this gap by formulating impedance                       task. Despite the absence of peg-in-hole demonstrations during
+adaptation as an equilibrium reconstruction problem rather                      training, the system achieved a 100% success rate across
+than a trajectory learning problem. We present Diffusion-Based                  all peg geometries. This generalization was obtained using
+Impedance Learning, a framework that integrates generative                      only 1.6 hours of teleoperated training data (72,000 samples).
+modeling with energy-consistent impedance control. While                        The results summarized in Table I underscore the central
+the robot moves on a fixed nominal Zero-Force Trajectory                        contribution of this work: robust contact-rich manipulation in
+(ZFT)1 , a conditional Transformer-based Diffusion Model                        unstructured environments requires explicitly bridging learn-
+reconstructs a simulated Zero-Force Trajectory (sZFT) from                      ing in the information domain with control in the energy
+contact-perturbed motion and measured interaction wrenches.                     domain.
+The reconstructed sZFT represents an inferred equilibrium that                     The code for the Transformer-based Diffusion Model, the
+is consistent with the observed physical interaction and serves                 robot controller, and the Apple Vision Pro teleoperation frame-
+as the reference for impedance modulation. A directional                        work is available in our GitHub repository. Demonstration
+adaptation scheme selectively reduces stiffness along non-task-                 videos of all experiments can be found on the project website.
+relevant directions while preserving rigidity along directions
+essential for task execution.                                                                         II. P RELIMINARIES
+   Other work, in addition to that presented here, has also
+                                                                                  First, we outline the process in both domains: Transformer-
+begun to combine generative models with compliant control
+                                                                                based diffusion in the information domain and energy-based
+for contact-rich manipulation. The Adaptive Compliance Pol-
+                                                                                Impedance Control in the energy domain.
+icy (ACP) [43] shares several conceptual similarities with
+the present work, but differs in sensing modality, demon-
+stration paradigm, controller architecture, and the role of                     A. Diffusion Models
+the inferred equilibrium. ACP combines visual observations,                        Diffusion Models learn to sample from a data distribution by
+   1 The Zero-Force Trajectory (ZFT), introduced by Hogan [12], refers to the
+                                                                                approximating the reverse-time dynamics of a Gaussian diffu-
+commanded equilibrium motion in the unconstrained case: the unique end-         sion process [45]. Let {zi }N
+                                                                                                            i=1 be independent and identically
+effector pose at which the interaction wrench vanishes.                         distributed samples from the data distribution pdata ; the goal is
+                                                                                                                                           3
+
+
+
+TABLE I: Preview of experimental outcomes (full details in Section IV). Fixed impedance fails in contact-rich tasks, while
+Diffusion-Based Impedance Learning achieves robust success by reconstructing a contact-consistent sZFT.
+
+                  Controller                                      Parkour               Cylindrical Peg   Square Peg   Star Peg
+                  Fixed impedance                       × (stopped at first obstacle)       100%            13%          0%
+                  Diffusion-Based Impedance Learning       ✓ (smooth traversal)             100%            100%        100%
+
+
+
+to learn a parametric family of distributions {pθ }θ∈Θ such that            t=T, . . . , 1, yielding z0 as a sample from the model [47].
+pθ ≈ pdata . A forward Markov chain maps a clean sample z0                  For robotic trajectory generation, this iterative denoising maps
+to (approximately) N (0, I) over T steps. The learned reverse-              pure noise into trajectories that are consistent with task goals
+time chain iteratively denoises zt to produce a sample that                 (Figure 1).
+approximates pdata (Figure 1).                                                 5) Conditional Diffusion: To generate task-consistent be-
+   1) Forward Diffusion: The forward diffusion process de-                  havior, the denoising process is conditioned on an additional
+fines a Markov chain with Gaussian transitions                              context variable c (e. g., goals, scene state, or interaction
+                              √                                             wrench). The reverse model and noise predictor then become
+           q(zt | zt−1 ) = N ( αt zt−1 , (1 − αt ) I) ,      (1)
+                                                                            pθ (zt−1 | zt , c) and εθ (zt , t, c).
+where αt := 1 − βt and {βt }Tt=1 ⊂ (0, 1) is a predefined noise                Conditioning can be implemented in several ways, includ-
+schedule. The quantity (1 − αt ) = βt is the per-step diffusion             ing (i) early fusion (e. g., feature concatenation), (ii) cross-
+variance, which controls the
+                          QTsignal-to-noise ratio across time.              attention over context tokens for Transformer denoisers, or
+After T steps with ᾱT := i=1 αi ≈ 0, the marginal distribu-                (iii) lightweight fusion layers [50], [51].
+tion approaches a standard normal distribution , zT ≈ N (0, I).                In our approach, conditional diffusion is central. By condi-
+The marginal distribution at step t has the closed form                     tioning on external wrenches, the model reconstructs sZFTs
+                              √                                            that are consistent with physical interaction. This ties the de-
+            q(zt | z0 ) = N ᾱt z0 , (1 − ᾱt ) I ,         (2)
+                                                                            noising process in the information domain to the regulation of
+which admits the equivalent reparameterization                              interaction in the energy domain. More details about Diffusion
+             √          √                                                   Models can be found in [47], [49], [52], [53].
+      zt = ᾱt z0 + 1 − ᾱt ε,          ε ∼ N (0, I).                (3)       6) Transformer-based Diffusion Model: In this paper,
+   2) Noise Schedule: The per-step variances {βt }Tt=1 define               we choose a Transformer-based denoising network since
+the noise schedule, which controls how the signal-to-noise                  robotic trajectories are time series with context-dependent
+ratio SNRt = ᾱt /(1 − ᾱt ) decays from ∞ to 0 over time.                  effects (e. g., contact events with delayed consequences).
+A well-chosen schedule balances the complexity of denoising,                Self-attention provides a content-based global receptive field
+keeping early steps near-deterministic and later steps close to             and fully parallelizable training, which is advantageous over
+pure noise. [46], [47]                                                      Recurrent or Convolutional Neural Networks for sequence
+   3) Reverse Process and Learning Objective: The true re-                  modeling [41], [54].
+verse q(zt−1 | zt ) is intractable, as it marginalizes over z0 .               At each diffusion step, pose tokens are formed from trans-
+However, since the forward chain is linear–Gaussian, the                    lations and unit-quaternions. These tokens are embedded and
+posterior q(zt−1 | zt , z0 ) is itself Gaussian with mean µ̃t (zt , z0 )    enriched with learned positional and timestep embeddings.
+and variance β̃t I [48]. The model represents pθ (zt−1 | zt ) =             Interaction signals (forces and moments) are projected to
+N (µθ (zP
+        t , t), Σθ (zt , t)) and fit θ by minimizingthe variational        context tokens and integrated through a multi-head cross-
+bound       t DKL q(zt−1 | zt , z0 ) ∥ pθ (zt−1 | zt ) . With the ε-
+                                                                            attention layer. Here, trajectory tokens serve as queries while
+parameterization,                                                           context tokens serve as keys and values. The combined
+                                                                          sequence is then processed by stacked self-attention and
+                            1             βt                                feed-forward layers, and a lightweight Multi-layer Perceptron
+         µθ (zt , t) = √          zt − √         εθ (zt , t) ,
+                             αt          1 − ᾱt                            (MLP) head predicts the 7D noise (3D translations and 4D
+             √            √                                                 unit-quaternions) for each token. This architecture captures
+and zt = ᾱt z0 + 1 − ᾱt ε, the objective reduces (up to
+constants) to the noise-prediction loss [47]:                               temporal structure while conditioning on interaction signals, a
+                                                 √                          requirement that is central for contact-rich applications [54]–
+                           h           √                        2i
+ Lsimple (θ) = Et,z0 ,ε ε − εθ ᾱt z0 + 1 − ᾱt ε, t 2 .                    [59]. More details about Transformer-based models can be
+                                                                            found in [53], [54], [58], [59].
+   4) Training and Inference Algorithms: Training follows a
+noise-prediction objective: at each iteration, a clean sample
+z0 ∼ pdata , a timestep t ∈ {1, . . . , T } (uniform), and Gaussian         B. Energy-based Impedance Control
+noise ε ∼ N (0, I) are sampled. The closed-form forward
+diffusion produces zt , then the network εθ is updated to mini-               Impedance Control regulates the dynamic relationship be-
+mize mean-squared error between ε and its prediction εθ (zt , t)            tween motion and interaction wrenches. Rather than com-
+[47], [49]. At inference, generation starts from zT ∼ N (0, I)              manding exact positions, the robot behaves like a virtual
+and applies the learned reverse transitions pθ (zt−1 | zt ) for             mechanical system characterized by stiffness, damping, and
+                                                                                                                                                   4
+
+
+
+inertia2 . In contrast to admittance control3 , the impedance                        1) Damping design: The damping design was formulated
+formulation enables the robot to maintain compliance while                        to ensure that energy dissipation scales consistently with both
+ensuring stability when interacting with passive environments                     the commanded stiffness K{t,r} and the task-space inertia
+[6], [36], [61], [62].                                                            for translations and rotations Λ{t,r} ∈ R3×3 . To account
+   From an energy perspective, Impedance Control transforms                       for numerical issues near singular configurations, Λ{t,r} was
+the potential energy stored in a virtual spring to the work done                  computed using a damped least-squares method [2].
+by external wrenches [63]. Let the pose displacement be                              A user-selected positive time constant d > 0 defines the
+                                                                                diagonal damping ratio matrix
+                       et
+              ∆x =         ∈ se(3),                          (4a)
+                       er                                                                                   D{t,r} = d I3 .                     (8)
+                 et := p − p0 ∈ R3 ,                                     (4b)                                                       p
+                                                                                  The symmetric positive semidefinite square roots Λ{t,r} and
+                                                                                  p
+                 er := log Q0 Q−1 ∈ R3 ≃ so(3).
+                                 
+                                                                         (4c)        K{t,r} are obtained by eigendecomposition for Λ{t,r} and
+                                                                                  elementwise for K{t,r} . As presented in [64], an intermediate
+where the observed pose is (p, Q) ∈ R3 × S3 and the                               damping matrix B{t,r} is constructed as
+equilibrium pose is (p0 , Q0 ) ∈ R3 × S3 . Any unit quaternion                                          q              q
+admits the unit axis–angle representation                                                       B{t,r} = Λ{t,r} D{t,r} K{t,r}
+                                                                                                           q              q                  (9)
+       Q = cos( θ2 ), u sin( θ2 ) , ∥u∥ = 1, θ ∈ [0, π]. (5)
+                                 
+                                                                                                        + K{t,r} D{t,r} Λ{t,r} .
+
+In this formulation, the logarithm map is applied to the error                      From B{t,r} , a scalar damping coefficient is computed to
+quaternion Q0 Q−1 to return the axis–angle error vector er =                      normalize the dissipation relative to the overall stiffness:
+u0 θ0 .
+   Let Kt , Kr ∈ R3×3 be diagonal, positive semidefinite                                                2 tr(B{t,r} )    2 tr(B{t,r} )
+                                                                                             λ{t,r} =                 =                .       (10)
+translational and rotational stiffness matrices and K =                                                  tr(K{t,r} )    kx + k y + k z
+diag(Kt , Kr ). Define the potential energy
+                                                                                  Finally, the damping matrices can be expressed as
+         U(∆x) = 12 e⊤         1 ⊤
+                     t Kt et + 2 er Kr er ∈ R≥0 .                          (6)
+                                                                                                             Bt = λt Kt ,                      (11)
+The elastic wrench Felastic ∈ se∗ (3) can then be derived from
+the gradient                                                                      for translation and
+                                                                                                          Br = λr Kr ,                       (12)
+                            ∂U         felastic
+               Felastic =        =                ,         (7)
+                           ∂∆x        melastic                                    for rotation.
+                   3                      3                                          2) Control Force: The force fctrl ∈ R3 is composed of
+with felastic ∈ R and melastic ∈ R being the elastic force and
+                                                                                  felastic and damping through matrix Bt ∈ R3×3 that acts on the
+moment, respectively.
+                                                                                  end-effector translational velocity ṗ ∈ R3 . It can be calculated
+  2 And possibly higher-order dynamic effects.                                    as
+  3 Admittance control requires additional methods to guarantee passivity [60].                         fctrl = felastic − Bt ṗ.              (13)
+
+
+
+
+Fig. 1: Diffusion overview. Bottom: dashed arrows depict the forward process q(zt | zt−1 ) which gradually corrupts a clean
+trajectory z0 . Top: solid arrows depict the reverse process pθ (zt−1 | zt ) which is learned to reconstruct structured robotic
+behavior. Figure adapted from [45].
+                                                                                                                                    5
+
+
+
+  3) Control Moment: The moment mctrl ∈ R3 is composed              website and the code for ZFT generation is publicly available
+of melastic and damping through matrix Br ∈ R3×3 that acts          on GitHub.
+on the angular velocity of the end-effector ω ∈ so(3). It can          The sZFT, in contrast, is reconstructed online by the diffu-
+be calculated as                                                    sion model from measured end-effector motion and interaction
+                                                                    wrenches. It provides a denoised estimate of the equilibrium
+                   mctrl = melastic − Br ω.                 (14)    trajectory that explains the observed interaction. During de-
+   4) Control Torque: Finally, the transpose of the Jacobian        ployment, the robot continues to track the nominal ZFT as the
+J (q) : Rn → se(3) provides the mapping between the 6-              commanded motion reference, while the reconstructed sZFT
+dimensional wrenches and the commanded joint torques τctrl ∈        is used exclusively for impedance adaptation. Specifically,
+Rn :                                                              the elastic energy in the virtual springs and external work
+                                   fctrl                            exchanged with the environment (Equations (24) - (25)) are
+                  τctrl = J (q)T           .            (15)
+                                  mctrl                             computed with respect to the reconstructed sZFT, enabling
+                                                                    online estimation of stiffness and damping consistent with the
+   In addition to the control wrench, the environment con-          observed contact behavior. In this way, the diffusion model
+tributes external wrenches Fext ∈ se∗ (3).                          does not directly generate impedance, but instead infers the
+   The controller implemented in this paper can be found in         interaction-consistent equilibrium underlying the impedance
+our Github repository.                                              controller.
+   5) Norton Equivalent Network: The Impedance Control                 For example, when the robot encounters an unexpected
+framework can be illustrated by the Norton Equivalent Net-          obstacle, the planned ZFT drives the end-effector into contact,
+work [6], [9], as represented in Figure 2. Here, two sources        producing an external wrench. Conditioned on this wrench, the
+interact to manage physical interaction:                            Diffusion Model reconstructs the sZFT and updates the con-
+   • The motion source, which represents a sequence of equi-        trolled impedance. An illustration of the difference between
+     librium poses {p0 , Q0 } that together form the ZFT.           ZFT and sZFT can be seen in Figure 4.
+   • The impedance source, which represents the baseline               Having illustrated the effect conceptually, we now formalize
+     stiffness K.                                                   the denoising process, which can be expressed in translational
+The motion source is part of the information domain. For            and rotational noise components. For translations, the full
+contact-rich manipulation, it is a virtual nominal trajectory       noise is defined as
+that lies beyond the physical constraints imposed by the
+environment. Impedance couples the motion source in the                                    pnoise = p − p0 .                    (16)
+information domain to the energy domain (energy exchange            During training, a fraction of this noise is added to the clean
+through F and {ṗ, ω}), a key property that we exploit later        equilibrium pose via the noise scheduler (Section III-B), and
+for energy-based stiffness estimation (Section III-E).              the network is trained to predict it. At inference, the predicted
+                                                                    noise p̂noise is subtracted from the observation to reconstruct
+      III. D IFFUSION -BASED I MPEDANCE L EARNING                   the equilibrium position iteratively,
+A. Diffusion Model for Reconstruction of sZFT
+                                                                                           p̂0 = p − p̂noise .                  (17)
+   From the perspective of diffusion, the displacement ∆x
+can be interpreted as noise corrupting the equilibrium pose           For rotations, the full noise is represented by the relative
+(p0 , Q0 ). The role of the Diffusion Model is to reconstruct       quaternion
+the equilibrium pose by iteratively removing this noise. During                           Qnoise = Q Q−1 0 ,                  (18)
+training, the model learns to predict the difference between the
+observed pose (p, Q) and the ground truth equilibrium pose,         which encodes the rotational displacement between the ob-
+guided by the measured external wrench Fext (Figure 3). At in-      served quaternion Q and the equilibrium quaternion Q0 .
+ference, the model denoises ∆x and outputs the reconstructed        Partial training noise is injected to Q0 using SLERP [65]
+sZFT (p̂0 , Q̂0 ).                                                  (Section III-B), and the network is trained to predict Q̂noise .
+   Throughout this paper, all quantities denoted by a hat (ˆ· )     At inference, the equilibrium quaternion is reconstructed by
+are predictions of the Diffusion Model and correspond to the                                Q̂0 = Q Q̂−1
+                                                                                                      noise .                   (19)
+sZFT.
+   It is important to distinguish between the nominal ZFT             The reconstructed sZFT provides the key link between the
+(p0 , Q0 ) and the reconstructed sZFT (p̂0 , Q̂0 ) in our for-      Diffusion Model and impedance adaptation. It serves as the
+mulation. The ZFT represents the programmed nominal mo-             input for the energy-based stiffness estimation described in
+tion reference and remains fixed during execution. In this          Section III-E.
+work, ZFTs were generated programmatically by chaining
+waypoints using minimum-jerk interpolation and Spherical
+Linear Interpolation (SLERP) [65]. More generally, ZFTs can         B. Noise Scheduling
+also be obtained through frame-based programming, imitation           For the denoising process, the maximum noise magnitude
+learning for free-space motion [66], [67], or teleoperation [68].   was computed separately for translations and rotations, and a
+A video of the demonstrations is available on the project           variational noise schedule was applied across diffusion steps.
+                                                                                                                                       6
+
+
+
+
+                           Information domain                                             Energy domain
+                                                                             𝜕𝒰
+                                                                          𝑭=                    𝝉
+                         Impedance 𝑲                                         𝜕Δ𝒙
+                         source:                 Potential Energy 𝒰                    𝑱𝑻 (𝒒)
+
+
+
+
+                                                                                                      Environment
+                                                          Δ𝐱
+                         Motion                           −                                     𝒒̇
+                         source:
+                                                                      !                 𝑱(𝒒)
+                                       𝒑" , 𝑸"             {𝒑, 𝑸}           {𝒑̇ , 𝝎}
+
+Fig. 2: Norton equivalent network to represent physical interaction as the combination of a virtual motion source and an
+impedance source. The displacement ∆x is coupled to stiffness K to generate wrench.
+
+
+         𝑭!"#
+                                                  noise
+                       Diffusion Model
+         𝒑, 𝑸
+
+Fig. 3: Diffusion-based reconstruction of the simulated Zero-
+Force Trajectory (sZFT). The observed pose {p, Q} together
+with the external wrench Fext is treated as noise relative to
+the equilibrium {p0 , Q0 }. The Diffusion Model iteratively                                                                      {𝑊}
+denoises this input to reconstruct the equilibrium trajectory,
+                                                                                                             {𝐸𝐸}
+which is then used in energy-based stiffness estimation.
+
+                                                                                𝑍𝐹𝑇(𝒑! , 𝑸! )                                 + !)
+                                                                                                                         *! , 𝑸
+                                                                                                                    𝑠𝑍𝐹𝑇(𝒑
+   1) Translations: For translations, the deviation between the
+observed end-effector position p and the ground-truth ZFT p0
+was treated as noise. Additional zero-mean Gaussian noise             Fig. 4: Illustration of the nominal Zero-Force Trajectory during
+ϵgauss ∼ N (0, σ 2 I) was injected during training to improve         deployment (ZFT, light blue) and the reconstructed simulated
+generalization and prevent overfitting [69]. The translational        Zero-Force Trajectory (sZFT, skin color), generated by the
+noise for the model was defined as                                    Diffusion Model. The ground truth sZFT was created by
+                                                                      teleoperation, which tracked the wrist frame {W} and serves
+                  noiset = p − p0 + ϵgauss ,                   (20)   as an input to the robot controller to move the end-effector
+with perturbed positions computed as                                  frame {EE}. In the illustration, the ZFT is just a straight
+                                                                      line. However, due to the external wrench during contact,
+                   pnoise = p0 + βt · noiset ,                 (21)   the Diffusion Model will reconstruct the sZFT to imitate the
+                                                                      demonstrated behavior. Autonomously, the robot will adapt its
+where βt is the noise scaling factor at diffusion step t.
+                                                                      compliant behavior through impedance to smoothly go over
+   2) Rotations: In our robot controller, orientations are rep-
+                                                                      the obstacle.
+resented with unit quaternions Q. Injecting noise, as in the
+translational case, would violate the unit-norm constraint and
+distort the geometry of rotations. To address this, we introduce       where Ω = arccos(⟨Qa , Qb ⟩) is the angle between Qa and
+a SLERP-based [65] noise scheduler that perturbs quaternions          Qb , and µ ∈ [0, 1] is the interpolation factor.
+directly on the unit sphere. This approach preserves valid
+orientations, provides perturbations consistent with geodesics,       C. Data Collection
+and allows rotational noise to be scheduled smoothly across
+                                                                         All training data for Diffusion-Based Impedance Learning
+diffusion steps. To our best knowledge, this is the first
+                                                                      were collected through teleoperation using the VisionPro-
+physically-consistent noise scheduler for rotations in robotics,
+                                                                      Teleop framework [44] and Apple Vision Pro (AVP), which
+formulated directly on a global representation of rotations [6].
+                                                                      enabled markerless and spatially unconstrained teleoperation
+   The SLERP process is illustrated in Figure 5. The interpo-
+                                                                      without external infrastructure. The AVP continuously tracked
+lation between two quaternions Qa and Qb is defined as
+                                                                      the operator’s hand motion in six degrees of freedom, allowing
+                                   sin((1 − µ)Ω)                      teleoperation in free space, during contact interactions, and
+          SLERP(Qa , Qb ; µ) =                     Qa
+                                       sin(Ω)                         throughout transitions into and out of contact (Figure 6).
+                                                               (22)   Within the framework, the operator’s hand pose was repre-
+                                     sin(µΩ)
+                                   +          Qb .                    sented as a homogeneous transformation matrix based on a
+                                      sin(Ω)
+                                                                                                                                     7
+
+
+
+                             𝑸𝒂                                     and the robot hand; 3) mixed condition: subjects alternated
+                                    𝑸𝒊𝒏𝒕                            between relaxing their arm and actively cooperating with
+                                        𝑸𝒃                          the robot motion. Together, these conditions were chosen to
+                               Ω
+                                                                    capture varying levels of subject participation and assistance,
+                                                                    providing diverse interaction behaviors for learning contact-
+                          SLERP                                     consistent impedance adaptation.
+                                                                       The study was approved by MIT’s Committee on the Use of
+                                                                    Humans as Experimental Subjects (COUHES), with informed
+                                                                    consent obtained from all participants. This dataset was used
+Fig. 5: Rotational noise scheduling with Spherical Linear           to train the model presented in this paper; however, the
+Interpolation (SLERP) [65]. Perturbed quaternions stay on the       deployment of upper-limb rehabilitation applications is part
+unit sphere, enabling geometry-consistent noise injection and       of a separate project and is not reported here.
+removal.                                                               The desired compliant robot behavior was chosen during
+                                                                    the data collection phase and kept unchanged during the
+                                                                    deployment phase (Section IV). For all trials, the baseline
+27-joint kinematic hand model. In our implementation, the           translational stiffness was set to 800 m  N
+                                                                                                                , and the baseline
+handMiddleFingerKnuckle (index 11) was used as the                                                      Nm
+                                                                    rotational stiffness was set to 150 rad .
+primary keypoint for translation and rotation tracking. During
+teleoperation, the tracked wrist pose served as the commanded       D. Model Selection to Reconstruct sZFT
+ZFT and was subsequently treated as the ground-truth sZFT              The model selection was guided by two initial requirements:
+for model training. In parallel, external interaction wrenches at   (i) sufficient accuracy in reconstructing both translational and
+the robot end-effector were recorded using a force/torque sen-      rotational components and (ii) a small model capacity, suitable
+sor. Pose data were transferred via shared memory between the       for real-time deployment. To evaluate this trade-off, we varied
+Python-based VisionProTeleop framework and the C++ robot            hidden dimensions, number of layers, attention heads, and
+controller. The implementation of the teleoperation interface       loss-weighting strategies.
+is publicly available in our GitHub repository.                        Performance was assessed using translational error (posi-
+   Unlike demonstrations with manipulandums and haptic in-          tional loss in mm) and rotational error (angular magnitude θ
+terfaces, the AVP framework allowed spatially unrestricted          about unit-axis and unit-axis deviation α in degrees).
+teleoperation. In practice, the operator’s hand pose tracked by        Figure 7 provides a graphical representation of the rotational
+AVP could move freely in space, unconstrained by physical           losses, illustrating the decomposition into axis deviation αerror
+objects, whereas the robot end-effector was constrained by          and magnitude error θerror .
+the actual contact surfaces. Therefore, the shift between the          The initial requirements were 2 mm for the translational
+commanded ZFT and the robot pose generated an external              error and 2.8◦ (half of the small-angle approximation) for the
+wrench.                                                             angular error and unit-axis deviation. These values were deter-
+   Two datasets were generated. The first consisted of a            mined heuristically based on previous contact-rich experiments
+parkour-style scenario with multiple obstacles (Figure 6, right).   [70].
+A total of 17,457 samples were recorded. These data captured           Table II reports the results for the Transformer-based Diffu-
+diverse interaction behaviors, including free-space motion,         sion Model on the parkour dataset. The configuration with 512
+transitions into and out of contact, and sustained contact with     hidden dimensions, 4 attention heads, and 6 layers achieved the
+unknown obstacles in an unstructured environment.                   best balance between accuracy and efficiency, with positional
+   The second dataset focused on robotic-assisted upper-limb        error of 0.994 mm, θ error of 0.249◦ , and α error of 0.003◦ . In-
+rehabilitation tasks (Figure 6, left). A total of 55,838 samples    creasing the loss weight of the θ component (factor 5) yielded
+were recorded. Eight healthy adults (4 female, 4 male; age          marginal improvements in rotational accuracy (θ = 0.240◦ ,
+20–64 years; height 162–192 cm; weight 64–91 kg) performed          α = 0.003◦ ) without degrading translational fidelity.
+three types of movements derived from standard post-stroke             A notable result was that retraining this model on a com-
+rehabilitation protocols: (i) passive lifting, consisting of re-    bined dataset of parkour and robotic-assisted therapy motions–
+peated vertical up-and-down motions of the arm; (ii) out-           two completely different physical interaction tasks–further
+of-shoulder movements, involving arm motions that include           improved accuracy (positional error 0.883 mm, θ error 0.233◦ ,
+shoulder rotation; and (iii) an activity-of-daily-living (ADL)      α error 0.002◦ ). Importantly, the two datasets were collected
+task, in which subjects mimicked a feeding motion by moving         with different tools and inertial properties (lightweight tool for
+the hand toward the mouth.                                          parkour and a 600 g prosthetic hand for physical therapy) yet
+   Each therapy type was performed under three interaction          the model compensated for these differences without explicit
+conditions designed to elicit different levels of subject par-      training. This robustness highlights the ability of Diffusion-
+ticipation: 1) passive condition: subjects were instructed to       Based Impedance Learning to generalize across different tasks
+relax their arm and allow the robot to move it without resis-       and tool inertial properties on a single robot platform. The
+tance; 2) cooperative condition: subjects observed the motion       selected architecture was ultimately adopted as the final model
+demonstrated by the teleoperator wearing the AVP and actively       because it satisfied the accuracy requirements while remaining
+attempted to minimize the interaction forces between their arm      small enough for real-time torque control.
+                                                                                                                                      8
+
+
+
+
+Fig. 6: Examples of teleoperated demonstrations used for training. (Left) Physical therapy dataset with robotic-assisted upper-
+limb tasks. (Right) Parkour dataset with free-space and contact-rich motions across obstacles.
+
+TABLE II: Transformer-based Diffusion Model results (parkour dataset). The selected model (highlighted) combines high
+accuracy with low computational complexity.
+                          Hidden Dim    Heads   Layers    θ Loss [deg]   α Loss [deg]   Positional Loss [mm]
+                              512         4        4         0.307          0.004              1.047
+                              512         4        6         0.249          0.003              0.994
+                              512         8        4         0.282          0.004              1.030
+                              512         8        6         0.286          0.003              0.989
+                             1024         4        4         0.228          0.003              1.033
+                             1024         4        6         0.224          0.003              1.033
+                             1024         8        4         0.227          0.003              1.016
+                             1024         8        6         0.288          0.004              1.057
+
+
+
+                                                                     sZFT by the Diffusion Model changes the deformation, and
+                                                                     thus the elastic energy stored in the virtual springs. By relating
+                                                                     this change in elastic energy to the measured work, we can
+                                                                     compute the stiffness equivalent that reproduces the observed
+                                                                     interaction behavior.
+                                                                        For deployment, a user specifies baseline translational and
+                                                                     rotational stiffness values that define the nominal interaction
+                                                                     behavior. During execution, the Diffusion Model predicts
+                                                                     the sZFT, which represents the equilibrium pose correction,
+Fig. 7: Graphical representation of rotational losses, showing       consistent with the current interaction wrench. Rather than
+axis deviation αerror and magnitude error θerror .                   modifying the nominal ZFT, we adapt the impedance by
+                                                                     reducing stiffness equivalent to the equilibrium reconstruction
+   Another notable finding of this work is the small amount          via sZFT.
+of training data required. The model already showed strong              Specifically, we compute nonnegative stiffness reduction
+                                                                              ⋆         ⋆
+performance on the parkour dataset with only tens of thou-           terms kt,i  and kr,i  for each translational and rotational axis
+sands of samples (17,000 samples). For the combined data             i ∈ {x, y, z}. These terms are subtracted from the predefined
+set, 72,000 samples at a controller rate of 0.005 s correspond       baseline stiffness values Kt,i,max and Kr,i,max , yielding the
+to just 1.6 hours of demonstration. This is in contrast to image-    effective stiffness used by the controller:
+based Diffusion Models, which require 100,000 samples even                                                   ⋆
+                                                                                          kt,i = Kt,i,max − kt,i ,               (23a)
+for learning single manipulation skills such as block pushing                                                ⋆
+[68], [71].                                                                               kr,i = Kr,i,max − kr,i .               (23b)
+
+                                                                        In our experiments, the baseline stiffness values were set de-
+E. Energy-based Stiffness Estimation                                 liberately high (Kt,i,max = 800 N/m, Kr,i,max = 150 Nm/rad).
+   Impedance control can be interpreted as virtual springs that      High baseline stiffness is desirable for tasks that require
+pull the robot end-effector toward an equilibrium pose. When         significant elastic energy storage, such as pressing or inserting
+the robot interacts with the environment, the deformation of         a workpiece into another. We therefore selected baseline
+these virtual springs is transformed into external wrenches,         stiffness values that the robot can realistically render and that
+which perform mechanical work. A shift of the reconstructed          are sufficient for all tasks considered. The Diffusion Model
+                                                                                                                                            9
+
+
+
+then autonomously reduced these stiffnesses when interaction          Algorithm 1 Energy-Based Stiffness Estimation
+occurred, adapting the impedance only where necessary.                 1: Input: êt , êr , ė, ω, fext , mext , κt , κr , γt , γr ,
+   1) Translations: For translations, the displacement was                          fthres , mthres , Kt,max , Kr,max , ε
+defined as êt = p − p̂0 . The elastic energy Et ∈ R of a              2: for i ∈ {x, y, z} do
+virtual translational spring is                                        3:     ẽt,i ← κt êt,i − γt ėi
+                                                                       4:     if |fi | < fthres or ẽ2t,i < ε then
+                      Etspring = 12 Kt ∥êt ∥2 .              (24)     5:            ⋆
+                                                                                    kt,i ←0
+                                                                       6:    else
+Here, ∥.∥ denotes the Euclidean norm. The work done by the                          ⋆     2 fi ẽt,i
+                                                                       7:          kt,i ← 2
+external force fext ∈ R3 along the virtual displacement êt is                            ẽt,i + ε
+                                                                                    ⋆                ⋆
+given by the inner product ⟨., .⟩:                                     8:          kt,i ← max(0, kt,i   )
+                                                                       9:    end if                                       
+                                                                                                          ⋆
+                       Etwork = ⟨fext , êt ⟩.                (25)    10:    Kt,i ← clip Kt,max,i − kt,i    , 0, Kt,max,i
+                                                                      11:    ẽr,i ← κr êr,i − γr ωi
+Equating the right hand sites of Equation (24) with Equa-             12:    if |mi | < mthres or ẽ2r,i < ε then
+                                                                                    ⋆
+tion (25) yields the translational stiffness contribution             13:          kr,i ←0
+                                                                      14:    else
+                                2⟨fext , êt ⟩                                      ⋆     2 mi ẽr,i
+                        kt⋆ =                  .              (26)    15:          kr,i ← 2
+                                  ∥êt ∥2                                                  ẽr,i + ε
+                                                                                    ⋆                ⋆
+                                                                      16:          kr,i ← max(0, kr,i   )
+To avoid oscillatory behavior, a damping term proportional to         17:    end if                                        
+                                                                                                          ⋆
+end-effector velocity was introduced:                                 18:    Kr,i ← clip Kr,max,i − kr,i     , 0, Kr,max,i
+                                                                      19: end for
+                       ẽt = κt êt − γt ṗ,                  (27)    20: Output: Kt , Kr
+
+
+where κt is a unit translational stiffness, ṗ is the translational
+end-effector velocity, and γt a damping coefficient.                     4) Directional Adaptation: For deployment of our model
+   2) Rotations: For rotations, the unit axis–angle representa-       in real-world experiments, the energy-based estimator was
+tion êr = û0 θ̂0 was used (Equation (5)). The corresponding         extended with a directional adaptation step. A uniform re-
+elastic energy Er ∈ R of the virtual rotational spring is             duction of stiffness in response to external perturbations can
+                                                                      prevent task execution, e. g., the end-effector may stop when
+                     Erspring = 12 Kr ∥êr ∥2 .               (28)    encountering an obstacle. To avoid this problem, stiffness
+                                                                      was modulated according to the directional relevance of each
+The work done by the external moment mext ∈ R3 about the              axis with respect to the generated sZFT of the Diffusion
+rotational displacement êr can be calculated by                      Model. The alignment factors below are defined relative to
+                                                                      p̂0 and û0 θ̂0 contained in êt and êr , which are outputs of the
+                      Erwork = ⟨mext , êr ⟩.                 (29)    Diffusion Model. Hence, the adaptation mechanism depended
+                                                                      critically on the reconstructed sZFT: if the nominal free-space
+Equating the right hand sites of Equation (28) with Equa-             ZFT were used directly, the alignment factors would not re-
+tion (29) results in the rotational stiffness contribution            flect the equilibrium under contact, and directional adaptation
+                                                                      would fail (Section IV).
+                                2⟨mext , êr ⟩                           For translations, the alignment factor
+                       kr⋆ =                   .              (30)
+                                  ∥êr ∥2
+                                                                                                     |êt,i |
+                                                                                           ψt,i =             ,   i ∈ {x, y, z}          (32)
+Dynamic effects were addressed by augmenting the error with                                          ∥êt ∥
+a damping term:
+                                                                      quantifies the contribution of each axis to the intended dis-
+                                                                      placement. Analogously, for rotations, we define
+                      ẽr = κr êr − γr ω,                    (31)
+                                                                                                    |êr,i |
+where κr is a unit rotational stiffness, ω is the angular end-                            ψr,i =             ,    i ∈ {x, y, z}.         (33)
+                                                                                                    ∥êr ∥
+effector velocity, and γr a damping coefficient.
+   3) Algorithm: Algorithm 1 summarizes the procedure of                 The relative translational and rotational factors ρt,i and ρr,i
+the stiffness estimation. Stiffness was computed over a sliding       ensure that stiffness is decreased more strongly in directions
+window of 16 samples at 200 Hz (80 ms), which was sufficient          that contribute little to the desired motion, while remaining
+given that the tasks were not highly dynamic. Thresholds of           close to the baseline stiffness along task-relevant axes:
+1 N for force and 1 Nm for moment were applied, and values
+                                                                                                    ρt,i = 1 − ψt,i ,                   (34a)
+below these limits were ignored to suppress phases of low
+interaction.                                                                                        ρr,i = 1 − ψr,i .                   (34b)
+                                                                                                                                      10
+
+
+
+  The final adapted stiffness values kt,i and kr,i were imple-       operator during data collection (Section III-C), who teleoper-
+mented as:                                                           ated the robot through the parkour task (Figure 6, right).
+                                              ⋆                         The nominal ZFT was generated by kinesthetic teaching of a
+                      kt,i = Kt,i,max − ρt,i kt,i ,         (35a)    number of key joint poses. A MATLAB script then computed
+                                              ⋆
+                      kr,i = Kr,i,max − ρr,i kr,i .         (35b)    the corresponding end-effector trajectory by smoothly inter-
+                                                                     polating between these configurations and manually shifting
+   As will be shown in the next section, this mechanism
+                                                                     the trajectory along the negative z-direction to ensure constant
+allowed the robot to move smoothly over obstacles in the
+                                                                     contact with the table surface (see coordinate frame shown in
+parkour task and to achieve successful in peg-in-hole insertion.
+                                                                     Figure 9, left). It is important to note that the resulting nominal
+   An overview of the proposed model architecture and work-          ZFT passed through the obstacles.
+flow can be seen in Figure 8.
+                                                                        To protect the setup, stop conditions of ∥v∥ = 0.24 ms
+                                                                     and ∥fext ∥ = 20 N were defined. The constant-stiffness con-
+IV. D EPLOYMENT OF D IFFUSION M ODEL ON R EAL ROBOT                  troller already failed at the first obstacle: the end-effector was
+   The model was deployed in two robotic use-cases designed          stopped, energy accumulated in the virtual spring, and once
+to evaluate its performance in contact-rich scenarios. In our        this energy was released the end-effector accelerated into the
+experiments, we deliberately focused on Impedance Control            velocity stop condition. Forces of up to 15 N were observed.
+rather than motion generation, since many real-world appli-          In contrast, with Diffusion-Based Impedance Learning, the
+cations require active compliance, e. g., final assembly tasks       robot traversed all obstacles smoothly, i. e., without violating
+where vision is occluded and only tactile sensing is avail-          the velocity or force stop conditions. The stiffness adaptation
+able. The first was a parkour-style task requiring continuous        mechanism prevented jamming in directions inconsistent with
+interaction while traversing unknown obstacles. The second           the ZFT while preserving rigidity along task-relevant axes.
+was a peg-in-hole insertion task with increasing geometric              Figure 10 shows the measured external wrenches together
+complexity.                                                          with the commanded translational and rotational stiffness val-
+   The experiments were conducted on a KUKA LBR iiwa                 ues for the Diffusion-Based Impedance Learning. The bottom
+with seven DOFs, using KUKA’s Fast Robot Interface (FRI)             plots illustrate the relative translational and rotational factors
+for torque control with 5 ms sample time. Built-in gravity and       (Equation (34)) and the work done by the external force along
+Coriolis/centrifugal compensation remained active through-           the virtual displacement (Equations (25) and (29)).
+out. Robot kinematics and dynamics were computed via the                During the entire motion, the stiffness values changed
+Exp[licit]-FRI interface4 [72]. A task-space impedance con-          dynamically in response to external wrenches. This con-
+troller was implemented (Section II-B). The external wrenches        tinuous adaptation reflected the underlying Diffusion-Based
+were acquired with an ATI Gamma force/torque transducer,             Impedance Learning, which enabled the robot to remain com-
+mounted on the robot flange. The code of the robot controller        pliant when unexpected contact occurred while maintaining
+is publicly available on our public GitHub repository.               sufficient stiffness to progress through the parkour.
+   In both experiments, we compared a task-space impedance              Translational stiffness was adapted asymmetrically depend-
+controller with constant stiffness values against our proposed       ing on the directional contribution of forces. Around 12 s,
+diffusion-based directional stiffness adaptation. For all trials,    force peaks of 4 N along the y-axis and 15 N along the z-axes
+the baseline translational stiffness was identical to that used      arose. Nevertheless, Kp,y was reduced more strongly (reduced
+during data collection and was set to 800 m N
+                                              , while the baseline   to near 400 N/m) than Kp,z (remaining near 600 N/m) since
+                                        Nm
+rotational stiffness was set to 150 rad . The same damping           the relative translational factor along the z-axis was high. A
+design was applied throughout the experiments (Section II-B).        similar effect is visible near 30 s: while fy reached an absolute
+   All workpieces were fabricated with a PRUSA i3 MK3 3D             of nearly 4 N with stiffness near 420 N/m, fz was only 2 N yet
+printer using PLA filament. The expected manufacturing error         stiffness dropped to about 200 N/m. These findings confirm
+of the printer is on the order of 0.1 mm. All CAD models             that stiffness reduction was not simply proportional to force
+used in the experiments are available on our GitHub repository.      magnitude but was determined by the alignment with the sZFT,
+Demonstration videos of both experiments are provided on the         predicted by the Diffusion Model.
+project website.                                                        Rotational stiffness also adapted directionally, with reduc-
+   All plotted entities are expressed in the spatially-fixed robot   tions depending on which axis contributed less to the sZFT.
+base coordinate frame. The colors of the experimental plots are      Around 12 s, moments appeared simultaneously about the x-
+consistent with the colors of the coordinate axes in Figure 9.       and y-axes. Despite higher magnitudes about the x-axis, the
+                                                                     stiffness Kr,y was reduced more strongly, showing that y-axis
+                                                                     rotations were less important for the intended trajectory. This
+A. Parkour                                                           selective modulation allowed the robot to maintain stability
+  The first experiment consisted of a parkour-style task in          while avoiding unnecessary resistance to contact.
+which the robot traversed three obstacles while maintaining
+continuous contact with the table (Figure 9, left). The desired
+                                                                     B. Peg-In-Hole Insertion
+physical interaction behavior was demonstrated by a human
+                                                                        The second experiment was a peg-in-hole insertion task with
+  4 https://GitHub.com/explicit-robotics/Explicit-FRI                three different peg types: cylindrical, square, and star pegs. The
+                                                                                                                                               11
+
+
+
+
+    Input Signals         Diffusion Model
+
+
+
+
+                          𝒘𝒆𝒙𝒕,𝒕
+                                      External wrench
+
+
+
+
+                          𝒘𝒆𝒙𝒕,𝒕%𝟏
+   External wrench                                                                                                 Transformer
+                          …
+                          𝒘𝒆𝒙𝒕,𝒕%𝟏𝟔                                                                               Encoder + MLP
+
+
+
+
+     Position +                       𝒑𝒆𝒙𝒕,𝒕%𝟏𝟔   …      𝒑𝒆𝒙𝒕,𝒕%𝟏     𝒑𝒆𝒙𝒕,𝒕     Position        Time                             sZFT
+   Unit-Quaternion                                                              Embedding      Embedding                      Reconstruction
+
+
+
+
+                     Directional Adaptation        Stiffness Estimation
+
+   Stiffness (𝑲)                        Energy-based Stiffness Estimation
+Fig. 8: Overview of the proposed architecture and workflow. External wrenches and end-effector pose (position and unit-
+quaternion) are processed as time-series inputs to a conditional Transformer-based Diffusion Model. External wrenches are
+embedded as context tokens, while pose tokens are embedded with learned positional and diffusion-time encodings. The
+Diffusion Model reconstructs a simulated Zero-Force Trajectory (sZFT), representing a contact-consistent equilibrium. This
+reconstructed sZFT, together with the measured interaction signals, is passed to an energy-based stiffness estimator. Finally,
+directional stiffness adaptation is applied according to the directional relevance of each coordinate axis.
+
+
+nominal clearance between each peg and its corresponding                       The cylindrical peg succeeded in 30/30 trials. The square peg
+hole was 0.14 mm for the square peg and 0.20 mm for the                        succeeded in 4/30 trials. The star peg failed in all 30 trials.
+circular and star pegs. All workpieces were fabricated with                       In practice, more complicated pegs like the square and star
+the same printer setup as for the parkour experiment. For all                  peg often require extensive manual tuning of the ZFT, of the
+trials, task success was defined as completely inserting the                   impedance parameters, or both. This tuning is not only time-
+peg.                                                                           consuming but there is also no standard method that guarantees
+   For each peg type, the ZFT was generated from three man-                    success. These results show that more complicated assembly
+ually demonstrated robot joint configurations, via kinesthetic                 processes require more advanced strategies.
+teaching: a starting configuration, an initial contact (“touch”)                  In contrast, Diffusion-Based Impedance Learning achieved
+configuration, and a final insertion configuration. These config-              30/30 successful insertions for all three peg types. This result
+urations were recorded by physically guiding the robot through                 was achieved by only demonstrating and interpolating three
+the task. A smooth nominal ZFT was then generated using a                      key poses per trajectory. Hence, no advanced method for
+MATLAB script by computing the corresponding end-effector                      trajectory generation was needed. Moreover, the outcome is
+poses and connecting them with a minimum-jerk interpolation.                   particularly notable because the training data included only
+To induce a controlled pulling force during the final insertion                parkour and upper-limb rehabilitation data (Section III-C).
+phase, the equilibrium pose for final insertion was deliberately               No peg-in-hole demonstrations were used for training. Im-
+shifted along the negative z-direction. After completing the                   portantly, neither the Diffusion Model nor the impedance
+insertion, the robot moved straight upward along the z-axis                    controller is provided with any information about the peg or
+(see coordinate frame in Figure 9, right). Importantly, during                 hole geometry, pose, insertion axis, or clearance; all impedance
+the touch pose the peg’s orientation was not aligned with the                  adaptation was driven solely by measured interaction wrenches
+edges of the square and star pegs. As a result, the nominal                    during the motion.
+ZFT did not encode any geometric alignment with the peg                           Across all three peg geometries, execution times remained
+shape.                                                                         comparable despite the different contact conditions and inser-
+   The three peg types represent increasing geometric com-                     tion complexities. Mean completion times for 30 trials were
+plexity. The cylindrical peg is rotation-symmetric, which                      10.8 ± 0.6 s for the circular peg, 10.2 ± 1.9 s for the square
+makes the final orientation about the end-effector z-axis ir-                  peg, and 12.3 ± 1.9 s for the star-shaped peg.
+relevant. In contrast, the square and star pegs require precise                   Figure 11 shows the stiffness adaptation for the star peg.
+rotational alignment with an increasing number of edges,                       Results for the other two pegs are provided in Appendix A.
+which significantly increases task complexity.                                 During all experiments, force and moment thresholds were set
+   This trend is reflected in the constant-stiffness experiments.              to 1 N and 1 Nm, respectively.
+                                                                                                                                   12
+
+
+
+
+                                                                                               Ori                   Ins
+
+
+
+
+          𝒛                    3                           𝒛
+                     𝒚     2           1
+
+                          𝒙
+                                                                       𝒚
+                                                           𝒙                                                                𝑡
+Fig. 9: Phases of the two experiments and the spatially fixed coordinate frames in which they are expressed. (Left) In the
+parkour experiments, three obstacles are encountered (numbered 1–3). (Right) During peg insertion, the robot moved from the
+starting pose to inclined contact with the hole (labeled “Ori”), followed by final insertion (with the start of insertion labeled
+“Ins”). The colors of the major axes of the coordinate frames are shown in the experimental plots (Figure 10 and 11).
+
+
+   As illustrated in Figure 11, stiffness values were reduced in       Importantly, the nominal ZFT was kept fixed throughout
+response to external wrenches, with the amount of reduction          the ablation study. It was generated from simple kinesthetic
+governed by the relative translational and rotational factors.       demonstrations and was not optimized for the two tasks and
+For most of the experiment, the relative translation factor along    pegs. Videos illustrating the kinesthetic teaching procedure for
+the z axis remained higher than along the y axis. For instance,      the parkour and peg-in-hole tasks are provided on the project
+at around 11 s, small forces of 0.5 N appeared along the y           website.
+axis. Nevertheless, the stiffness Kp,y was reduced to 600 N/m.         Specifically, we evaluated the following variants using the
+During retraction of the peg at around 16 s, it can be seen                                                    N
+                                                                     baseline impedance parameters (800 m         for translation and
+that the relative translation factor along the z axis dropped             Nm
+                                                                     150 rad for rotation):
+and consequently the stiffness Kp,z was reduced to 500 N/m.           1) Uniform stiffness adaptation without directional adapta-
+In contrast, the relative translation factor along the x axis            tion, using the reconstructed sZFT
+increased and consequently the stiffness Kp,x was increased           2) Directional stiffness adaptation computed from the nom-
+to 700 N/m.                                                              inal ZFT
+   Due to the imperfect commanded ZFT, large moments about
+the x- and y-axes occurred during execution. The relative               Uniform stiffness adaptation without directional modulation
+rotational factor about the z-axis remained low, leading to          failed in both experimental scenarios. In the parkour task, the
+substantial reductions in Kr,z , which even reached 0 N m            robot was blocked at the first obstacles, while none of the peg-
+between 8 s to 12 s. For the x-axis, the moments were initially      in-hole insertions succeeded. Directional adaptation derived
+small. When the moments increased significantly between 11 s         from the nominal ZFT also failed in contact-rich settings. In
+to 16 s, the controller maintained high stiffness, since the         the parkour task, the robot exceeded safety limits and stopped.
+relative rotational factor about the x-axis increased. A different   In the peg-in-hole experiments, this variant achieved 30/30
+behavior can be observed for the y-axis: during 11 s to 17 s,        success only for the cylindrical peg, but failed for both the
+high moments reaching up to −10 N m occurred. Since the              square and star pegs.
+relative rotational factor remained low, the stiffness dropped          These results confirm that directional adaptation alone is
+and reached 0 N m.                                                   insufficient if it is derived from the nominal ZFT. Instead,
+                                                                     directional factors must be computed relative to the recon-
+                                                                     structed sZFT for impedance adaptation to succeed.
+C. Ablation Study                                                       To further evaluate how different uniform and non-uniform
+  In addition to the two main controllers, we performed an           fixed impedance parameters influence task success in the peg-
+ablation study to isolate the contributions of the reconstructed     in-hole experiment, we additionally evaluated the following
+sZFT (Section III-A) and the directional impedance adaptation        variants:
+                                                                                                     N
+(Section III-E).                                                      a) Uniform high impedance: 800 m (translation), 150 Nm
+                                                                                                                          rad
+                                                                                                                                  13
+
+
+
+
+                    1         2       3                                                 1        2       3
+
+
+
+
+Fig. 10: Measured external wrenches and commanded translational and rotational stiffness during the parkour experiment with
+stiffness adaptation. The relative translational and rotational factors show their respective contributions to stiffness modulation.
+The bottom row reports the performed translational and rotational work (Equations (25) and (29)). Shaded gray regions denote
+the three parkour obstacles. All quantities are expressed in the robot base frame; base-frame color coding and obstacle numbering
+are shown in Figure 9.
+
+
+      (rotation)                                                        Videos of all ablation experiments for the star peg example
+                                           N
+  b) Uniform medium impedance: 400 m         (translation), 50 Nm
+                                                               rad   are provided on our project website.
+      (rotation)                                                        A summary of the ablation study for the peg-in-hole exper-
+                                          N
+  c) Uniform low impedance: 200 m            (translation), 7 Nm
+                                                               rad
+                                                                     iment can be found in Table III.
+      (rotation)
+  d) Best-found, manually tuned non-uniform impedance:                                      V. D ISCUSSION
+                                N
+      translation along z: 800 m  ; translation along x and y:          The experimental results confirm the central goal of this
+      350 m ; rotation about z: 5 Nm
+            N
+                                   rad ; rotation about x and y:     work: enabling robust contact-rich manipulation by bridging
+      100 Nmrad                                                      the information and the energy domains and therefore unifying
+   For a) (uniform high impedance), the cylindrical peg suc-         state-of-the-art generative AI algorithms with model-based
+ceeded in 30/30 trials, the square peg in 4/30 trials, and           control. In particular, the success of peg-in-hole insertions
+the star peg failed in all trials. For b) (uniform medium            with unseen tool and task geometries demonstrates that sZFT
+impedance), yielded 30/30 success for the cylindrical peg,           reconstruction generalizes beyond the training distribution.
+13/30 success for the square peg, and 5/30 success for the              Compared to prior learning-based approaches, our frame-
+star peg. For c) (uniform low impedance), it failed for all peg      work explicitly incorporates energy transformation, enabling
+types, as the wrench required to orient the peg with the hole        stable impedance adaptation under contact. Compared to tradi-
+was insufficient.                                                    tional model-based impedance controllers, it gains adaptability
+   For d) (manually tuned non-uniform impedance), the cylin-         by reconstructing equilibrium trajectories directly from data.
+drical peg succeeded in 30/30 trails, the square peg in 26/30        This ability to bridge domains accounts for the strong perfor-
+trials, and the star peg in 21/30 trials. These parameters were      mance observed in unstructured environments.
+identified by an experienced impedance control programmer               Task success in contact-rich assembly is determined by
+after testing 15 different parameter combinations. In contrast,      the interplay between the nominal motion reference and the
+inexperienced users would likely struggle to identify a single       generated impedance, rather than by either component alone.
+parameter set that performs robustly across all peg geometries.      For the peg-in-hole experiments of this paper, the initial
+                                                                                                                                       14
+
+
+
+
+                 Ori        Ins                                                       Ori         Ins
+
+
+
+
+Fig. 11: Measured external wrenches and commanded translational and rotational stiffness during the peg-in-hole star insertion
+experiment with stiffness adaptation. The relative translational and rotational factors show their respective contributions to
+stiffness modulation. The bottom row reports the performed translational and rotational work (Equations (25) and (29)). The
+shaded gray region denotes the insertion phase. All quantities are expressed in the robot base frame; base-frame color coding
+is shown in Figure 9.
+
+             TABLE III: Peg-in-hole success rates for the ablation study. All results are reported over 30 trials.
+                         Controller Variant                              Cylindrical Peg    Square Peg   Star Peg
+                         Time-varying Impedance
+                         Diffusion Model (with directional adaptation)        100%            100%        100%
+                         Diffusion Model w/o directional adaptation            0%              0%          0%
+                         Directional adaptation w/o DM (nominal ZFT)          100%             0%          0%
+                         Fixed Impedance
+                         Uniform high (baseline)                              100%             13%          0%
+                         Uniform medium                                       100%             43%         17%
+                         Uniform low                                           0%              0%          0%
+                         Best-found non-uniform                               100%             87%         70%
+
+
+
+contact (“touch”) phase is particularly important because it             upper-limb therapy, where stiffness must remain high along
+establishes the conditions for the subsequent orientation and            non-movement directions, while stiffness along the intended
+insertion phases. Nevertheless, the proposed framework ex-               movement direction should adapt depending on whether the
+hibited considerable robustness to variations in the nominal             patient can execute the motion independently. In such settings,
+trajectory. For both the cylindrical and square pegs, successful         the same framework can be used by solely adapting the
+insertion was achieved for lateral offsets of up to approxi-             directional stiffness adaptation.
+mately ±3 mm in the x and y directions. Even for the more                   The force and moment thresholds in the stiffness estimator
+demanding star-shaped peg, which requires accurate rotational            affect the responsiveness of impedance adaptation. In our
+alignment, successful insertion remained possible for offsets            experiments, values of 1 N and 1 Nm were selected to
+of approximately ±1 mm. This observation is consistent with              match the noise characteristics of the ATI Gamma force/torque
+the findings reported in [73].                                           sensor. These thresholds are not task-specific and can be
+   A key element of the framework is directional stiffness               adjusted for different sensors or applications.
+adaptation. This mechanism is generic and can be tailored to                At present, the adaptive impedance controller outputs diag-
+applications in other domains. One example is robotic-assisted           onal, positive semidefinite stiffness matrices. This design sim-
+                                                                                                                                              15
+
+
+
+plifies analysis and implementation but omits cross-coupling        which such knowledge is unavailable or unreliable due to un-
+effects that have proven beneficial in traditional solutions such   structured environments. Diffusion-Based Impedance Learning
+as remote-center compliance (RCC) devices [74], [75]. For           should therefore be understood as a general, interaction-driven
+more complex assembly tasks, integrating coupled stiffness          alternative rather than a replacement for highly engineered
+parameters may further enhance robustness and alignment             solutions in fully structured assembly lines.
+accuracy. Exploring this extension is an important direction           Beyond these results, Diffusion-Based Impedance Learning
+for future work.                                                    establishes a general interface between learning and model-
+   In this study, the baseline impedance behavior used during       based control. It extends the role of generative models from
+teleoperation was preserved during deployment, ensuring con-        visuomotor trajectory planning to physical interaction, demon-
+sistency between the demonstrations used for training and the       strating that contact-rich manipulation can be learned from
+interaction conditions encountered during execution. Future         relatively small datasets while maintaining real-time control
+work should investigate robustness to changes in baseline           performance.
+impedance, including deployment with substantially different           Looking ahead, we aim to extend this framework from
+stiffness settings than those used during data collection. Such     single-arm to dual-arm setups. While this work focuses on
+experiments would provide further insight into the ability of       impedance learning and used a fixed ZFT, Diffusion-Based
+the learned model to generalize across different compliant          Impedance Learning can naturally be embedded in hierarchical
+behaviors and controller parameterizations.                         architectures that couple high-level visuomotor motion policies
+   The proposed approach guarantees passivity when stiffness        with low-level impedance regulation.
+is reduced: lowering stiffness dissipates stored potential en-
+ergy and ensures that interaction with a passive environment
+remains output strictly passive. However, when stiffness is                                      R EFERENCES
+increased back toward the baseline, passivity is not generally       [1] N. Hogan, “Physical interaction via dynamic primitives,” in Geometric
+guaranteed, as such changes can inject additional energy when-           and numerical foundations of movements. Springer, 2017, pp. 269–299.
+ever displacements are nonzero. In these cases, the controller       [2] J. Lachner, F. Allmendinger, S. Stramigioli, and N. Hogan, “Shaping
+                                                                         impedances to comply with constrained task dynamics,” IEEE Transac-
+can be combined with previous work on passive impedance                  tions on Robotics, vol. 38, no. 5, pp. 2750–2767, 2022.
+shaping [2] to enforce strict passivity.                             [3] J. Lachner, M. C. Nah, and N. Hogan, “A physically consistent stiffness
+   In our work, we adopt a Transformer-based Diffusion Model             formulation for contact-rich manipulation,” The International Journal of
+due to its ability to capture long range temporal dependencies           Robotics Research, vol. 0, no. 0, p. 02783649251393332, 0.
+                                                                     [4] J. Lachner, F. Allmendinger, E. Hobert, N. Hogan, and S. Stramigioli,
+and flexibly condition on multimodal interaction signals. Fu-            “Energy budgets for coordinate invariant robot control in physical hu-
+ture work should investigate a systematic comparison with al-            man–robot interaction,” The International Journal of Robotics Research,
+ternative architectures such as convolutional or hybrid models           vol. 40, no. 8-9, pp. 968–985, Aug. 2021.
+                                                                     [5] N. Hogan, “Stable execution of contact tasks using impedance control,”
+under matched parameter and computational budgets.                       in Proceedings. 1987 IEEE International Conference on Robotics and
+   Overall, our findings demonstrate that Diffusion-Based                Automation, vol. 4. IEEE, 1987, pp. 1047–1054.
+Impedance Learning is highly effective in the experimental           [6] J. Lachner, “A geometric approach to robotic manipulation in physical
+                                                                         human-robot interaction,” Ph.D. dissertation, University of Twente,
+setups investigated. While this provides strong evidence for             2022.
+the viability of the approach, further studies across a wider        [7] S. Stramigioli, Ed., Energy-Aware Robotics, ser. Mathematical Control
+range of tasks and environments are needed to fully establish            Theory I. Switzerland: Springer International Publishing, 2015, vol.
+                                                                         461.
+its generality. Nevertheless, the framework offers a promising       [8] H. v. Helmholtz, “II. über einige gesetze der vertheilung elektrischer
+design principle for stable, safe, and adaptable robot interac-          ströme in körperlichen leitern mit anwendung auf die thierisch-
+tion in other domains including industrial assembly, physical            elektrischen versuche,” Annalen der Physik und Chemie, vol. 89, no. 6,
+                                                                         pp. 211–233, 1853, english translation: “Some laws concerning the
+Human-Robot Interaction, and robotic-assisted rehabilitation.            distribution of electrical currents in conductors with applications to
+                                                                         experiments on animal electricity”.
+                        VI. C ONCLUSION                              [9] N. Hogan, “A general actuator model based on nonlinear equivalent
+                                                                         networks,” IEEE/ASME Transactions on Mechatronics, vol. 19, no. 6,
+   This work introduced Diffusion-Based Impedance Learning,              pp. 1929–1939, 2014.
+a framework that unifies generative trajectory models in the        [10] M. C. Nah, J. Lachner, and N. Hogan, “Robot control based on motor
+information domain with adaptive impedance regulation in                 primitives: A comparison of two approaches,” The International Journal
+                                                                         of Robotics Research, vol. 43, no. 12, pp. 1959–1991, 2024.
+the energy domain. By reconstructing simulated Zero-Force           [11] M. C. Nah, J. Lachner, F. Tessari, and N. Hogan, “On the modularity of
+Trajectories (sZFTs) from contact-perturbed displacements                elementary dynamic actions,” in 2024 IEEE/RSJ International Confer-
+and external wrench signals, the method enables real-time                ence on Intelligent Robots and Systems (IROS), 2024, pp. 1398–1405.
+                                                                    [12] N. Hogan, “Impedance control-an approach to manipulation. i-theory.
+impedance adaptation for contact-rich manipulation.                      ii-implementation. iii-applications,” ASME Journal of Dynamic Systems
+   The framework consistently outperformed fixed and heuris-             and Measurement Control B, vol. 107, pp. 1–24, 1985.
+tic strategies in experiments on a KUKA LBR iiwa. It enabled        [13] J. Collins, D. Howard, and J. Leitner, “Quantifying the reality gap
+smooth traversal of obstacle-rich parkour environments where             in robotic manipulation tasks,” in 2019 International Conference on
+                                                                         Robotics and Automation (ICRA), 2019, pp. 6706–6712.
+conventional impedance control failed, and achieved 30/30           [14] M. Posa, C. Cantu, and R. Tedrake, “A direct method for trajectory
+success rates in cylindrical, square, and star peg-in-hole inser-        optimization of rigid bodies through contact,” The International Journal
+tions without any task-specific demonstrations in the training           of Robotics Research, vol. 33, no. 1, pp. 69–81, 2014.
+                                                                    [15] Z. Manchester and S. Kuindersma, “Variational contact-implicit tra-
+data. The experiments in this work intentionally withhold ge-            jectory optimization,” in Robotics Research: The 18th International
+ometric information from the controller, targeting scenarios in          Symposium ISRR. Springer, 2020, pp. 985–1000.
+                                                                                                                                                               16
+
+
+
+[16] T. Pang, H. T. Suh, L. Yang, and R. Tedrake, “Global planning for             [39] F. Zhang and M. Gienger, “Affordance-based robot manipulation with
+     contact-rich manipulation via local smoothing of quasi-dynamic contact             flow matching,” 2025. [Online]. Available: https://arxiv.org/abs/2409.
+     models,” IEEE Transactions on Robotics, 2023.                                      01083
+[17] T. Marcucci, R. Deits, M. Gabiccini, A. Bicchi, and R. Tedrake,               [40] M. Shridhar, L. Manuelli, and D. Fox, “Perceiver-actor: A multi-task
+     “Approximate hybrid model predictive control for multi-contact push                transformer for robotic manipulation,” in Conference on Robot Learning
+     recovery in complex environments,” in 2017 IEEE-RAS 17th interna-                  (CoRL), 2022. [Online]. Available: https://arxiv.org/abs/2209.05451
+     tional conference on humanoid robotics (Humanoids). IEEE, 2017, pp.           [41] M. J. Kim, K. Pertsch, S. Karamcheti, T. Xiao, A. Balakrishna, S. Nair,
+     31–38.                                                                             R. Rafailov, E. Foster, G. Lam, P. Sanketi, Q. Vuong, T. Kollar, B. Burch-
+[18] F. R. Hogan and A. Rodriguez, “Reactive planar non-prehensile manip-               fiel, R. Tedrake, D. Sadigh, S. Levine, P. Liang, and C. Finn, “Open-
+     ulation with hybrid model predictive control,” The International Journal           vla: An open-source vision-language-action model,” arXiv preprint
+     of Robotics Research, vol. 39, no. 7, pp. 755–773, 2020.                           arXiv:2406.09246, 2024.
+[19] M. Anitescu and F. A. Potra, “Formulating dynamic multi-rigid-body            [42] T. L. Team, J. Barreiros, A. Beaulieu, A. Bhat, R. Cory, E. Cousineau,
+     contact problems with friction as solvable linear complementarity prob-            H. Dai, C.-H. Fang, K. Hashimoto, M. Z. Irshad, M. Itkina,
+     lems,” equivalentlinear Dynamics, vol. 14, pp. 231–247, 1997.                      N. Kuppuswamy, K.-H. Lee, K. Liu, D. McConachie, I. McMahon,
+[20] A. Aydinoglu and M. Posa, “Real-time multi-contact model predictive                H. Nishimura, C. Phillips-Grafflin, C. Richter, P. Shah, K. Srinivasan,
+     control via admm,” in 2022 International Conference on Robotics and                B. Wulfe, C. Xu, M. Zhang, A. Alspach, M. Angeles, K. Arora,
+     Automation (ICRA). IEEE, 2022, pp. 3414–3421.                                      V. C. Guizilini, A. Castro, D. Chen, T.-S. Chu, S. Creasey, S. Curtis,
+[21] H. J. T. Suh, T. Pang, and R. Tedrake, “Bundled gradients through                  R. Denitto, E. Dixon, E. Dusel, M. Ferreira, A. Goncalves, G. Gould,
+     contact via randomized smoothing,” IEEE Robotics and Automation                    D. Guoy, S. Gupta, X. Han, K. Hatch, B. Hathaway, A. Henry,
+     Letters, vol. 7, no. 2, pp. 4000–4007, 2022.                                       H. Hochsztein, P. Horgan, S. Iwase, D. Jackson, S. Karamcheti,
+[22] H. J. T. Suh, T. Pang, T. Zhao, and R. Tedrake, “Dexterous contact-rich            S. Keh, J. Masterjohn, J. Mercat, P. Miller, P. Mitiguy, T. Nguyen,
+     manipulation via the contact trust region,” 2025. [Online]. Available:             J. Nimmer, Y. Noguchi, R. Ong, A. Onol, O. Pfannenstiehl,
+     https://arxiv.org/abs/2505.02291                                                   R. Poyner, L. P. M. Rocha, G. Richardson, C. Rodriguez, D. Seale,
+                                                                                        M. Sherman, M. Smith-Jones, D. Tago, P. Tokmakov, M. Tran,
+[23] Y. Li, G. Ganesh, N. Jarrassé, S. Haddadin, A. Albu-Schaeffer, and
+                                                                                        B. V. Hoorick, I. Vasiljevic, S. Zakharov, M. Zolotas, R. Ambrus,
+     E. Burdet, “Force, impedance, and trajectory learning for contact tooling
+                                                                                        K. Fetzer-Borelli, B. Burchfiel, H. Kress-Gazit, S. Feng, S. Ford,
+     and haptic identification,” IEEE Transactions on Robotics, vol. 34, no. 5,
+                                                                                        and R. Tedrake, “A careful examination of large behavior models
+     pp. 1170–1182, 2018.
+                                                                                        for multitask dexterous manipulation,” 2025. [Online]. Available:
+[24] Y. Li, L. Zheng, Y. Wang, E. Dong, and S. Zhang, “Impedance learning-              https://arxiv.org/abs/2507.05331
+     based adaptive force tracking for robot on unknown terrains,” IEEE
+                                                                                   [43] Y. Hou, Z. Liu, C. Chi, E. Cousineau, N. Kuppuswamy, S. Feng,
+     Transactions on Robotics, vol. 41, pp. 1404–1420, 2025.
+                                                                                        B. Burchfiel, and S. Song, “Adaptive compliance policy: Learning
+[25] S. Shaw, B. Abbatematteo, and G. Konidaris, “Rmps for safe                         approximate compliance for diffusion guided control,” in 2025 IEEE
+     impedance control in contact-rich manipulation,” 2022. [Online].                   International Conference on Robotics and Automation (ICRA). IEEE,
+     Available: https://arxiv.org/abs/2109.12103                                        2025, pp. 4829–4836.
+[26] A. S. Anand, J. T. Gravdahl, and F. J. Abu-Dakka, “Model-based variable       [44] Y. Park and P. Agrawal, “Using apple vision pro to train and control
+     impedance learning control for robotic manipulation,” Robotics and                 robots,” 2024. [Online]. Available: https://github.com/Improbable-AI/
+     Autonomous Systems, vol. 170, p. 104531, 2023. [Online]. Available:                VisionProTeleop
+     https://www.sciencedirect.com/science/article/pii/S0921889023001707           [45] M. Janner, Y. Du, J. B. Tenenbaum, and S. Levine, “Planning with
+[27] Y. Michel, M. Saveriano, and D. Lee, “A novel safety-aware energy                  diffusion for flexible behavior synthesis,” in Proceedings of the 39th
+     tank formulation based on control barrier functions,” IEEE Robotics                International Conference on Machine Learning (ICML), 2022.
+     and Automation Letters, vol. 9, no. 6, pp. 5206–5213, 2024.                   [46] A. Nichol and P. Dhariwal, “Improved denoising diffusion probabilistic
+[28] F. Abi-Farraj, T. Osa, N. P. J. Peters, G. Neumann, and P. R. Gior-                models,” arXiv preprint arXiv:2102.09672, 2021.
+     dano, “A learning-based shared control architecture for interactive task      [47] J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,”
+     execution,” in 2017 IEEE International Conference on Robotics and                  arXiv preprint arXiv:2006.11239, 2020.
+     Automation (ICRA), 2017, pp. 329–335.                                         [48] J. Sohl-Dickstein, E. Weiss, N. Maheswaranathan, and S. Ganguli,
+[29] M. Najafi, K. Adams, and M. Tavakoli, “Robotic learning from demon-                “Deep unsupervised learning using nonequilibrium thermodynamics,” in
+     stration of therapist’s time-varying assistance to a patient in trajectory-        Proceedings of the 32nd International Conference on Machine Learning,
+     following tasks,” in International Conference on Rehabilitation Robotics           ser. Proceedings of Machine Learning Research, F. Bach and D. Blei,
+     (ICORR), 2017, pp. 888–894.                                                        Eds., vol. 37. Lille, France: PMLR, 07–09 Jul 2015, pp. 2256–2265.
+[30] E. Theodorou, J. Buchli, and S. Schaal, “A generalized path integral          [49] P. Holderrieth and E. Erives, “An introduction to flow matching and
+     control approach to reinforcement learning,” The Journal of Machine                diffusion models,” arXiv preprint arXiv:2506.02070, 2025.
+     Learning Research, vol. 11, pp. 3137–3181, 2010.                              [50] X. Liu, K. Y. Ma, C. Gao, and M. Z. Shou, “Diffusion models in
+[31] M. Kalakrishnan, S. Chitta, E. Theodorou, P. Pastor, and S. Schaal,                robotics: A survey,” TechRxiv, April 2025.
+     “Stomp: Stochastic trajectory optimization for motion planning,” in 2011      [51] U. A. Mishra and Y. Chen, “Reorientdiff: Diffusion model based
+     IEEE international conference on robotics and automation. IEEE, 2011,              reorientation for object manipulation,” arXiv preprint arXiv:2303.12700,
+     pp. 4569–4574.                                                                     2023.
+[32] F. Stulp, E. A. Theodorou, and S. Schaal, “Reinforcement learning             [52] J. Song, C. Meng, and S. Ermon, “Denoising diffusion implicit models,”
+     with sequences of motion primitives for robust manipulation,” IEEE                 arXiv preprint arXiv:2010.02502, 2020.
+     Transactions on robotics, vol. 28, no. 6, pp. 1360–1370, 2012.                [53] R. Wolf, Y. Shi, S. Liu, and R. Rayyes, “Diffusion models for robotic
+[33] G. Williams, A. Aldrich, and E. A. Theodorou, “Model predictive                    manipulation: A survey,” arXiv preprint arXiv:2504.08438, 2025.
+     path integral control: From theory to parallel computation,” Journal of       [54] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez,
+     Guidance, Control, and Dynamics, vol. 40, no. 2, pp. 344–357, 2017.                Ł. Kaiser, and I. Polosukhin, “Attention is all you need,” in Advances
+[34] Q. Yang, A. Dürr, E. A. Topp, J. A. Stork, and T. Stoyanov, “Variable             in Neural Information Processing Systems (NeurIPS), vol. 30, 2017.
+     impedance skill learning for contact-rich manipulation,” IEEE Robotics        [55] Y. Liang, H. Wen, Y. Nie, Y. Jiang, M. Jin, D. Song, S. Pan, and Q. Wen,
+     and Automation Letters, vol. 7, no. 3, pp. 8391–8398, 2022.                        “Foundation models for time series analysis: A tutorial and survey,”
+[35] A. B. Tahmaz, R. Prakash, and J. Kober, “Impedance primitive-                      in Proceedings of the 30th ACM SIGKDD Conference on Knowledge
+     augmented hierarchical reinforcement learning for sequential tasks,”               Discovery and Data Mining, ser. KDD ’24. ACM, Aug. 2024, p.
+     2025. [Online]. Available: https://arxiv.org/abs/2508.19607                        6555–6565.
+[36] N. Hogan, “Impedance control: An approach to manipulation — part i:           [56] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai,
+     Theory,” Journal of Dynamic Systems, Measurement, and Control, vol.                T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly,
+     107, no. 1, pp. 1–7, 1985.                                                         J. Uszkoreit, and N. Houlsby, “An image is worth 16x16 words: Trans-
+[37] C. Chi, S. Feng, Y. Du, Z. Xu, E. Cousineau, B. Burchfiel, and S. Song,            formers for image recognition at scale,” in International Conference on
+     “Diffusion policy: Visuomotor policy learning via action diffusion,”               Learning Representations, 2021.
+     arXiv preprint arXiv:2303.04137, 2023.                                        [57] A. Jaegle, F. Gimeno, A. Brock, O. Vinyals, A. Zisserman, and
+[38] M. Braun, N. Jaquier, L. Rozo, and T. Asfour, “Riemannian flow                     J. Carreira, “Perceiver: General perception with iterative attention,” in
+     matching policy for robot motion learning,” 10 2024, pp. 5144–5151.                Proceedings of the 38th International Conference on Machine Learning,
+                                                                                                                                                           17
+
+
+
+     ser. Proceedings of Machine Learning Research, M. Meila and T. Zhang,         For the circular peg, rotational symmetry about the end-
+     Eds., vol. 139. PMLR, 18–24 Jul 2021, pp. 4651–4664.                       effector z-axis makes the final yaw alignment irrelevant.
+[58] T. Wang, A. Roberts, D. Hesslow, T. L. Scao, H. W. Chung, I. Belt-
+     agy, J. Launay, and C. Raffel, “What language model architecture           Stiffness modulation is therefore dominated by translational
+     and pretraining objective work best for zero-shot generalization?” in      factors, with only minor rotational adjustments. For the square
+     Proceedings of the 39th International Conference on Machine Learning       peg, alignment with the edges increased sensitivity to off-
+     (ICML), vol. 162. PMLR, 2022, pp. 23 671–23 694.
+[59] T. Lin, Y. Wang, X. Liu, and X. Qiu, “A survey of transformers,” AI        axis contact. This yielded stronger directional reductions in
+     Open, vol. 3, pp. 111–132, 2022.                                           both translation and rotation when axes contributed little to
+[60] A. Kramberger, E. Shahriari, A. Gams, B. Nemec, A. Ude, and S. Had-        the sZFT, while stiffness remained high along task-relevant
+     dadin, “Passivity based iterative learning of admittance-coupled dynamic
+     movement primitives for interaction with changing environments,” in        directions.
+     2018 IEEE/RSJ International Conference on Intelligent Robots and
+     Systems (IROS), 2018, pp. 6023–6028.
+[61] N. Hogan, “A general actuator model based on nonlinear equivalent
+     networks,” in 2014 IEEE International Conference on Robotics and
+     Automation (ICRA). IEEE, 2014, pp. 2647–2653.
+[62] ——, “Impedance and interaction control,” in 2015 IEEE-RAS 15th
+     International Conference on Humanoid Robots (Humanoids). IEEE,
+     2015, pp. 1–7.
+[63] J. Lachner, F. Allmendinger, E. Hobert, N. Hogan, and S. Stramigioli,                                Noah Geiger received the B.Sc. degree in Mechan-
+     “Energy budgets for coordinate invariant robot control in physical hu-                               ical Engineering and the M.Sc. degree in Mecha-
+     man–robot interaction,” The International Journal of Robotics Research,                              tronics and Information Technology, with a special-
+     vol. 40, no. 8-9, pp. 968–985, 2021.                                                                 ization in robotics, from the Karlsruhe Institute of
+[64] A. Albu-Schaffer, C. Ott, U. Frese, and G. Hirzinger, “Cartesian                                     Technology (KIT), Karlsruhe, Germany, in 2022 and
+     impedance control of redundant robots: recent results with the DLR-                                  2025, respectively. He was a Visiting Researcher at
+     light-weight-arms,” IEEE International Conference on Robotics and                                    the Massachusetts Institute of Technology (MIT),
+     Automation, pp. 3704–3709, 2003.                                                                     Cambridge, MA, USA. He was awarded an Engi-
+[65] K. Shoemake, “Animating rotation with quaternion curves,” SIGGRAPH                                   neering Scholarship from ERGO Direkt AG and an
+     Comput. Graph., vol. 19, no. 3, p. 245–254, Jul. 1985.                                               IT Scholarship from Festo GmbH & Co. KG during
+[66] S. Schaal, “Is imitation learning the route to humanoid robots?” Trends                              his studies, as well as the DPG Abiturpreis. He
+     in cognitive sciences, vol. 3, no. 6, pp. 233–242, 1999.                   began his professional experience as a Student Assistant at KIT, working
+[67] A. J. Ijspeert, J. Nakanishi, H. Hoffmann, P. Pastor, and S. Schaal,       on human pose estimation, and as a Working Student and Bachelor’s Can-
+     “Dynamical movement primitives: learning attractor models for motor        didate with Schaeffler, Karlsruhe, Germany, where he worked on machine
+     behaviors,” Neural computation, vol. 25, no. 2, pp. 328–373, 2013.         learning for vehicle control systems. He then worked as a Data Scientist
+[68] C. Chi, Z. Xu, S. Feng, E. Cousineau, Y. Du, B. Burchfiel, R. Tedrake,     with Mercedes-Benz, Sindelfingen, Germany, focusing on scene understanding
+     and S. Song, “Diffusion policy: Visuomotor policy learning via action      and end-to-end neural networks for autonomous driving, and as a Robotics
+     diffusion,” The International Journal of Robotics Research, 2024.          Engineer with Bosch, Plymouth, MI, USA, where he implemented a mobile
+[69] C. M. Bishop, “Training with noise is equivalent to tikhonov regular-      robot system for radar sensor validation. Since October 2025, he has been with
+     ization,” Neural Computation, vol. 7, no. 1, pp. 108–116, 01 1995.         the Junior Managers Program (AI/IT Track), Robert Bosch GmbH, Stuttgart,
+[70] J. Lachner, F. Tessari, A. M. W. Jr., M. C. Nah, and N. Hogan,             Germany, a program that prepares participants for leadership responsibility.
+     “Divide et impera: Decoding impedance strategies for robotic peg-in-       His research interests include robotics, agentic AI, diffusion models, and
+     hole assembly,” arXiv preprint arXiv:2410.01054, 2025.                     physical AI. Mr. Geiger is Founder and Lead of the Studopolis Think Tank
+[71] J. Carvalho, A. T. Le, M. Baierl, D. Koert, and J. Peters, “Motion         and was previously a Member of the Board of MIT VISTA.
+     planning diffusion: Learning and planning of robot motions with diffu-
+     sion models,” in 2023 IEEE/RSJ International Conference on Intelligent
+     Robots and Systems (IROS), 2023, pp. 1916–1923.
+[72] J. Lachner, M. C. Nah, S. Stramigioli, and N. Hogan, “Exp [licit] an ed-
+     ucational robot modeling software based on exponential maps,” in 2024
+     IEEE International Conference on Advanced Intelligent Mechatronics
+     (AIM). IEEE, 2024, pp. 1359–1366.
+[73] J. Lachner, M. C. Nah, F. Tessari, and N. Hogan, “Elementary dynamic
+     actions: key structures for contact-rich manipulation,” in IROS 2023
+     Workshop on Leveraging Models for Contact-Rich Manipulation, 2023.                                  Tamim Asfour (Fellow, IEEE) is Full Professor
+[74] D. E. Whitney, “Quasi-Static Assembly of Compliantly Supported                                      of Humanoid Robotics at Karlsruhe Institute of
+     Rigid Parts,” Journal of Dynamic Systems, Measurement, and                                          Technology (KIT), Germany. He directs the High
+     Control, vol. 104, no. 1, pp. 65–77, 03 1982. [Online]. Available:                                  Performance Humanoid Technologies Lab (H2T) at
+     https://doi.org/10.1115/1.3149634                                                                   the Institute of Anthropomatics and Robotics. He
+[75] S. Hirai and K. Tanie, “Remote center compliance with adaptive com-                                 received a diploma in Electrical Engineering from
+     pliance control,” in Proceedings of the IEEE International Conference                               the University of Karlsruhe and a Ph.D. degree
+     on Robotics and Automation. IEEE, 1990, pp. 468–473.                                                from KIT. His research focuses on the engineering
+                                                                                                         humanoid robot systems that integrates artificial in-
+                                                                                                         telligence, informatics, and mechatronics to perform
+                              A PPENDIX A                                                                versatile tasks in the real world while learning from
+                                                                                humans, experience and interaction with the environment. Tamim is the
+                   P EG -I N -H OLE EXPERIMENTS                                 developer of the ARMAR humanoid robot family. He has been a visiting
+   This appendix complements the main results by reporting                      professor at Georgia Tech, Tokyo University of Agriculture and Technology,
+                                                                                and the National University of Singapore. He is a IEEE Fellow, Editor-in-Chief
+stiffness adaptation for the circular and square pegs. The                      of the Robotics and Automation Letters (RA-L), Founding Editor-in-Chief of
+corresponding results for the star peg are already presented in                 the IEEE-RAS Humanoids Conference Editorial Board, the Spokesperson of
+the main text (Figure 11). The experimental setup, controllers,                 the Robotics Institute Germany (RIG), and the scientific spokesperson of the
+                                                                                KIT Center “Information · Systems · Technologies” (KCIST).
+and parameters matched the main text: baseline stiffness
+Kt,i,max = 800 N/m and Kr,i,max = 150 Nm/rad, damping as
+in Appendix II-B1, and force/moment thresholds of 1 N and
+1 Nm. All quantities are expressed in the robot base frame.
+                                                                                                                                                              18
+
+
+
+
+Fig. 12: Cylindrical peg insertion with stiffness adaptation. External wrenches, commanded translational and rotational stiffness,
+and relative motion factors are shown in the robot base frame. Base-frame color coding is given in Figure 9.
+
+
+                           Neville Hogan (Member, IEEE) is Sun Jae Pro-                                     Johannes Lachner (Member, IEEE) is an incom-
+                           fessor of Mechanical Engineering and Professor of                                ing Assistant Professor with the Elmore Family
+                           Brain and Cognitive Sciences at the Massachusetts                                School of Electrical and Computer Engineering at
+                           Institute of Technology. He earned a Diploma in                                  Purdue University, West Lafayette, IN, USA. He is
+                           Engineering (with distinction) from Dublin Institute                             currently a Postdoctoral Researcher with the De-
+                           of Technology and M.S., Mechanical Engineer and                                  partment of Mechanical Engineering and the De-
+                           Ph.D. degrees from MIT. He joined MIT’s faculty in                               partment of Brain and Cognitive Sciences at the
+                           1979 and presently directs the Newman Laboratory                                 Massachusetts Institute of Technology (MIT). He
+                           for Biomechanics and Human Rehabilitation. He                                    received the M.Eng. double degree (with distinction)
+                           co-founded Interactive Motion Technologies, subse-                               in Mechatronic Systems from the University of
+                           quently part of Bionik Laboratories. His research                                Ulster, Belfast, UK, and the University of Applied
+includes robotics, motor neuroscience, and rehabilitation engineering, empha-     Sciences Augsburg, Germany, and the Ph.D. degree (with highest distinction)
+sizing the control of physical contact and dynamic interaction. Awards include:   in Robotics from the University of Twente, Enschede, The Netherlands. Prior
+Honorary Doctorates from Delft University of Technology and Dublin Institute      to MIT, he was a Senior Research Engineer with the Corporate Research
+of Technology; the Silver Medal of the Royal Academy of Medicine in               Department, KUKA Robotics GmbH, where he invented numerous patents
+Ireland; the Saint Patrick’s Day Medal for Academia from Science Foundation       in robotics, several of which have been transferred into commercial products.
+Ireland; the Henry M. Paynter Outstanding Investigator Award and the Rufus        His research focuses on rehabilitation robotics, motor neuroscience, and AI for
+T. Oldenburger Medal from the American Society of Mechanical Engineers,           physical human–robot interaction, with an emphasis on geometric methods for
+Dynamic Systems and Control Division; and from the Institute of Electrical        contact-rich robot control and robot learning from human physical interaction.
+and Electronics Engineers, the Academic Career Achievement Award from             He received the MIT–Novo Nordisk AI Fellowship Award, the IROS Best
+the Engineering in Medicine and Biology Society and the Pioneer in Robotics       Paper Award 2024, and two consecutive TU Munich Global Incentive Fund
+Award from the Robotics and Automation Society.                                   awards. He was a finalist for the European Georges Giralt Ph.D. Award for
+                                                                                  the best European Ph.D. thesis in robotics.
+                                                                                                                           19
+
+
+
+
+Fig. 13: Square peg insertion with stiffness adaptation. External wrenches, commanded translational and rotational stiffness,
+and relative motion factors are shown in the robot base frame. Base-frame color coding is given in Figure 9.
+

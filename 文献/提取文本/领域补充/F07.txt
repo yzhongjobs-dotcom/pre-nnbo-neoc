@@ -1,0 +1,540 @@
+        10570                                                                             IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 10, NO. 10, OCTOBER 2025
+
+
+
+
+            Smooth Path Planning and Dynamic Contact Force
+              Regulation for Robotic Ultrasound Scanning
+           Le Zhang , Dapeng Yang , Senior Member, IEEE, Baoshan Niu , Haonan Yang , Qi Huang , Li Jiang ,
+                                         and Hong Liu , Senior Member, IEEE
+
+
+            Abstract—The robotic breast ultrasound scanning (RBUS) sys-                   these limitations, robotic breast ultrasound scanning (RBUS)
+        tem can help sonographer in the early screening of breast cancer.                 technology has been developed. This innovation standardizes
+        However, it still faces rigorous safety concerns, including non-                  and simplifies the examination process, increasing the efficiency
+        smooth scanning paths and improper contact force regulation. In
+        this letter, we propose a new path optimization method to improve                 of ultrasound examinations [6].
+        the scanning smoothness, as well as, a dynamic contact regulation                    Automatic path planning is a critical component of RBUS
+        strategy considering both the breast deformation and ultrasound                   technology, playing a central role in optimizing ultrasound
+        images. For the path planning, the anti-radial scanning approach                  examinations. Path planning methods can be categorized into
+        is first adopted to generate some initial path points together with               manual, semi-automatic, and fully automatic approaches [6], [7],
+        their normal vectors; then, a dual-objective optimization function
+        is formulated, which considers both the acceleration continuity                   [8], [9]. Recent advancements have focused on the automatic se-
+        and deviation of the path, to filter out local path anomalies. For                lection of region of interest (ROI) and the generation of efficient
+        the force control, a contact force-strain regression model is first               scanning paths [10]. These systems often utilize RGB-D cameras
+        proposed and used to predict the desired force between the breast                 to capture 3D point cloud data from the human body surface,
+        and probe at each path point. While within the adjacent path                      enabling automated ROI segmentation and extraction [11], [12],
+        points, an updating algorithm is introduced to dynamically adjust
+        the contact force in real-time by surveying the confidence of the                 [13], [14], [15]. For instance, Wang et al. [11] and Huang
+        ultrasound image. Our experimental results show that the proposed                 et al. [13] directly applied point cloud data to generate robotic
+        methods can make the scanning path smoother, and obtain intimate                  path, streamlining the processing workflow. However, this ap-
+        probe-tissue contact with less desired force.                                     proach may introduce path fluctuations due to irregularities in
+          Index Terms—Robotic breast ultrasound scanning, path                            the point cloud data, potentially causing larger accelerations that
+        optimization, variable desired force control.                                     lead to patient discomfort. To address this issue, Tan et al. [15]
+                                                                                          employed a non-uniform rational B-spline (NURBS) curve fit-
+                                                                                          ting to refine the point cloud data, reducing path irregularities and
+                                    I. INTRODUCTION                                       ensuring smoother robotic motion. For effective path planning,
+              REAST cancer is a life-threatening disease, with over 2                     smooth paths are essential to minimize abrupt accelerations and
+        B     million new cases and more than 684,000 deaths reported
+        annually worldwide [1]. Advances in science and technology
+                                                                                          decelerations, ensuring stable and efficient robot movement.
+                                                                                             In automatic RBUS technology, maintaining stable contact
+        have led to significant improvements in breast cancer screening                   between the ultrasound probe and tissue is a critical chal-
+        methods. Among these, breast ultrasound (BUS) has gained                          lenge [11]. To address this, Wang et al. [11] developed an admit-
+        prominence due to its non-invasive nature and diagnostic ef-                      tance control algorithm based on a force-velocity hybrid control
+        ficiency. However, the effectiveness of BUS heavily depends on                    framework, enabling stable and consistent force control in an
+        the sonographer’s expertise [2], [3]. Furthermore, the examina-                   automatic RBUS system. Similarly, Tan et al. [15] introduced a
+        tion process is both time-consuming and physically strenuous,                     fully automated RBUS system that incorporates PID control, a
+        contributing to a reported 90% prevalence of work-related mus-                    dual robotic arm configuration, and a flexible ultrasound probe
+        culoskeletal disorders among sonographers [4], [5]. To address                    clamping device. These systems not only ensures stable and
+                                                                                          constant contact force but also improves scanning efficiency.
+           Received 14 May 2025; accepted 8 August 2025. Date of publication 2            In conventional BUS, sonographers must dynamically regulate
+        September 2025; date of current version 5 September 2025. This article was        the probe’s contact force based on real-time image feedback.
+        recommended for publication by Associate Editor A. Schlaefer and Editor J.        While minimizing contact force is essential for ensuring pa-
+        Burgner-Kahrs upon evaluation of the reviewers’ comments. This work was
+        supported by the Key Common Technology Research and Development Project           tient safety, it is equally important to maintain an adequate
+        of Hefei under Grant GJ2022SH17. (Corresponding author: Dapeng Yang.)             level of contact force to achieve high-quality ultrasound im-
+           Le Zhang, Dapeng Yang, Baoshan Niu, Haonan Yang, Li Jiang, and Hong Liu        ages. The desired force may vary depending on the specific
+        are with the State Key Laboratory of Robotics and System, Harbin Institute of
+        Technology, Harbin 150080, China (e-mail: 21b908034@stu.hit.edu.cn; yang-         application, which refers to the target contact force value re-
+        dapeng@hit.edu.cn; niubaoshan@stu.hit.edu.cn; haonan_yang@hit.edu.cn;             quired to achieve safe and intimate probe-tissue contact and
+        jiangli01@hit.edu.cn; hong.liu@hit.edu.cn).                                       is typically greater than 0 N. Welleweerd et al. [16] performs
+           Qi Huang is with Hebin Intelligent Robots Company, Ltd., Hefei 230027,
+        China (e-mail: qi.huang@hebin-robots.com).                                        visual servoing control based on real-time ultrasound confi-
+           Digital Object Identifier 10.1109/LRA.2025.3604746                             dence maps to optimize probe-breast contact and reduce tissue
+
+             2377-3766 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and similar technologies.
+       Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+       ZHANG et al.: SMOOTH PATH PLANNING AND DYNAMIC CONTACT FORCE REGULATION FOR ROBOTIC ULTRASOUND SCANNING                                                   10571
+
+
+
+
+       Fig. 1. (a) shows ultrasound images at the same location with different contact forces, (b) shows the RBUS system, and (c) shows control flowchart of automatic
+       RBUS.
+
+
+       deformation. However, this system relies entirely on ultrasound
+       image confidence (rather than force sensors) to control contact,
+       which cannot achieve stable contact force control and may
+       pose safety hazards. Despite the critical importance of this
+       adjustment process, existing research on automatic RBUS has
+       not extensively explored real-time dynamic control of contact
+       force. However, similar studies have been conducted in other
+       fields of ultrasound scanning. For instance, Tsumura et al. [17]
+       systematically evaluated how varying contact forces impact
+       the quality of thyroid ultrasound image and patient comfort,
+       providing valuable experimental insights. However, their study
+       did not address real-time dynamic force adjustments. In contrast,                 Fig. 2. (a) shows schematic diagram of ultrasound scanning method, (b) shows
+                                                                                         point cloud model, (c) and (d) show probe-tissue contact and corresponding top
+       Zakeri et al. [18] proposed an intelligent interaction force control              of US image.
+       method for a cardiac ultrasound robotic system. This system
+       uses artificial intelligence to dynamically adjust the contact
+                                                                                         maximizes the tension of Cooper’s ligaments, thereby enhancing
+       force based on real-time ultrasound image feedback, thereby
+                                                                                         the efficiency of the examination, as illustrated in Fig. 2(a).
+       enhancing image quality. The hearts of different patients have
+                                                                                         Furthermore, any positive findings must be evaluated within the
+       similar structural features, but the internal structures of the
+                                                                                         anti-radial scanning to ensure accurate assessment.
+       breasts of different patients vary greatly, so this method cannot
+       be transferred to breast ultrasound examinations.
+          This study aims to achieve smooth path planning and dynamic                    A. Path Planning
+       contact regulation, with the goal of improving the safety and                        As shown in Fig. 1(b), the breast phantom is placed on a
+       obtaining intimate probe-tissue contact with less desired force.                  tabletop and covered with a medical sterile cloth, exposing only
+       The main contributions of this letter are as follows: (i) a dual-                 the region to be scanned. Following the method proposed by
+       objective path optimization method (DO-ACDC) is proposed,                         Wang et al. [11], multi-angle point clouds are captured using a
+       considering path acceleration continuity and deviation control.                   RealSense D435i depth camera mounted on a UR5 robotic arm
+       This method aims to optimize the smoothness of the initial scan-                  operated in zero-force drag mode, and subsequently segmented
+       ning path and enhance angular acceleration stability; (ii) a con-                 based on color features to extract only the phantom region. A
+       tact force-strain regression model-based desired force prediction                 complete point cloud model of the phantom is then registered
+       algorithm (CFS-DFP) is introduced to dynamically adjust the                       through the Point-to-Plane ICP algorithm, achieving a regis-
+       robot’s desired force at each path point; (iii) a ultrasound image                tration accuracy of RMSE = 0.36 mm [20], as illustrated in
+       confidence-based desired force update algorithm (UIC-DFU)                         Fig. 2(b). In this study, the phantom point cloud model is sliced
+       is proposed to adjust the desired force between adjacent path                     to extract cross-sectional points [21]. Starting from the highest
+       points.                                                                           point (nipple position) of the point cloud, planes are systemati-
+                                                                                         cally arranged at angular intervals of θus in a counterclockwise
+                                                                                         direction, as shown in (1).
+                        II. ULTRASOUND SCANNING PATH                                                                             
+                          PLANNING AND OPTIMIZATION                                                                               L
+                                                                                                               θus = 2 · arcsin                        (1)
+                                                                                                                                  2r
+          In clinical practice, various breast ultrasound scanning ap-
+       proachs are employed, with the anti-radial scanning approach                      where r represents the maximum radius from the highest point
+       recognized as one of the most effective methods [19]. This                        in the point cloud to the edge, L denotes the imaging width
+       technique involves scanning from the periphery of the breast                      of the probe, and then the number of anti-radial scanning paths
+       toward its center, which helps minimize tissue folding and                        nus = 2π/θus . The intersection points between these planes and
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+        10572                                                                             IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 10, NO. 10, OCTOBER 2025
+
+
+
+        the point cloud are then identified and selected as the initial path              B. Path Optimization
+        points, as depicted in Fig. 2(b).
+                                                                                             1) Generation of Regular Surface Based on Path Point and
+           The path P is generated using the plane slicing method                         Normal Vector: Due to potential inconsistencies in the parame-
+        described above, where the normal of each path point are de-
+                                                                                          ter ranges of the path points and normal vectors, it is necessary
+        termined by calculating the fitted plane normal formed by its
+                                                                                          to first synchronize the parameters to establish a coupling rela-
+        neighboring point clouds [11]. However, the raw point cloud                       tionship. This is expressed as:
+        data obtained from the depth camera often exhibits fluctuations.
+        Using this unprocessed data directly for robotic ultrasound                                                         i−1
+                                                                                                  wi = max(umin ) +               Δu, i = 1, . . . , mw             (5)
+        scanning can result in velocity instability. To address this issue,                                                mw − 1
+        NURBS curve fitting is applied to smooth the path, reduce                         Where Δu = min(umax ) − max(umin ), umin = min(up , un ),
+        data complexity, and improve path controllability and noise                       umax = max(up , un ), and mw is set as the number of initial
+        resistance. This process effectively minimizes the variations and                 path points. Next, a regular surface can be constructed based on
+        fluctuations in the initial path points, ensuring a more stable and               the path point curve Cp (w) and the normal vector curve Cn (w),
+        efficient scanning path [12].                                                     which is represented as:
+           The recursive definition of the NURBS basis function
+        Ni,kp (u) is given by:                                                                            s(w, v) = (1 − v)Cp (w) + vCn (w)                         (6)
+                                                                                          where Cp (w) and Cn (w) represent the corresponding path point
+                                     u − ui
+                   Ni,kp (u) =                Ni,kp−1 (u)                                 and normal vector on the fitted curve from (4), v is the blending
+                                   ui+kp − ui                                             parameter, and s(w, v) is the resulting regular surface.
+                                        ui+kp+1 − u                                          2) Establishment of a Dual-Objective Function for Surface
+                                   +                  Ni+1,kp−1 (u)               (2)
+                                       ui+kp+1 − ui+1                                     Optimization: To ensure the smoothness of the surface, acceler-
+                                                                                          ation continuity is used as the metric. The acceleration continuity
+        where kp is the degree of the NURBS curve. When kp = 3, it                        is computed through the square integral of the second-order
+        ensures the second-order continuity of the scanning path. The                     derivatives of the surface s(w, v), expressed as:
+        discrete parameter values ui correspond to the discrete points on                                    2                     2          
+                                                                                                                   ∂ s(w, v) 2        ∂ s(w, v) 2
+        the curve, i.e., the initial path point, while the curve parameter                       Eacc =                                          
+                                                                                                                   ∂w2  + 2  ∂w∂v 
+        u is used to describe continuous positions along the curve.                                           D
+           For a set U = {up1 , up2 , . . . , upq ; un1 , un2 , . . . , unq }, where                            2         
+                                                                                                                ∂ s(w, v) 2
+        upi and uni represent the path point and normal vector, respec-                                        
+                                                                                                              +                    dw dv                          (7)
+        tively. The goal of fitting the NURBS curve is to minimize the                                             ∂v 2 
+        deviation between the path points and the curve by optimizing
+                                                                                          In addition to ensuring surface smoothness, it is essential to
+        the control point set.
+                                                                                          ensure that the fitted surface does not deviate excessively from
+                                       
+                                       n                                                  the initial path. Therefore, a deviation control term is introduced,
+                                min          Pi − C(ui )2                       (3)     defined as:
+                                       i=1                                                              
+                                                                                                        q
+                                                                                                                                2
+                                                                                                                                             
+                                                                                                                                             q
+                                                                                           Eerror = α         upi −Cp (wi ) +(1−α)                uni −Cn (wi )2
+        The definition of the NURBS curve is given as:                                                  i=1                                   i=1
+                                  m                                                                                                                                (8)
+                                    j=0 wj Nj,kp (u)ej
+                            C(u) = m                                             (4)     Where α and 1 − α are the weights.
+                                     j=0 wj Nj,kp (u)                                        By considering acceleration continuity and deviation control,
+                                                                                          the dual-objective function is constructed to balance the surface
+        where wj represents the weight of the control point ej , m is the
+                                                                                          smoothness and fitting accuracy:
+        number of control points, and Nj,kp (u) is the j-th basis function
+        of degree kp .                                                                                    min Eall = δEacc + (1 − δ)Eerror                          (9)
+           By constructing the basis function matrix Nij = Nj,kp (ui ),
+                                                                                          where δ represents the weight for acceleration continuity, con-
+        the minimization problem of the objective function can be refor-
+                                                                                          trolling the surface smoothness, and 1 − δ represents the weight
+        mulated as solving the linear system N · E = P . Subsequently,
+                                                                                          for deviation control, managing the fitting accuracy.
+        the positions of the control points are optimized using the
+                                                                                             An improved quasi-Newton optimization algorithm, specif-
+        least-squares method to ensure the fitting accuracy of both the
+                                                                                          ically the L-BFGS-B method, is employed to minimize the
+        path points and the normal vectors.
+                                                                                          objective function (9). Finally, the optimized set of path is
+           NURBS curve fitting can effectively suppress “deviations and
+                                                                                          obtained as S = {sp1 , sp2 , . . . , spq ; sn1 , sn2 , . . . , snq }.
+        fluctuations” caused by irregular initial path points to a certain
+        extent. However, certain localized regions of the curve may
+                                                                                                       III. VARIABLE DESIRED FORCE CONTROL
+        still exhibit such issues. Therefore, the generated path requires
+        further smoothing. In the next section, a smoothing optimization                    As illustrated in Fig. 1(a), the applied contact force at a given
+        method was proposed to address this problem.                                      scanning position clearly influences ultrasound image quality.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+       ZHANG et al.: SMOOTH PATH PLANNING AND DYNAMIC CONTACT FORCE REGULATION FOR ROBOTIC ULTRASOUND SCANNING                                                   10573
+
+
+
+                                                                                         measure is defined as γ = d/H. Where d represents the probe
+                                                                                         compression depth under a given force, and H represents the
+                                                                                         projection depth which is the projection depth of the ultrasound
+                                                                                         probe’s bottom surface along the normal vector sni , such that
+                                                                                         the ultrasound probe’s bottom surface just fully contacts the
+                                                                                         breast surface, as shown by the red line segment Hi in Fig. 3(a).
+                                                                                         To compute the projection depth for each path point, a plane
+                                                                                         is established at the probe’s bottom using the spi and sni . Each
+                                                                                         point Qi in the point cloud is projected onto this plane. As shown
+                                                                                         in Fig. 3(a), the green rectangle is used to define the boundary
+       Fig. 3. (a) shows schematic diagram of projection depth Hi ,(b) shows
+                                                                                         of the probe’s bottom. By determining whether the projection
+       schematic diagram of probe-tissue interaction.                                    coordinates of point Qi lie within the rectangle, the distance
+                                                                                         between Qi and its projected point is calculated. Finally, the
+       While increasing contact force enhances image clarity and im-                     maximum distance is taken as the projection depth Hi . Based on
+       proves tumor boundary delineation, excessive force beyond 5 N                     the above calculations, the projection depths Hi and projection
+       fails to yield additional image quality improvements. Moreover,                   thicknesses Di are known for all path points on the every path.
+       such excessive force may induce substantial breast tissue defor-                     2) Desired Force Prediction Algorithm At Each Path Point:
+       mation and cause patient discomfort. Our experimental results                     The female breast exhibits considerable variability in size, shape,
+       and analysis demonstrate the critical importance of precise force                 and elastic properties among individuals, the desired force may
+       regulation. Therefore, the subsequent sections will focus on                      vary for different breasts. At the first path point sp1 of the first
+       investigating real-time dynamic control strategies for contact                    path, the probe automatically compresses the phantom along
+       force in automated robotic breast ultrasound (RBUS) systems.                      the normal direction sn1 until a complete and clear ultrasound
+                                                                                         image is obtained. At this moment, the force/torque sensor is
+                                                                                         automatically recorded and the contact force is logged as the
+       A. Contact Force-Strain Regression Model-Based Desired
+                                                                                         initial desired force for every path. When sp = spi (i ≥ 2, the
+       Force Prediction Algorithm
+                                                                                         path point of every path), the contact force Fz is computed
+           1) Mathematical Model Based on Deformation Estimation:                        based on the current force/torque sensor reading, as shown in
+       Researchers often consider the boundary of the breast as a                        Fig. 1(b). The strain εi at this point is then determined by
+       plane [11], [22], [23]. In this work, the boundary plane of the                   solving the contact force-strain regression model from (10).
+       breast phantom is obtained through the following steps: first, the                It should be noted that cubic polynomials may have multiple
+       entire point cloud of the phantom is projected onto the tabletop to               solutions, but within the research background of this article, the
+       extract its two-dimensional boundary curve; subsequently, this                    actual reasonable solution is greater than zero and is the smallest
+       2D boundary is mapped back to three-dimensional space using                       solution. Then the probe compression depth di = εi · Di and the
+       nearest-neighbor search to obtain the point cloud representing                    local deformation γi = di /Hi are calculated. Given the conti-
+       the bottom edge of the phantom; finally, the boundary plane is                    nuity of deformation, it is assumed that the local deformation
+       fitted to these edge points. As shown in Fig. 3(b), spi and sni                   at two consecutive path points is equal, i.e., γi+1 = γi . This
+       represent the path point and normal vector of the path point, − →
+                                                                       n p               assumption enables the prediction of the required compression
+                                                             ,
+       represents the normal vector of the plane, and spi represents                     depth di+1 = γi+1 · Hi+1 and strain εi+1 = di+1 /Di+1 at next
+       the projection of the path point spi onto the boundary plane                      path point. Then the desired force Fex (spi+1 , k) (where k = 0)
+       along the direction of the normal vector sni . s̄pi represents the                at the next path point spi+1 is calculated from (10).
+       point corresponding to the probe compression depth d. D can
+       be expressed as the distance from the path point to the boundary
+       plane along the normal vector.                                                    B. Ultrasound Image Confidence-Based Desired Force Update
+           The mechanical properties of the breast tissue are hyper-                     Algorithm
+       elastic [23]. Considering the tissue’s heterogeneity, machine                        1) Confidence-Based Probe-Tissue Contact Assessment
+       palpation is performed at three different thicknesses (D) of                      Model: When the ultrasound probe is not in contact with the
+       the breast. Let d represent the probe compression depth, then                     breast, a white strip appears at the top of the ultrasound image.
+       the strain can be expressed as ε = d/D. Assuming that the                         When the probe is in intimate contact with the breast, this
+       relationship between strain and the corresponding contact force                   white strip disappears, and the image becomes complete [16],
+       follows a cubic polynomial:                                                       as shown in Fig. 2(c) and (d). In order to quantify the contact
+                                                                                         between the probe and the tissue, this letter introduces confi-
+                          Fc = β3 ε3 + β2 ε2 + β1 ε + β0                        (10)
+                                                                                         dence maps. Confidence maps provide a pixel-wise estimation
+       where β0 , β1 , β2 , and β3 are elastic parameters, and Fc is the                 of uncertainty in ultrasound (US) images. Given an image
+       predicted contact force.                                                          I : Ω → [0, 1], a corresponding confidence map C : Ω → [0, 1]
+          Given the complex surface characteristics of the breast and                    assigns to each pixel (i, j) ∈ Ω := [1..nus ] × [1..mus ] a confi-
+       the varying compression depths d and projection thicknesses D                     dence value indicating the reliability of I(i, j). The confidence
+       required at different locations of the probe, a local deformation                 map C is computed based on the probability of a random walk
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+        10574                                                                             IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 10, NO. 10, OCTOBER 2025
+
+
+
+        originating from a pixel (i, j) and reaching virtual transducer                   is represented as:
+        elements [24], thereby reflecting the probe-tissue contact qual-
+                                                                                                        Fex (spi+1 , k) − Fz , spi ≤ sp ≤ spi+1 and k ≥ 1
+        ity [25], [26], [27]. When contact is intimate, confidence values                  ΔFz =
+        are high(approaching 1).                                                                        Fex (spi+2 , 0) − Fz , sp = spi+1
+           Based on the characteristics of the ultrasound image, the upper                                                                              (13)
+        region of the image is divided into three parts: left, middle, and
+                                                                                          Then, ΔFz is converted into the probe’s normal velocity VF
+        right, as shown in Fig. 2(d). Confidence values for each part
+                                                                                          through nonlinear force-velocity admittance control, expressed
+        and the overall parts are obtained using a confidence algorithm,
+                                                                                          as:
+        represented as CLmean , CMmean , CRmean , and Cmean_part , where                                                              
+        Cmean_part = (CLmean + CMmean + CRmean ) / 3. When these three                                                      2
+                                                                                                        VF = M ×                    −1              (14)
+        values reach a desired value (related to the material of breast                                               1 + e−ρ·ΔFz
+        phantom), it indicates that the left, middle, and right parts of the              where M is the maximum linear velocity, and ρ is the contact
+        probe are all in intimate contact with the breast, resulting in a                 force change rate.
+        complete ultrasound image [27].                                                      By obtaining the probe’s pose, its normal vector s̄n can be
+           2) Desired Force Update Algorithm Between Path Points:                         calculated, and the robot’s linear velocity V and angular velocity
+        When the US probe scans between adjacent path points, the                         W can be expressed as:
+        appropriate desired force required is not constant. In this letter,
+        real-time feedback from ultrasound images is used to adjust                                               V          VF × s̄ni + VS
+                                                                                                                        =                                          (15)
+        the desired force between two path points online. When spi <                                              W              WS
+        sp < spi+1 , i.e., between two adjacent path points, the UIC-DFU
+        proposed in this letter can be expressed as:                                      where VS and WS represent the linear and angular velocities,
+                                                                                        and are calculated based on the optimized path [11].
+                                  (K · ΔCmean )3                                             Through the aforementioned nonlinear force-velocity admit-
+         Fex (spi+1 , k+1) =                          +1 · Fex (spi+1 , k)
+                                 1+(K · ΔCmean )2                                         tance control (low-level controller), stable contact force control
+                                                                       (11)               can be achieved. Meanwhile, using the CFS-DFP and UIC-DFU
+                                                                                          (high-level controllers), the desired force is updated online,
+        where Fex (spi+1 , k) represents the desired force at the k-th time               achieving variable desired force contact force control, which
+        step between path points spi and spi+1 , and K is a scaling                       balances probe-tissue contact quality and patient comfort.
+        parameter that reflects the speed of adjustment in desired force.
+        All other conditions remain unchanged, the larger K, the greater                              IV. EXPERIMENTS AND RESULTS ANALYSIS
+        the change in desired force, resulting in the actual confidence
+        approaching the desired confidence faster. The term ΔCmean                        A. System Setup
+        represents the difference between the actual confidence and the                      The proposed methods and algorithms in this study were
+        desired confidence, defined as:                                                   validated on the automatic RBUS system, as illustrated in
+          ΔCmean = max (0, min (CLmean , CMmean , CRmean ) − Cex )                        Fig. 1(b). This system consists of five primary components: a
+                                                               (12)                       robotic arm (UR5, Universal Robots, Denmark), an ultrasound
+                                                                                          imaging system equipped with a linear probe (SonoStar C10
+        where Cex represents the desired confidence, which indicates                      Wired Probe, SonoStar, China), a force/torque (F/T) sensor
+        a higher quality of contact. Analysis of (11) and (12) reveals                    (KWR75 A, Kunwei Technology, China), an RGB-D camera
+        that the desired force varies gradually when actual confidence                    (Realsense D435i, Intel, USA). Robot path planning and control
+        approaches desired confidence, but changes more rapidly when                      were implemented in Python on a laptop powered by an Intel
+        they diverge clearly. This online force adaptation mechanism                      Core i9-13900HX 2.2 GHz processor with 16 GB RAM. The
+        leverages ultrasound image confidence to dynamically optimize                     ultrasound probe was mounted at the end-effector of the robotic
+        the desired force for obtaining intimate probe-tissue contact.                    arm using a 3D-printed fixture. The F/T sensor was installed
+                                                                                          between the robot’s end-effector and the probe fixture to measure
+        C. RBUS System Workflow                                                           the contact force between the ultrasound probe and the phantom.
+                                                                                          Additionally, the RGB-D camera was attached to the robot’s
+            As shown in Fig. 1(b) and (c), the robot, carrying the ul-
+                                                                                          end-effector and positioned adjacent to the probe for capturing
+        trasound probe, performs the ultrasound scanning along the
+                                                                                          the point cloud data of the breast phantom, as shown in Fig. 1(b).
+        optimized path obtained in Section II. The force/torque sensor
+                                                                                          The robotic arm operated at a control frequency of 125 Hz, while
+        records force information in real-time, and through kalman
+                                                                                          the force sensor sampled contact force signals at a frequency of
+        filtering and gravity compensation, the true contact force Fz
+                                                                                          1 kHz.
+        is obtained. During the scan between adjacent path points
+        (spi < sp < spi+1 ), the desired force Fex (spi+1 , k) at time k
+        is updated online using the UIC-DFU. When the scan reaches                        B. Verification of Path Planning and Optimization
+        the path point spi+1 , the desired force Fex (spi+2 , 0) for the next                As shown in Fig. 2(b), cross-sectional points were obtained
+        path point spi+2 is updated using the CFS-DFP. Therefore, the                     by slicing the complete point cloud model of the phantom with
+        difference between the desired force and the true contact force                   a plane(θus = 30◦ in (1)) and the normal vectors are estimated
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+       ZHANG et al.: SMOOTH PATH PLANNING AND DYNAMIC CONTACT FORCE REGULATION FOR ROBOTIC ULTRASOUND SCANNING                                                   10575
+
+
+
+                                  TABLE I
+           OVERALL MEAN AND STANDARD DEVIATION OF PATH DEVIATION AND
+                               ANGLE INCREMENT
+
+
+
+
+       according to Section II-A. In this experiment, the same initial
+       path were optimized using three methods including NURBS-
+       Fitting Optimization [28] (NFO, the degree kp = 3, the number
+       of control points m = 8, and the weights of the control points
+       wj = 1 in (4)), an energy-based path smoothing optimization
+       (EBTSO) proposed by Wang et al. [29], and DO-ACDC(the
+       weight α = 0.5 and δ = 0.5 in (8) and (9).
+          To quantitatively evaluate the optimization effects of the three               Fig. 4.   Experimental results of path optimization of two paths.
+       methods on path points, the distance deviation disti is defined
+       as the vertical distance between the path point and the plane
+       slicing, where the positive and negative signs of disti represent
+       the path points on both sides of the plane, respectively. As shown
+       in Table I, compared with NFO, DO-ACDC reduces the mean
+       |disti |mean by 21.3% and the mean |disti |std by 22.3% for all
+       paths. It also achieves a 6.7% lower mean |disti |mean and 13.8%
+       lower mean |disti |std compared to EBTSO. These results show
+       that the DO-ACDC-optimized path better approximates the ideal
+       path.
+          To quantitatively evaluate the optimization effects of the three
+       methods on the normal vectors, the angle increment Δθi was
+                                                                                         Fig. 5. Three different phantoms and their contact force-strain regression
+       used as an evaluation metric for path smoothness:                                 models.
+
+        Δθi = θi+1 − θi = arccos(sni+1 · sni ) − arccos(sni · sni−1 )
+                                                                 (16)                    points of Path 1, the |Δθi |mean were 0.086◦ , 0.052◦ , and 0.032◦ ,
+                                                                                         respectively, while for Path 2, the |Δθi |mean were 0.129◦ , 0.065◦ ,
+       where sni represents the normal vector at the i-th point. As                      and 0.018◦ . This smoothing reduces abrupt path changes for
+       shown in Table I, compared with NFO, DO-ACDC reduces the                          better scanning stability, with acceptable loss of fine detail near
+       mean |Δθi |mean by 67.7% and the mean |Δθi |std by 41.2%                          the nipple region given the contact compression depth.
+       for all paths. It also achieves a 76.5% lower mean |Δθi |mean
+       and 60.0% lower mean |Δθi |std compared to EBTSO. These
+       results demonstrate that the proposed DO-ACDC has a greater                       C. Validation of Variable Desired Force Control
+       advantage in improving the smoothness of the initial paths.                           The female breast shows vast variations in size, shape, and
+       It should be noted that the dense distribution of path points                     elastic properties from patient to patient. As shown in Fig. 5,
+       inherently limits the magnitude of angular increments, making                     three breast phantoms are used to validate the variable desired
+       even small numerical reductions meaningful in practice.                           force control. The first phantom (LYD810, Liuyedao Medical
+          To intuitively compare the optimization performance of dif-                    Technology, China) is made of silicone. The second phantom
+       ferent methods on the initial path points, this study visualizes                  (YB-RX311, Shenzhen Yichuang Medical Technology Co.,
+       the optimization results of Path 1 and Path 10. Path 1 exhibits                   China) is also made of silicone but is softer than the first and has
+       larger curvature variations, whereas Path 10 shows relatively                     a hemispherical shape, which differs clearly from the first. The
+       smoother curvature. As shown in Fig. 4, after the optimization                    third phantom (SE-IG0006-S1, Zhejiang Yizai Medical Tech-
+       method proposed in this letter, the initial path has clearly reduced              nology Co., China) has a hydrogel core covered with a silicone
+       the clutter and mutation of path points and normals, and the                      skin, making it the softest among the three, with a shape similar
+       distribution is more reasonable, uniform and smooth. In terms                     to the first. Considering the heterogeneity of tissue properties,
+       of angular increments, DO-ACDC yields smaller angular incre-                      the probe was compressed at a speed of 1 mm/s at three different
+       ments than NFO and EBTSO, indicating superior optimization                        positions of the each phantom, while the probe’s compression
+       performance. For the last 20 points of the paths near the nipple,                 depth and the corresponding contact force were recorded. The
+       the Δθi optimized by DO-ACDC were clearly lower than those                        fitting results of strain and the corresponding contact force are
+       optimized by NFO and EBTSO. Specifically, for the last 20                         shown in Fig. 5, indicating a good fit. Using the methods for
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+        10576                                                                               IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 10, NO. 10, OCTOBER 2025
+
+
+
+
+        Fig. 6. Experimental results of variable desired force control and constant desired force control. (a), (b), (c) and (d) show the confidence curves and contact force
+        curves for different constant desired forces control on the four paths, respectively. (e) shows the confidence curves and contact force curves for variable desired
+        force control on the four paths, respectively. In (e-1) and (e-2), the ultrasound images with lesions obtained during the scanning process, along with the associated
+        contact force areas, are presented. The lesion contours, obtained via a lesion segmentation algorithm, are visualized. (f) displays the bar plots with error bars of
+        confidence values for the four different paths, respectively.
+
+
+        calculating the projection depth H and projection thickness D                       more stable confidence levels. However, when the desired force
+        described in Section III-A, the values of Hi and Di along the                       exceeds a certain threshold, the confidence level approaches
+        four paths optimized by DO-ACDC(from Section II-B) were                             saturation without further improvement. Moreover, excessive
+        calculated.                                                                         desired force may induce patient discomfort and cause excessive
+           To compare the differences between constant desired force                        breast tissue deformation. As shown in Fig. 6(e), the variable
+        control and the proposed variable desired force control during                      desired force control strategy incorporates both CFS-DFP and
+        automatic RBUS both constant force control and variable de-                         UIC-DFU methods at different path points and between adjacent
+        sired force control were applied along the four paths optimized                     points respectively. During ultrasound scanning, this approach
+        by DO-ACDC. The scanning speed was set to VS = 1 mm/s,                              enables real-time online adjustment of desired force magnitude,
+        the force control parameters M = 0.005, ρ = 3 in (14), and                          achieving consistently high and stable confidence levels. In ad-
+        the desired confidence Cex = 0.52 in (12), with a confidence                        dition, the CNN-Swin Transformer hybrid model from [30] was
+        variation rate K = 6 in (11). As shown in Fig. 6(a), (b), (c)                       successfully applied to perform intelligent lesion recognition
+        and (d), the contact force curves and the corresponding con-                        and segmentation on the ultrasound images obtained by the
+        fidence curves for constant desired forces are presented. The                       variable desired force control method on the first phantom,
+        results demonstrate that higher desired forces yield greater and                    as shown in Fig. 6(e-1) and (e-2). This demonstrates that the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+       ZHANG et al.: SMOOTH PATH PLANNING AND DYNAMIC CONTACT FORCE REGULATION FOR ROBOTIC ULTRASOUND SCANNING                                                        10577
+
+
+
+       smoothed scanning path preserves sufficient image quality and                       [8] F. von Haxthausen, S. Böttger, D. Wulff, J. Hagenah, V. Garcıá-
+       completeness to enable clinically meaningful lesion segmenta-                           Vázquez, and S. Ipsen, “Medical robotics for ultrasound imaging: Cur-
+                                                                                               rent systems and future trends,” Curr. Robot. Rep., vol. 2, pp. 55–71,
+       tion. It indicates that the generated path is effective and that the                    2021.
+       amount of smoothing applied is not clinically detrimental. To                       [9] Z. Jiang, Y. Gao, L. Xie, and N. Navab, “Towards autonomous atlas-based
+       more intuitively analyze the influence of different force control                       ultrasound acquisitions in presence of articulated motion,” IEEE Robot.
+                                                                                               Autom. Lett., vol. 7, no. 3, pp. 7423–7430, Jul. 2022.
+       methods on the ultrasound image confidence, bar plots with error                   [10] C. Graumann, B. Fuerst, C. Hennersperger, F. Bork, and N. Navab,
+       bars were generated, as shown in Fig. 6(f). As the desired force                        “Robotic ultrasound trajectory planning for volume of Interest cov-
+       increased, the mean confidence values increased clearly, while                          erage,” in Proc. 2016 IEEE Int. Conf. Robot. Automat., 2016,
+                                                                                               pp. 736–741.
+       the standard deviation of the confidence decreased noticeably.                     [11] Z. Wang et al., “Full-coverage path planning and stable interaction con-
+       The mean and standard deviation of confidence values obtained                           trol for automated robotic breast ultrasound scanning,” IEEE Trans. Ind.
+       using the proposed variable desired force control method un-                            Electron., vol. 70, no. 7, pp. 7051–7061, Jul. 2023.
+                                                                                          [12] J. Tan et al., “Automatic generation of autonomous ultrasound scanning
+       der different paths were comparable to those obtained using a                           trajectory based on 3D point cloud,” IEEE Trans. Med. Robot. Bionics,
+       constant desired force of Fex (8 N for the first phantom, 6 N for                       vol. 4, no. 4, pp. 976–990, Nov. 2022.
+       the second phantom, 3 N for the third phantom). The results                        [13] Q. Huang, J. Lan, and X. Li, “Robotic arm based automatic ultrasound
+                                                                                               scanning for three-dimensional imaging,” IEEE Trans. Ind. Informat.,
+       indicate that the proposed method achieves probe-tissue contact                         vol. 15, no. 2, pp. 1173–1182, Feb. 2019.
+       quality comparable to constant force control (with higher desired                  [14] J. Tan et al., “Autonomous trajectory planning for ultrasound-guided real-
+       forces), even while using lower contact forces.                                         time tracking of suspicious breast tumor targets,” IEEE Trans. Autom. Sci.
+                                                                                               Eng., vol. 21, no. 3, pp. 2478–2493, Jul. 2024.
+                                                                                          [15] J. Tan et al., “A flexible and fully autonomous breast ultrasound scanning
+                                    V. CONCLUSION                                              system,” IEEE Trans. Autom. Sci. Eng., vol. 20, no. 3, pp. 1920–1933,
+                                                                                               Jul. 2023.
+          This letter proposes the DO-ACDC, which effectively filters                     [16] M. K. Welleweerd, A. G. de Groot, S. De Looijer, F. J. Siepel, and
+       out local path anomalies. Compared to NFO and EBTSO, this                               S. Stramigioli, “Automated robotic breast ultrasound acquisition using
+                                                                                               ultrasound feedback,” in Proc. 2020 IEEE Int. Conf. Robot. Automat.,
+       approach generates smoother paths with reduced deviation and                            2020, pp. 9946–9952.
+       smaller angle increments, demonstrating superior optimization                      [17] R. Tsumura, T. Tomioka, Y. Koseki, and K. Yoshinaka, “Safe contact force
+       performance. On this basis, a variable desired force control                            generation for robotic thyroid ultrasound imaging,” IEEE Robot. Autom.
+                                                                                               Lett., vol. 9, no. 2, pp. 1700–1707, Feb. 2024.
+       method is further proposed, which clearly reduces desired force                    [18] E. Zakeri et al., “AI-powered robust interaction force control of a cardiac
+       while maintaining intimate probe-tissue contact, thereby achiev-                        ultrasound robotic system,” IEEE Trans. Ind. Electron., vol. 72, no. 4,
+       ing a balance between patient comfort and probe-tissue contact                          pp. 3972–3983, Apr. 2025.
+                                                                                          [19] C. -Y. Lee and P. -C. Li, “Automatic conformal anti-radial ultrasound scan-
+       quality.                                                                                ning for whole breast screening,” J. Med. Biol. Eng., vol. 39, pp. 845–854,
+          In the future, we plan to address potential path planning                            2019.
+       errors caused by tissue deformation under probe compression by                     [20] S. Rusinkiewicz and M. Levoy, “Efficient variants of the ICP al-
+                                                                                               gorithm,” in Proc. 3rd Int. Conf. 3-D Digit. Imag. Model., 2001,
+       incorporating finite element methods for online path correction.                        pp. 145–152.
+       Moreover, as our experimental validation was limited to three                      [21] D. OuYang and H. -Y. Feng, “On the normal vector estimation for point
+       breast phantoms, we plan to conduct clinical ultrasound scan-                           cloud data from smooth surfaces,” Comput.-Aided Des., vol. 37, no. 10,
+                                                                                               pp. 1071–1079, 2005.
+       ning experiments to evaluate the robustness and generalizability                   [22] L. Han et al., “Development of patient-specific biomechanical models for
+       of the proposed method in real patient settings. Finally, we                            predicting large breast deformation,” Phys. Med. Biol., vol. 57, no. 2, 2011,
+       believe that the 6DOF manipulator is not the only ultimate form                         Art. no. 455.
+                                                                                          [23] E. Tagliabue, D. Dall’Alba, E. Magnabosco, I. Peterlik, and P. Fiorini,
+       of automated ultrasound scanning, so it may be of great value to                        “Biomechanical modeling of probe to tissue interaction during ultrasound
+       generalize the proposed algorithm to other robotic manipulators                         scanning,” Int. J. Comput. Assist. Radiol. Surg., vol. 15, pp. 1379–1387,
+       in the future.                                                                          2020.
+                                                                                          [24] A. Karamalis, W. Wein, T. Klein, and N. Navab, “Ultrasound confi-
+                                                                                               dence maps using random walks,” Med. Image Anal., vol. 16, no. 6,
+                                         REFERENCES                                            pp. 1101–1112, 2012.
+                                                                                          [25] Z. Jiang et al., “Automatic normal positioning of robotic ultrasound
+        [1] E. G. C. S. 2018, “Globocan estimates of incidence and mortality world-            probe based only on confidence map optimization and force mea-
+            wide for 36 cancers in 185 countries,” CA: Cancer J. Clinicians, vol. 70,          surement,” IEEE Robot. Autom. Lett., vol. 5, no. 2, pp. 1342–1349,
+            no. 4, 2020, Art. no. 313.                                                         Apr. 2020.
+        [2] H. Madjar, “Role of breast ultrasound for the detection and differentiation   [26] Y. Song et al., “Medical ultrasound image quality assessment for au-
+            of breast lesions,” Breast Care, vol. 5, no. 2, pp. 109–114, 2010.                 tonomous robotic screening,” IEEE Robot. Autom. Lett., vol. 7, no. 3,
+        [3] A. Evans et al., “Breast ultrasound: Recommendations for information               pp. 6290–6296, Jul. 2022.
+            to women and referring physicians by the european society of breast           [27] B. Niu, D. Yang, Y. Zhou, L. Zhang, Q. Huang, and Y. Gu, “Design of a
+            imaging,” Insights Imag., vol. 9, pp. 449–461, 2018.                               robotic system featured with high operation transparency for quantifying
+        [4] C. T. Coffin, “Work-related musculoskeletal disorders in sonographers: A           arm impedance during ultrasound scanning,” IEEE Trans. Human-Mach.
+            review of causes and types of injury and best practices for reducing injury        Syst., vol. 54, no. 6, pp. 798–807, Dec. 2024.
+            risk,” Rep. Med. Imag., vol. 7, no. 1, pp. 15–26, 2014.                       [28] A. Munira, N. N. Jaafar, A. A. Fazilah, and Z. Nooraizedfiza, “Review on
+        [5] G. Harrison and A. Harris, “Work-related musculoskeletal disorders in              non uniform rational B-spline (NURBS): Concept and optimization,” Adv.
+            ultrasound: Can you reduce risk?,” Ultrasound, vol. 23, no. 4, pp. 224–230,        Mater. Res., vol. 903, pp. 338–343, 2014.
+            2015.                                                                         [29] G. Wang et al., “Trajectory planning and optimization for robotic machin-
+        [6] Z. Jiang, S. E. Salcudean, and N. Navab, “Robotic ultrasound imaging:              ing based on measured point cloud,” IEEE Trans. Robot., vol. 38, no. 3,
+            State-of-the-art and future perspectives,” Med. Image Anal., vol. 89, 2023,        pp. 1621–1637, Jun. 2022.
+            Art. no. 102878.                                                              [30] H. Yang and D. Yang, “CSwin-PNet: A CNN-swin transformer combined
+        [7] K. Li, Y. Xu, and M. Q. -H. Meng, “An overview of systems and techniques           pyramid network for breast lesion segmentation in ultrasound images,”
+            for autonomous robotic ultrasound acquisitions,” IEEE Trans. Med. Robot.           Expert Syst. Appl., vol. 213, 2023, Art. no. 119024.
+            Bionics, vol. 3, no. 2, pp. 510–524, May 2021.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 11:09:55 UTC from IEEE Xplore. Restrictions apply.
+

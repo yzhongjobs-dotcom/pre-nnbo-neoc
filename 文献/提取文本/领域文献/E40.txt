@@ -1,0 +1,838 @@
+                                                             Robotics and Autonomous Systems 170 (2023) 104531
+
+
+                                                                   Contents lists available at ScienceDirect
+
+
+                                                       Robotics and Autonomous Systems
+                                                          journal homepage: www.elsevier.com/locate/robot
+
+
+
+
+Model-based variable impedance learning control for robotic manipulation
+Akhil S. Anand a ,∗, Jan Tommy Gravdahl a , Fares J. Abu-Dakka b
+a
+    Department of Engineering Cybernetics at Norwegian University of Science and Technology (NTNU), Trondheim, Norway
+b
+    Munich Institute of Robotics and Machine Intelligence, Technical University of Munich, Munich, Germany
+
+
+
+ARTICLE                 INFO                              ABSTRACT
+
+Keywords:                                                 The capability to adapt compliance by varying muscle stiffness is crucial for dexterous manipulation skills in
+Variable impedance control                                humans. Incorporating compliance in robot motor control is crucial for enabling real-world force interaction
+Model predictive control                                  tasks with human-like dexterity. In this study, we introduce a novel approach, we call ‘‘deep Model Predictive
+Robot learning
+                                                          Variable Impedance Controller (MPVIC)’’ for compliant robotic manipulation, which combines Variable
+                                                          Impedance Control with Model Predictive Control (MPC). The method involves learning a generalized Cartesian
+                                                          impedance model of a robot manipulator through an exploration strategy to maximize information gain.
+                                                          Within the MPC framework, this learned model is utilized to adapt the impedance parameters of a low-level
+                                                          variable impedance controller, thereby achieving the desired compliance behavior for various manipulation
+                                                          tasks without requiring retraining or finetuning. We assess the efficacy of the proposed deep MPVIC approach
+                                                          using a Franka Emika Panda robotic manipulator in simulations and real-world experiments involving diverse
+                                                          manipulation tasks. Comparative evaluations against model-free and model-based reinforcement learning
+                                                          approaches in variable impedance control are conducted, considering aspects such as transferability between
+                                                          tasks and performance. The results demonstrate the effectiveness and potential of the presented approach for
+                                                          advancing robotic manipulation capabilities.
+
+
+
+1. Introduction                                                                              controlling these variables independently. By adopting IC, it becomes
+                                                                                             possible to address position uncertainties effectively, thus mitigating
+    Human interaction with the real world heavily relies on the ability                      the risk of encountering significant impact forces. This is achieved by
+to manipulate objects with remarkable dexterity; despite the limita-                         allowing robots to adjust their motion or compliance based on force
+tion of low-frequency biological feedback loops. The precise motor
+                                                                                             feedback [6]. In doing so, IC offers a viable and effective solution
+control mechanisms responsible for such adept manipulation skills
+                                                                                             for managing positional uncertainties and promoting safer interactions
+remain largely elusive. Nevertheless, research has suggested that the
+modulation of arm impedance plays a pivotal role in achieving these                          with the environment.
+capabilities [1–3]. In contrast, robotic manipulators, benefiting from                           IC naturally extendes to VIC, where the impedance parameters are
+higher-frequency feedback control loops, have struggled to achieve                           varied during the task [7–9]. VIC has gained popularity in robotic
+comparable levels of dexterity in real-world applications. Traditionally,                    research due to its ability to provide scalability for IC in handling
+these applications have predominantly relied on trajectory planning                          complex robotic manipulation tasks. However, formulating variable
+and position control, which prove to be inadequate in terms of dex-                          impedance laws for complex tasks is nontrivial, and hand-designing
+terity, safety, energy efficiency, and constrained interactions. Notably,                    them often proves impossible. To address this challenge, VILC emerges
+human muscle actuators possess impedance properties, such as stiffness                       as an alternative approach that combines learning algorithms with VIC.
+and damping [4], which can be adapted by the neural control to
+                                                                                             In VILC, a learned policy is used to adapt the impedance gains in the
+achieve various manipulation behaviors.
+                                                                                             VIC framework. Readers can refer to [10] for an in-depth review of
+    Drawing inspiration from the adaptability of human manipulation,
+Impedance Control (IC) for robot control, as introduced by Hogan                             diverse learning approaches applied to VIC.
+in [5], seeks to establish a strong coupling between the manipulator’s                           RL is the most prominent approach in recent VILC research owing
+dynamics with its environment instead of treating it as an isolated sys-                     to its inherent flexibility and scalability. However, when applying RL
+tem when designing control strategies. In contrast to conventional con-                      to VILC, or robotics in general, significant drawbacks are evident,
+trol approaches, IC aims to establish a dynamic relation between ma-                         particularly in terms of date-efficiency and constraint guarantees. RL
+nipulator variables such as end-point positions and forces rather than
+
+
+     ∗ Corresponding author.
+       E-mail addresses: akhil.s.anand@ntnu.no (A.S. Anand), jan.tommy.gravdahl@ntnu.no (J.T. Gravdahl), fares.abu-dakka@tum.de (F.J. Abu-Dakka).
+
+https://doi.org/10.1016/j.robot.2023.104531
+Received 17 September 2022; Received in revised form 14 September 2023; Accepted 18 September 2023
+Available online 25 September 2023
+0921-8890/© 2023 The Authors. Published by Elsevier B.V. This is an open access article under the CC BY license (http://creativecommons.org/licenses/by/4.0/).
+A.S. Anand et al.                                                                                               Robotics and Autonomous Systems 170 (2023) 104531
+
+
+typically requires a substantial amount of data to learn effective con-              • an uncertainty-based exploration scheme is integrated into the
+trol policies, which can be impractical in real-world robotic systems.                 proposed framework to facilitate learning a generalized Cartesian
+Moreover, the control policies obtained through RL tend to be task                     impedance model of the robot in a data-efficient manner.
+or scenario-specific, making them challenging to transfer seamlessly                 • an extensive evaluation in simulation and real setups, in addition
+to new tasks or scenarios. This lack of generalizability can hinder                    to a comparison between our approach and the state-of-the-art
+the broader application of RL-based VILC methods in diverse robotic                    model-free and model-based RL approaches on transferability and
+manipulation contexts. As a result, researchers continue to explore                    performance.
+ways to address these limitations and enhance the practicality and
+robustness of RL-based approaches in the field of VILC.                             The rest of the paper is organized as follows. Section 2 describes
+                                                                                 the existing references relevant to our work. Section 3 introduces the
+    MPC provides a systematic framework for designing control systems
+                                                                                 necessary background knowledge, Section 4 presents the details of the
+by formulating them as optimization problems, utilizing a system model
+                                                                                 deep MPVIC framework proposed. Section 5 presents the evaluation
+and an optimization objective [11]. MPC approaches are widely used
+                                                                                 of our approach on simulation and experimental setups using Franka
+in robotic control, especially when a reliable model of the system
+                                                                                 Panda robotic manipulator. Detailed discussion on the results and the
+dynamics is available. By employing MPC, robotic control systems can
+                                                                                 limitations of our approach is presented in Section 6 and conclusion in
+predict future system behavior based on the model and optimize control
+                                                                                 Section 7.
+inputs over a finite time horizon to achieve desired objectives. The MPC
+methodology facilitates the incorporation of constraints, adaptability,
+                                                                                 2. Related work
+and precise tracking of desired trajectories, making it a valuable choice
+for a variety of robotic manipulation tasks where an accurate model is
+                                                                                     In this section, we present a concise review of relevant related works
+at hand.                                                                         that are pertinent to this paper, covering the area of VILC, MPC for VIC,
+    When controlling a robot controlled with a Cartesian space VIC               and finally, on uncertainty targeted exploration.
+approach, it becomes feasible to learn a Cartesian impedance model                   VILC approaches: A wide variety of learning-based approaches
+of the robot and integrate it into an MPC framework for optimizing               have been integrated with VIC to develop diverse VILC methods [10].
+impedance profiles. By employing MPC-based VIC, a potential alter-               Prominent examples of such learning-based approaches include Imita-
+native to RL-based VILC methods arises, offering advantages in terms             tion Learning (IL), Iterative learning control (ILC), and RL. IL has been
+of data efficiency, transferability, and constraint satisfaction. However,       used in many recent VILC works [15–18]. IL-based VILC methods are
+the effectiveness of an MPC scheme heavily relies on the quality of the          generally some form of Learning from Demonstration (LfD) methods
+model employed. While various modeling approaches exist, determinis-             as they often rely on demonstrations to learn from [19]. IL can be
+tic Neural Network (NN) are well-suited for learning complex dynamics            useful in developing highly sample efficient VILC [10]. However such
+but may suffer from over-fitting and do not provide a quantification             learning strategies can be biased to the demonstration which is often
+of uncertainties. In contrast, Gaussian Processes (GP) models can ac-            suboptimal and potentially limits the performance and generalization
+count for uncertainty and are used from impedance learning [12,13].              of the learned policies. IL is useful for tasks that are easy to demonstrate
+However, they face challenges in scaling with high-dimensional data,             and which do not have a clear optimal way of execution, whereas
+limiting their practicality in some cases, especially for robotic systems.       RL is well suited for highly dynamic tasks, where there is a clear
+Addressing these limitations, the PENN models introduced in [14] offer           measure of the success of the task [20]. Optimizing variable impedance
+a promising solution. These models combine the strengths of NN and               gains/parameters can be done using ILC where the robot improves its
+GP models, enabling the quantification of both aleatoric and epistemic           performance iteratively. ILC based methods have been used for VILC
+uncertainties while being scalable. By incorporating PENN models into            in a range of works [21–24]. The key difference between ILC and RL is
+the MPC-based VIC framework, it becomes possible to enhance the                  that, in RL, the control law is derived by maximizing a reward function
+robustness and reliability of impedance control, making it more suitable         defined by the task requirements. One advantage of ILC compared to
+for complex robotic manipulation tasks with uncertain environments.              RL is its sample efficiency. But even when a model of the dynamics
+    In this paper, we propose a novel approach called deep Model                 is not available, RL offers better performance and can be applied to a
+Predictive Variable Impedance Control (MPVIC) framework. Within                  broader range of problems [25].
+this framework, we leverage a PENN based Cartesian impedance model                   RL-based VILC: Recently, RL has been explored largely for VILC
+of the robotic manipulator and combine it with a CEM-based MPC                   research. However, RL demands a large amount of data samples/
+strategy. The objective is to achieve online adaptation of the impedance         interactions to obtain high performance. Refs. [26–30] are some exam-
+parameters while executing tasks that require VIC skills. With the               ples of using deep RL for VILC applied to different robotic manipulation
+deep MPVIC framework, we aim to facilitate the learning of effective             tasks. All these approaches could learn complex VIC policies for spe-
+impedance adaptation strategies for a wide range of robotic manipula-            cific tasks, however at the expense of sample efficiency. Ref. [31]
+tion tasks by defining a suitable cost function. Primary contributions of        combines human demonstrations with RL, providing improved sample
+our paper include:                                                               efficiency for learning stiffness control policies. But it is not suitable
+                                                                                 for force-based VIC, as unlike stiffness values the impedance param-
+    • a novel VIC framework, we call it deep MPVIC that seamlessly in-           eters cannot be estimated directly from kinesthetic demonstrations
+      tegrates a CEM-based MPC with PENN dynamical model, allowing               used in [31]. Ref. [32] demonstrated model-free RL based VILC using
+      for real-time adaptation of impedance parameters, offering the             Dynamic Movement Primitive (DMP) policy and Policy Improvement
+      following properties.                                                      with Path Integrals (PI2 ), which is sample efficient but fails to scale to
+                                                                                 complex policies. In comparison, our MPC based approach is scalable
+           – transferability: the key property of the deep MPVIC frame-          to complex problems with a NN dynamics model. Apart from sample
+             work. It allows for the seamless transfer of the impedance          efficiency a major drawback of the referenced RL based approaches is
+             adaptation strategy between various manipulation tasks              their inability to easily transfer a learned policy to a different task.
+             without the need for relearning or fine-tuning.                     In practice, retraining the policy is necessary, which is difficult in
+           – data efficiency and scalability: The proposed framework             real-world robotic tasks. In contrast, our deep-MPVIC framework uses
+             is effective in learning VIC with high efficiency, requir-          a generalized Cartesian impedance model of the robot with an MPC
+             ing fewer data samples while it is scalable to complex              policy that can be used for multiple tasks by designing suitable cost
+             manipulation tasks.                                                 functions.
+
+                                                                             2
+A.S. Anand et al.                                                                                                          Robotics and Autonomous Systems 170 (2023) 104531
+
+Table 1
+Comparison among state-of-the-art of VILC approaches.
+                         Data-efficiency         Task transferability   Model-based/Model-free       Computation time             Force-/position-based VIC
+ [26,27,29,30]           Low                     –                      Model-free                   Low                          Force
+ [28,31]                 Low                     –                      Model-free                   Low                          Position
+ [32]                    High                    –                      Model-free                   Low                          Force
+ [33,35]                 High                    –                      Model-based                  High                         Position
+ [34]                    High                    –                      Model-based                  High                         force
+ Our MPVIC               High                    ✓                      Model-based                  High                         force
+
+
+
+    Model-based Reinforcement Learning (MBRL) for VILC: Alterna-                                ̇ ∈ R6×6 is a matrix representing the centrifugal and Coriolis
+                                                                                          𝜞 (𝐪, 𝐪)
+tively, MBRL approaches offer a sample efficient framework leveraging                     effects, and 𝜼(𝐪) = 𝐉−𝐓 𝐠(𝐪) ∈ R6×1 is the gravitational force, where
+on the model. In [13,33] MBRL is used for learning position-based VIC                     𝐠(𝐪) is the joint space forces and torques. The Cartesian inertia matrix
+on industrial robots using GP models. Ref. [34] used a similar approach                   is denoted as 𝜦(𝐪) = (𝐉𝐇(𝐪)−𝟏 𝐉𝐓 )−𝟏 ∈ R6×6 , where 𝐇(𝐪) ∈ R𝑛×𝑛
+for force-based VIC for contact-sensitive tasks. All of these approaches                  is the joint space inertia matrix and 𝐉 is the end-effector geometric
+utilize GP models and the PILCO algorithm limiting its use to less                        Jacobian. By additionally knowing the joint space centrifugal and
+complex tasks with smooth dynamics and relatively simple policies and                     Coriolis matrix, 𝐕(𝐪, 𝐪),
+                                                                                                                  ̇ the corresponding task space matrix is given
+reward structure. Considering such limitations, in this paper, we aim                               ̇ = 𝐉−𝑇 𝐕(𝐪, 𝐪)𝐉
+                                                                                          by 𝜞 (𝐪, 𝐪)                        ̇ −1 .
+                                                                                                                 ̇ −1 − 𝜦(𝐪)𝐉𝐉
+to go beyond such classical approaches to develop a scalable VILC ap-
+proach. In [35], a PETS approach is utilized for learning position-based                  3.2. Variable impedance control
+VIC strategy for Human-Robot Collaboration (HRC) tasks. This was
+extended in [36] combining CEM with Q-learning and enhanced with                              VIC is designed to achieve force regulation by adjusting the sys-
+the stability guarantees by means of Lyapunov constraints. Similar to                     tem impedance [47], via the adaptation of the inertia, damping, and
+RL approaches referenced earlier, all of these MBRL-based approaches                      stiffness components. In the presence of a force and torque sensor
+are task-specific and generally lack the performance of model-free RL                     measuring 𝐟𝐞𝐱𝐭 , impedance control can be implemented by enabling
+approaches [37]. Unlike aforementioned VILC approaches, our deep                          inertia shaping [48]. Casting the control law
+MPVIC is not only able to adapt to new situations of the same task, but
+also it is transferable to new tasks using the same trained model without                                    ̇ 𝐱̇ + 𝜼(𝐪) + 𝐟𝐞𝐱𝐭 ,
+                                                                                          𝐟𝐜 = 𝜦(𝐪)𝜶 + 𝜞 (𝐪, 𝐪)                                                         (2)
+any need to re-train or train a new model. Transferability between tasks                  into the dynamic model in (1) results in 𝐱̈ = 𝜶, 𝜶 being the control
+is achieved by combining a generalized Cartesian impedance model                          input denoting acceleration with respect to the base frame. In task space
+with an MPC scheme. A comparison between existing RL-based VILC                           IC, the objective is to maintain a dynamics relationship (3) between
+approaches is summarized in Table 1.                                                      the external force, 𝐟𝐞𝐱𝐭 , and the error in position 𝜹𝐱 = 𝐱𝐫 − 𝐱, velocity
+    MPC for VIC: In literature, MPC is used in robotic interaction                        𝛿 𝐱̇ = 𝐱̇𝑟 − 𝐱̇ and acceleration 𝛿 𝐱̈ = 𝐱̈𝑟 − 𝐱.
+                                                                                                                                        ̈ This dynamic relationship that
+control for manipulations tasks [38,39], where MPC optimizes the robot                    governs the interaction is modeled as a mass–spring-damper system as
+control input but not the stiffness itself, while in our approach the                     follows
+MPC adapt the stiffness values directly. It is possible to couple our
+deep MPVIC with the approach in [38] where it can be used as a low-                       𝐌𝛿 𝐱̈ + 𝐃𝛿 𝐱̇ + 𝐊𝛿𝐱 = 𝐟𝐞𝐱𝐭 ,                                                  (3)
+level optimizer to solve additional constraints. Haningeret al. [40] used
+                                                                                          where 𝐌, 𝐃 and 𝐊 are Symmetric Positive Definite (SPD) matrices,
+an MPC scheme with GP models for human–robot interaction tasks.
+                                                                                          adjustable impedance parameters, representing inertia, damping, and
+The MPC scheme used could optimize the impedance parameters for
+                                                                                          stiffness terms, respectively. This desired dynamic behavior (3) can be
+an admittance controller, but it is task-specific as the human force
+                                                                                          achieved using the following control law,
+model is estimated from demonstrations as a function of robot states.
+Using GP models limits the complexity and generalizability of the                         𝜶 = 𝐱̈𝑟 + 𝐌−𝟏 (𝐃𝛿 𝐱̇ + 𝐊𝛿𝐱 − 𝐟𝐞𝐱𝐭 ) .                                         (4)
+model as pointed out by the authors in [40]. Unlike [40], we optimize
+the impedance parameters for a force-based VIC in our deep MPVIC                             With no external force acting on the manipulator, under this control
+framework using PENN to model the Cartesian impedance behavior of                         scheme, the end-effector will asymptotically follow the desired trajec-
+the robot manipulator.                                                                    tory. In the presence of external forces, the compliant behavior of the
+    Uncertainty-based exploration: For efficient model learning in                        end-effector is described by (3).
+terms of sample efficiency, uncertainty-based exploration with ensem-
+bles of NNs has been proposed in prior works [41–44]. The basis for                       3.3. Probabilistic Ensemble NN (PENN)
+uncertainty-based exploration for model learning is derived from the
+expected information gain formulation in [45]. In [46] this approach is                       PENN [14] is a NN based model approach capable of learning
+termed curiosity-driven exploration. The model uncertainty is evaluated                   uncertainty-aware NN dynamics models including both aleatoric and
+based on the variance of the model in predicting the next state. We                       epistemic uncertainties. Aleatoric uncertainty refers to the inherent
+incorporated curiosity-driven exploration to our deep MPVIC framework                     stochasticity of the system. Whereas epistemic uncertainty is a sys-
+to learn a generalized Cartesian impedance model sample efficiently.                      tematic uncertainty arising from issues one could in principle avoid
+                                                                                          but does not in practice, such as inaccurate measurement, lack of
+3. Background                                                                             data, modeling errors, etc. The output neurons of the probabilistic NN
+                                                                                          parameterize a probability distribution function, which can capture the
+3.1. Robot manipulator dynamics                                                           aleatoric uncertainty of the model. Using multiple such networks in an
+                                                                                          ensemble can capture epistemic uncertainty. In contrary, an ensemble
+   For a rigid 𝑛-DOF robotic arm, the task space formulation of the                       of deterministic NN can only quantify epistemic uncertainty. In [14] a
+robot dynamics is given by                                                                thorough comparison of PENN with an ensemble of deterministic NN is
+                                                                                          provided, demonstrating the advantages of PENN for modeling dynam-
+𝜦(𝐪)𝐱̈ + 𝜞 (𝐪, 𝐪)
+               ̇ 𝐱̇ + 𝜼(𝐪) = 𝐟𝐜 − 𝐟𝐞𝐱𝐭 ,                                      (1)
+                                                                                          ics. The predictive PENN model is trained with negative log prediction
+                                                                                                                                          ∑           (              )
+where 𝐱,̇ 𝐱̈ are velocity and acceleration of the robot end-effector in                   probability as a loss function, lossP (𝜽) = − 𝑁           ̃
+                                                                                                                                            𝑡=1 log 𝑓𝜽 𝑠𝑡+1 ∣ 𝑠𝑡 , 𝑢𝑡 .
+task space, 𝐟𝐜 is the task space control force, 𝐟𝐞𝐱𝐭 is the external force,               Where 𝑠𝑡 is the state of the system at time step 𝑡, 𝑢𝑡 is the applied
+
+                                                                                      3
+A.S. Anand et al.                                                                                                      Robotics and Autonomous Systems 170 (2023) 104531
+
+
+
+
+Fig. 1. Block diagram of the deep MPVIC with PENN Cartesian impedance model and the proposed CEM-based MPC scheme for impedance adaptation. This impedance adaptation
+scheme along with the VIC forms the deep MPVIC framework. The task objective is represented by (6).
+
+
+action, and 𝑠𝑡+1 is the next state. The PENN model is defined to output a                To learn a generalized model, an exploration strategy is designed to
+Gaussian distribution with mean 𝜇 and diagonal covariances 𝛴 param-                   minimize the epistemic uncertainty of the model across the entire state
+                           (             )   ( (        )    (       ))
+eterized by 𝜃 s.t, 𝑓̃ = Pr 𝑠𝑡+1 ∣ 𝑠𝑡 , 𝑢𝑡 =  𝜇𝜃 𝑠𝑡 , 𝑢𝑡 , 𝛴𝜃 𝑠𝑡 , 𝑢𝑡 [14].           space. The exploration strategy chooses the actions that maximize the
+The network output in this fashion parameterizes a Gaussian distribu-                 epistemic uncertainty estimate from PENN. Given a PENN model 𝑓̃ of
+tion allowing for modeling the aleatoric uncertainty. In this work, we                𝐵 bootstrap models 𝑓̃𝑏 , the uncertainty of the model prediction at the
+use the PENN model to learn a Cartesian impedance model of the robot                  current state can be estimated by calculating the model variance [42],
+(see Section 4.1).                                                                    𝜌 = 𝜎 2 , given by
+                                                                                                         𝐵 (                    )2
+                                                                                                    1 ∑ ̃
+3.4. CEM-based MPC                                                                    𝜌(𝑠, 𝑢) =             𝑓𝑏 (𝑠, 𝑢) − 𝑓̃(𝑠, 𝑢) .                                  (5)
+                                                                                                  𝐵 − 1 𝑏=1
+    The CEM [49] offers a gradient-free optimization scheme, and cou-                      The designed exploration scheme will excite the system in areas in
+pling it with an MPC allows us to optimize an action sequence using                   its state space where the model is more uncertain, thereby maximizing
+the learned model. CEM samples multiple action sequences from a                       the information gained during exploration. The exploration scheme
+time-evolving distribution
+                        ( which is(usually))modeled as a Gaussian                     relies on a control strategy that chooses the actions that provide the
+                                       2
+distribution 𝑢𝑡∶𝑡+𝐻 ∼  𝜇𝑡∶𝑡+𝐻 , diag 𝜎𝑡∶𝑡+𝐻  , where these action se-                highest uncertainty estimate from any given state according to (5). We
+                                                                                      employ a CEM-based MPC strategy to optimize for the actions that will
+quences are evaluated on the learned dynamical model with respect to a                excite the system to the most uncertain areas. In order to achieve this
+                                                    2
+cost function. The sampling distribution, 𝜇𝑡∶𝑡+𝐻 , 𝜎𝑡∶𝑡+𝐻 is then updated             we define the MPC cost to maximize the variance of the outputs from all
+based on best  trajectories. Safety can be directly incorporated into                the individual NN models in the PENN, 𝐶𝜌 = 𝜌(𝑠𝑡 , 𝑢𝑡 ). At any given state
+CEM-based optimization by sorting the samples based on constraint                     𝑠𝑡 , CEM-based MPC scheme works by (i) sampling a set of actions from
+satisfaction values [50], but we are not considering constraints in the               the defined time-evolving distribution (we use Gaussian distribution),
+MPC scheme for this work.                                                             (ii) sorting the actions according to the uncertainty estimate in (5),
+                                                                                      (iii) apply the action 𝑢∗𝑡 with the highest value of 𝜌, and (iv) update
+4. Deep Model Predictive Variable Impedance Control (MPVIC)                           the Gaussian distribution. This exploration strategy enables learning
+framework                                                                             a generalized model in a sample-efficient way. The model learning
+                                                                                      approach is summarized in Algorithm 1. Learning a model with low
+    The deep MPVIC framework is formulated to optimize a VIC uti-                     uncertainty over the entire state-space facilitates reusing the model for
+lizing a learned PENN based Cartesian impedance model of the robot                    different tasks.
+manipulator within a CEM based MPC.                                                        A free-space unconstrained manipulation task where the robot has
+                                                                                      to interact with its external environment can be described by a scenario
+4.1. Learning Cartesian impedance model                                               where a robot in its current state 𝑠𝑡 under the influence of an external
+                                                                                      force or sensed force 𝑓𝑡 provided with a goal state 𝑠𝑟𝑡 and a control
+      A Cartesian impedance model of the robot manipulator system                     input 𝑢𝑡 transitions to the next state 𝑠𝑡+1 . The dynamics model shown in
+controlled using a VIC is learned as a PENN model in an MBRL                          Fig. 1 represents a generalized Cartesian behavior of an unconstrained
+setting alternating between model learning and CEM based exploration                  end-effector of a robot manipulator controlled by a VIC.
+strategy. The Cartesian impedance model represents the environment-
+robot dynamic relationship in (3). We define the state 𝑠𝑡 as [𝐱𝑡 , 𝐱̇ 𝑡 ],            4.2. Impedance adaptation
+and action 𝑢𝑡 as [𝐟 𝑡 𝐞𝐱𝐭 , 𝐊𝑡 ]. 𝐊𝑡 is given by the CEM-based MPC scheme.
+𝐟 𝑡 𝐞𝐱𝐭 is the sensed external force acting on the robot at time instant 𝑡,
+this is an uncertain external factor the VIC needs to compensate for.                    The compliant behavior of the robot end-effector can be optimized
+The damping parameters
+                    √           are chosen according to the critical damping          by designing a suitable impedance adaptation strategy. The Cartesian
+condition, 𝐃 = 2 𝐊.                                                                   impedance model of the robotic system 𝑓̃ can be utilized in a MPC
+
+                                                                                  4
+A.S. Anand et al.                                                                                                       Robotics and Autonomous Systems 170 (2023) 104531
+
+
+Algorithm 1 Learning a generalized Cartesian impedance model                          objective and the compliance objective is designed for the CEM-based
+Initialize dynamics model 𝑓̃ .                                                        MPC as,
+                                                                                        (      )
+Populate dataset  using random controller for 𝑛 initial trials .                     𝐶 𝑠𝑡 , 𝑢𝑡 = 𝛿𝑠𝑇𝑡 𝐐𝑡 𝛿𝑠𝑡 + 𝜆(𝐾𝑡 )𝑇 𝐑𝑡 𝜆(𝐾𝑡 ) ,                    (6)
+for 𝑘 ← 1 to 𝐾 Trials do
+   Train dynamics model 𝑓̃ on  .                                                     where 𝜆(𝐾𝑡 ) are the eigenvalues of the stiffness matrix represented in
+   for 𝑡 ← 1 to TaskHorizon do                                                        a vector form, 𝛿𝑠𝑡 = 𝑠𝑟𝑡 − 𝑠𝑡 and 𝐐𝑡 and 𝐑𝑡 are diagonal gain matrices
+       for Actions 𝑢𝑡∶𝑡+𝑇 ∼CEM(⋅), 1 to CEM Iterations do                             for task and compliance components respectively. These gain matrices
+           Evaluate and sort the actions by based on the uncertainty                  can be either constant or can be a function of the robot’s states. The
+           estimate in (5) .                                                          MPC output behavior will be tightly coupled with the gain matrices. In
+       end                                                                            case of reference tracking tasks, we chose 𝐐𝑡 to be a linear function of
+       Execute first action 𝑢∗𝑡 from optimal action sequence 𝑢∗𝑡∶𝑡+𝑇 .                ‖𝛿𝑠𝑡 ‖ so that MPC will penalize larger deviations from target more than
+       Record outcome:  ←  ∪ (𝑠𝑡 , 𝑢𝑡 , 𝑠𝑡+1 ) .                                    small deviations.
+   end
+end                                                                                   5. Experiments and evaluation
+
+                                                                                          For evaluation, we consider only the stiffness adaptation along the
+Algorithm 2 deep MPVIC                                                                𝑥, 𝑦, 𝑧 directions of the robot manipulator while keeping the stiffness
+Given a cost function 𝐶 and a PENN dynamics model 𝑓̃ .                                values along orientations constant. However, before evaluation, we first
+MPC based optimization                                                                need to learn the Cartesian impedance model of the robot manipulator.
+for 𝑡 ← 1 to TaskHorizon do                                                           To do so, a free-space goal-reaching task with random external force is
+    CEM-based optimization                                                            used to train the PENN model with ensembles of 5 NN with 3 hidden
+    for 𝑖 ← 1 to CEM Iterations do                                                    layers, each with 256 neurons. The network structure is chosen based on
+        Generate N samples .                                                          one-step prediction accuracy empirically over a pre-collected dataset.
+        Sample 𝑁 stiffness profiles 𝐾𝑡∶𝑡+𝑇 ∼ CEM(⋅) .                                 Its state space is chosen as 𝑠 = [𝑥, 𝑦, 𝑧, 𝑥,       ̇ while the sensed external
+                                                                                                                                   ̇ 𝑦,̇ 𝑧],
+        Evaluate samples .                                                            forces are denoted as 𝑓 = [𝑓𝑒𝑥𝑡 𝑥 , 𝑓 𝑦 , 𝑓 𝑧 ]. 𝑠𝑟 = [𝑥𝑟 , 𝑦𝑟 , 𝑧𝑟 ] represents the
+                                                                                                                           𝑒𝑥𝑡 𝑒𝑥𝑡
+        Calculate 𝐶 (6) for all 𝐾𝑡∶𝑡+𝑇 on 𝑓̃ with actions [𝐾𝑡∶𝑡+𝑇 , 𝑓𝑡 , 𝑠𝑟𝑡 ]        target positions in 𝑥, 𝑦 and 𝑧 directions, 𝐊 denotes√    the Cartesian stiffness
+        using trajectory sampling (Section 4.2) .                                     matrix. The damping matrix is chosen as 𝐃 = 2 𝐊. The mass matrix
+        Sort stiffness profiles 𝐾 based on 𝐶.                                         𝐌 is kept constant to avoid stability issues during the experiment.
+        Update CEM(·) distribution .                                                  CEM is used to optimize the exploration strategy based on uncertainty
+        Choose optimal 𝐾 ∗ where 𝐶 is minimum .                                       maximization. The control frequency for low-level VIC is set at 100 Hz.
+    end                                                                                   For learning the model, the robot manipulator is excited at every
+    Adapt the impedance parameters of VIC .                                           time-step with 𝑓𝑒𝑥𝑡 ∼ U(−20, 20) N and 𝑠𝑟𝑡 , where 𝑥𝑟𝑡 , 𝑦𝑟𝑡 , 𝑧𝑟𝑡 ∼ U(−10, 10)
+    Execute first action 𝐾𝑡∗ from optimal action sequence 𝐾𝑡∶𝑡+𝑇
+                                                            ∗     .                   cm. The gain matrices 𝐐 and 𝐑 are kept constants for a specific task.
+                                                                                      However, while transferring to a new task, they can be scaled using
+end                                                                                   scalar values 𝛼𝑄 and 𝛼𝑅 as 𝐐𝐧𝐞𝐰 = 𝐐 ∗ 𝛼𝑄 and 𝐑𝐧𝐞𝐰 = 𝐑 ∗ 𝛼𝑅
+                                                                                      respectively to trade-off between compliance and accuracy depending
+                                                                                      on the task requirement. The model was trained for 100 000 time-steps
+                                                                                      with a control frequency of 10 Hz which is equivalent to 2.77 h of
+framework to adapt the impedance parameters of the VIC by designing
+                                                                                      real-world training. The quality of the model was evaluated using a
+a suitable optimization objective as shown in Fig. 1. The MPC scheme
+                                                                                      randomly sampled evaluation dataset as shown in Fig. 2. For exper-
+uses the prediction of the PENN model 𝑓̃ to plan action trajectories
+                                                                                      iments, a prior model trained in simulations over 50 000 time-steps
+yielding the highest reward. At every time-step, an MPC with a horizon
+                                                                                      are fine-tuned offline in the experimental scenario instead of training
+length of 𝑛, samples the current state and optimizes a control trajec-
+                                                                                      from scratch. The model was fine-tuned for 10 000 time-steps which is
+tory 𝑢𝑡∶𝑡+𝑛 for 𝑛 future time-steps and applies the first control input,
+                                                                                      equivalent to 33.33 min of real-world training. Similar to in simulations
+𝑢𝑡 , to the system. The action optimal action sequence is chosen by:
+              ∑         [ (      )]                                                   random external forces were manually applied to the robot end-effector
+arg min𝑢𝑡∶𝑡+𝑛 𝑡+𝑛
+                𝑖=𝑡 E𝑓̃ 𝐶 𝑠𝑖 , 𝑢𝑖 , where 𝐶 is the cost function. A gradient-         using ropes attached to the gripper.
+free optimization method, CEM is used in an MPC setting to optimize
+                                                                                          After learning the Cartesian impedance model of the manipulator, to
+the controller over the PENN model. CEM samples actions from a
+                                                                                      evaluate the effectiveness of the proposed deep MPVIC, three different
+distribution closer to previous action samples achieved the minimum
+                                                                                      simulation tasks and two experimental tasks using a Franka Emika
+cost.
+                                                                                      Panda manipulator are designed. Tasks requiring real-time stiffness
+     In order to calculate the cumulative cost of the action trajectories,            adaptation are suitable for evaluating the stiffness profile generated by
+we use particle-based propagation as they are specifically suited for                 the deep MPVIC controller. For all chosen tasks, the requirements can
+PENN dynamics models, [14]. 𝑃 particles are created from the current                  be defined as achieving a desired goal pose for the robot end-effector.
+state, 𝑠𝑝𝑡=0 = 𝑠0 ∀𝑝 in order to predict the state trajectories using particle-       However, the robot is also required to be highly compliant whenever
+based propagation. Each of these particles are propagated along the                   it is possible or be stiff only when it is necessary. This is achieved by
+                                    (     )
+PENN model as, 𝑠𝑝𝑡+1 ∼ 𝑓̃𝑏(𝑝,𝑡) 𝑠𝑝𝑡 , 𝑢𝑡 based on a bootstrap 𝑏(𝑝, 𝑡) in              using a weighted reward in (6) for the task requirement (first term)
+{1, … , 𝐵}. We keep the particle bootstrap index constant during a trial              and maximizing compliance (second term). In the considered tasks,
+as it allows us to separate between aleatoric and epistemic uncer-                    we are, essentially, trying for a trade-off between position control and
+tainties [51]. The aleatoric uncertainty can be quantified using the                  compliance.
+average variance of particles of the same bootstrap whereas epistemic                     The three different simulation tasks are modeled in the MuJoCo
+uncertainty can be quantified using the variance of the average of                    physics simulation framework [52], see Fig. 3(a), (b), and (c). The two
+particles of the same bootstrap indexes.                                              real experimental scenarios are shown in Fig. 3(d) and (e). The aleatoric
+     The proposed deep MPVIC approach utilizing PENN models is de-                    uncertainties in these robotic tasks is majorly due to measurement
+scribed in Algorithm 2. The objective of the impedance adaptation                     noise, whereas the epistemic uncertainty we target during exploration
+strategy is to achieve the manipulation task requirement while execut-                arises from not having enough data to model the Cartesian impedance
+ing a desired level of compliance. A cost function describing the task                dynamics in the system state-space we are interested in. In simulations,
+
+                                                                                  5
+A.S. Anand et al.                                                                                                                   Robotics and Autonomous Systems 170 (2023) 104531
+
+
+
+
+Fig. 2. Scatter plot demonstrating the prediction quality of the PENN model along all the six state dimensions. The plot compares the ground truth (target) with the model’s
+prediction. This model evaluation is estimated over a randomly sampled evaluation dataset from the same training set-up on simulation. The plot shows the mean prediction as
+well as the individual predictions of each ensemble member of the PENN model. The mean prediction from the PENN model is shown in red, and other colors in the scatter plot
+represent the predictions from the individual networks in the PENN model. (For interpretation of the references to color in this figure legend, the reader is referred to the web
+version of this article.)
+
+
+
+
+Fig. 3. Three simulation tasks, (a) Cartesian compliance task: the robot manipulator end-effector should hold its pose in the Cartesian space compliantly while reacting to the
+external forces acting on it. (b) Reacting to falling object: The robot manipulator with cup end-effector should hold a Cartesian position while smoothly catching a ball of weight
+0.5 g falling into the cup. (c) Pushing task: A robot manipulator with a gripper end-effector should push an object over a rigid surface with friction to a target position. Two
+experimental tasks, (d) Reacting to falling objects: the robot end-effector is fitted with a tray, where objects of different weights are dropped into the tray at regular intervals. (e)
+Drawer opening task: Robot manipulator opening a table drawer.
+
+
+the population size for CEM is chosen as 200 and elite size of 40 and                          5.1. Simulations
+learning rate of 0.1 and number of CEM iterations as 10. The MPC
+planning horizon is set to 5. While for the real experiments, the control                          Cartesian compliant behavior: In this task (Fig. 3(a)), the robot
+frequency is set as 5 Hz. The CEM is chosen as 64 and elite size of 32 and                     is expected to behave highly compliant to hold its pose allowing only
+learning rate of 0.5, number of CEM iterations as 5 and MPC planning                           small deviations. Upon applying an external force to the robot’s end-
+horizon is set as 5. More conservative control frequency and CEM                               effector, it is expected to counter the force by adapting its stiffness
+parameters are chosen for the experiment due to the computational                              such that it achieves a new rest position close to the initial position.
+time limitations of the proposed method as discussed in Section 6.3. In                        This task is ideal for testing the impedance adaptation strategy as it
+all the simulations and experiments the model described here is used                           needs to increase the stiffness in case of large external forces and
+without any further fine-tuning. Here we consider only fixed goal states,                      larger deviation from its initial position. Two scenarios with different
+therefore 𝑠𝑟𝑡 is a constant value, 𝑠𝑟 for all timesteps.                                       compliance behavior are evaluated here by changing the compliance
+
+                                                                                           6
+A.S. Anand et al.                                                                                                                  Robotics and Autonomous Systems 170 (2023) 104531
+
+
+
+
+Fig. 4. Simulations: (a) and (b), (Cartesian compliance behavior), results from 20 trials where a sinusoidal force profile with amplitude of 10 N with random noise of (±5) N
+is applied to the robot end-effector. (a) High compliant behavior optimized using a cost function with larger compliance factor 𝛼𝑅 = 0.1, (b) Low compliant behavior optimized
+using a cost function with 𝛼𝑅 = 0.01. (c), (Reacting to falling objects) The robot is initialized at a rest position being very compliant with 𝐾 → 0. Objects of different weights are
+dropped at regular intervals of 2 s, from random heights between (0.5 − 1.0) m. Results shown here are over 10 such random trials with 𝛼𝑅 = 0.1. (d), (Pushing task) Robot with a
+gripper end-effector is at rest with 𝐾 → 0. At 𝑡 = 1 s, it is commanded to push an object to a target position given by 𝛥𝑝𝑜𝑠 of 10 cm in 𝑥 and y directions (shown in solid black
+line) on a surface. The results shown here are over 10 trials with objects of random weights between (0.5 − 3.0) kg and 𝛼𝑅 = 0.1. A common legend for all four figures is provided
+in (d). The black line in (a), (b) and (d) represents the goal position. (For interpretation of the references to color in this figure legend, the reader is referred to the web version
+of this article.)
+
+
+
+
+Fig. 5. Corresponding results from Model-free RL policy for the simulation tasks shown in Fig. 4. (For interpretation of the references to color in this figure legend, the reader is
+referred to the web version of this article.)
+
+
+maximization component in the cost function. The results in Fig. 4(a)                          the object to the target while being compliant and stiff only when
+and (b) show that the robot which is highly compliant at rest adapts                           necessary. The results in Fig. 4(d) show that the stiffness is increased
+the stiffness in response to the external forces and deviation from the                        to its upper limit in the pushing directions initially to overcome the
+rest position. Having a higher value of compliance factor 𝛼𝑅 allows                            static friction. Upon reaching close to the target position the stiffness
+for larger deviations from the initial position when applied with an                           is decreased to be more compliant.
+external force while having a lower 𝛼𝑅 limits this deviation. It is also
+noted that higher 𝛼𝑅 results in noisy stiffness adaption behavior as
+                                                                                               5.2. Comparison with model-free/based RL
+larger 𝛥𝑝𝑜𝑠 (the deviation from the desired pose) creates larger gradients
+in the cost function.
+                                                                                                   The deep MPVIC is compared with RL based VILC approaches for
+    Reacting to falling object: In this task (Fig. 3(b)), a robot with a
+cup end-effector that is highly compliant at rest position is expected                         their transferability between tasks which is the main contribution of
+to react optimally to objects falling into the cup end-effector. Four                          this work while also comparing their performance. Specifically, in these
+different objects are dropped from different heights to the cup in                             comparisons, we utilize the PENN model trained with curiosity-driven
+different trials resulting in large variations in the impact force. The                        exploration with our deep MPVIC for different tasks without retraining
+desired behavior of the robot is not to deviate largely from the rest                          or fine-tuning the model. This enables the deep MPVIC to generalize
+position while reacting to falling objects. The robot is additionally                          over multiple tasks where the RL approaches are task-specific.
+expected to be as compliant as possible and be stiff only when necessary                           Model-free RL approaches have been successfully used in VILC for
+as in (6). The resulting robot behavior is shown in Fig. 4(c), which                           robotic manipulation tasks in multiple previous works [26,29,30]. Out
+shows a sudden increase in 𝐾𝑧 upon a spike in 𝑓𝑒𝑥𝑡 in 𝑧 direction                              of which we have chosen the off-policy RL algorithm Soft Actor Critic
+induced by the impact of the falling object. The robot increases its                           (SAC) because of its high sample efficiency. All the three simulation
+stiffness every time a new object is falling to the cup and maintains a                        tasks shown in Fig. 3 are trained using SAC implementation from
+higher level of stiffness during the later phases to hold the robot back                       stable-baselines [53] for 500 000 time-steps.
+to a new rest position.                                                                            In addition, we compare our approach with the MBRL approach
+    Pushing task: In this task (Fig. 3(c)), the robot is expected to push                      PETS [14]. In the case of PETS, the simulation tasks are trained for
+a cube-shaped object to a target position on a surface with friction.                          100 000 time-steps. The PETS policies were trained with the same CEM
+Here, 𝐾𝑧 is set constant as 1000 as the robot is not expected to move                          parameters and cost functions used for the corresponding tasks in our
+in 𝑧 direction. Stiffness in 𝑥 and 𝑦 directions are optimized to push                          deep MPVIC. The performance and the transferability of the learned
+
+                                                                                           7
+A.S. Anand et al.                                                                                                                Robotics and Autonomous Systems 170 (2023) 104531
+
+
+
+
+Fig. 6. Corresponding results from PETS policy for the simulation tasks shown in Fig. 4. (For interpretation of the references to color in this figure legend, the reader is referred
+to the web version of this article.)
+
+
+                                                                                              Table 2
+                                                                                              Comparison on transferability between tasks.
+                                                                                                                                             Training samples (×105 )
+                                                                                                                                                           Transferability to
+                                                                                                                                             Task a        Task b               Task c
+                                                                                               Model-free RL                                 50            38.6                 27.95
+                                                                                               PETS                                          10            3.2                  3.9
+                                                                                               Our MPVIC                                     10            0                    0
+Fig. 7. (left) Comparing the normalized value of the reward (mean value over 20
+trials) obtained using Model-free RL, PETS, and our MPVIC framework on all the three
+simulation tasks. (right) Comparing the transferability of the Model-free RL and PETS
+based policy with our MPVIC framework based on the normalized value of the mean
+                                                                                              key difference between the dynamics of task a and task c is the robot
+reward over 20 trials. (For interpretation of the references to color in this figure
+legend, the reader is referred to the web version of this article.)                           movement is unconstrained in task a, whereas in task c it is constrained
+                                                                                              by the object. That means the model cannot accurately predict the
+                                                                                              dynamics as in other unconstrained tasks.
+                                                                                                  Task transferability: In order to evaluate how efficiently the policy
+                                                                                              learned on a task can be transferred to another task, the model-free
+                                                                                              RL and PETS policies learned on the simulation task a was tested on
+                                                                                              task b and task c without retraining the policy/model. The performance
+                                                                                              of the transferred model-free RL and PETS policies on task b and c
+                                                                                              were compared with the corresponding performance of deep MPVIC
+                                                                                              using the PENN model trained on task a. Fig. 7-right illustrates the
+                                                                                              transferability of our deep MPVIC in comparison with RL-based ap-
+                                                                                              proaches, where deep MPVIC demonstrates the major advantage (green
+                                                                                              bars). Further, the model-free RL and PETS policies have been retrained
+                                                                                              to achieve similar performance as our deep MPVIC. A comparison
+                                                                                              of the additional data samples/time steps required for retraining the
+                                                                                              models/policies for the tasks are shown in Table 2. For example, the
+                                                                                              model-free RL policy trained on task a needed additional training on
+                                                                                              task b with 38.6 × 105 data samples to learn the task b. Whereas MPVIC
+Fig. 8. Experiments: (left) task (e), Robot manipulator opening a table drawer. (right)       did not need any training at all (shown as 0 training samples in the
+task (d) The robot manipulator with a tray holding its pose while objects are dropped         table). The number of additional training samples required is correlated
+to the tray. (For interpretation of the references to color in this figure legend, the        with the computational time. While RL approaches demand additional
+reader is referred to the web version of this article.)                                       computational/training time to perform a new task, the proposed deep
+                                                                                              MPVIC can be deployed without any additional computational effort.
+
+policies in both of these approaches were compared with our MPVIC                             5.3. Real-world experiments
+approach in Fig. 7.
+    Performance: The resulting robot behavior on applying the learned                            Reacting to falling objects: The experimental setup is shown in
+model-free RL and PETS policies on the three simulation tasks are                             Fig. 3(d) where the robot end-effector is fitted with a tray and four
+shown in Figs. 5 and 6 respectively. We compare the performance                               objects of different weights are added to the tray at regular intervals.
+in terms of the reward obtained by the final policies from each of                            The optimization objective here is similar to the simulation task (c),
+the approaches on the three simulation tasks. We do not compare the                           the robot is expected to hold a pose while being highly compliant and
+reward during the learning process as the MPC scheme does not have                            becoming stiffer with extra weights being introduced to the tray. In
+any policy learning process. The rewards obtained while applying the                          Fig. 8 (right-column) the robot with a very low initial stiffness increases
+learned policies are shown in Fig. 7. Deep MPVIC performed better                             the stiffness every instant a new object is introduced to the tray in order
+on task a, the performance was similar on task b, and model-free RL                           to maintain it at the desired pose.
+and PETS policies performed better on the task c by minimizing the                               Opening a drawer: The pulling task is similar but in the opposite
+stiffness more effectively. The performance of MPVIC is lower in task                         direction of the pushing task. The experimental setup is shown in
+c as the model is learned on task a which has different dynamics. The                         Fig. 3(e) where the robot is opening a table drawer to a desired position
+
+                                                                                          8
+A.S. Anand et al.                                                                                              Robotics and Autonomous Systems 170 (2023) 104531
+
+
+(15 cm in 𝑥 direction) in the Cartesian space. The results shown in Fig. 8       6.2. Stability analysis
+(left-column), show the impedance adaptation behavior similar to the
+pushing task in the simulation where the robot increases its stiffness               MBRL approaches could improve sample efficiency and can be use-
+initially to overcome the inertia of the drawer and then decreases once          ful in providing stability and safety guarantees, but there is a need for
+the drawer starts to move closer to the desired position.                        further research in this direction facilitating complex model structures
+                                                                                 such as Deep Neural Networks (DNN) to build scalable and sample
+6. Discussion and limitations                                                    efficient VILC approaches with theoretical guarantees. In general, the
+                                                                                 stability of a dynamic system is not necessarily guaranteed when it
+6.1. Variable impedance learning control                                         is coupled to a stable dynamic environment. However, [54] showed
+                                                                                 stability of the manipulator is preserved when it is coupled to a large
+    The deep MPVIC-based approach presented in the work is evaluated             class of stable environments if the manipulator has the behavior of a
+over different tasks in Section 5 for optimizing impedance adaptation            simple impedance. An impedance controller with constant gains makes
+strategies. The objective in all experiments has been consistent in              the closed-loop robot-environment system passive and hence stable in
+having high stiffness values for the VIC only when the task objective            interaction with passive environments [54]. However, this passivity
+demands that. This objective is motivated by human manipulation                  property is lost if the impedance parameters are varied. If the learning-
+behavior and can increase the dexterity of the robot while encouraging           based controller could identify the optimal impedance parameters, one
+energy-efficient and safe behaviors. We considered three simulations             could achieve complex compliant manipulation skills with safety and
+and two experimental tasks for evaluating the proposed method. In                stability guarantees. But this is not obvious while using RL or CEM-
+all the tasks, the task requirement is defined by achieving a desired            based MPC. One alternative in the case of RL is to use structured
+goal pose for the robot end-effector. The performance of the impedance           policies as done by [55] where the authors use Integrated MOtion
+adaptation strategy is evaluated based on how well it is able to achieve         Generator and Impedance Controller (iMOGIC) framework to guarantee
+this requirement while being maximally compliant. In all the evaluation          stable VILC with model-free RL. Even though safety can be achieved us-
+scenarios, both in simulation and experiments, the stiffness adaptation
+                                                                                 ing constrained-CEM method [50] in the proposed MPVIC framework,
+guarantees a high level of compliance unless there is a large deviation
+                                                                                 stability guarantees are difficult due to the PENN dynamical models.
+from the target position or an external force is applied to it. The deep
+                                                                                     Guaranteeing stability and robustness for controllers in a complex
+MPVIC scheme is able to adapt the impedance profiles to counteract
+                                                                                 robotic manipulator operating in uncertain environments is challeng-
+the external forces and also to trade-off effectively between position
+                                                                                 ing. In the case of VIC, often passivity theory is used to provide
+accuracy and compliance during the task.
+                                                                                 theoretical guarantees under relatively general working assumptions.
+    The modeling approach using PENN combined with uncertainty-
+                                                                                 However, this approach is model-based and the passivity property is
+targeted exploration has been found to be very useful in learning a
+                                                                                 lost if arbitrary variations of the impedance parameters are allowed.
+generalized unconstrained Cartesian impedance model of the robot.
+                                                                                 Passivity-based approaches are often concerned with the analysis of
+In addition, combining it with MPC based optimization has enabled
+                                                                                 variable impedance profiles that already exist prior to task execu-
+to solve different manipulation tasks demanding stiffness adaptation.
+                                                                                 tion [56]. This is not suitable for guaranteeing the stability of state-
+The proposed deep MPVIC approach succeeds in generalizing a single
+                                                                                 dependent real-time impedance variations. In another recent approach,
+model to solve multiple manipulation tasks. The versatility of the
+                                                                                 a modified impedance control strategy allows the reproduction of a
+impedance adaptation strategy is evident in the scenarios of impact
+                                                                                 variable stiffness while preserving the passivity, and therefore a stable
+force from falling objects, overcoming the inertia of the objects in
+                                                                                 behavior both in free motion and in interaction with partially known
+the pushing and drawer opening tasks respectively. While a majority
+                                                                                 environments, of the robot [57]. In [57], the goal is to modify the
+of robot manipulation tasks rely on trajectory planning and tracking,
+our approach is not straightforward in solving complex manipulation              impedance control in order to allow stiffness variations while pre-
+problems. Nevertheless, it can be combined with a high-level planning            serving passivity and, consequently, stable interactive behavior and
+approach where the low-level VIC will modify the given trajectory                asymptotic tracking in free motion. This tank-based strategy has been
+to ensure compliant behavior. Incorporating such compliant behav-                shown very well suited for VIC, in spite of some difficulties in tuning its
+iors could improve manipulation skills, especially in tasks involving            parameters. Nevertheless, it is dependent on the states of the system,
+contacts.                                                                        measured during task execution and so can only be applied online. An
+    The deep MPVIC framework was compared with model-free and                    approach based on the combination of passivity conditions with an
+model-based RL approaches utilized successfully in various previous              adaptation law on the impedance profile was proposed in [58]. This
+works [26,29,30,35] to solve complex manipulation tasks. The results             method allows for verifying whether a given profile is passive and if
+show that the deep MPVIC framework is able to achieve similar per-               it is not, it provides a method to modify it in a way to guarantee
+formance to model-free and model-based RL approaches while being                 passivity. But none of these approaches are directly extendable to the
+highly sample efficient and able to seamlessly transfer the controller           proposed MPVIC framework to guarantee stability. Ref. [59] proposed
+between different tasks without any further training of the model.               an approach using a designed Lyapunov candidate function to stabilize
+Whereas in model-free and model-based RL, transferring policy be-                the learned impedance system with an optimal input law in analytical
+tween different tasks demands relearning the policy on the new task              form. But in the case of our MPVIC, this requires solving an additional
+or extensive fine-tuning of the existing policy. PETS shows better task          convex optimization problem at every MPC solution, which could be
+transferability compared to model-free RL, this can be justified by the          computationally very expensive and not feasible practically.
+use of a model in PETS for impedance optimization even though it is                  The safe learning approaches described in [60] are interesting to
+not a generalized model as in deep MPVIC. It is important to note that           explore for model-based VILC. A feasible approach in this direction
+the transferability of deep MPVIC is dependent on the quality of the             could be to provide probabilistic safety and stability guarantees using
+model. This is evident in its lower performance in the task c where the          Control Barrier Functions (CBF) and Control Lyapunov Functions (CLF)
+model cannot accurately predict the dynamics of a constrained task.              and solving constrained optimization problems over the GP model [61].
+RL has the potential to solve very complex tasks at the expense of               Guaranteeing stability properties to the resulting VILC is challenging
+high sample complexity. It would be ideal to combine this aspect of RL           as guarantees have to be provided in real-time in an online fashion as
+with sample efficiency and easy transferability of the learned controller        the stiffness values predicted by the policy are state-dependent. The
+between tasks as in our deep MPVIC framework. Further extending the              approach proposed in [59] by designing a quadratic Lyapunov candi-
+model-based RL approaches for VILC could be a promising approach in              date function could be coupled with GP models to provide probabilistic
+this direction.                                                                  stability guarantees similar to safety guarantees in [61]. But in the
+
+                                                                             9
+A.S. Anand et al.                                                                                                    Robotics and Autonomous Systems 170 (2023) 104531
+
+
+proposed MPVIC framework with PENN dynamics model, such methods                   Data availability
+are not straightforward to apply. This problem in CEM-based MPC is
+partly addressed in [62] using available prior models and an auxiliary               Data will be made available on request.
+controller based on CLF and CBF to provide guarantees.
+                                                                                  Acknowledgments
+6.3. Limitations
+                                                                                      This work was partially supported by the project ‘‘Dynamic Robot
+    While guaranteeing stability is one major challenge, there are other
+                                                                                  Interaction and Motion Compensation’’ funded by the Research Council
+identified limitations to the proposed approach. Applying our approach
+                                                                                  of Norway under contract number 270941, and by euROBIN funded by
+to tasks with non-continuous contacts is not possible as the model
+                                                                                  EU-Horizon-Framework under grant agreement No 101070596
+is not aware of the contact dynamics, which could lead to unstable
+behavior. Detecting contact discontinuities and switching to a different
+contact re-establish policy could be a solution to this issue. Whereas            Appendix A. Supplementary data
+a more general approach could be to learn a model aware of contact
+constraints, incorporating such constraints into the model state-space                Supplementary material related to this article can be found online
+is challenging. In future work, we will explore ways to sufficiently              at https://doi.org/10.1016/j.robot.2023.104531.
+incorporate contact constraints to the model to aid faster fine-tuning
+of the VILC for different manipulation tasks.                                     References
+    In addition, there are limitations inherited from applying CEM to
+a real robotic system because of the high computation time, where                  [1] E. Bizzi, N. Accornero, W. Chapple, N. Hogan, Posture control and trajectory
+the trade-off is between optimization performance and the control                      formation during arm movement, J. Neurosci. 4 (11) (1984) 2738–2744.
+frequency. Even though VIC can be operated generally at lower control              [2] N. Hogan, An organizing principle for a class of voluntary movements, J.
+                                                                                       Neurosci. 4 (11) (1984) 2745–2754.
+frequencies, in tasks with complex contact dynamics this might not be
+                                                                                   [3] S.D. Kennedy, A.B. Schwartz, Stiffness as a control factor for object manipulation,
+sufficient. This drawback of CEM can affect the model-learning aspect
+                                                                                       J. Neurophysiol. 122 (2) (2019) 707–720.
+in high-dimensional tasks in terms of sample efficiency. Applying a
+                                                                                   [4] A.V. Hill, The series elastic component of muscle, Proc. R. Soc. Lond. Ser. B
+sample efficient CEM approach [63] and efficient parallelization could                 (1950) 273–280.
+help in addressing this issue partly.                                              [5] N. Hogan, Impedance control: An approach to manipulation, in: American
+    The performance of the MPVIC framework can be affected by the                      Control Conference, IEEE, 1984, pp. 304–313.
+quality of the model as the single-step prediction errors get com-                 [6] O. Khatib, A unified approach for motion and force control of robot manipulators:
+pounded during the multi-step MPC optimization. This can be ad-                        The operational space formulation, IEEE J. Robot. Autom. 3 (1) (1987) 43–53.
+dressed by training the model over multi-step predictions. Additionally,           [7] R. Ikeura, H. Inooka, Variable impedance control of a robot for cooperation with
+the MPC horizon can be made adaptive based on the uncertainty                          a human, in: IEEE International Conference on Robotics and Automation, IEEE,
+                                                                                       Nagoya, Japan, 1995, pp. 3097–3102.
+estimate from the PENN model. The level of impedance adaptation
+                                                                                   [8] F.J. Abu-Dakka, L. Rozo, D.G. Caldwell, Force-based variable impedance learning
+or the compliance behavior can be adjusted by tuning the 𝑄 and 𝑅
+                                                                                       for robotic manipulation, Robot. Auton. Syst. 109 (2018) 156–167.
+parameters in the cost function (6). However, it is not obvious how                [9] E. Caldarelli, A. Colomé, C. Torras, Perturbation-based stiffness inference in
+to find optimal values for these parameters as the cost function needs                 variable impedance control, IEEE Robot. Autom. Lett. 7 (4) (2022) 8823–8830.
+to additionally account for model inaccuracies to guarantee optimal               [10] F.J. Abu-Dakka, M. Saveriano, Variable impedance control and learning—A
+performance. Therefore, instead of focusing on the true cost, finding                  review, Frontiers Robotics and AI 7 (2020).
+a surrogate cost using Bayesian optimization or evolutionary methods              [11] E.F. Camacho, C.B. Alba, Model Predictive Control, Springer science & business
+as proposed in [64] offers a way to design the cost. Another interesting               media, 2013.
+approach for cost designing is to iteratively update a baseline cost using        [12] L. Deng, Z. Li, Y. Pan, Sparse online Gaussian process impedance learning for
+                                                                                       multi-DoF robotic arms, in: IEEE International Conference on Advanced Robotics
+RL for closed-loop performance [65]. But here we need to rely on a
+                                                                                       and Mechatronics, IEEE, Chongqing, China, 2021, pp. 199–206.
+good enough baseline cost and model so that the RL agent can fine-tune
+                                                                                  [13] V. van Spaandonk, Learning variable impedance control: A model-based approach
+the cost for optimal performance.                                                      using Gaussian processes, 2016.
+                                                                                  [14] K. Chua, R. Calandra, R. McAllister, S. Levine, Deep reinforcement learning
+7. Conclusion                                                                          in a handful of trials using probabilistic dynamics models, in: S. Bengio, H.
+                                                                                       Wallach, H. Larochelle, K. Grauman, N. Cesa-Bianchi, R. Garnett (Eds.), Advances
+   In this work, we presented a deep MPVIC approach for compli-                        in Neural Information Processing Systems, 31, Curran Associates, Inc., 2018.
+ant manipulation skills for a robotic manipulator by optimizing the               [15] S. Calinon, I. Sardellitti, D.G. Caldwell, Learning-based control strategy for safe
+impedance parameters. By utilizing PENN, a Cartesian impedance                         human-robot interaction exploiting task and robot redundancies, in: IEEE/RSJ In-
+model of the robot is learned using an exploration strategy that max-                  ternational Conference on Intelligent Robots and Systems, IEEE, Taipei, Taiwan,
+                                                                                       2010, pp. 249–254.
+imizes the information gain. The PENN dynamic model is coupled
+                                                                                  [16] S.M. Khansari-Zadeh, K. Kronander, A. Billard, Modeling robot discrete move-
+with a CEM-based MPC to optimize impedance parameters of a low-
+                                                                                       ments with state-varying stiffness and damping: A framework for integrated
+level VIC. We identified an impedance optimization objective-based                     motion generation and impedance control, in: D. Fox, L.E. Kavraki, H. Kurniawati
+human manipulation skill and replicated it on a robot manipulator for                  (Eds.), Robotics: Science and systems X, Berkeley, USA, 2014, p. 2014.
+simplified scenarios in simulations and experiments. The deep MPVIC               [17] D. Lee, C. Ott, Incremental kinesthetic teaching of motion primitives using the
+was compared with model-free and model-based RL approaches in                          motion refinement tube, Auton. Robots 31 (2) (2011) 115–131.
+VILC. The approach proved experimentally to be beneficial for solving             [18] M. Saveriano, S.-i. An, D. Lee, Incremental kinesthetic teaching of end-effector
+multiple tasks without any need to relearn the model or policy as op-                  and null-space motion primitives, in: 2015 IEEE International Conference on
+posed to other VILC approaches. In future work, we aim to extend this                  Robotics and Automation, IEEE, Seattle, WA, USA, 2015, pp. 3570–3575.
+                                                                                  [19] A. Hussein, M.M. Gaber, E. Elyan, C. Jayne, Imitation learning: A survey of
+approach to scenarios with constraints, such as in-contact interaction
+                                                                                       learning methods, ACM Comput. Surv. 50 (2) (2017) 1–35.
+tasks.
+                                                                                  [20] P. Kormushev, S. Calinon, D.G. Caldwell, Reinforcement learning in robotics:
+                                                                                       Applications and real-world challenges, Robotics 2 (3) (2013) 122–148.
+Declaration of competing interest                                                 [21] C.-C. Cheah, D. Wang, Learning impedance control for robotic manipulators, IEEE
+                                                                                       Trans. Robot. Autom. 14 (3) (1998) 452–465.
+    The authors declare that they have no known competing finan-                  [22] A. Gams, B. Nemec, A.J. Ijspeert, A. Ude, Coupling movement primitives:
+cial interests or personal relationships that could have appeared to                   Interaction with the environment and bimanual tasks, IEEE Trans. Robot. 30
+influence the work reported in this paper.                                             (4) (2014) 816–830.
+
+
+                                                                             10
+A.S. Anand et al.                                                                                                                     Robotics and Autonomous Systems 170 (2023) 104531
+
+
+[23] F.J. Abu-Dakka, B. Nemec, J.A. Jørgensen, T.R. Savarimuthu, N. Krüger, A. Ude,              [47] H.-P. Huang, S.-S. Chen, Compliant motion control of robots by using variable
+     Adaptation of manipulation skills in physical contact with the environment to                    impedance, Int. J. Adv. Manuf. Technol. 7 (6) (1992) 322–332.
+     reference force profiles, Auton. Robots 39 (2) (2015) 199–217.                              [48] L. Villani, J. De Schutter, Force control, in: B. Siciliano, O. Khatib (Eds.), Springer
+[24] A. Kramberger, E. Shahriari, A. Gams, B. Nemec, A. Ude, S. Haddadin, Passivity                   Handbook of Robotics, Springer International Publishing, 2016, pp. 195–220.
+     based iterative learning of admittance-coupled dynamic movement primitives for              [49] Z.I. Botev, D.P. Kroese, R.Y. Rubinstein, P. L’Ecuyer, The cross-entropy method
+     interaction with changing environments, in: IEEE/RSJ International Conference                    for optimization, in: C. Rao, V. Govindaraju (Eds.), Handbook of Statistics, 31,
+     on Intelligent Robots and Systems, IEEE, Madrid, Spain, 2018, pp. 6023–6028.                     Elsevier, 2013, pp. 35–59.
+[25] Y. Zhang, B. Chu, Z. Shu, A preliminary study on the relationship between                   [50] M. Wen, U. Topcu, Constrained cross-entropy method for safe reinforcement
+     iterative learning control and reinforcement learning, IFAC-PapersOnLine 52 (29)                 learning, Adv. Neural Inf. Process. Syst. 31 (2018).
+     (2019) 314–319.                                                                             [51] S. Depeweg, J.-M. Hernandez-Lobato, F. Doshi-Velez, S. Udluft, Decomposition
+[26] R. Martín-Martín, M.A. Lee, R. Gardner, S. Savarese, J. Bohg, A. Garg, Variable                  of uncertainty in Bayesian deep learning for efficient and risk-sensitive learning,
+     impedance control in end-effector space: An action space for reinforcement learn-                in: International Conference on Machine Learning, PMLR, Stockholm, Sweden,
+     ing in contact-rich tasks, in: IEEE/RSJ International Conference on Intelligent                  2018, pp. 1184–1193.
+     Robots and Systems, IEEE, Macau, China, 2019, pp. 1010–1017.                                [52] E. Todorov, T. Erez, Y. Tassa, Mujoco: A physics engine for model-based control,
+[27] C.C. Beltran-Hernandez, D. Petit, I.G. Ramirez-Alpizar, K. Harada, Variable com-                 in: IEEE/RSJ International Conference on Intelligent Robots and Systems, IEEE,
+     pliance control for robotic peg-in-hole assembly: A deep-reinforcement-learning                  Vilamoura-Algarve, Portugal, 2012, pp. 5026–5033.
+     approach, Appl. Sci. 10 (19) (2020) 6923.                                                   [53] A. Hill, A. Raffin, M. Ernestus, A. Gleave, A. Kanervisto, R. Traore, P. Dhariwal,
+[28] C.C. Beltran-Hernandez, D. Petit, I.G. Ramirez-Alpizar, T. Nishi, S. Kikuchi, T.                 C. Hesse, O. Klimov, A. Nichol, M. Plappert, A. Radford, J. Schulman, S. Sidor,
+     Matsubara, K. Harada, Learning force control for contact-rich manipulation tasks                 Y. Wu, Stable baselines, 2018, https://github.com/hill-a/stable-baselines.
+     with rigid position-controlled robots, IEEE Robot. Autom. Lett. 5 (4) (2020)                [54] N. Hogan, On the stability of manipulators performing contact tasks, IEEE J.
+     5709–5716.                                                                                       Robot. Autom. 4 (6) (1988) 677–686.
+[29] M. Bogdanovic, M. Khadiv, L. Righetti, Learning variable impedance control for              [55] S.A. Khader, H. Yin, P. Falco, D. Kragic, Stability-guaranteed reinforcement
+     contact sensitive tasks, IEEE Robot. Autom. Lett. 5 (4) (2020) 6129–6136.                        learning for contact-rich manipulation, IEEE Robot. Autom. Lett. 6 (1) (2020)
+[30] P. Varin, L. Grossman, S. Kuindersma, A comparison of action spaces for learning                 1–8.
+     manipulation tasks, in: IEEE/RSJ International Conference on Intelligent Robots             [56] K. Kronander, A. Billard, Stability considerations for variable impedance control,
+     and Systems, IEEE, Macau, China, 2019, pp. 6015–6021.                                            IEEE Trans. Robot. 32 (5) (2016) 1298–1305.
+[31] M. Kim, S. Niekum, A.D. Deshpande, SCAPE: Learning stiffness control from                   [57] F. Ferraguti, C. Secchi, C. Fantuzzi, A tank-based approach to impedance
+     augmented position control experiences, in: Conference on Robot Learning,                        control with variable stiffness, in: IEEE International Conference on Robotics
+     PMLR, London, UK, 2022, pp. 1512–1521.                                                           and Automation, IEEE, Karlsruhe, Germany, 2013, pp. 4948–4953.
+[32] J. Buchli, F. Stulp, E. Theodorou, S. Schaal, Learning variable impedance control,          [58] M. Bednarczyk, H. Omran, B. Bayle, Passivity filter for variable impedance
+     Int. J. Robot. Res. 30 (7) (2011) 820–833.                                                       control, in: IEEE/RSJ International Conference on Intelligent Robots and Systems,
+[33] C. Li, Z. Zhang, G. Xia, X. Xie, Q. Zhu, Efficient force control learning system                 IEEE, Las Vegas, NV, USA, 2020, pp. 7159–7164.
+     for industrial robots based on variable impedance control, Sensors 18 (8) (2018)            [59] Z. Jin, A. Liu, W.-a. Zhang, L. Yu, An optimal variable impedance control with
+     2539.                                                                                            consideration of the stability, IEEE Robot. Autom. Lett. 7 (2) (2022) 1737–1744.
+[34] A.S. Anand, M.H. Myrestrand, J.T. Gravdahl, Evaluation of variable impedance-               [60] A. Anand, K. Seel, V. Gjærum, A. Håkansson, H. Robinson, A. Saad, Safe learning
+     and hybrid force/MotionControllers for learning force tracking skills, in:                       for control using control Lyapunov functions and control barrier functions: A
+     IEEE/SICE International Symposium on System Integration, IEEE, Narvik,                           review, Procedia Comput. Sci. 192 (2021) 3987–3997.
+     Norway, 2022, pp. 83–89.                                                                    [61] M.J. Khojasteh, V. Dhiman, M. Franceschetti, N. Atanasov, Probabilistic safety
+[35] L. Roveda, J. Maskani, P. Franceschi, A. Abdi, F. Braghin, L.M. Tosatti, N.                      constraints for learned high relative degree system dynamics, in: A.M. Bayen,
+     Pedrocchi, Model-based reinforcement learning variable impedance control for                     A. Jadbabaie, G. Pappas, P.A. Parrilo, B. Recht, C. Tomlin, M. Zeilinger (Eds.),
+     human-robot collaboration, J. Intell. Robot. Syst. 100 (2) (2020) 417–433.                       Learning for Dynamics and Control, 120, PMLR, 2020, pp. 781–792.
+[36] L. Roveda, A. Testa, A.A. Shahid, F. Braghin, D. Piga, Q-Learning-based model               [62] L. Zheng, R. Yang, Z. Wu, J. Pan, H. Cheng, Safe learning-based gradient-free
+     predictive variable impedance control for physical human-robot collaboration,                    model predictive control based on cross-entropy method, Eng. Appl. Artif. Intell.
+     Artificial Intelligence 312 (2022) 103771.                                                       110 (2022) 104731.
+[37] T. Wang, X. Bao, I. Clavera, J. Hoang, Y. Wen, E. Langlois, S. Zhang, G. Zhang,             [63] C. Pinneri, S. Sawant, S. Blaes, J. Achterhold, J. Stueckler, M. Rolinek, G. Mar-
+     P. Abbeel, J. Ba, Benchmarking model-based reinforcement learning, 2019, arXiv                   tius, Sample-efficient cross-entropy method for real-time planning, in: Conference
+     preprint arXiv:1907.02057.                                                                       on Robot Learning, PMLR, Cambridge MA, USA., 2021, pp. 1049–1065.
+[38] M.V. Minniti, R. Grandia, K. Fäh, F. Farshidian, M. Hutter, Model predictive                [64] A. Jain, L. Chan, D.S. Brown, A.D. Dragan, Optimal cost design for model
+     robot-environment interaction control for mobile manipulation tasks, in: IEEE                    predictive control, in: Learning for Dynamics and Control, PMLR, 2021, pp.
+     International Conference on Robotics and Automation, IEEE, Xi’an, China, 2021,                   1205–1217.
+     pp. 1651–1657.                                                                              [65] S. Gros, M. Zanon, Data-driven economic nmpc using reinforcement learning,
+                                                                                                      IEEE Trans. Automat. Control 65 (2) (2019) 636–648.
+[39] T. Gold, A. Völz, K. Graichen, Model predictive interaction control for robotic
+     manipulation tasks, IEEE Trans. Robot. 39 (2023) 76–89.
+[40] K. Haninger, C. Hegeler, L. Peternel, Model predictive control with Gaussian
+     processes for flexible multi-modal physical human robot interaction, in: IEEE                                           Akhil S. Anand is a Postdoc at the Norwegian University
+     International Conference on Robotics and Automation, IEEE, Philadelphia, PA,                                            of Science and Technology (NTNU). He received his B.Tech
+                                                                                                                             degree in mechanical engineering from Indian Institute of
+     USA, 2022, pp. 6948–6955.
+                                                                                                                             Technology (IIT), Patna, India in 2013 and his M.Sc in
+[41] P. Shyam, W. Jaśkowski, F. Gomez, Model-based active exploration, in: Inter-
+                                                                                                                             Mechatronics from Universität Siegen, Germany in 2019,
+     national Conference on Machine Learning, PMLR, Long Beach, California, USA,
+                                                                                                                             and Ph.D. in Robot Learning from NTNU in 2023. His
+     2019, pp. 5779–5788.                                                                                                    research areas are on robot control and learning with a
+[42] R. Sekar, O. Rybkin, K. Daniilidis, P. Abbeel, D. Hafner, D. Pathak, Planning                                           specific focus on learning-based complainant control and
+     to explore via self-supervised world models, in: International Conference on                                            reinforcement learning.
+     Machine Learning, PMLR, Online, 2020, pp. 8583–8592.
+[43] Y. Yao, L. Xiao, Z. An, W. Zhang, D. Luo, Sample efficient reinforcement
+     learning via model-ensemble exploration and exploitation, in: IEEE Interna-
+     tional Conference on Robotics and Automation, IEEE, Xi’an, China, 2021, pp.
+     4202–4208.
+                                                                                                                             Jan Tommy Gravdahl is a professor at the Norwegian Uni-
+[44] D. Pathak, D. Gandhi, A. Gupta, Self-supervised exploration via disagreement, in:
+                                                                                                                             versity of Science and Technology (NTNU). He was born in
+     International Conference on Machine Learning, PMLR, Long Beach, California,
+                                                                                                                             1969 and graduated siv.ing (1994) and dr.ing (1998) in En-
+     USA, 2019, pp. 5062–5071.                                                                                               gineering Cybernetics, NTNU. From 1998 to 2001 he was a
+[45] D.V. Lindley, On a measure of the information provided by an experiment, Ann.                                           postdoctoral researcher with the Department of Engineering
+     Math. Stat. 27 (4) (1956) 986–1005.                                                                                     Cybernetics. He was appointed Associate Professor (2001)
+[46] D. Pathak, P. Agrawal, A.A. Efros, T. Darrell, Curiosity-driven exploration by self-                                    and Professor (2005) at the same department, where he
+     supervised prediction, in: International Conference on Machine Learning, PMLR,                                          served as deputy department head 2006-07 and department
+     Sydney, Australia, 2017, pp. 2778–2787.                                                                                 head in 2008/09. In 2007/08 he was with The Centre for
+
+
+                                                                                            11
+A.S. Anand et al.                                                                               Robotics and Autonomous Systems 170 (2023) 104531
+
+
+                    Complex Dynamic Systems and Control (CDSC), The Univer-             Fares J. Abu-Dakka received his B.Sc. degree in mechanical
+                    sity of Newcastle, Australia. His current research interests        engineering from Birzeit University, Palestine, in 2003, and
+                    include mathematical modeling and nonlinear control in              his DEA and Ph.D. degrees in robotics motion planning from
+                    general and with application to turbomachinery, spacecraft,         the Polytechnic University of Valencia, Spain, in 2006 and
+                    robots, ships and nanopositioning devices. He has supervised        2011, respectively. In 2012 he started his first postdoc at
+                    the graduation of 100 M.Sc. and 10 PhD. He has published            Jozef Stefan Institute ´, Slovenia. Between 2013 and 2016
+                    more than 200 papers at conferences and in international            he held a visiting professorship at ISA within the Carlos
+                    journals. He received the IEEE Transactions on Control              III University of Madrid, Spain. From 2016 to 2019, he
+                    Systems Technology Outstanding Paper Award in 2000 and              was a Postdoc at Istituto Italiano di Tecnologia (IIT). From
+                    in 2017. He is author of Compressor Surge and Rotating              2019 to 2022, he was a Research Fellow at Aalto University.
+                    Stall: Modeling and Control (Springer 1999), co-author of           Then in 2022, he moved to MIRMI, Technical University of
+                    Modeling and Simulation for Automatic Control (Marine               Munich, Germany, to serve as a Senior Scientist and leader
+                    Cybernetics 2002), Snake Robots: Modeling, Mechatronics,            of the Robot Learning group. Currently, he is a lecturer and
+                    and Control (Springer 2013), Vehicle-Manipulator Systems:           researcher at the Faculty of Engineering, Mondragon Univer-
+                    Modeling for Simulation, Analysis and Control (Springer             sity, Bilbao, Spain. His research lies in the intersection of
+                    2014) and co-editor of Group Coordination and Cooperative           control theory, differential geometry, and machine learning,
+                    Control (Springer 2006).                                            in order to enhance robot manipulation performance and
+                                                                                        safety. He is an Associate Editor for ICRA, IROS, and RA-L.
+                                                                                        Webpage: https://sites.google.com/view/abudakka/.
+
+
+
+
+                                                                                   12
+

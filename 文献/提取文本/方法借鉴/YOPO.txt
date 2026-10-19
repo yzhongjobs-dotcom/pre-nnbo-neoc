@@ -1,0 +1,680 @@
+                                                                                                                                                          1
+
+
+
+
+  You Only Plan Once: A Learning-based One-stage
+          Planner with Guidance Learning
+                           Junjie Lu, Xuewei Zhang, Hongming Shen, Liwen Xu, and Bailing Tian
+
+
+
+   Abstract—In this work, we propose a learning-based one-
+stage planner for trajectory generation of quadrotor in obstacle-
+cluttered environment without relying on explicit map. We
+integrate perception and mapping, front-end path searching,
+and back-end optimization into a single network. We frame the
+motion planning problem as a regression of spatially separated
+polynomial trajectories and associated scores. Specifically, our
+approach adopts a set of motion primitives to cover the searching
+space, and predicts the offsets and scores of primitives for
+local optimization in a single forward propagation. A novel
+unsupervised learning strategy, termed guidance learning, is
+developed to provide numerical gradients as the guidance for
+training. We train the network policy with privileged information
+about the surroundings while only the noisy depth observations
+are available during inference. Finally, a series of experiments are
+conducted to demonstrate the effectiveness and time-efficiency
+of the proposed method in both simulation and real-world.
+For supplementary video see: https://youtu.be/GoqZM3TxDbM.                    Fig. 1. We utilize the motion primitives (the white curves) as anchors for
+The code will be released at https://github.com/TJU-Aerial-                   comprehensive exploration of the solution space, and predict the offsets and
+Robotics/YOPO.                                                                scores for further improvement (the curves color-coded by scores). To clarify,
+                                                                              the map is unavailable and only the optimal trajectory is solved in practice.
+  Index Terms—Autonomous Navigation, Motion Planning, Deep
+Learning
+                                                                              to make it smooth, safe, and dynamically feasible. The divide-
+                         I. I NTRODUCTION                                     and-conquer pipeline facilitates the independent optimization
+                                                                              of individual modules and makes the overall system more
+      UTONOMOUS navigation of quadrotors in obstacle-
+A     cluttered environment has been extensively investigated.
+However, the limited computational resources and low-
+                                                                              interpretable. However, it also introduces additional latency,
+                                                                              which is fatal for high-speed flights.
+                                                                                 In recent years, the learning-based planners that process
+precision airborne sensors make this task still challenging.                  raw sensory inputs and perform complex behaviors directly
+   Traditionally, the autonomous navigation problem is usually                have shown great potential. Some policies are trained to
+separated into (i) perception and mapping, (ii) front-end path                imitate a privileged expert, and others adopt reinforcement
+searching, and (iii) back-end trajectory optimization. Firstly,               learning to explore the optimal policy by trial-and-error. The
+an efficient perception and mapping module [1], [2] is es-                    supervised learning (imitation learning or behavior cloning)
+sential for autonomous aerial system to navigate in unknown                   based methods [7], [8] achieve impressive performance by
+environments. However, compared to LiDAR sensors with                         training a lightweight network to approximate the solution of a
+more precise and long-range measurements, stereo cameras                      computationally expensive algorithm. Specifically, the network
+only provide noisy depth images with about 0.6 - 6m sensing                   policy is trained by minimizing the distance between predic-
+range. It significantly affects the performance of the planning               tions and labels demonstrated by the expert. However, the
+algorithms, especially for the generation of flight corridors in              evaluation metrics should take the smoothness and safety into
+hard-constrained methods. Besides, the navigation problem is                  account, instead of the distance to the optimal demonstrations.
+in general multi-modal because many equally valid solutions                   For example, it is equally feasible to avoid a spherical obstacle
+may exist. As a result, the planner can be trapped in different               from all around, but the limited expert labels, even with the
+local minima of a small fraction of solution space around                     multi-hypothesis winner-takes-all loss, cannot represent the
+different initial paths. To avoid suboptimal solutions, the front-            realistic distribution of cost. On the other hand, the upper
+end such as topological path searching algorithm [3], [4] is                  bound of the network policy is the expert policy, making it
+adopted to find multiple initial paths. Finally, the path is further          highly dependent on the performance of the expert. On the
+improved by the back-end optimization module such as [5], [6]                 contrary, the network policy in reinforcement learning [9],
+  This work is supported by the National Natural Science Foundation of        [10] is trained by maximizing the rewards from environment,
+China under Grants 62273249, 62203415, 62022060, and 62073234 (Corre-         which realistically reflects the performance of the action.
+sponding author: Bailing Tian).                                               Furthermore, it explores the optimal policy by trial-and-error
+  All authors are with the School of Electrical and Information Egineering,
+Tianjin University, Tianjin, 300072, China. {lqzx1998, zhangxuewei, shenhm,   rather than imitation, thus having the potential to outperform
+xlw 2000, bailing tian}@tju.edu.cn                                            the classical expert. However, compared to the direct asso-
+                                                                                                                                                                   2
+
+
+
+ciation between inputs and labels in supervised learning, the                   Imitation Learning                             Reinforcement Learning
+reward signal of reinforcement learning is frequently sparse,                            cost                                          reward
+                                                                       Environment                  Expert Policy      Environment                Critic Network
+noisy, and delayed, making it harder to converge. Additionally,                                            label
+some other methods [11], [12] train a network for collision                            prediction                                            prediction
+                                                                      Network Policy                Loss Function     Actor Network
+prediction of pre-defined motion primitives, which reflects the                        gradient                                              gradient
+
+feasibility of trajectories accurately and considers the multi-
+                                                                                                                                prediction
+modality of planning problem. However, the finite pre-defined             Proposed Learning Strategy          Network Policy                    Environment
+                                                                                                                                 gradient
+primitives cannot represent complex trajectories and cover
+feasible solutions comprehensively.
+                                                                     Fig. 2. Comparison of different learning-based paradigms.
+   In contrast to these approaches, we propose a learning-
+based one-stage planner without relying on explicit map. As
+visualized in Fig. 1, we integrate perception and mapping,           modal nature of navigation, we explicitly divide the solution
+front-end path searching, and back-end trajectory optimization       space and predict trajectories from the corresponding region of
+into a single network. Specifically, our approach takes the          image using a fully convolutional header with shared weights.
+noisy depth images as sensory inputs and adopts a lightweight        Compared with predicting few trajectories by different neurons
+backbone for perception and feature extraction. Benefiting           and mapping labels by the winner-takes-all principle, our
+from the data-driven nature and privileged learning strat-           predictions are unambiguous and clear-corresponding, and
+egy, the proposed planner exhibits competitive robustness to         therefore, avoid the mode collapse problem (all predictions
+sensory noise without mapping and filtering. To search the           of the network are close to the same label).
+solution space thoroughly and yield better replanning, we              The main contributions of this work are as follows:
+adopt a set of motion primitives (represented by the boundary          1) An efficient learning-based one-stage planner is pro-
+state) uniformly sampled within the FOV of depth camera                    posed, which integrates the perception, front-end path
+as the front end. Inspired by the one-stage object detector                search, and back-end optimization in a single forward
+YOLO (You Only Look Once) [13] predicting the offsets                      propagation and significantly reduces the processing
+and confidences of pre-defined anchor boxes, we utilize the                latency.
+primitives as anchors and parallelly predict the offsets and           2) To explore the solution space comprehensively and gen-
+scores of them for further improvement in a single forward                 erate more alternative trajectories for better replanning,
+propagation. We select the optimal primitive according to                  a fully convolutional network is developed to predict
+the scores and apply the offsets to the state of primitive                 the offsets of predefined primitive anchors uniformly
+as the back-end optimization. Finally, the optimal trajectory              sampled within the FOV of camera.
+is represented as a high-order polynomial by solving the               3) To train the proposed network, a realistic, accurate,
+boundary value problem.                                                    and data-efficient learning method is proposed, which
+   Besides, to address the above problems in present learning              directly back-propagates the numerical gradients from
+paradigms, we propose a novel unsupervised learning strategy               the privileged environment to the weights of the neural
+termed guidance learning. As visualized in Fig. 2, the network             network.
+policy in supervised learning is trained by the gradient of an
+analytic loss function between predictions and labels, whereas                                            II. M ETHOD
+the actor-critic based reinforcement learning utilizes a critic
+network to model the environment and serve as the differen-          A. One-stage Planner
+tiable function. On the contrary, we consider that the essence          1) Trajectory Representation: In this work, the trajec-
+of both classical and learning-based methods is gradient opti-       tory is presented as three independent one-segment time-
+mization. In classical gradient-based trajectory optimization,       parameterized polynomials in the body frame with dimensions
+the numerical gradient of the cost (obtained by querying             µ ∈ {x, y, z}:
+ESDF map, etc.) is applied to the parametric representation of
+                                                                              fµ (t) = a0 + a1 t + a2 t2 + a3 t3 + ... + an tn .                              (1)
+trajectory (e.g., waypoints of polynomials or control points of
+B-spline). We further back-propagate this numerical gradient         The vector of coefficients is written as
+to the weights of neural network via the chain rule in the
+                                                                                                A = [a0 , a1 , a2 , a3 , ..., an ] .                          (2)
+training process. Therefore, the feedback is realistic, accurate,
+and timely. Furthermore, the expert-free strategy allows us to          The overall system is illustrated in Fig. 3. Firstly, the
+initialize various states and goals for a depth sample in training   navigation problem is in general multi-modal, and therefore,
+for data augmentation, while not requiring re-annotation or          the planner can be trapped in different local minima around
+re-interaction with the simulator. There is no need to assign        different initial paths. The front-end is utilized to search the
+labels to the predictions, making it practical to predict more       solution space more thoroughly and provide topologically
+alternative trajectories simultaneously. Compared to giving          distinct initial paths for local optimization. Similarly, we adopt
+expert demonstrations for imitation in supervised learning           a set of motion primitives P = {p0 , p1 , p2 , ..., pM −1 } as the
+or exploring by trial-and-error in reinforcement learning, we        anchor to cover the searching space, each of which guides
+provide numerical gradient as guidance to lead the learning          an independent optimization in training. Consistent with our
+process. Thus, we term it “guidance learning”. For the multi-        previous approach [11], the primitive library is defined in the
+                                                                                                                                                                                                                     3
+
+
+
+                                          Training
+ Inputs
+                                                                                                    Controller
+               Primitives Definition   Trajectories      Costs Evaluation &                            &
+  ESDF
+               & Offsets Application   Generation       Gradients Computation                       Actuators
+  Map
+ Position
+ Attitude                                 Inference                                                         p, v, a,                                                  (a)           r r'
+                                                            gradients, scores                                yaw                                           z                                           (b)
+                                                                          predictions
+                                                 Back Propagation
+                                                                                                                                                                       x
+
+
+
+
+                                                                                                            & Trajectory Generation
+                                                                                    & Offsets Application
+                                                                          Mθ
+
+
+
+
+                                                                                                             Coefficients Solving
+  Depth
+
+
+
+
+                                                                                     Primitive Selection
+                                                                                                                                                    y
+                                                                          Mφ
+                                                      offsets, derivatives, score
+                                                                                                                                                                    φ θ φ' θ'
+                          ResNet-18 Backbone
+  Vel.
+  Acc.         Depth Image
+                                                                       Training                                                                  Image Grid
+Goal Dir.               Coordinate Transformation                      Inference                                                                 Primitive Anchor           Predicted Trajectory
+               Vel. & Acc. & Dir.
+
+
+Fig. 3. System Overview. Our method takes the depth image, current states,                                                            Fig. 4. Visualization of the primitives and predicted trajectories. We divide the
+and goal direction as input, and predicts the offsets, end-derivatives, and score                                                     depth image into Mϕ × Mθ grids, each of them corresponds to a primitive.
+for each primitive. The ground truth of ESDF map is utilized for numerical                                                            We predict the offsets and end-derivatives to improve the performance of
+gradient computation in training, while is unavailable for the network policy.                                                        primitives within a local solution space.
+
+state lattice space rather than in polynomial coefficients. This                                                                         2) Network Architecture: In this work, we unify the sep-
+expression is spatially separated, facilitating the integration                                                                       arate components of motion planning into a single neural
+between network predictions and primitive anchors. Specifi-                                                                           network. As shown in Fig. 3, it takes the depth image, current
+cally, we uniformly sample Mθ polar angles and Mϕ azimuth                                                                             state (velocity and acceleration), and goal direction (a unit
+angles in the visible range of depth sensor (denoted by θ and                                                                         vector) as inputs, and predicts the offsets, end-derivatives,
+ϕ, respectively). As visualized in Fig. 4, the motion primitive                                                                       and score of every primitive. For dimensionality reduction,
+pij is defined as (3) in the body frame:                                                                                              the inputs and outputs are represented in the body frame,
+            pij = (r cos θj cos ϕi , r cos θj sin ϕi , r sin θj ) .                                                   (3)             thereby avoiding the need for position and attitude. Firstly,
+                                                                                                                                      we divide the depth image into Mϕ × Mθ grids, each of them
+Where i ∈ [1, Mϕ ], j ∈ [1, Mθ ] represent the index of primitive                                                                     corresponds to a primitive in its frustum. Each grid cell is
+in horizon and vertical directions respectively, and r is the                                                                         responsible for predicting the offsets ∆θ, ∆ϕ, and ∆r, as well
+radius of planning horizon. Instead of solving the coefficients                                                                       as the end-derivatives and score of the corresponding primitive.
+of the primitive trajectory in [11], we treat (3) as independent                                                                      We modify the ResNet-18 as the backbone for depth feature
+initial value to guide the optimization process in training.                                                                          extraction. For example, we use the downsampling factor of
+   In classical pipelines, the safety and smoothness of initial                                                                       32 when Mϕ × Mθ = 3 × 3 and the image resolution is
+path are further improved by non-linear optimization, which                                                                           96 × 96. Instead of predicting all primitives simultaneously
+incorporates the gradient information from the ESDF map and                                                                           using a fully connected layer in previous work [11], we predict
+dynamic constraints. Differently, we utilize an end-to-end net-                                                                       independent trajectory at every location in the feature map
+work to achieve this. For each primitive, we predict the offsets                                                                      by 1×1 convolutional layer with shared weights. However,
+∆θ, ∆ϕ, and ∆r, as well as the end-derivatives (velocity and                                                                          different from object detection tasks, the motion planning
+acceleration for 5-order polynomial) and corresponding score.                                                                         problem is not translation invariant. That is, we want different
+The refined end-state of the ij-th trajectory can be expressed                                                                        predictions at different grids even with the same features.
+by:                                                                                                                                   Taking the grids in Fig. 4 as example, we want the rightward
+ p0ij = (rij
+          0       0
+             cos θij cos ϕ0ij , rij
+                                 0       0
+                                    cos θij sin ϕ0ij , rij
+                                                        0       0
+                                                           sin θij ). (4)                                                             offsets at the left grid (a), while the leftward offsets at the right
+         0
+                                                                                                                                      grid (b). To avoid contradictions, we introduce the primitive
+Where rij   = r + ∆rij , ϕ0ij = ϕi + ∆ϕij , and θij
+                                                 0
+                                                    = θj + ∆θij .                                                                     frame and define the rotation matrix from body to primitive
+For brevity, we omit the subscript ij if not cause ambiguity                                                                          frame as:
+in the following. In this work, we fix the execution time and                                                                                              Rij = Rz (ϕi )Ry (−θj ) .                    (6)
+generate receding-horizon trajectories with varying radius r0 .
+Finally, we incorporate the current state (given by the state                                                                         Where Ry (·) and Rz (·) represents the rotation in axis y and
+estimator) and end state (the position p0ij and its derivatives                                                                       z, respectively. Subsequently, the inputs are transformed to the
+predicted by network) into a vector d, and introduce a constant                                                                       primitive frames by (7) and concatenated to the corresponding
+matrix M to map it to the coefficients A:                                                                                             locations of feature map:
+                                                                                                                                                                             −1
+                                A = M −1 d .                                                                          (5)                                            x0ij = Rij x.                                 (7)
+  Note that the primitive anchors are pre-defined and do not                                                                          Where x represents the vector of current state and goal
+require additional computation during inference. Moreover, we                                                                         direction in the body frame. In addition, the end-derivatives
+predict multiple feasible trajectories with different topologies                                                                      predicted by the network are also defined in the primitive
+simultaneously in a single forward propagation and only the                                                                           frame. Through this transformation, the inputs and predictions
+optimal one is solved according to the predicted scores.                                                                              are decoupled with the location of grids.
+                                                                                                                                                     4
+
+
+
+                                                                                    the motion planning problem is typically complex and non-
+                                                                                    analytic. In imitation learning, the loss function is simplified
+                                                                                    into a quadratic form by the distance to the optimal trajectories
+
+
+
+
+                                          cost
+                                                                                    as shown in Fig. 5(b). However, an extra expert policy is
+                                                                                    required and its performance determines the upper bound of
+                                                                                    the network policy. On the other hand, a label assignment
+                                                 θ
+                                                                φ                   method is essential for multi-modal learning, but the distance
+         (a) Simulated Scenario            (b) Winner-Takes-All Cost
+                                                                                    to the assigned label still cannot reflect the realistic cost.
+                                                                                    On the contrary, the actor-critic based reinforcement learning
+                                                                                    method trains a differentiable critic-network to model the
+                                                                                    environment for action evaluation. However, as depicted in
+                                                                                    Fig. 5(c), training by trial-and-error requires a large amount
+  cost
+
+
+
+
+                                          cost
+
+                                                                                    of data and may not converge accurately, which is particularly
+                                                                                    restrictive for complex and slow-to-simulate systems.
+                                                                                       To solve above problems, a novel training method is pro-
+           θ                                     θ
+                          φ                                      φ                  posed in this work to guide the learning process. It provides
+    (c) Critic Network Cost                      (d) Realistic Cost
+                                                                                    realistic trajectory evaluation as shown in Fig. 5(d), and
+                                                                                    is experimentally demonstrated to outperform the classical
+Fig. 5. Illustrative cost function of different training paradigms in scenario      gradient-based method (i.e., the expert) with the same cost
+(a). For visualization, we plot the distributions with ϕ and θ as free variables,
+while keeping the current state, planning horizon, and end-derivatives fixed.
+                                                                                    function. Traditionally, the numerical gradient of the cost (by
+                                                                                    querying ESDF map, etc.) is applied to the parametric repre-
+                                                                                    sentation of trajectory (waypoints of polynomial or control
+   Subsequently, the network outputs a tensor y with the shape
+                                                                                    points of B-spline) for non-linear optimization. We further
+of Mϕ × Mθ × Md , where Mϕ × Mθ corresponds to each
+                                                                                    back-propagate this numerical gradient to the parameters of
+primitive, and Md is the raw representation of offsets, end-
+                                                                                    neural network via the chain rule as the guidance for training.
+derivatives, and scores. In our experiments, Md = 10 for 3
+                                                                                       Firstly, the formulation of the cost function is written as:
+offsets, 3 velocities, 3 accelerations, and 1 score for 5-order
+polynomial. We use a hyperbolic tangent activation function                                           J = λs Js + λo Jo + λg Jg .                (10)
+to constrain the outputs (yθ , yϕ , yr ) and bound the offsets to
+a fraction of solution space around the initial primitive. If                       Where Js is the smoothness cost to constrain the integral
+the local solution space prior is (−dθ , +dθ ), (−dϕ , +dϕ ), and                   of squared derivatives, Jo is the safety cost to penalize the
+(−dr , +dr ), then the predicted offsets correspond to:                             distance to obstacles, Jg is the goal cost to guide the quadrotor
+                                                                                    flying towards the goal, and λi are the weight parameters for
+                              ∆θ = tanh(yθ ) dθ                                     trade-off. Inspired by [15], we rearrange the state vector d in
+                              ∆ϕ = tanh(yϕ ) dϕ                              (8)    (5) into a fixed block dF (i.e., the current state) and free block
+                              ∆r = tanh(yr ) dr .                                   dP (i.e., the end state) using a selection matrix C:
+                                                                                                                              
+To explicitly capture the multimodality of planning problem                                                               dF
+                                                                                                         A = M −1 C              .                (11)
+and thoroughly cover the visible space, the local space prior is                                                          dP
+slightly larger than the FOV of the grid. Besides, the outputs
+                                                                                    As addressed in [15], the cost of the smoothness term can be
+of end-derivatives yv and ya are also constrained by tanh(·)
+                                                                                    expressed by:
+for dynamical feasibility and transformed to the body frame
+                                                                                                        T
+by:
+                                                                                                                                    
+                                                                                                    dF                           dF
+                    v = Rij tanh(yv ) vmax                                                  Js =           C T M −T QM −1 C             .   (12)
+                                                            (9)                                     dP                           dP
+                    a = Rij tanh(ya ) amax .
+                                                                                     Denote C T M −T QM −1 C as matrix B, then the cost can
+After that, the predictions with optimal score are substituted to                   be written in a partitioned form as:
+(1) - (5) to solve the receding-horizon trajectory. Specifically,                                         T                
+we predict trajectories with 2 s time window at 15 Hz. That                                          dF         BF F BF P    dF
+                                                                                             Js =                                 .    (13)
+is, only 1/30 of the trajectory is executed to ensure timely                                         dP         BP F BP P    dP
+reaction to obstacles. In addition, the heading angle (i.e.,
+yaw) is defined as the bisector of the current velocity and                         The Jacobian of Js with respect to dP can be computed as:
+goal directions, and the trajectory is finally discretized into                                     ∂Js
+reference states at 50 Hz for tracking by a geometric controller                                        = 2dTF BF P + 2dTP BP P .                (14)
+                                                                                                    ∂dP
+[14].
+                                                                                       Different from [6] optimizing a piecewise polynomial with
+                                                                                    fixed end-state, we optimize the free end-state of a single
+B. Training Strategy                                                                polynomial with fixed time T . Then, defining safety cost as the
+  1) Guidance Learning: The core of training is gradient                            line integral of the potential function over the trajectory leads
+optimization of weights by a differentiable loss function, yet                      the quadrotor minimizing the cost by reducing the planning
+                                                                                                                                                               5
+
+
+
+
+                           ESDF                                        Sampled Trajectories                                 ESDF
+        Seen Obstacles        Gradient                   Seen Obstacles                                                            Gradient
+                                    Trajectory                                       Trajectory                                      Trajectory
+
+                           Unseen Obstacles                                                                        Ground Truth of Obstacles
+                                                                            Unseen Obstacles
+
+          (a) Gradient-based Optimization                  (b) Sampling-based Optimization                     (c) Privileged Optimization
+Fig. 6. The classical gradient-based (a) and sampling-based (b) methods may be trapped in obstacles with insufficient observations or unfavorable initialization,
+while the proposed learning-based method (3) can avoid falling into infeasible local minima by privileged learning.
+
+
+length. Therefore, we reformulate the safety cost as the time                     Where  ∈ {θ, ϕ, r} and ε ∈ {v, a}. They can be easily calcu-
+integral of the potential function c(p(t)):                                       lated by substituting (4), (8), and (9). Besides, the trajectory
+                           Z T                                                    score is defined as −J and supervised by the smooth L1 loss:
+                    Jo =        c(p(t))dt
+                                   0                                                                 L = SmoothL1 (ys , −J) .                              (21)
+                                 T /δt                                   (15)
+                                 X
+                             =           c(p(Tκ ))δt .                            Where ys is the score predicted by the network policy. It
+                                 κ=0                                              is analytic and can be automatically derived by the deep
+                                                                                  learning frameworks. Finally, we train the network by the
+Where Tκ = κ · δt. Then, we follow [6] to define the potential                    Adam optimizer with the manually calculated gradients as
+function as:                                                                      guidance. To avoid the influence of negative trajectories, we
+                    c(dt ) = exp(−(dt − d0 )/k) .                        (16)     optimize the predicted scores of all primitives, but only the
+                                                                                  end-states whose scores are greater than the threshold are
+Where dt is the distance to the nearest obstacle at p(t), d0 and                  trained.
+k are pre-defined scaling factors. Then, the Jacobian of Jo in                       2) Privileged Learning: Since the data-driven nature of
+discrete form is:                                                                 deep learning, the network policy can achieve competitive
+                         T /δt                                                    performance to the privileged expert while relying only on
+                  ∂Jo    X
+                                                                                  limited sensory observations. The ground truth of the environ-
+                       =       ∇µ c(p(Tκ ))T LP δt .                     (17)
+                 ∂dP µ   κ=0                                                      ment (point cloud and ESDF map) and complete state of the
+                                                                                  quadrotor are accessible for gradient computation in training,
+Where T = [Tκ0 , Tκ1 , ..., Tκn ]T , and LP is the right block of                 while only the noisy sensory observations are available for the
+matrix M −1 C which corresponds to the free derivatives.                          network. As illustrated in Fig. 6, the classical gradient-based
+  Additionally, we define the goal cost as the distance to a                      planners can be trapped in obstacles due to the insufficient
+temporary goal for numerical stability:                                           or wrong observations. Alternatively, the gradient-free method
+                                                                                  MPPI (Model Predictive Path Integration) solve the planning
+                           Jg = (dP p − g)2 .                            (18)
+                                                                                  problem using forward sampling of stochastic diffusion pro-
+Where dP p is the position component of dP , and g is                             cess, but may also fail to escape the sudden obstacles in the
+the projection of the final goal onto the fixed-radius sphere                     traveling direction. In comparison, we train the network with
+around the quadrotor. Then, the Jacobian of Jg can be simply                      the perfect knowledge about the environment, thereby avoiding
+calculated as:                                                                    falling into incorrect local minima. In addition, the data-driven
+                     ∂Jg                                                          approach leverages the regularities in the training data, which
+                           = 2(dP p − g) .               (19)
+                    ∂dP p                                                         makes it more robust to sensor noise.
+                                                                                     To prevent crashes in the early training stage, a dataset in-
+   The safety constraint is central to the planner. However, the                  cluding positions, orientations, and depth images is collected,
+distance dt and gradient ∇µ c(·) are queried from the ESDF                        where the positions and orientations are only utilized for
+map, which is non-analytic. As described above, different                         gradient computation. We randomly reset the state of quadrotor
+approaches are employed to approximate this non-analytic cost                     in Flightmare [16] simulator to collect 100K samples, and
+function for training in imitation and reinforcement learning.                    preprocess the invalid depths by nearest-neighbor interpolation
+Instead, we discretize the integral on different time stamps                      to avoid confusion with near obstacles. Then, we iterate 50
+in (15) for numerical calculation, and back-propagate the                         epochs on the pre-collected dataset with the learning rate
+numerical gradients to the parameters of network directly via                     of 1.5 × 10−4 and batch size of 16 to train the proposed
+the chain rule. With total Jacobian ∂J/∂dP = λs ∂Js /∂dP +                        network. The threshold for trajectory selection in training is
+λo ∂Jo /∂dP + λg ∂Jg /∂dP , the gradients of the network’s                        set to 0.04 in our experiment. A too-small threshold will
+predictions can be expressed by:                                                  lead the network overfitting to the safety conditions and
+                        ∂J     ∂J ∂dP ∂∆                                         perform unstably on entire dataset. On the contrary, it cannot
+                            =                                                     converge to satisfactory results due to the influence of negative
+                        ∂y   ∂dP ∂∆ ∂y
+                                                                         (20)     samples when the threshold is too large. To ensure sufficient
+                        ∂J     ∂J ∂dP
+                            =         .                                           coverage of the state space, we also use the dataset aggregation
+                        ∂yε   ∂dP ∂yε
+                                                                                                                                                                                                     6
+
+
+
+
+           100                                  TopoTraj                    100                              TopoTraj
+                                                MPPI Planner                                                 MPPI Planner
+               80                               Agile Autonomy                  80                           Agile Autonomy
+Success Rate [%]
+
+
+
+
+                                                                 Success Rate [%]
+                                                Proposed                                                     Proposed
+               60                                                               60
+
+               40                                                               40
+
+               20                                                               20
+
+                   0                                                                0
+                         2        4      6       8        10                            2        4     6         8     10
+                                Forward Speed [m/s]                                            Forward Speed [m/s]                     (a) Experiment with the obstacle density of 1/30 tree/m2 .
+                             (a) sparse scenario                                            (b) dense scenario
+  Fig. 7. Success rate with the forward speed varying from 2 m/s to 10 m/s in
+  obstacle densities of (a) 1/30 tree/m2 and (b) 1/20 tree/m2 .
+
+
+                                                   TABLE I
+                                         C OMPARISON WITH THE E XPERT
+
+                       Method         Metric                                        Cost                   Latency
+                                                                                                                                       (b) Experiment with the obstacle density of 1/20 tree/m2 .
+                                      Average                                       0.078
+                       Expert                                                                               30ms
+                                      Optimal                                       0.036                                     Fig. 8. Trajectory comparisons in simulated forest with massive trees and
+                                                                                                                              low bushes.
+                                      Average        0.105 (initial)                       0.050 (final)
+                       Network                                                                              1.6ms
+                                      Optimal        0.056 (initial)                       0.036 (final)
+                                                                                                                              in average cost and exhibits similar performance with the
+                                                                                                                              expert in optimal cost. The result validates the proposed
+  strategy (DAgger) for further fine-tuning. Besides, the expert-
+                                                                                                                              training strategy and indicates that the network policy has
+  free strategy allows us to initialize various states and goals
+                                                                                                                              the potential to outperform the corresponding expert (which is
+  randomly for each depth sample for data augmentation, while
+                                                                                                                              the upper bound of imitation learning). On the one hand, the
+  not requiring re-annotation or re-interaction with the simulator.
+                                                                                                                              planning problem is usually complex and non-convex, while
+                                                                                                                              the gradient-based expert is sensitive to the initial conditions
+                                                III. E XPERIMENT                                                              and is easily stuck in suboptimal solutions with unfavorable
+     In this section, a series of experiments are performed                                                                   initialization. On the contrary, the network policy has larger
+  to verify the proposed learning-based planner and training                                                                  receptive field and context, and is able to discover patterns
+  strategy in simulation and real-world. In our physical platform,                                                            from the whole dataset and leverage the correlations for im-
+  the RealSense D455 is used to provide depth images with the                                                                 provement. Besides, it is worth noting that the network policy
+  aspect ratio of 16 : 9. Therefore, we scale the raw images to                                                               exceeds the baseline in average cost although only the high-
+  160 × 96 resolution and predict 5 × 3 trajectories with the                                                                 scoring trajectories are trained. It illustrates that the weight-
+  downsampling factor of 32. The simulated comparisons are                                                                    shared head trained with safe conditions is also workable for
+  conducted in the open-source simulator Flightmare [16] on                                                                   unfavorable initialization.
+  i7-9700 CPU and RTX 3060 GPU. Furthermore, the network                                                                         Additionally, we compared the latency of the network and
+  policy is deployed with NVIDIA TensorRT for inference                                                                       expert policy. As visualized in Table. I, the network policy runs
+  acceleration and implemented on a physical quadrotor with                                                                   over 10 times faster than the gradient-based optimization. It is
+  the computational unit of NVIDIA Xavier NX for real-world                                                                   understandable because the network predicts all trajectories
+  experiment.                                                                                                                 in parallel, whereas the computation of classical methods
+                                                                                                                              increases linearly with the number of trajectories.
+  A. Training Strategy Validation
+     In this section, we verify the proposed guidance learning                                                                B. Simulated Comparison
+  strategy against the classical gradient-based method [6], which                                                                In this section, we compare the proposed approach with
+  can be utilized as the expert to provide demonstrations for                                                                 three state-of-the-art vision-based methods: Fast Planner with
+  the network policy in imitation learning. Consistent with our                                                               Topological Paths [3] (denoted as TopoTraj), MPPI Planner
+  strategy, we adopt the same cost function defined in Section                                                                with Hybrid A* [17], and the learning-based planner Agile
+  II-B1 and optimize the end-states of the trajectories with fixed                                                            Autonomy [8] as baselines. The comparisons are conducted
+  execution time. We use the primitives as the initial values                                                                 in a simulated forest [16] with massive trees and low bushes,
+  for [6] to guide independent optimization and the privileged                                                                while only the depth images and states are accessible from
+  information of the map is accessible in this validation. For a                                                              the simulator. To ensure a fair comparison, we fine-tune the
+  fair comparison, we train the network for 50 epochs by the                                                                  baselines for better real-time and safety performance trade-offs
+  proposed strategy and perform gradient descent 50 steps for                                                                 in the evaluation environment.
+  each sample by the expert.                                                                                                     1) Obstacle Density: We evaluate the performance of above
+     We compare the average and the optimal cost of 5 × 3                                                                     methods with respect to obstacle density under the average
+  trajectories between the proposed method and expert. As                                                                     speed of 4 m/s. Trees are randomly placed with the diameters
+  shown in Table I, the network policy outperforms the expert                                                                 of 0.3 - 0.6 m and densities of about 1/20 and 1/30 tree/m2 ,
+                                                                                                                                                                      7
+
+
+                                                                           TABLE II
+                                                                    S IMULATED C OMPARISON
+
+                                                          Latency (ms)                            Safety (m)
+   Method             Density (tree/m2 )                                                                               Smoothness (m2 /s5 )        Traj. Length (m)
+                                             Mapping      Front    Back       Total            Avg             Min
+                            1 / 30                                                            1.23          0.18              352.72                   53.54
+   TopoTraj                                    48.5        6.1      7.3        61.9
+                            1 / 20                                                            1.00          0.08              810.17                   54.28
+                            1 / 30                                                            1.23          0.08               14.92                   51.58
+   MPPI                                        6.5         5.0      8.2        19.7
+                            1 / 20                                                            0.94          0.06               16.83                   52.88
+                            1 / 30                                                            1.13          0.12              2324.47                  51.65
+   Agile Autonomy                               /            /       /          5.4
+                            1 / 20                                                            1.01          0.10              2954.46                  52.42
+                            1 / 30                                                            1.63          0.24               37.87                   52.24
+   Proposed                                     /            /       /          1.6
+                            1 / 20                                                            1.28          0.16               73.52                   52.78
+ * The best planning metrics under different densities are highlighted in blue and red, and the optimal real-time performance is marked in bold.
+
+
+
+respectively. The average performance statistics and the qual-
+itative results are illustrated in Table. II and Fig. 8.
+   Firstly, we compare the computational cost of our approach
+against the baselines. With total computation time of 61.9
+ms per frame, TopoTraj incurs the highest processing latency,
+most of which is spent on mapping and ESDF computation.
+Although MPPI Planner significantly reduces the mapping
+delay by implementing parallel on GPU, it performs back-
+end optimization with a Monte Carlo approximation using
+forward sampling, which is computationally complex. Besides,
+the back end of TopoTraj is also time-consuming because
+it performs independent optimization from multiple topologi-
+cally distinct initial paths. By contrast, our approach achieves
+significantly lower processing latency, which only takes about
+1.6 ms for inference. It can be attributed to the unified
+                                                                                      Fig. 9. The physical platform and real-world experimental scenario. 1 - 3
+framework integrating perception, front-end path search, and                          are the snapshots of the corresponding positions in Fig. 10.
+back-end optimization. Compared with Agile Autonomy, we
+adopt a lighter backbone and predict multiple trajectories by
+                                                                                      the decrease in the performance of the classical baselines
+a fully convolutional network instead of several independent
+                                                                                      can be attributed to the limited sensor range, noisy depth
+heads, making our pipeline more concise.
+                                                                                      observations, and insufficient map. On the one hand, the
+   Subsequently, we evaluate the safety metric (distance to
+                                                                                      mapping and ESDF updating are time-consuming as shown
+the nearest obstacle) and smoothness metric (integral of the
+                                                                                      in Table. II. On the other hand, the probabilistic updating
+squared jerk) of our method and the baselines. As illustrated,
+                                                                                      process is necessary to remove sensing noise but makes the
+our approach demonstrates the best safety and competitive
+                                                                                      reconstruction of obstacles in the map slower. Comparatively,
+smoothness performance in comparisons of different densities.
+                                                                                      the proposed method and [8] can react to the observations in
+It can be explained that we simultaneously predict multiple
+                                                                                      an extremely short time, making it safer for high-speed flight
+feasible trajectories with distinct topologies for comprehensive
+                                                                                      with unpredictable obstacles. Due to the data-driven nature and
+exploration of the solution space in significantly lower latency.
+                                                                                      privileged learning strategy, the network policy demonstrates
+Similarly, the safety performance of TopoTraj with multiple
+                                                                                      competitive robustness to the sensory noise without the tempo-
+topological guiding paths is superior to MPPI with a single
+                                                                                      ral filtering operations. Additionally, our approach outperforms
+Hybrid A* as the front end. Furthermore, Agile Autonomy
+                                                                                      the Agile Autonomy below 6 m/s, since our method is able to
+also achieves impressive performance under dense scenario,
+                                                                                      predict more alternative trajectories with different primitives to
+indicating that the learning-based method with lower latency
+                                                                                      explore the solution space more thoroughly. However, we take
+is safer for high-speed flight with abrupt obstacles. In the
+                                                                                      the smoothness of trajectories into account during training,
+smoothness metric, the MPPI Planner exhibits best by for-
+                                                                                      which sacrifices the safety performance to a certain extent.
+mulating the planning problem as a stochastic optimal control
+                                                                                      Therefore, Agile Autonomy is more competitive at higher
+problem, while the Agile Autonomy results in higher costs
+                                                                                      speeds in dense scenarios.
+without considering the smoothness penalty during training.
+   2) Flight Speed: We validate the success rate of above
+methods with the forward speed varying from 2 m/s to                                  C. Real-world Experiment
+10 m/s across different obstacle densities. We repeat the                               In this section, we validate the proposed learning-based
+experiments 10 times randomly for each condition and the                              one-stage planner in real-world. The network policy is im-
+results are depicted in Fig. 7. As visualized, the learning-based                     plemented on a small quadrotor with 250 mm diameter and
+methods exhibit significantly higher success rate than the                            1.13 kg mass, as illustrated in Fig. 9. The main computational
+classical vision-based method in both scenarios. Essentially,                         unit is NVIDIA Xavier NX with 6-core ARM CPU and
+                                                                                                                                                                         8
+
+
+
+                                                                                             primitives in a single forward propagation. By comparisons,
+                                                                                             the proposed method exhibits significantly lower latency and
+                                                                                             demonstrates competitive performance to the SOTA methods.
+                                                                                             Moreover, an unsupervised learning method is proposed to
+                                                                                             train the network policy with the guidance of numerical
+                                                                                             gradient from the privileged ESDF map. We also validate
+                                                                                             that the network policy has the potential to outperform the
+         6                                                                                   corresponding expert by the proposed training strategy. Finally,
+                                                              vtotal
+Vel. (m/s)
+
+
+
+
+                      vy vx
+         4                                                                                   autonomous flight experiments are conducted in a dense forest
+         2
+                                                                                             to validate the efficiency of our method.
+         0
+        -2                 vz
+                  1            2         3                4                 5            6
+                                              Time (s)                                                                     R EFERENCES
+                                                                                              [1] Y. Chen, S. Lai, J. Cui, B. Wang, and B. M. Chen, “Gpu-accelerated
+                                                                                                  incremental euclidean distance transform for online motion planning of
+                                                                                                  mobile robots,” IEEE Robotics and Automation Letters, vol. 7, no. 3,
+                                                                                                  pp. 6894–6901, 2022.
+                                                                                              [2] Y. Ren, Y. Cai, F. Zhu, S. Liang, and F. Zhang, “Rog-map: An efficient
+                                                                                                  robocentric occupancy grid map for large-scene and high-resolution
+                                                                                                  lidar-based motion planning,” arXiv preprint arXiv:2302.14819, 2023.
+                                                                                              [3] B. Zhou, F. Gao, J. Pan, and S. Shen, “Robust real-time uav
+                                                                                                  replanning using guided gradient-based optimization and topological
+                                                                                                  paths,” 2020 IEEE International Conference on Robotics and
+          6
+                                             vtotal
+                                                                                                  Automation (ICRA), pp. 1208–1214, 2019. [Online]. Available:
+Vel. (m/s)
+
+
+
+
+          4
+                                                                       vy           vx            https://api.semanticscholar.org/CorpusID:209515709
+          2
+          0
+                          vz                                                                  [4] H. Ye, X. Zhou, Z. Wang, C. Xu, J. Chu, and F. Gao, “Tgk-planner:
+         -2                                                                                       An efficient topology guided kinodynamic planner for autonomous
+              1       2             3    4            5          6              7    8
+                                      Time (s)                                                    quadrotors,” IEEE Robotics and Automation Letters, vol. 6, no. 2, pp.
+ Fig. 10. Trajectories visualization of real-world flight experiments in dense                    494–501, 2020.
+ forest with velocity profiles. Note that the map is only constructed for                     [5] B. Zhou, F. Gao, L. Wang, C. Liu, and S. Shen, “Robust and effi-
+ demonstration and 1 - 3 are the positions of the corresponding snapshots                         cient quadrotor trajectory generation for fast autonomous flight,” IEEE
+ in Fig. 9.                                                                                       Robotics and Automation Letters, vol. 4, no. 4, pp. 3529–3536, 2019.
+                                                                                              [6] F. Gao, Y. Lin, and S. Shen, “Gradient-based online safe trajectory
+                                                                                                  generation for quadrotor flight in complex environments,” in 2017
+ 384 CUDA cores GPU, which only takes about 16 ms for                                             IEEE/RSJ international conference on intelligent robots and systems
+ inference after being deployed on TensorRT. The RealSense                                        (IROS), pp. 3681–3688. IEEE, 2017.
+                                                                                              [7] J. Tordesillas and J. P. How, “Deep-panther: Learning-based perception-
+ D455 is adopted to provide depth images with 87◦ × 58◦                                           aware trajectory planner in dynamic environments,” IEEE Robotics and
+ FOV and around 6 m sensor range. Consistent with training,                                       Automation Letters, vol. 8, no. 3, pp. 1399–1406, 2023.
+ we perform nearest-neighbor interpolation on invalid depths                                  [8] A. Loquercio, E. Kaufmann, R. Ranftl, M. Müller, V. Koltun, and
+                                                                                                  D. Scaramuzza, “Learning high-speed flight in the wild,” Science
+ for computational efficiency. Besides, the state estimation is                                   Robotics, vol. 6, no. 59, p. eabg5810, 2021.
+ performed by the visual-inertial odometry VINS-Fusion and                                    [9] F. Sadeghi and S. Levine, “CAD2RL: Real single-image flight without
+ the reference trajectory is tracked by a geometric controller.                                   a single real image,” in Robotics: Science and Systems(RSS), 2017.
+                                                                                             [10] R. Penicka, Y. Song, E. Kaufmann, and D. Scaramuzza, “Learning
+ All modules including localization, planning, and control are                                    minimum-time flight in cluttered environments,” IEEE Robotics and
+ integrated into an airborne computational unit Xavier NX.                                        Automation Letters, vol. 7, no. 3, pp. 7209–7216, 2022.
+    As shown in Fig. 9, the real-world experiments are con-                                  [11] J. Lu, B. Tian, H. Shen, X. Zhang, and Y. Hui, “Lpnet: A reaction-
+                                                                                                  based local planner for autonomous collision avoidance using imitation
+ ducted in a dense forest with the density of 1/10 tree/m2                                        learning,” IEEE Robotics and Automation Letters, vol. 8, no. 11, pp.
+ and diameter of the tree about 0.25 m. It is challenging for                                     7058–7065, 2023.
+ aggressive autonomous flight with noisy depth observations,                                 [12] H. Nguyen, S. H. Fyhn, P. De Petris, and K. Alexis, “Motion primitives-
+                                                                                                  based navigation planning using deep collision prediction,” in 2022
+ limited sensing range, and airborne computational resources.                                     International Conference on Robotics and Automation (ICRA), pp.
+ The trajectories should be regenerated within extremely short                                    9660–9667. IEEE, 2022.
+ time to address the abrupt and unexpected obstacles. The                                    [13] J. Redmon, S. Divvala, R. Girshick, and A. Farhadi, “You only look
+                                                                                                  once: Unified, real-time object detection,” in Proceedings of the IEEE
+ trajectories and velocity profiles are depicted in Fig. 10.                                      conference on computer vision and pattern recognition, pp. 779–788,
+ As visualized, the quadrotor executes aggressive trajectories                                    2016.
+ through the forest and achieves a maximum speed of 5.52                                     [14] T. Lee, M. Leok, and N. H. McClamroch, “Geometric tracking control
+                                                                                                  of a quadrotor uav on se (3),” in 49th IEEE conference on decision and
+ m/s. Note that the map is only constructed for visualization                                     control (CDC), pp. 5420–5425. IEEE, 2010.
+ and the experimental environment is never observed at training                              [15] C. Richter, A. Bry, and N. Roy, “Polynomial trajectory planning for
+ time. We refer readers to the video for more information.                                        aggressive quadrotor flight in dense indoor environments,” in Robotics
+                                                                                                  Research: The 16th International Symposium ISRR, pp. 649–666.
+                                                                                                  Springer, 2016.
+                                   IV. C ONCLUSIONS                                          [16] Y. Song, S. Naji, E. Kaufmann, A. Loquercio, and D. Scaramuzza,
+                                                                                                  “Flightmare: A flexible quadrotor simulator,” in Conference on Robot
+   In this paper, we propose a learning-based one-stage plan-                                     Learning, pp. 1147–1157. PMLR, 2021.
+ ner which integrates perception and mapping, front-end path                                 [17] H. Lu, Q. Zong, S. Lai, B. Tian, and L. Xie, “Flight with limited field
+                                                                                                  of view: A parallel and gradient-free strategy for micro aerial vehicle,”
+ searching, and back-end optimization into a single network.                                      IEEE Transactions on Industrial Electronics, vol. 69, no. 9, pp. 9258–
+ Our approach adopts a set of motion primitives to cover the                                      9267, 2021.
+ searching space, and predicts the offsets and scores of all
+

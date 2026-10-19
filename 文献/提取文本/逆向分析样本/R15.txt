@@ -1,0 +1,904 @@
+                                                                        Mechatronics 67 (2020) 102348
+
+
+                                                                  Contents lists available at ScienceDirect
+
+
+                                                                            Mechatronics
+                                                    journal homepage: www.elsevier.com/locate/mechatronics
+
+
+
+
+Multi-hierarchy interaction control of a redundant robot using impedance
+learning☆
+Yiming Jiang a,c, Chenguang Yang b,∗, Yaonan Wang a, Zhaojie Ju c, Yanan Li d, Chun-Yi Su e
+a
+  College of Electrical and Information Engineering, Hunan University, Changsha 410082, China
+b
+  Bristol Robotics Laboratory, University of the West of England, Bristol, UK
+c
+  School of Computing, University of Portsmouth, Portsmouth PO1 3HE, UK
+d
+  School of Engineering and Informatics, University of Sussex, Brighton, BN1 9RH, UK
+e
+  Gina Cody School of Engineering and Computer Science, Concordia University, Montreal, Quebec H3G 1M8, Canada
+
+
+
+
+a r t i c l e           i n f o                          a b s t r a c t
+
+Keywords:                                                The control of robots with a compliant joint motion is important for reducing collision forces and improving safety
+Robot interaction control                                during human robot interactions. In this paper, a multi-hierarchy control framework is proposed for the redundant
+Impedance control                                        robot to enable the robot end-eﬀector to physically interact with the unknown environment, while providing
+Impedance parameters learning
+                                                         compliance to the joint space motion. To this end, an impedance learning method is designed to iteratively update
+Null space
+                                                         the stiﬀness and damping parameters of the end-eﬀector with desired performance. In addition, based on a null
+Disturbance observer
+                                                         space projection technique, an extra low stiﬀness impedance controller is included to improve compliant joint
+                                                         motion behaviour when interaction forces are acted on the robot body. With an adaptive disturbance observer,
+                                                         the proposed controller can achieve satisfactory performance of the end-eﬀector control even with the external
+                                                         disturbances in the joint space. Experimental studies on a 7 DOF Sawyer robot show that the learning framework
+                                                         can not only update the target impedance model according to a given cost function, but also enhance the task
+                                                         performance when interaction forces are applied on the robot body.
+
+
+
+1. Introduction                                                                              In this case, the kinematic level control commands may fail to drive the
+                                                                                             robot immediately to move away from its current position. Therefore,
+    In recent years, the potential of physical interactions in human                         it is desirable to have a multi-priority framework at the dynamic torque
+robot co-existent scenarios has elicited large interests in industry and                     control level.
+academia and leads to the recent growth of a variety of research topics                           In [18], a null space based force control algorithm was designed ac-
+such as physical human-robot interactions (pHRI) [1–4], human inten-                         cording to the system dynamic property. In [19], by employing a mini-
+tion estimation [5–7], haptic identiﬁcation [8,9] and so forth. Tradition-                   mal null-space projection, a velocity controller was developed to ensure
+ally, industrial robots are controlled based on a high stiﬀness to guaran-                   the stability of the robot in an extended operational space. In [20], a
+tee the motion precision. Robots are ﬁxed in cages to avoid any contacts                     compliant dynamic control approach was presented by introducing spe-
+with the surrounded people, because the rigid collision may lead to large                    ciﬁc coordinates of the null motion. In the studies mentioned above, the
+forces and even cause damage to human. Hence, a critical issue of the                        dynamics of the whole robot body can be represented by two parts, the
+controller design for human robot interaction is to provide compliance                       end-eﬀector dynamics and the null motion dynamics. However, to de-
+to guarantee the safety and the ﬂexibility of the robot [10–12].                             sign a null space velocity controller is challenging since it needs to build
+    In general, the robot ﬂexibility can be achieved by redundant degrees                    a map between the joint velocities and the null space velocities, whose
+of freedom (DOF) robots [13–16]. For example, in a human pick-and-                           inverse solution may not be unique.
+place task, additional control objectives such as collision avoidance can                         On the other hand, impedance control has been widely used by ac-
+be accomplished besides the main tasks. This is achieved by using the                        tively regulating the dynamic behaviour between force and position at
+null space projection of the kinematically redundant manipulator, or so-                     the interaction points [21]. A Cartesian impedance based torque con-
+called null motion [17]. In a pHRI scenario, however, it is likely that an                   trol with a prescribed impedance model was proposed in [22]. A pre-
+interactive/external force is applied on the robot body unpredictably.                       deﬁned passivity-based impedance model was developed for a ﬂexible
+                                                                                             joint robot using the singular perturbation method [23]. Notice that in
+
+    ☆
+        This paper was recommended for publication by Associate Editor Reza Moheimani
+    ∗
+        Corresponding author.
+        E-mail address: cyang@ieee.org (C. Yang).
+
+https://doi.org/10.1016/j.mechatronics.2020.102348
+Received 20 August 2019; Received in revised form 26 February 2020; Accepted 7 March 2020
+Available online 27 April 2020
+0957-4158/© 2020 Elsevier Ltd. All rights reserved.
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                           Mechatronics 67 (2020) 102348
+
+
+the impedance controllers mentioned above, the impedance parameters          objectives and stability analysis are included. Experimental results are
+were ﬁxed with a speciﬁed impedance model. However, a predeﬁned              presented in Section 4 to testify the proposed impedance learning al-
+impedance model might be conservative in many scenarios, especially          gorithm and the null-space motion controller. Conclusions are given in
+when interacting with an unknown environment. Without the knowl-             Section 5.
+edge of environment model, the design of impedance controller with
+appropriate control performance is challenging. Hence, it is necessary       2. Preliminaries
+to learn proper impedance parameters as well as the reference trajec-
+tory to achieve desired interaction performance. A natural actor-critic      2.1. System description of redundant robots
+learning method was employed to ﬁnd the optimal impedance parame-
+ters in a contact task [24]. In [25], a policy improvement reinforcement         The robot system studied in this paper is a n DOF redundant robot
+learning based variable impedance control was developed to optimize a        manipulator while the workspace of the manipulator is m dimensional
+selected cost function with speciﬁed task performance. In [26], an ad-       with m < n. Through the well known forward kinematic equation, the
+mittance based control algorithm was proposed to enable the robot to         relationship between end-eﬀector velocity and joints velocity can be de-
+follow the human movement by estimating the human motion intention.          rived as follows
+    Motivated by the above discussion, in this paper, we aim to develop a    𝑥̇ = 𝐽 (𝑞)𝑞̇                                                               (1)
+multi-hierarchy impedance learning control framework, which enables
+                                                                             where 𝑞 ∈ ℝ𝑛 and 𝑞̇ ∈ ℝ𝑛 denote the joint position and its ﬁrst order
+the robot end-eﬀector to interact with unknown environments without
+                                                                             derivative, respectively, 𝑥̇ denotes the velocity of the end-eﬀector, while
+using priori environmental information. The proposed control scheme is
+                                                                             𝐽 (𝑞) ∈ ℝ𝑚×𝑛 denotes the Jacobian matrix of the robot.
+mainly developed based on a technique of null space projection, which
+                                                                                 For a redundant manipulator, the inverse solution of joint velocity
+divides the robot dynamics into two subsystems. Meanwhile, a mini-
+                                                                             is not unique due to the joint redundancy.
+mal parametric set is employed to represent the null space motion by
+                                                                                 A general inverse solution of (1) can be expressed as follows,
+using a joint space decomposition approach. In comparison to our pre-
+vious study in [27] where a PID-like controller was used, the proposed       𝑞̇ = 𝐽 # (𝑞)𝑥̇ + 𝑁𝜉                                                        (2)
+scheme enables the robot to perform compliant joint movement when            where 𝐽 # (𝑞) ∈ ℝ𝑛×𝑚 is a generalized inverse satisfying 𝐽 = 𝐽 𝐽 # 𝐽 , 𝑁 =
+external forces are applied. Additionally, a learning framework is further   𝐼 − 𝐽 # 𝐽 , and 𝜉 ∈ ℝ𝑛 is an arbitrarily selected vector. Note that there are
+developed to iteratively update the impedance parameters for the robot       many kinds of generalized inverse 𝐽 # (𝑞), and one choice is the weighted
+to interact with the unknown environment. The developed impedance            generalized-inverse as below [17]
+learning framework is much simpler than the actor-critic based rein-
+forcement learning method in [24,25], and updates the stiﬀness and           𝐽 # = 𝑊𝐽−1 𝐽 𝑇 (𝐽 𝑊𝐽−1 𝐽 𝑇 )−1                                             (3)
+damping parameters simultaneously.                                           with 𝑊𝐽 ∈ ℝ𝑛×𝑛 being a selected weighting matrix.
+    It should also be noted that uncertainties may inevitably exist in a         Note that the rank of the null space matrix N is 𝑟 = 𝑛 − 𝑚 which
+robotic system due to the factors like external disturbances, measure-       means N is not of full rank and this may cause degradation of the con-
+ment noises and frictions, which have a major inﬂuence on the con-           trol performance [19]. To deal with this problem, an auxiliary velocity
+trol accuracy. Approximation-based techniques like neural network or         vector ϑ is introduced by using a joint space decomposition algorithm
+fuzzy logic systems can be used to solve the problem [28–31]. How-           as follows,
+ever, the increased computational cost may prevent the applications for
+                                                                             𝑞̇ 𝑛 = 𝑁𝜉 = 𝑍(𝑞)𝜗                                                          (4)
+real-time system. Another widely used approach to address the external
+disturbances is adaptive disturbance observers (DOB) [32–34]. Compar-        where 𝑞̇ 𝑛 is deﬁned in (2), which denotes the null motion, Z(q) is a n × r
+ing with neural network, the DOB is more eﬀective method for on-line         matrix, which is of full column rank and chosen to satisfy 𝐽 (𝑞 )𝑍(𝑞 ) = 0,
+applications. A DOB was designed to deal with the negative eﬀects of         while 𝜗 ∈ ℝ𝑟 is a minimal null-space velocity vector [19].
+the disturbances of a ﬂapping wing micro aerial vehicle [35]. In [36], a        To obtain the relation between the null-space velocity ϑ and joint
+nonlinear disturbance observer was designed for the estimation of un-        velocity 𝑞̇ , the generalized inverse is employed as below,
+known disturbances as well as unmeasured states. In [37], a high-order       𝜗 = 𝑍 # (𝑞)𝑞̇                                                              (5)
+disturbance observer was used for a mobile wheeled inverted pendulum
+                                                                             where 𝑍 # ∈ ℝ𝑟×𝑛 is a weighted generalized inverse matrix of Z, which
+by using optimal gain matrices. The disturbance observers combining
+                                                                             is deﬁned by
+with sliding mode control were also designed for discrete-time systems
+[38,39]. Inspired by the idea of DOB, in this paper, an adaptive DOB         𝑍 # = (𝑍 𝑇 𝑊𝑍 𝑍 )−1 𝑍 𝑇 𝑊𝑍                                                 (6)
+is further developed to compensate for the disturbances caused by sys-       with 𝑊𝑍        ∈ ℝ𝑛×𝑛 being a weighting matrix.
+tem uncertainties and external forces during the motion of the robot.           Until now, the inverse kinematics can be represented by combin-
+The proposed approach is able to enhance task tracking accuracy of           ing (2) and (4) as 𝑞̇ = 𝐽 # (𝑞 )𝑥̇ + 𝑍(𝑞 )𝜗. In addition to the kinematics, the
+the multi-hierarchal control scheme. The main contributions of the pro-      robot dynamics can be formulated by using Lagrangian method,
+posed control scheme are listed as below.
+                                                                             𝑀(𝑞 )𝑞̈ + 𝐶(𝑞 , 𝑞̇ )𝑞̇ + 𝐺(𝑞 ) + 𝜏𝑒 = 𝜏                                     (7)
+  • Develop a multi-priority algorithm to enable the redundant robot to
+                                                                             where 𝑀(𝑞) ∈ ℝ𝑛×𝑛 is the inertia/mass matrix, 𝐶(𝑞, 𝑞̇ ) ∈ ℝ𝑛×𝑛 and 𝐺(𝑞) ∈
+    perform compliant joint movements without aﬀecting the tracking
+                                                                             ℝ𝑛 denote Coriolis and centrifugal matrix and gravity term, respectively.
+    control of the end-eﬀector by using a null space projection technique.
+                                                                             𝜏𝑒 ∈ ℝ𝑛 is external joint torque while 𝜏 ∈ ℝ𝑛 is the joint driving torque.
+  • Enable the robot to interact with an unknown environment without
+                                                                             Note that in a human-robot interaction scenario, the external torque
+    using priori environmental information by employing an iterative
+                                                                             𝜏 e applied on the joint may be caused by two kinds of forces, i.e., an
+    impedance learning algorithm.
+                                                                             interaction force 𝑓𝑒 ∈ ℝ𝑚 applied on the end-eﬀector and an interactive
+  • Integrate an adaptive disturbance observer to compensate for the ex-
+                                                                             contact force 𝑓𝑖 ∈ ℝ𝑚 applied on the links, which are depicted in Fig. 1.
+    ternal disturbances caused by measurement noises, external forces
+                                                                             Here, 𝜏 e can be represented as a net torque as below [40]
+    and frictions. Therefore, the tracking accuracy of the proposed con-
+                                                                                                 𝑘
+                                                                                                 ∑
+    trol scheme is guaranteed.
+                                                                             𝜏𝑒 = 𝐽 𝑇 (𝑞)𝑓𝑒 +          𝐽𝑖𝑇 (𝑞)𝑓𝑖                                        (8)
+   The rest of this paper is organized as follows. Preliminaries of the                          𝑖=1
+redundant robots and learning framework are given in Section 2. The          where fi denotes the ith interactive contact force at robot body, and Ji
+control design procedure is presented in Section 3, where the control        is the manipulator Jacobian matrix associated with ith contact force.
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                                                                  Mechatronics 67 (2020) 102348
+
+
+                                                                                                If the initial condition is chosen to 𝑟𝑘 (0) = 𝑟𝑑 (0) with det |𝐶(𝑡)𝐵(𝑡)| ≠ 0,
+                                                                                           then we can conclude from [41] that the system (11) is convergent with
+                                                                                           rk (t) → rd (t) uniformly in the period t ∈ [0, tf ] with k → ∞, where tf is the
+                                                                                           iteration period.
+
+                                                                                               To employ the above betterment scheme to learn the impedance pa-
+                                                                                           rameters, a cost function ℵ ∈ ℝ is designed to evaluate the performance
+                                                                                           of the impedance control. An example of the cost function can be se-
+                                                                                           lected as a combination of position tracking errors and interaction forces
+                                                                                           to regulate the interaction performance.
+                                                                                               To make the environmental dynamics (9) be coherent with the linear
+                                                                                           system form in (11), the environment model (9) can be rewritten as
+                                                                                           below
+
+                                                                                           ⎡𝛿̇ 1 ⎤ ⎡     0                             𝐼                         0⎤
+                                                                                           ⎢𝛿̇ ⎥ = ⎢−𝑀 −1 (𝑡)𝐺 (𝑡)                −𝑀𝑒−1 (𝑡)𝐶𝑒 (𝑡)                0⎥                           (13)
+                                                                                                      𝑒       𝑒
+                                                                                           ⎢̇ ⎥ ⎢
+                                                                                               2
+                                                                                                                                                                  ⎥
+                      Fig. 1. A robot interacts with an environment.                       ⎣ 𝛿3 ⎦ ⎣      0                             0                         0⎦
+                                                                                                                ⎡ 0 ⎤
+                                                                                                        ⎡𝛿1 ⎤ ⎢        ⎥
+2.2. Impedance control                                                                                           −𝑀𝑒−1 ⎥
+                                                                                                       ×⎢𝛿2 ⎥ + ⎢        𝑓 (𝑡)                                                                (13)
+                                                                                                        ⎢ ⎥ ⎢ 𝐼 ⎥ 𝑒
+                                                                                                        ⎣𝛿3 ⎦ ⎢        ⎥
+    Assume that the robot end-eﬀector is contacting with the environ-                                           ⎣      ⎦
+ment, for example, a vertical bar connecting with a mass-damping-
+                                                                                                                                                                 𝑡
+spring model as depicted in Fig. 1,                                                        where 𝛿1 (𝑡) = 𝑥(𝑡), 𝛿2 (𝑡) = 𝑥̇ (𝑡) and 𝛿3 (𝑡) = ∫0 𝑓𝑒 (𝑟)𝑑𝑟. More compactly, the
+                                                                                           above equation can be rewritten as
+𝑀𝑒 (𝑡)𝑥̈ (𝑡) + 𝐶𝑒 (𝑡)𝑥̇ (𝑡) + 𝐺𝑒 (𝑡)𝑥(𝑡) = 𝑓𝑒 (𝑡)                                    (9)
+where 𝑀𝑒 ∈ ℝ𝑚×𝑚 , 𝐶𝑒 ∈ ℝ𝑚×𝑚 and 𝐺𝑒 ∈ ℝ𝑚 are the inertia matrix, damp-                      𝜁̇ (𝑡) = 𝜁 (𝑡) + 𝑓𝑒 (𝑡)
+ing matrix and stiﬀness matrix, respectively, the subscript e denotes the                  𝑟(𝑡) = (𝑡)𝜁 (𝑡)                                                                                   (14)
+‘environment’ and fe (t) is the force applied on the end-eﬀector. Note
+the above model is often used to describe the environment in interac-                                           𝛿1                  0
+tion scenarios, e.g., an elastic ball [8] or a human limb in human-robot                   where           𝜁 = [𝛿2 ],        = [−𝑀𝑒−1 ]            and          =
+interactions [1]. Also, note that the model is unknown in a real imple-                                         𝛿3                  𝐼
+mentation and it is only used for analysis.                                                       0                 𝐼        0
+    In order to control the robot to interact with the environment, a                      [−𝑀𝑒−1 (𝑡)𝐺𝑒 (𝑡) −𝑀𝑒−1 (𝑡)𝐶𝑒 (𝑡) 0].  is a mapping matrix, which
+Cartesian impedance control model is considered as follows                                        0                 0        0
+                                                                                           is designed according the requirement of the task.
+𝑀𝑑 (𝑥̈ 𝑑 − 𝑥̈ 𝑟 ) + 𝐶𝑑 (𝑞, 𝑞̇ )(𝑥̇ 𝑑 − 𝑥̇ 𝑟 ) + 𝐺𝑑 (𝑞)(𝑥𝑑 − 𝑥𝑟 ) = 𝑓𝑒 (𝑡)           (10)       According to (12), the desired interaction force fe (t) in (14) should
+where 𝑀𝑑      ∈ ℝ𝑚×𝑚 is a selected inertia matrix, 𝐶 𝑑              ∈ ℝ𝑚×𝑚 is a selected   be updated by
+damping matrix and 𝐺𝑑 ∈ ℝ𝑚 is a selected stiﬀness matrix, 𝑥𝑑 ∈ ℝ𝑚 is
+                                                                                           𝑓𝑒𝑘 (𝑡) = 𝑓𝑒𝑘−1 (𝑡) − 𝜆(𝑟̇ 𝑘 (𝑡) − 𝑟̇ 𝑑 (𝑡))                                                       (15)
+the desired end-eﬀector trajectory, while 𝑥̇ 𝑑 ∈ ℝ𝑚 and 𝑥̈ 𝑑 ∈ ℝ𝑚 are the
+desired velocity and acceleration, respectively. 𝑥𝑟 ∈ ℝ𝑚 is a reference                    where 𝜆 is the gain parameter deﬁned in (12), which guarantees 𝑟̇ 𝑘 (𝑡) →
+trajectory in Cartesian Space, 𝑥̇ 𝑟 ∈ ℝ𝑚 and 𝑥̈ 𝑟 ∈ ℝ𝑚 are the ﬁrst and sec-               𝑟̇ 𝑑 (𝑡) when k → ∞. In this way, the error between rk (t) and rd (t) can
+ond order derivatives of xr , respectively.                                                be reduced by iteratively updating fe in terms of Lemma 1. And it can
+    Generally, if the environmental parameters are known accurately,                       further converge to zero if rk (0) equal to rd (0).
+we can obtain the reference trajectory xr directly from the impedance                             To achieve this objective, here we design a cost function 𝜽 = ||𝑟(𝑡) −
+model (10). However, it is extremely hard to acquire an accurate envi-                     𝑟𝑑 (𝑡)||2 ∈ ℝ, where || · ||2 is the 2-norm. Then the iterative law can be
+ronmental model in some practical scenarios, e.g., human limbs. With-                      designed as
+out suitable parameters, the reference trajectory xr can not be generated                  𝑓𝑒𝑘 (𝑡) = 𝑓𝑒𝑘−1 (𝑡) − 𝛼(𝜕 𝜽𝑘 (𝑡)∕𝜕 𝑓𝑒𝑘 (𝑡))𝑇                                                       (16)
+appropriately, so the interaction with the unknown environment may
+fail. In this regard, a learning mechanism is necessary to ﬁnd the robot’s                 where 𝛼 ∈ ℝ is a selected learning rate. Comparing with (15) and (16),
+impedance parameters Md (t), Cd (t) and Gd (t) for obtaining desired in-                   we have
+teraction performance.                                                                     𝛼(𝜕 𝜽𝑘 (𝑡)∕𝜕 𝑓𝑒𝑘 (𝑡))𝑇 = 𝜆(𝑟̇ 𝑘 (𝑡) − 𝑟̇ 𝑑 (𝑡))                                                    (17)
+
+2.3. Impedance learning scheme                                                             This equation gives the relationship between the designed cost function
+                                                                                           𝜽 and the output error of 𝑟̇ 𝑘 . Also, the partial derivative of (10) with
+                                                                                           respect to fe yields
+Lemma 1. Let us consider a linear time-varying system as below [41]
+                                                                                           𝜕𝑓𝑒𝑘 (𝑡)𝑇                𝜕𝑓𝑒𝑘 (𝑡)𝑇
+𝜁̇ (𝑡) = (𝑡)𝜁 (𝑡) + (𝑡)𝑢(𝑡)                                                                           = 𝑒̇ 𝑘𝑥 ,                 = 𝑒𝑘𝑥                                                       (18)
+                                                                                            𝜕𝐶𝑑𝑘 (𝑡)                𝜕𝐺𝑑𝑘 (𝑡)
+𝑟(𝑡) = (𝑡)𝜁 (𝑡)                                                                    (11)
+                                                                                           where 𝑒𝑥 = 𝑥𝑑 − 𝑥𝑟 .
+where 𝜁 (t) is a state space vector, u(t) is the input of the system, (𝑡), (𝑡)              Based on the above two equations, here we can design the learning
+and (𝑡) are time-varying parametric matrices. The control input is chosen                 law of the impedance parameters as follows
+to update iteratively as                                                                                                (               )𝑇
+ 𝑘          𝑘−1                       𝑘                                                                                     𝜕 𝜽𝑘 (𝑡)
+                                                                                           𝐶𝑑𝑘 = 𝐶𝑑𝑘−1 (𝑡) − 𝛼𝐶
+                                                                                                              ′
+𝑢 (𝑡) = 𝑢         (𝑡) + 𝝀[𝑟̇ 𝑑 (𝑡) − 𝑟̇ (𝑡)]                                        (12)
+                                                                                                                            𝜕 𝐶𝑑𝑘 (𝑡)
+where k denotes the iteration step, rd (t) is the desired output and 𝝀 ∈ ℝ is a                                         (               )𝑇 (                )𝑇
+parameter satisfying ||𝐼 − 𝜆(𝑡)(𝑡)||∞ < 1, with I being an identity matrix                                                𝜕𝑓 𝑘 (𝑡)           𝜕 𝜽𝑘 ( 𝑡 )
+                                                                                                = 𝐶𝑑𝑘−1 (𝑡) − 𝛼𝐶
+                                                                                                                    ′
+
+of a proper dimension.                                                                                                      𝜕 𝐶𝑑𝑘 (𝑡)          𝜕 𝑓 𝑘 (𝑡)
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                                              Mechatronics 67 (2020) 102348
+
+
+
+
+                                                                 Fig. 2. Control block of the overall system.
+
+
+
+    = 𝐶𝑑𝑘−1 (𝑡) − 𝛼𝐶 𝑒̇ 𝑘𝑥 (𝑟̇ 𝑘 (𝑡) − 𝑟̇ 𝑑 (𝑡))                                         with multi-priority tasks. Speciﬁcally, the objectives of the robot motion
+                     (                )𝑇                                                 control are twofold:
+  𝑘     𝑘−1        ′       𝜕 𝜽𝑘 ( 𝑡 )
+𝐺 𝑑 = 𝐺 𝑑 ( 𝑡 ) − 𝛼𝐺                                                                         (i) Design a ﬁrst-priority controller to track a predeﬁned trajectory
+                           𝜕 𝐺𝑑𝑘 (𝑡)
+                     (                )𝑇 (                                                       xr in the task space with learned impedance parameters, such
+                                                        )𝑇
+                           𝜕𝑓 𝑘 (𝑡)            𝜕 𝜽𝑘 (𝑡)                                          that desired impedance behaviours of the end-eﬀector could be
+    = 𝐺𝑑𝑘−1 (𝑡) − 𝛼𝐺
+                   ′
+                                 𝑘
+                           𝜕 𝐺𝑑 (𝑡)               𝑘
+                                               𝜕 𝑓 (𝑡)                                           achieved.
+                                                                                            (ii) Design a second-priority controller in the null space of the main
+     = 𝐺𝑑𝑘−1 (𝑡) − 𝛼𝐺 𝑒𝑘𝑥 (𝑟̇ 𝑘 (𝑡) − 𝑟̇ 𝑑 (𝑡))                                (19)              task to provide compliant joint motion under interactive contact
+                    ′                         ′              ′     ′                             force.
+where 𝛼𝐶 = 𝜆𝛼𝐶 ∕𝛼 ∈ ℝ, 𝛼𝐺 = 𝜆𝛼𝐺 ∕𝛼 ∈ ℝ, with 𝛼𝐶 and 𝛼𝐺 being the de-
+signed learning rates.
+                                                                                         3.2. Extended velocity and decoupled dynamics
+Remark 1. The adaptation of impedance parameters in (19) is designed
+to iteratively adjust the interaction force towards a direction that the                      From Eqs. (2) and (4), the joints’ motion is composed of two com-
+cost function 𝜽 can be gradually reduced. Note that in this paper, we only               ponents, corresponding to the task space velocity and the null space
+update the parameters Cd and Gd , while Md is chosen as the apparent                     velocity. For ease of the system analysis, an extended velocity vector 𝑥̇ 𝑒
+inertia since an arbitrary Md may lead to instability of the system.                     is introduced by including both the task velocity and null space velocity
+                                                                                         as
+Remark 2. The designed cost function 𝜽 = ||𝑟(𝑡) − 𝑟𝑑 (𝑡)||2 plays a role                        [ ]           [       ]
+to keep the balance between fe and ex by updating the impedance                                  𝑥̇             𝐽 (𝑞)
+                                                                                         𝑥̇ 𝑒 =     = 𝐽𝑒 𝑞̇ =           𝑞̇                                    (20)
+parameters. For instance, if we select the cost function as 𝜽 = ||𝑎𝑒𝑥 −                          𝜗              𝑍 (𝑞)
+                                                                                                                 #
+    𝑡
+𝑏 ∫0 𝑒𝑓 (𝑠)𝑑𝑠||2 , 𝑒𝑓 = 𝑓𝑒 − 𝑓𝑑 with fd being the desired interaction force,                                𝐽 (𝑞)
+while a and b are positive constants, the adaptation is to ﬁnd a bal-                    where 𝐽𝑒 (𝑞) = [          ]. Let 𝐽𝑒# (𝑞) be the generalized inverse of Je (q) with
+                           𝑡
+                                                                                                            𝑍 # (𝑞)
+ance between ex and ∫0 𝑒𝑓 (𝑠)𝑑𝑠 and to make 𝜽 as small as possible. In                               𝐽 #𝑇 (𝑞)
+this respect, the learning algorithm is to provide a stable adaptation of                𝐽𝑒#𝑇 (𝑞) = [ 𝑇 ]. It is trivial to have 𝐽𝑒# (𝑞)𝐽𝑒 = 𝐼 and 𝐽𝑒 𝐽𝑒# (𝑞)𝐽𝑒 = 𝐽𝑒 .
+                                                                                                     𝑍 (𝑞)
+the reference trajectory, to make the interaction force become smaller.                      From the Eq. (20), the mapping between 𝑥̇ 𝑒 and 𝑞̇ is obtained. The
+However, if the robot end-eﬀector is in contact with an environment                      time derivative of (20) yields 𝑥̈ 𝑒 = 𝐽𝑒 𝑞̈ + 𝐽̇𝑒 𝑞̇ . Then, we can decouple the
+surface, there will be always a counterforce applied on the robot, thus                  dynamics of the robot (7) into two subsystems, i.e., the task space dy-
+the interactive force may not converge to zero.                                          namics and the null space dynamics.
+                                                                                             Premultiplying 𝐽𝑒#𝑇 on both sides of (7), and taking 𝑞̇ = 𝐽 # 𝑥̇ + 𝑍(𝑞)𝜗
+3. Control design for the redundant robot
+                                                                                         into consideration, we can reformulate the system as below
+
+3.1. Control objective                                                                   𝐽𝑒#𝑇 𝜏 = Ξ𝑒 (𝑞)𝑥̈ 𝑒 + 𝜂𝑒 (𝑞, 𝑞̇ )𝑥̇ 𝑒 + 𝐽𝑒#𝑇 𝐺(𝑞)
+                                                                                                      + 𝐽𝑒#𝑇 𝜏𝑒                                                           (21)
+    Through the impedance learning in the last section, a group of
+impedance parameters Md , Cd and Gd can be obtained and the reference                    where
+trajectory xr , 𝑥̇ 𝑟 and 𝑥̈ 𝑟 can be calculated from the impedance model                                              [ #𝑇                    ]
+                                                                                                                       𝐽 𝑀𝐽 #    𝐽 #𝑇 𝑀𝑍
+(10).                                                                                    Ξ𝑒 = 𝐽𝑒#𝑇 𝑀𝐽𝑒# =
+    Note that for a redundant robot, the inverse solution of joint veloc-                                               𝑍𝑀𝐽 #    𝑍 𝑇 𝑀𝑍
+                                                                                                 [                ]
+ity is not unique since the DOF of the task space is less than the DOF                               𝜂11    𝜂12
+                                                                                          𝜂𝑒 =                                                                            (22)
+of joints. In other words, we have multiple solutions of the joint veloc-                            𝜂21    𝜂22
+ity. In this paper, we develop a multi-hierarchy robot motion controller
+by employing the null space projection. The control framework of the                     with
+proposed controller is illustrated in Fig. 2. There are mainly two compo-
+                                                                                         𝜂11 (𝑞, 𝑞̇ ) = (𝐽 #𝑇 𝐶(𝑞, 𝑞̇ ) − 𝐽 #𝑇 𝑀𝐽 # 𝐽̇ )𝐽 #
+nents of the controller, i.e., an outer loop impedance learning controller
+which responses for learning appropriate impedance parameters, and                       𝜂12 (𝑞, 𝑞̇ ) = (𝐽 #𝑇 𝐶(𝑞, 𝑞̇ ) − 𝐽 #𝑇 𝑀𝐽 # 𝐽̇ )𝑍
+an inner loop robot motion controller which is able to control the robot                 𝜂21 (𝑞, 𝑞̇ ) = (𝑍 𝑇 𝐶(𝑞, 𝑞̇ ) − 𝑍 𝑇 𝑀𝑍 𝑍̇ # )𝑍
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                                 Mechatronics 67 (2020) 102348
+
+
+𝜂22 (𝑞, 𝑞̇ ) = (𝑍 𝑇 𝐶(𝑞, 𝑞̇ ) − 𝑍 𝑇 𝑀𝑍 𝑍̇ # )𝐽 #                                3.4. Controller design for the null space motion
+
+    Note that in (22), the matrix Ξe is not diagonal, thus the oﬀ-diagonal
+                                                                                    In order to accomplish the second control objective, namely, to guar-
+terms are coupled. To control the motion of the task space and null space
+                                                                                antee a compliant joint motion without aﬀecting the main task when
+independently, we need to properly address these terms. Inspired by the
+                                                                                interactive contact forces are acted on the robot, the null space acceler-
+work in [18], an inertia-weighted generalized inverse is introduced by
+                                                                                ation command is chosen as below
+selecting 𝑊𝐽 = 𝑊𝑍 = 𝑀 in (3) and (5), such that
+{ #                                                                             𝜗̇ 𝑐 = 𝜗̇ 𝑑 + Ξ−1           ̃    𝑇
+                                                                                               𝜗 ((𝐾𝑣 + 𝜂𝜗 )𝜗 + 𝑍 𝐾𝜙 𝑞̃)                                     (32)
+  𝐽 = 𝑀 −1 𝐽 𝑇 (𝐽 𝑀 −1 𝐽 𝑇 )−1
+                                                                      (23)
+  𝑍 # = (𝑍 𝑇 𝑀𝑍 )−1 𝑍 𝑇 𝑀                                                       where 𝜗𝑑 ∈ ℝ𝑟 is the desired null motion, 𝜗̃ = 𝜗 − 𝜗𝑑 , 𝐾𝑣 ∈ ℝ𝑟×𝑟 and
+                                                                                𝐾𝜙 ∈ ℝ𝑛×𝑛 are selected gain matrices, and 𝜂 ϑ is designed to deal with
+Note 𝐽 (𝑞 )𝑍(𝑞 ) = 0 according to (4), then we have 𝐽 #𝑇 𝑀 𝑍 = 𝑍𝑀 𝐽 # = 0.
+                                                                                the Coriolis and centrifugal torque in the null space.
+Thus, Ξe becomes
+     [ #𝑇             ]                                                            Substituting (32) into (25), we have
+      𝐽 𝑀𝐽 #        0
+Ξ𝑒 =                                                                    (24)
+          0       𝑇
+                 𝑍 𝑀𝑍                                                           𝐹𝜗 = Ξ𝜗 (𝜗̇ 𝑑 + Ξ−1            ̃     𝑇
+                                                                                                 𝜗 ((𝐾𝑣 + 𝜂𝜗 )𝜗 + 𝑍 𝐾𝜙 𝑞̃)) + 𝜂𝜗 + 𝑔𝜗 (𝑞)
+From (24) we can see that Ξe is a block diagonal matrix. Thus the dy-              = Ξ𝜗 𝜗̇ 𝑑 + (𝐾𝑣 + 𝜂𝜗 )𝜗̃ + 𝑍 𝐾𝜙 𝑞̃ + 𝜂𝜗 + 𝑔𝜗 (𝑞)
+                                                                                                               𝑇
+                                                                                                                                                             (33)
+namics of task space motion and null motion are decoupled in the accel-
+eration level. Then controllers for the two subsystems can be designed          Then the closed-loop dynamics of the robot can be derived based on
+individually.                                                                   (21) and (33) as
+   Let us deﬁne Ξ𝑥 = 𝐽𝑒#𝑇 𝑀𝐽𝑒# = (𝐽 𝑀 −1 𝐽 𝑇 )−1 and Ξ𝜗 = 𝑍 𝑇 𝑀𝑍, then          Ξ𝜗 𝜗̃̇ + (𝐾𝑣 + 𝜂𝜗 )𝜗̃ + 𝑍 𝑇 𝐾𝜙 𝑞̃ = 𝑍 𝑇 𝜏𝑒                                   (34)
+the force control terms can be rewritten as bellow,
+{                                                                               We can see from (34) that, although Ξϑ and 𝜂 ϑ are reserved by the robot
+  𝐹𝑥 = Ξ𝑥 𝑥̈ 𝑐 + 𝜂𝑥 + 𝑔𝑥 (𝑞) + 𝐽 #𝑇 𝜏𝑒                                          dynamics, the impedance behaviour of the null space motion can be pre-
+                                                                   (25)
+  𝐹𝜗 = Ξ𝜗 𝜗̇ 𝑐 + 𝜂𝜗 + 𝑔𝜗 (𝑞)                                                    served by selecting proper Kv and K𝜙 . Note that the external force 𝜏 e in
+                                                                                                                                               ∑
+where Fx denotes the task space control force, Fϑ denotes the null space        (8) is composed by two parts, i.e., 𝜏𝑒1 = 𝐽 𝑇 (𝑞)𝑓𝑒 and 𝜏𝑒2 = 𝑘𝑖=1 𝐽𝑖𝑇 (𝑞)𝑓𝑖 .
+                           𝐹                𝐽 #𝑇                                By multiplying Z (q) on both sides of 𝜏 e1 and considering 𝐽 𝑍 = 0, we
+                                                                                                  T
+control force with [ 𝑥 ] = 𝐽𝑒#𝑇 𝜏 = [ 𝑇 ]𝜏, 𝑥̈ 𝑐 , 𝜗̇ 𝑐 are commanded accel-
+                           𝐹𝜗               𝑍                                   can obtain 𝑍 𝑇 (𝑞)𝜏𝑒1 = 𝑍 𝑇 (𝑞)𝐽 𝑇 (𝑞)𝑓𝑒 = 0. This implies that the force ap-
+eration trajectories which will be designed later, 𝜂𝑥 = 𝜂11 𝑥̇ + 𝜂12 𝑍 # 𝑞̇ ,   plied in the main task space will not transfer to the null space.
+𝜂𝜗 = 𝜂21 𝑥̇ + 𝜂22 𝑍 # 𝑞̇ , 𝑔𝑥 (𝑞) = 𝐽 #𝑇 𝐺(𝑞), 𝑔𝜗 (𝑞) = 𝑍 𝑇 𝐺(𝑞).
+                                                                                Remark 4. To achieve an appropriate null space motion, the desired
+3.3. Controller design for the task space motion                                null space velocity should be speciﬁed. A possible choice is to set the de-
+                                                                                sired null space velocity as zero to allow the robot to maintain the initial
+   As discussed above, the control goal of the task space motion is to fol-     conﬁguration. More commonly null space motions can be obtained us-
+low a predeﬁned trajectory. Prior to the controller design, error signals       ing an optimization method with speciﬁed performance criterion, such
+are designed as below                                                           as maximized manipulatability or minimized joint eﬀort [43].
+
+𝑒 = 𝑥 − 𝑥𝑟                                                              (26)        Combining the control commands in (31) and (33) with the deﬁni-
+                                                                                tions of Fx and Fϑ in (25), we can rewrite the control torque as
+𝑧 = 𝑥̇ − 𝑥̇ 𝑠                                                           (27)    𝜏 = 𝜏𝑡 + 𝜏𝑛                                                                  (35)
+where 𝑥̇ 𝑠 = 𝑥̇ 𝑟 + 𝐾𝑎 𝑒 with Ka being a positive deﬁnite matrix.               with
+  The acceleration command xc is deﬁned as below,                                       (                                                    )
+                                                                                𝜏𝑡 = 𝐽 𝑇 Ξ𝑥 (𝑥̈ 𝑠 − Ξ−1                                #𝑇
+                                                                                                     𝑥 (𝐾𝑝 + 𝜂𝑥 )𝑧) + 𝜂𝑥 + 𝑔𝑥 (𝑞) + 𝐽 𝜏̂𝑒
+𝑥̈ 𝑐 = 𝑥̈ 𝑠 − Ξ−1
+               𝑥 (𝐾𝑝 + 𝜂𝑥 )𝑧                                            (28)
+                                                                                         (                                                 )
+where Kp is a positive deﬁnite matrix. Here, 𝜂 x is introduced to deal with     𝜏𝑛 = 𝑍 #𝑇 Ξ𝜗 𝜗̇ 𝑑 + (𝐾𝑣 + 𝜂𝜗 )𝜗̃ + 𝑍 𝑇 𝐾𝜙 𝑞̃ + 𝜂𝜗 + 𝑔𝜗 (𝑞)                   (36)
+the Coriolis and centrifugal force of the task space.
+   Substituting (28) into (25), we have the following task space control        From the above analysis, we can see that the control torque consists of
+law                                                                             two parts, which are responsible for controlling the task space motion
+                                                 #𝑇                             and the null space motion. The control block of the overall system is
+𝐹𝑥 = Ξ𝑥 (𝑥̈ 𝑠 − Ξ−1
+                 𝑥 (𝐾𝑝 + 𝜂𝑥 )𝑧) + 𝜂𝑥 + 𝑔𝑥 (𝑞) + 𝐽 𝜏𝑒                    (29)
+                                                                                depicted as shown in Fig. 2.
+     However, 𝜏 e may not be available due to the lack of the sensors,
+which will resulted in the degradation of the control performance. To           3.5. Stability analysis
+compensate for the external disturbances and improve the tracking per-
+formance, an adaptive disturbance observer 𝜏̂𝑒 is developed to replace              To prove the stability of the hierarchical control framework, a con-
+𝜏 e in (29). Moreover, the adaptation law is designed as below [42],            ditional stability analysis was performed in previous studies [43,44]. In
+𝜏̂̇ 𝑒 = Γ−1 𝐽 # 𝑧                                                       (30)    this section, the stability proof is performed based on the conditional
+                                                                                stability and the following theorem is presented.
+where Γ is a designed positive deﬁnite matrix.
+                                                                                Theorem 1. Given a redundant robot with the dynamics described in
+Remark 3. Note that the task space tracking errors caused by the inter-         (7) and under an assumption of constant (or slowly time-varying) unknown
+action forces can also be eliminated by choosing a high gain controller,        external torque, the control laws proposed in (29), (33) and (35), and the
+but this may often lead to oscillation phenomenon. Through estimation           adaptive law in (30) can guarantee the tracking control of the desired task
+of the disturbance, the adaptive disturbance observer can be a more             space trajectory xr under the interaction forces, while providing a complaint
+eﬀective method to reduce the tracking errors.                                  behaviour of null motion in joint space when interactive contact forces are
+   Combining (21) and (29), we can obtain the error dynamics in the             acted on the robot body.
+task space as below
+                                                                                Proof. Let us consider a Lyapunov function 𝑉𝑥 ∈ ℝ as
+Ξ𝑥 𝑧̇ = −(𝐾𝑝 + 𝜂𝑥 )𝑧 + 𝐽 #𝑇 𝜏̃𝑒                                         (31)           1 𝑇       1
+                                                                                𝑉𝑥 =     𝑧 Ξ𝑥 𝑧 + 𝜏̃𝑒𝑇 Γ𝜏̃𝑒                                                  (37)
+where 𝜏̃𝑒 = 𝜏𝑒 − 𝜏̂𝑒 .                                                                 2         2
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                                           Mechatronics 67 (2020) 102348
+
+
+The time derivative of (37) can be derived as                                              4. Experimental studies
+                 1
+𝑉̇ 𝑥 = 𝑧𝑇 Ξ𝑥 𝑧̇ + 𝑧𝑇 Ξ̇ 𝑥 𝑧 + 𝜏̃𝑒𝑇 Γ𝜏̃̇ 𝑒                                          (38)
+                 2                                                                         4.1. Experimental set-up
+Substituting (31) into (38), we have
+                                      1                                                        To further investigate the eﬀectiveness of the proposed impedance
+𝑉̇ 𝑥 = 𝑧𝑇 (−(𝐾𝑝 + 𝜂𝑥 )𝑧 + 𝐽 #𝑇 𝜏̃𝑒 ) + 𝑧𝑇 Ξ̇ 𝑥 𝑧 + 𝜏̃𝑒𝑇 Γ𝜏̃̇ 𝑒       (39)                  learning and control algorithm, experimental studies are conducted on
+                                      2
+                                                                                           a Sawyer robot as shown in Fig. 3. The Sawyer robot is a collabora-
+during the interaction, by assuming that the interactive contact force is
+                                                                                           tive robot developed with built-in software development kits (SDK) and
+ﬁxed or changed slowly. Substituting the adaptive law (30) into (39) and
+                                                                                           sensitive torque/position sensors, which allow the robot to work safely
+considering that Ξ𝑥 − 2𝜂𝑥 is a skew-symmetric matrix, then we can de-
+                                                                                           around people.
+rive
+                                                                                               An overview of the experimental set-up is depicted in Fig. 3.
+𝑉̇ 𝑥 = −𝑧𝑇 𝐾𝑝 𝑧 − 𝜏̃𝑒𝑇 𝐽 # 𝑧 + 𝑧𝑇 𝐽 #𝑇 𝜏̃𝑒                                         (40)    The robot platform is a redundant robot which equips with 7 se-
+Note that 𝜏̃𝑒𝑇 𝐽 # 𝑧 = ((𝜏̃𝑒𝑇 𝐽 # 𝑧)𝑇 )𝑇 = (𝑧𝑇 (𝜏̃𝑒𝑇 𝐽 # )𝑇 )𝑇 = 𝑧𝑇 𝐽 #𝑇 𝜏̃𝑒 , where the   ries elastic actuators (SEA) joints providing torques maximumly at
+property 𝑎 = 𝑎𝑇 holds for a given constant scalar a. Therefore, the terms                  [80,80,40,40,9,9,9] Nm with respect to each joint. 3 joints are equipped
+𝜏̃𝑒𝑇 𝐽 # 𝑧 and 𝑧𝑇 𝐽 #𝑇 𝜏̃𝑒 are cancelled by each other in (40) and we have that            on the wrist, 2 joints are on the elbow and 2 joints are on the shoul-
+                                                                                           der. The controller runs in a server computer (Z230, HP, US) with a
+𝑉̇ 𝑥 = −𝑧𝑇 𝐾𝑝 𝑧 ≤ 0                                                                (41)    3.5Ghz × 8 XEON CPU, a 16 GB memory and a 500 GB hard disk. We de-
+                                                                                           velop the controller by Robot Operating System (ROS) under the Ubuntu
+From (41) we can see that 𝑉̇ 𝑥 is negative unless z equals to zero. This
+                                                                                           system, with a Sawyer intera SDK provided by the manufacturer. In the
+means that Vx will decrease until 𝑧 = 0. According to LaSalle’s invari-
+                                                                                           experiment, the controller sends control torque to the robot through
+ance principle [45], we can derive that z is asymptomatically stable, and
+                                                                                           Ethernet connection at a frequency of 500Hz.
+𝜏̃𝑒 is uniformly ultimately bounded. According to the deﬁnition of z, we
+can also obtain that 𝑒 = 0 and 𝑒̇ = 0, which imply that tracking of the
+                                                                                           4.2. Veriﬁcation of the robot motion controller
+end-eﬀector position is achieved.
+     A conditional stability is employed to prove the stability of the null
+                                                                                              In order to verify the tracking control performance of our proposed
+space motion control. In a subset of  = {𝑞̃, 𝜗̃ , 𝜏̃𝑒 , 𝑧 = 0, 𝑒 = 0}, a positive
+                                                                                           controller in the presence of interactive contact forces, two experimental
+deﬁnite Lyapunov candidate 𝑉 is considered as follows,
+                                                                                           cases are conducted on the Sawyer robot, i.e., a set-point regulation case
+     1 ̃𝑇           1           1
+𝑉𝜗 =   𝜗 Ξ𝜗 (𝑞 )𝜗̃ + 𝑞̃𝑇 𝐾𝜙 𝑞̃ + 𝜏̃𝑒𝑇 Γ𝜏̃𝑒                                         (42)    and a trajectory tracking case.
+     2              2           2
+Taking the time derivative of (42), we have                                                4.2.1. Set-point regulation case
+                                                                                               In the ﬁrst experimental case, the robot end-eﬀector is controlled to
+𝑉̇ ∳ = 𝜗 Ξ𝜗 (𝑞 )𝜗̃̇ + 𝜗𝑇 Ξ̇ 𝜗 (𝑞 )𝜗 + 𝑞̃𝑇 𝐾𝜙 𝑞̃̇ + 𝜏̃𝑒𝑇 Γ𝜏̂̇ 𝑒
+       ̃𝑇            1
+                                                                                   (43)
+                     2                                                                     maintain at a given position in the Cartesian space, while an interactive
+Substituting (34) into (43), we have                                                       contact force is applied by human to push or to pull the elbow of the
+           (                                        )                                      robot during the control period. The proposed null space controller with
+𝑉̇ 𝜗 = 𝜗̃ 𝑇 (−(𝐾𝑣 + 𝜂𝜗 )𝜗̃ − 𝑍 𝑇 𝐾𝜙 𝑞̃ + 𝑍 𝑇 𝜏𝑒                                            consistent generalized inverse is employed to ensure the compliant inter-
+        1                                                                                  action in joint space without disturbing the end-eﬀector motion, while
+       + 𝜗𝑇 Ξ̇ 𝜗 (𝑞)𝜗 + 𝑞̃𝑇 𝐾𝜙 𝑞̃̇ + 𝜏̃𝑒𝑇 Γ𝜏̂̇ 𝑒                                   (44)    the adaptive disturbance observer is employed to improve the control
+        2
+                                                                                           accuracy. The end-eﬀector is controlled in x, y, z directions such that
+Having reminded that Ξ̇ 𝜗 − 2𝜂𝜗 is skew-symmetric, while 𝜏̂̇ 𝑒 = 0 in terms
+                                                                                           4 DOFs remaining for the redundancy of the joints. In this experiment,
+of 𝜏̂̇ 𝑒 = Γ−1 𝐽 # 𝑧 and 𝑧 = 0, we can obtain
+                                                                                           the control parameters are chosen to be 𝐾𝑝 = [1000, 1000, 1000, 50, 50, 50]
+𝑉̇ 𝜗 = −𝜗̃ 𝑇 𝐾𝜗 𝜗̃ − 𝜗̃ 𝑇 𝑍 𝑇 𝐾𝜙 𝑞̃                                                        and 𝐵𝑝 = [30, 30, 30, 2.8, 2.8, 2.8], 𝐾𝑣 = 10𝐼, 𝐵𝑣 = 0.4𝐼. In this experimen-
+       + 𝑞̃𝑇 𝐾𝜙 𝑞̃̇ + 𝜗̃ 𝑇 𝑍 𝑇 𝜏𝑒                                                  (45)    tal case, the robot end-eﬀector is controlled to be at a desired position
+                                                                                           of 𝑥𝑑 = [0.552, 0.154, 0.212], and 𝑥̇ 𝑑 = [0, 0, 0]. The initial joint position is
+From 𝑞̃̇ = 𝐽 #𝑇 𝑒 + 𝑍 𝜗̃ and 𝑒 = 0 in the subset , we have that 𝑞̃̇ = 𝑍 𝜗̃ .              𝑞𝑑 = [0.52, −0.63, −0.71, 1.83, 0.91, 0.74, 1.02] which is kinematically com-
+Then, (45) can be derived as                                                               patible with the end-eﬀector position. Screenshots of the experiment are
+𝑉̇ 𝜗 = −𝜗̃ 𝑇 𝐾𝜗 𝜗̃ + 𝜗̃ 𝑇 𝑍 𝑇 𝜏𝑒                                                   (46)    shown in Fig. 4, from which we can see that interactive contact forces
+                                                                                           are applied at a point close to the elbow of the robot by a human user.
+Here, the stability of the system can be analysed by two cases, 𝑍 𝑇 𝜏𝑒 = 0                     The experimental results are depicted in Figs. 5–9. The interactive
+and ZT 𝜏 e ≠ 0. In the case 𝑍 𝑇 𝜏𝑒 = 0, (46) can be written to                             contact forces are applied at the time of 17s and last for about 20s to
+𝑉̇ 𝜗 = −𝜗̃ 𝑇 𝐾𝜗 𝜗̃ ≤ 0.                                                            (47)    drive the robot away from the initial position. From Fig. 5 we can see
+                                                                                           that the end-eﬀector is holding at a ﬁxed position in all directions in
+    Thus, ϑ is asymptotically stable in the subset  in terms of the
+                                                                                           the free movement period. Also, the tracking errors almost converge to
+Lasalle’s theorem. This implies the convergence of all system states
+                                                                                           zeros as observed in Fig. 6. In the interaction period, the interactive
+into an invariant set in {𝑧 = 0, 𝑒 = 0, 𝜗̃ = 0, 𝑍 𝑇 𝐾𝜙 𝑞̃𝑠0}. According to the
+                                                                                           contact forces are applied. We can see that the robot is able to main-
+above mentioned discussion, we can conclude that system variables e, z
+                                                                                           tain the end-eﬀector position and only slight movements are observed.
+and ϑ are asymptotically stable, which shows that both the ﬁrst priority
+                                                                                           The proﬁles of all robot joints are depicted in Fig. 7 as well as the con-
+task space control goal and the second priority null space control goal
+                                                                                           trol torques in Fig. 8, from which we can see that the impacts of the
+are achieved. This completes the proof. □
+                                                                                           interactive contact force are prominent. Both the joint position and the
+Remark 5. With the above stability analysis, it is possible to prove                       control torque remain almost steady during the free movement period,
+asymptotic convergence to zero of the task-space error and the force                       but change obviously during the interaction period. Additionally, we
+estimation error. However, this requires the external torque applied on                    can see two peaks in Fig. 8, which shows that the robot arm is pushed
+robot body to be a slowly time-varying vector, which may be not easy to                    by external forces during the interaction period. However, although the
+achieve in a real experimental environment condition. Nevertheless, the                    joint positions have changed largely, the end-eﬀector can still maintain
+stable tracking performance can still be guaranteed in a smaller neigh-                    at a ﬁxed position. The responses of the disturbance observer (DOB) are
+bourhood around zero of the tracking errors as long as the external force                  presented in Fig. 9. To further show the eﬀectiveness of the proposed
+𝜏 e is bounded [46].                                                                       controller, comparative experimental studies are carried out based on
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                              Mechatronics 67 (2020) 102348
+
+
+                                                                                                  Fig. 3. An overview of the experimental set-up.
+
+
+
+
+                                                                                                        Fig. 4. A screenshot of the experiment.
+
+
+
+
+            Fig. 5. The tracking trajectory of in x, y and z direction.                      Fig. 6. The tracking errors in x, y and z direction.
+
+
+
+                                                                               troller, the maximum RMSE value is 0.0303, which is half small than
+the proposed controller and a controller in literature [47], where a con-      the comparative controller.
+ventional null space controller is employed without using the DOB. A
+root mean square error
+                     √ (RMSE) is introduced to evaluated the tracking          4.2.2. Trajectory tracking case
+                      ∑3
+performance as 𝜙 =       𝑖=1 (𝑥(𝑖) − 𝑥𝑑 (𝑖)) ∕3. The comparative results are
+                                            2                                      In the second experimental case, the robot is controlled to fol-
+depicted in Fig. 10, where the RMSE proﬁle of the proposed controller          low a trajectory in the Cartesian space as 𝑥𝑑 = [0.435, 0.135, 0.22 +
+is demonstrated by the red line, and the comparative controller by the         0.05 sin(0.3𝑡)], 𝑥̇ 𝑑 = [0, 0, 0.015 cos(0.3𝑡)]. Note that the robot end-eﬀector
+blue line. We can see that RMSE of the proposed controller is much             is commanded to track a sinusoidal trajectory in z direction while the
+smaller than the comparative controller in [47]. For the proposed con-         commands in x and y directions are set to ﬁxed constants. The control
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                        Mechatronics 67 (2020) 102348
+
+
+
+
+                       Fig. 7. The proﬁles of joint positions.
+                                                                                            Fig. 10. The RMSE of the tracking errors.
+
+
+
+
+                      Fig. 8. The proﬁles of control torque 𝜏.
+
+
+
+
+                                                                                         Fig. 11. The tracking performance of the robot.
+
+
+
+
+                Fig. 9. The response of the disturbance observer.
+
+
+parameters are chosen the same as in the ﬁrst experimental case. The
+interactive contact forces are applied to the robot during the tracking
+                                                                                            Fig. 12. The tracking errors of the robot.
+procedure. In this case, the proposed robot controller should guarantee
+that the tracking in the main task will not be disturbed by the interac-
+tive contact force. The experimental results are depicted in Figs. 11–16.   forces. At the same time, control torques also increase signiﬁcantly in
+From Fig. 11 we can see that the end-eﬀector follows the reference tra-     response to the interactive contact forces. The outputs of the DOB are
+jectory well. The tracking errors are very close to zero during the free    depicted in Fig. 15, where we can see that the disturbance observer has
+movement period, while remain in small value during the interaction         successfully predicted and compensated for the external disturbances.
+period as shown in Fig. 12. Figs. 13 and 14 show the proﬁle of the joint    Comparative studies are also carried out based the same controllers as
+angles and control torques. We can see that during the interaction pe-      in the set-point regulation case. As shown in Fig. 16, the RMSE of the
+riod, the joint angles apparently changed under the interactive contact     proposed controller is smaller than the comparative controller.
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                            Mechatronics 67 (2020) 102348
+
+
+
+
+                      Fig. 13. The proﬁle of the joint angles.
+
+
+
+
+                                                                                             Fig. 15. The output of the disturbance observer.
+
+
+
+
+                     Fig. 14. The proﬁle of the control torque.
+
+
+
+    To further show its eﬀectiveness, we conduct the experiment with a
+number of trials, to assess the performance of the disturbance observer.
+The upper subﬁgures in Figs. 17–19 show the tracking performance in
+the Cartesian space, while the lower subﬁgures show the tracking errors                         Fig. 16. The RMSE of the tracking errors.
+with and without using the adaptive disturbance observer. We can see
+that, the proposed control scheme ensures consistent and satisfactory
+tracking performance, and tracking errors are much smaller than that
+without using the adaptive disturbance observer.
+
+4.3. Impedance learning results
+
+    In this section, we verify the validity of the proposed impedance
+learning scheme based on both numerical simulations and experiments.
+
+4.3.1. Simulations
+    In the simulation, a 3 DOF redundant robot is employed to track
+a desired trajectory in a vertical plane using the proposed impedance
+control framework. The robot contacts with the environment such that
+there are reaction forces exerted on the robot end-eﬀector. The objec-
+tive of the impedance learning is to achieve the desired performance on
+interaction forces and tracking errors. To simplify the learning process,
+we only employ the impedance control in x direction and the motion
+in y direction is set to a ﬁxed value, such that only one dimensional
+impedance parameter is considered.
+                                                                                Fig. 17. The tracking performance with and without using disturbance ob-
+    The simulated environmental model is described in (9) with the pa-
+                                                                                server.
+rameters chosen to be 𝑀𝑒 (𝑡) = 0.0, 𝐶𝑒 (𝑡) = 1.0 and 𝐺𝑒 (𝑡) = 10.0. Note that
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                                   Mechatronics 67 (2020) 102348
+
+
+
+
+Fig. 18. The tracking performance with and without using disturbance ob-
+server.                                                                                          Fig. 20. The evolution of the interaction force fe .
+
+
+
+
+                                                                                               Fig. 21. The evolution of the reference trajectory xr .
+Fig. 19. The tracking performance with and without using disturbance ob-
+server.
+
+
+
+environmental parameters are unknown for users and they are only
+used for the simulation purpose. The desired trajectories are chosen
+to be 𝑥𝑑 = 0.2 − 0.2𝑒−𝑡 , 𝑥̇ 𝑑 = 0.2𝑒−𝑡 . To control the interaction motion,
+impedance control is used to track the desired trajectory while to main-
+tain the interaction forces. The initial impedance control parameters are
+selected to be 𝐶𝑑0 = 15, 𝐺𝑑0 = 10. The gain parameters 𝛼 C and 𝛼 G are se-
+lected to 𝛼𝐶 = 2 and 𝛼𝐺 = 2.
+    To achieve a balance between the interaction force and tracking er-
+                                                                    𝑡
+rors, the cost function is designed to be 𝜽𝑘 (𝑡) = ||10𝑒𝑥 (𝑡) − 3 ∫0 𝑒𝑓 (𝑠)𝑑𝑠||2
+with  = [10, 0, 3] and 𝑓𝑑 = 0. Then, iterative learning is employed to
+ﬁnd a minimum cost function to optimize the tracking performance.
+Simulation results are performed as shown in Figs. 20–25 with 30 itera-
+tions. For each ﬁgure, there is a colour bar on the right hand side, which                        Fig. 22. The evolution of the tracking error e.
+shows that the colour of the result curves shifts from light blue to dark
+blue as the iteration number increases.
+    As seen from Fig. 20, the interaction force decreases when the iter-           in the rest of the time. Also, the damping parameter achieves its peak
+ation number increases and ﬁnally converges to a value near 2N. Addi-              value in the period of the 1–2 seconds in most of the iterations, and ﬁ-
+tionally, the tracking errors become smaller when the iteration number             nally converges to the initial value in 5–10 seconds. This is reasonable
+increases, and converge to a small neighbourhood near zero, as shown               since the desired trajectory xd is a saturation function, which rises in the
+in Fig. 22. The iterative learning proﬁles of the stiﬀness parameter Gd            ﬁrst 3 seconds then converges to a ﬁxed value in the rest of the time.
+and damping parameter Cd are depicted in Figs. 23 and 24, respectively.            Therefore, the stiﬀness Gd becomes larger to result in a smaller interac-
+As shown in Fig. 23, the stiﬀness is initialized as 𝐺𝑑 (𝑘 = 1) = 10 and then       tion force in the beginning. On the other hand, the increase of damping
+increases gradually as the iteration number increases. For most of the             could result in a smaller value of 𝑥̇ 𝑟 as the damping parameter is related
+iterations, the stiﬀness increases in the ﬁrst 3 seconds then converges            to the velocity. When the desired trajectory xd saturates and the robot
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                           Mechatronics 67 (2020) 102348
+
+
+
+
+               Fig. 23. The evolution of the stiﬀness parameter Gd .                  Fig. 26. The experiment set up of the impedance learning.
+
+
+
+
+                                                                                           Fig. 27. The evolution of the desired trajectory.
+              Fig. 24. The evolution of the damping parameter Cd .
+
+                                                                             4.3.2. Experiments
+                                                                                 The impedance learning experiment is performed on the Sawyer
+                                                                             robot with the proposed robot motion controller which has been ver-
+                                                                             iﬁed in Section 4.2. The experiment set-up is depicted in Fig. 26. In this
+                                                                             experiment, the Sawyer robot is controlled to touch a ﬂexible cardboard
+                                                                             ﬁxed on the table as shown in Fig. 26. The robot end-eﬀector is initial-
+                                                                             ized at about 30cm above the blue board, then follows a straight line
+                                                                             to touch the blue board. When the robot contacts to the blue board, the
+                                                                             end-eﬀector will continue to move for a short distance, which results
+                                                                             in counteracting forces on the end-eﬀector. The forces can be collected
+                                                                             by the built-in torque sensors of Sawyer robot. In this experiment, to-
+                                                                             tally 20 trials are conducted to learn the impedance parameters and the
+                                                                             multi-priority control scheme is adopted to control the robot.
+                                                                                 The desired trajectory in the vertical direction (z direction) is given
+                                                                             as 𝑥𝑑 = 0.031 + 0.3𝑒−𝑡 with 𝑡 = 10, which is also depicted in Fig. 27. In
+                                                                             this way, the robot can quickly move close to the board in the ﬁrst 5
+                                                                             seconds, then contacts with it in the next 5 seconds. The cost function
+                                                                                                                    𝑡
+                                                                             is chosen as 𝜽𝑘 (𝑡) = ||20𝑒𝑥 (𝑡) − 3 ∫0 𝑒𝑓 (𝑠)𝑑𝑠||2 . The proposed impedance
+                   Fig. 25. The evolution of the cost function 𝜽.            learning algorithm is employed with 20 iterations.
+                                                                                 The experimental results are depicted in Figs. 28–32. Fig. 28 shows
+                                                                             the evolution of the integration of the interaction forces, which can be
+stops moving, the damping parameter has reduced to a small value to          observed increasing rapidly after contact with the surface, and reaching
+obtain a smaller interaction force. From Fig. 25 we can further observe      about 37N at the end of the ﬁrst iteration. When the iteration number
+that the cost function decreases signiﬁcantly when the iteration num-        increased, the proﬁle of the interaction force becomes lower than the
+ber increases, reaching about 5 times less than its ﬁrst iteration. Hence,   previous iteration and ﬁnally reduces to about 27N at the last interac-
+the above results have illustrated that the proposed impedance learning      tion. Figs. 29 and 30 show the evolution of the stiﬀness and damping
+framework is eﬀective to iteratively update the impedance parameters         parameters and Fig. 31 shows the evolution of the reference trajectory.
+to adapt to the environment interaction force.                               Both the stiﬀness parameters and damping parameters are iteratively
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                             Mechatronics 67 (2020) 102348
+
+
+
+
+                                                                                            Fig. 31. The evolution of the reference trajectory.
+                  Fig. 28. The evolution of the interaction force.
+
+
+
+
+                                                                                              Fig. 32. The evolution of the cost function 𝜽.
+                Fig. 29. The evolution of the stiﬀness parameters.
+
+
+                                                                               eters are obviously decreased. Thus, convergence of these parameters
+                                                                               can be achieved.
+
+
+
+                                                                               5. Conclusion
+
+                                                                                   This paper develops an interaction control framework for redundant
+                                                                               manipulators to provide compliance in the robot joint space, such that
+                                                                               compliant physical interaction is ensured without aﬀecting the main
+                                                                               task. To achieve this goal, we develop two sub-controllers, i.e., a task
+                                                                               space impedance controller, and a null space motion controller. The
+                                                                               impedance learning algorithm is employed to adjust the impedance pa-
+                                                                               rameters of the task space controller without using a priori environ-
+                                                                               ment information, and desired interaction performance is achieved with
+                                                                               a lower level of interactive contact force. Moreover, an adaptive distur-
+               Fig. 30. The evolution of the damping parameters.               bance observer is employed to compensate for the external disturbance
+                                                                               to improve the tracking accuracy. The experimental results on a 7 DOF
+                                                                               Sawyer robot show that the learning framework is able to adjust the
+                                                                               target impedance model according to the environmental force while the
+increased when the iteration number increases. The evolution of the
+                                                                               task execution performance is enhanced when other interaction forces
+reference trajectory is depicted in Fig. 31, from which we can see that
+                                                                               are applied on the robot body.
+the reference trajectory of the 20th iteration is about 1.5cm higher than
+the 1st iteration, which implies the reference trajectory is successfully
+updated to reduce the reaction forces. Besides, the evolution of the cost
+function depicted in Fig. 32 shows that the cost function decreases iter-      Declaration of Competing Interest
+atively. Figs. 28 and 32 have veriﬁed the eﬀectiveness of the proposed
+learning algorithm, where the decrease of the cost function and interac-           The authors declare that they have no known competing ﬁnancial
+tion force are presented. As we can also see in Figs. 29 and 30, in the last   interests or personal relationships that could have appeared to inﬂuence
+a few iterations, the added values of both stiﬀness and damping param-         the work reported in this paper.
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                                                    Mechatronics 67 (2020) 102348
+
+
+Acknowledgement                                                                               [27] Wang C, Li Y, Ge SS, Lee TH. Reference adaptation for robots in physical interactions
+                                                                                                   with unknown environments. IEEE Trans Cybern 2017;47(11):3504–15.
+                                                                                              [28] Fu J, Li T-F, Chai T, Su C-Y. Sampled-data-based stabilization of switched linear
+    This work was supported in part by National Nature Science Founda-                             neutral systems. Automatica 2016;72:92–9.
+tion (NSFC) under Grants 61733004, 61971071 and 51575412, Science                             [29] Ding L, Li S, Liu Y-J, Gao H, Chen C, Deng Z. Adaptive neural network-based tracking
+and Technology Project of Hunan Province under Grants 2017XK2102,                                  control for full-state constrained wheeled mobile robotic system. IEEE Trans Syst
+                                                                                                   Man Cybern 2017;47(8):2410–19.
+2018GK2022 and 2018JJ3079, National Key Research and Develop-                                 [30] Ding L, Li S, Gao H, Liu Y-J, Huang L, Deng Z. Adaptive neural network-based ﬁnite–
+ment Program of China Under Grant 2018YFB1308200, Emergency                                        time online optimal tracking control of the nonlinear system with dead zone. IEEE
+Project Against the Epidemic of Novel Coronavirus Pneumonia from Spe-                              Trans Cybern 2019.
+                                                                                              [31] Fu J, Ma R, Chai T. Adaptive ﬁnite-time stabilization of a class of uncer-
+cial Fund of Hunan Province under Grant 2020SK3007, Engineering and
+                                                                                                   tain nonlinear systems via logic-based switchings. IEEE Trans Automat Contr
+Physical Sciences Research Council (EPSRC) under Grant EP/S001913,                                 2017;62(11):5998–6003.
+and Independent Research Subject Funding from Hunan University State                          [32] Chen W-H. Disturbance observer based control for nonlinear systems. IEEE/ASME
+                                                                                                   Trans Mechatron 2004;9(4):706–10.
+Key Laboratory of Advanced Design and Manufacturing for Vehicle
+                                                                                              [33] Huang J, Ri S, Liu L, Wang Y, Kim J, Pak G. Nonlinear disturbance observer-based
+Body.                                                                                              dynamic surface control of mobile wheeled inverted pendulum. IEEE Trans Control
+                                                                                                   Syst Technol 2015;23(6):2400–7.
+References                                                                                    [34] Huang J, Ri S, Fukuda T, Wang Y. A disturbance observer based sliding mode control
+                                                                                                   for a class of underactuated robotic system with mismatched uncertainties. IEEE
+ [1] Yang C, Ganesh G, Haddadin S, Parusel S, Albu-Schaeﬀer A, Burdet E. Human-like                Trans Automat Contr 2018;64(6):2480–7.
+     adaptation of force and impedance in stable and unstable interactions. IEEE Trans        [35] He W, Yan Z, Sun C, Chen Y. Adaptive neural network control of a ﬂap-
+     Rob 2011;27(5):918–30.                                                                        ping wing micro aerial vehicle with disturbance observer. IEEE Trans Cybern
+ [2] Li Y, Ge SS, Yang C, Li X, Tee KP. Model-free impedance control for safe human-robot          2017;47(10):3452–65.
+     interaction. In: Robotics and Automation (ICRA), 2011 IEEE International Confer-         [36] Chen M, Ge SS. Adaptive neural output feedback control of uncertain nonlinear sys-
+     ence on. IEEE; 2011. p. 6021–6.                                                               tems with unknown hysteresis using disturbance observer. IEEE Trans Ind Electron
+ [3] Kong K, Bae J, Tomizuka M. Control of rotary series elastic actuator for ideal force–         2015;62(12):7706–16.
+     mode actuation in human–robot interaction applications. IEEE/ASME Trans Mecha-           [37] Huang J, Zhang M, Ri S, Xiong C, Li Z, Kang Y. High-order disturbance-ob-
+     tron 2009;14(1):105–18.                                                                       server-based sliding mode control for mobile wheeled inverted pendulum systems.
+ [4] Li Y, Carboni G, Gonzalez F, Campolo D, Burdet E. Diﬀerential game theory for                 IEEE Trans Ind Electron 2019;67(3):2030–41.
+     versatile physical human–robot interaction. Nat Mach Intell 2019;1(1):36–43.             [38] Han J-S, Kim T-I, Oh T-H, Kim Y-S, Lee J-H, Kim S-O, et al. Error-dynamics-based
+ [5] Huang J, Huo W, Xu W, Mohammed S, Amirat Y. Control of upper-limb power-assist                performance shaping methodology for discrete-time sliding mode control with dis-
+     exoskeleton using a human-robot interface based on motion intention recognition.              turbance observer. IFAC-PapersOnLine 2019;52(15):460–4.
+     IEEE Trans Autom Sci Eng 2015;12(4):1257–70.                                             [39] Han J-S, Kim T-I, Oh T-H, Lee S-H, Cho D-iD. Eﬀective disturbance compensation
+ [6] Luo J, Lin Z, Li Y, Yang C. A teleoperation framework for mobile robots based on              method under control saturation in discrete-time sliding mode control. IEEE Trans-
+     shared control. IEEE Rob Autom Lett 2019;5(2):377–84.                                         actions on Industrial Electronics 2019. to be published
+ [7] Li Y, Zhou X, Zhong J, Li X. Robotic impedance learning for robot-assisted physical      [40] Platt R, Abdallah M, Wampler C. Multiple-priority impedance control. In: Robotics
+     training. Front Robot AI 2019;6:78.                                                           and Automation (ICRA), 2011 IEEE International Conference on. IEEE; 2011.
+ [8] Yang C, Huang K, Cheng H, Li Y, Su C-Y. Haptic identiﬁcation by elm-controlled                p. 6033–8.
+     uncertain manipulator. IEEE Trans Syst Man Cybern 2017.                                  [41] Ikeura R, Inooka H. Variable impedance control of a robot for cooperation with a
+ [9] Li Y, Ganesh G, Jarrassé N, Haddadin S, Albu-Schaeﬀer A, Burdet E. Force,                     human. In: Robotics and Automation, 1995. Proceedings., 1995 IEEE International
+     impedance, and trajectory learning for contact tooling and haptic identiﬁcation.              Conference on, 3. IEEE; 1995. p. 3097–102.
+     IEEE Trans Rob 2018;34(5):1170–82.                                                       [42] Chen W-H. Nonlinear disturbance observer-enhanced dynamic inversion control of
+[10] Yang C, Jiang Y, Li Z, He W, Su C-Y. Neural control of bimanual robots with guaran-           missiles. J Guid Control Dyn 2003;26(1):161–6.
+     teed global stability and motion precision. IEEE Trans Ind Inf 2017;13(3):1162–71.       [43] Sadeghian H, Villani L, Keshmiri M, Siciliano B. Task-space control of robot manip-
+[11] Li Y, Ge SS. Impedance learning for robots interacting with unknown environments.             ulators with null-space compliance. IEEE Trans Rob 2014;30(2):493–506.
+     IEEE Trans Control Syst Technol 2014;22(4):1422–32.                                      [44] Ott C, Kugi A, Nakamura Y. Resolving the problem of non-integrability of nullspace
+[12] Su H, Qi W, Yang C, Aliverti A, Ferrigno G, De Momi E. Deep neural network ap-                velocities for compliance control of redundant manipulators by using semi-deﬁnite
+     proach in human-like redundancy optimization for anthropomorphic manipulators.                lyapunov functions. In: Robotics and Automation, 2008. ICRA 2008. IEEE Interna-
+     IEEE Access 2019;7:124207–16.                                                                 tional Conference on. IEEE; 2008. p. 1999–2004.
+[13] Dietrich A, Ott C, Albu-Schäﬀer A. An overview of null space projections for redun-      [45] LaSalle JP. The stability and control of discrete processes, 62. Springer Science &
+     dant, torque-controlled robots. Int J Rob Res 2015;34(11):1385–400.                           Business Media; 2012.
+[14] Wu J, Wang J, Wang L, Li T. Dynamics and control of a planar 3-dof parallel manip-       [46] Slotine J-JE, Li W, et al. Applied nonlinear control, 199. Prentice hall Englewood
+     ulator with actuation redundancy. Mech Mach Theory 2009;44(4):835–49.                         Cliﬀs, NJ; 1991.
+[15] Wu J, Wang J, You Z. An overview of dynamic parameter identiﬁcation of robots.           [47] Park J, Khatib O. Robot multiple contact control. Robotica 2008;26(5):667–77.
+     Robot Comput Integr Manuf 2010;26(5):414–19.
+                                                                                                                         Yiming Jiang received the B.S. degree in automation from the
+[16] Wu J, Yu G, Gao Y, Wang L. Mechatronics modeling and vibration analysis of
+                                                                                                                         Hunan University, Changsha, China, in 2011 and the M.S. de-
+     a 2-dof parallel manipulator in a 5-dof hybrid machine tool. Mech Mach Theory
+                                                                                                                         gree in control theory and engineering from the School of Au-
+     2018;121:430–45.
+                                                                                                                         tomation, Guangdong University of Technology, Guangzhou,
+[17] Oh Y, Chung W, Youm Y. Extended impedance control of redundant manipulators
+                                                                                                                         China, in 2015 and the PhD degree in School of Control Sci-
+     based on weighted decomposition of joint space. J Field Rob 1998;15(5):231–58.
+                                                                                                                         ence and Engineering, South China University of Technology,
+[18] Nemec B, Zlajpah L. Force control of redundant robots in unstructured environment.
+                                                                                                                         Guangzhou, China, in 2019. He has been a visiting scholar in
+     IEEE Trans Ind Electron 2002;49(1):233–40.
+                                                                                                                         University of Portsmouth, UK, in 2017–2018. He is currently
+[19] Nemec B, Žlajpah L, Omrčen D. Comparison of null-space and minimal null-space
+                                                                                                                         a postdoctoral in College of Electrical and Information Engi-
+     control algorithms. Robotica 2007;25(5):511–20.
+                                                                                                                         neering at Hunan University. His research interests include
+[20] Ott C, Dietrich A, Albu-Schäﬀer A. Prioritized multi-task compliance control of re-
+                                                                                                                         robotics, intelligent control and human-robot interaction.
+     dundant manipulators. Automatica 2015;53:416–23.
+[21] Ficuciello F, Carloni R, Visser LC, Stramigioli S. Port-hamiltonian modeling for soft-
+     -ﬁnger manipulation. In: Intelligent Robots and Systems (IROS), 2010 IEEE/RSJ In-
+     ternational Conference on. IEEE; 2010. p. 4281–6.                                                                   Chenguang Yang received the B.Eng. degree in measure-
+[22] Ott C. Cartesian impedance control: the rigid body case. In: Cartesian Impedance                                    ment and control from Northwestern Polytechnical University,
+     Control of Redundant and Flexible-Joint Robots. Springer; 2008. p. 29–44.                                           Xian, China, in 2005, and the Ph.D. degree in control engineer-
+[23] Albu-Schäﬀer A, Ott C, Hirzinger G. A uniﬁed passivity-based control framework                                      ing from the National University of Singapore, Singapore, in
+     for position, torque and impedance control of ﬂexible joint robots. Int J Rob Res                                   2010. He received postdoctoral training with Imperial College
+     2007;26(1):23–39.                                                                                                   London, London, U.K. His current research interests include
+[24] Kim B, Park J, Park S, Kang S. Impedance learning for robotic contact tasks using nat-                              robotics and automation. Dr. Yang was a recipient of the Best
+     ural actor-critic algorithm.. IEEE Trans Syst Man Cybern Part B 2010;40(2):433–43.                                  Paper Award in the IEEE TRANSACTIONS ON ROBOTICS and
+[25] Buchli J, Stulp F, Theodorou E, Schaal S. Learning variable impedance control. Int                                  a number of international conferences.
+     J Rob Res 2011;30(7):820–33.
+[26] Corteville B, Aertbeliën E, Bruyninckx H, De Schutter J, Van Brussel H. Human-in-
+     spired robot assistant for fast point-to-point movements. In: Robotics and Automa-
+     tion, 2007 IEEE International Conference on. IEEE; 2007. p. 3639–44.
+Y. Jiang, C. Yang and Y. Wang et al.                                                                                         Mechatronics 67 (2020) 102348
+
+
+                            Yaonan Wang received the B.S. degree in computer engineer-        Yanan Li received the B.Eng. and M.Eng. degrees from the
+                            ing from the East China University of Technology, Fuzhou,         Harbin Institute of Technology, China, in 2006 and 2008, re-
+                            China, in 1981, and the M.S. and Ph.D. degrees in electrical      spectively, and the Ph.D. degree from the National University
+                            engineering from Hunan University, Changsha, China, in 1990       of Singapore, Singapore, in 2013. From 2015 to 2017, he was
+                            and 1994, respectively. From 1998 to 2000, he was a Senior        a Research Associate with the Department of Bioengineering,
+                            Humboldt Fellow in Germany, and from 2001 to 2004, he was         Imperial College London, London, U.K. From 2013 to 2015, he
+                            a Visiting Professor with the University of Bremen, Bremen,       was a Research Scientist with the Institute for Infocomm Re-
+                            Germany. Since 1995, he has been a Professor with Hunan           search, Agency for Science, Technology and Research, Singa-
+                            University. His current research interests include intelligent    pore. He is currently a Lecturer in control engineering with the
+                            control, image processing, and computer vision systems for        Department of Engineering and Design, University of Sussex,
+                            industrial applications.                                          U.K. His current research interests include human–robot inter-
+                                                                                              action, robot control, and control theory and applications.
+
+                                                                                              Chun-Yi Su received the Ph.D. degree in control engineering
+                            Zhaojie Ju Received the B.S. degree in automatic control and
+                                                                                              from the South China University of Technology, Guangzhou,
+                            the M.S. degree in intelligent robotics from the Huazhong Uni-
+                                                                                              China, in 1990. He joined Concordia University, Montreal,
+                            versity of Science and Technology, China, and the Ph.D. de-
+                                                                                              QC, Canada, in 1998, after a seven-year stint with the Uni-
+                            gree in intelligent robotics from the University of Portsmouth,
+                                                                                              versity of Victoria, Victoria, BC, Canada. His research inter-
+                            U.K. He held research and academic appointments at Uni-
+                                                                                              ests include the application of automatic control theory to me-
+                            versity College London and University of Portsmouth, U.K.
+                                                                                              chanical systems, with a focus on control of systems involving
+                            His current research interests include machine intelligence,
+                                                                                              hysteresis nonlinearities. He has authored or co-authored over
+                            pattern recognition, and their applications on human mo-
+                                                                                              500 publications in journals, book chapters, and conference
+                            tion analysis, human–robot interaction and collaboration, and
+                                                                                              proceedings. Dr. Su has served as an Associate Editor of the
+                            robot skill learning.
+                                                                                              IEEE TRANSACTIONS ON AUTOMATIC CONTROL, the IEEE
+                                                                                              TRANSACTIONS ON CONTROL SYSTEMS TECHNOLOGY, the
+                                                                                              IEEE TRANSACTIONS ON CYBERNETICS, and MECHATRON-
+                                                                                              ICS. He is a Distinguished Lecturer of IEEE RA Society and has
+                                                                                              also served as Chair/Co-Chair at various capacities for numer-
+                                                                                              ous international conferences.
+

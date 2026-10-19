@@ -1,0 +1,558 @@
+        106                                                                                 IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 1, NO. 1, JANUARY 2016
+
+
+
+
+         Passive Interaction Control With Dynamical Systems
+                                                                Klas Kronander and Aude Billard
+
+           Abstract—Autonomous dynamical systems (DS) has emerged as
+        an extremely flexible and powerful method for modeling robotic
+        tasks. Task execution of DS models is typically done in an open-
+        loop manner in combination with standard low level controller,
+        e.g. position controller or impedance controller. Such an arrange-
+        ment has two important drawbacks: 1) it is not passive and 2) the
+        DS model cannot respond to physical perturbations on the robot
+        body. These can imply severe consequences in motion tasks involv-
+        ing expected or unexpected contact with objects whose position is
+        unknown and dynamic. We propose a novel control architecture
+        that closes the loop around the DS, ensures passivity and allows
+        intuitive tuning of the robot impedance. We evaluate our approach                 Fig. 1. Illustration of open loop and closed loop control configurations with
+        in a comparative study in an uncertain manipulation task with                     DS. In the open loop configuration, the DS is updated with the desired position
+        unexpected contact.                                                               resulting from integration of the desired velocity. The actual position of the
+                                                                                          robot is only used for initializing the integration at the beginning of the motion.
+          Index Terms—Compliance and Impedance Control, Motion                            In contrast, the feedback configuration continuously updates the DS with the
+        Control of Manipulators, Physical Human-Robot Interaction.                        actual position and realizes a control on the velocity error.
+
+                                   I. I NTRODUCTION
+                                                                                             An important property for controllers interacting with
+        D      YNAMICAL Systems (DS) has emerged as a general and
+               highly flexible means of representing robot motions. It
+        has been demonstrated that many of the proposed DS formu-
+                                                                                          unknown environments is passivity. A controller that ensures
+                                                                                          a passive relation between external forces and robot velocity
+                                                                                          will yield stable behavior in free motion and in contact with
+        lations lend themselves well to learning, both in a supervised                    any passive environment [11]. In this sense, classic impedance
+        setting as well as reinforcement learning [1]–[3]. Qualitative                    control is only passive in the regulation case and the passivity
+        properties such convergence to a limit cycle or stability at an                   can no longer be ensured if the desired velocity is non-zero.
+        attractor point can be ensured regardless of the data provided                    The loss of passivity during tracking is an important drawback
+        to the learning algorithm [4]–[7]. Furthermore, it is possible to                 of impedance control and a problem that arises in any controller
+        incorporate features such as joint or task level object avoidance                 driven by time-indexed reference trajectories. A thorough anal-
+        into DS formulations [8], [9].                                                    ysis of this problem is provided in [12], which advocates to
+           In parallel to the development of DS-based learning systems,                   tackle it by encoding tasks using time-independent velocity
+        the field of robotic manipulation has in recent years seen a                      fields (first order DS) and proposes a controller that allows
+        revitalized interest in control of mechanical interaction, a topic                tracking of desired DS. Related work has proposed a simi-
+        which largely rests upon foundations of Hogans impedance                          lar approach for passivity in the curve tracking problem [13].
+        control formulation [10]. To use a DS task representation with                    These works exploit a time-independent encoding of the task to
+        an impedance controller, it is necessary to integrate the DS over                 ensure passivity and energy-efficient, accurate tracking of the
+        time to yield a reference trajectory, see Fig. 1 left. In such a                  DS. The closed-loop dynamics are however rather complicated
+        configuration, the reactivity of the DS is used with respect to                   and the specification of a mechanical impedance is not clear
+        perturbations that are captured using external sensors, e.g. the                  or easy to specify. Another related solution was presented in
+        pose estimate of a moving target point or obstacles. However,                     [14], which works with the classical trajectory-based approach
+        the full power of the DS is not used, since the integration of                    but constructs a tangent vector field and scales the velocity as
+        the reference trajectory disallows the DS to react to physical                    necessary to ensure passivity.
+        perturbations on the robot. For physical interaction tasks such                      In this work, we aim to combine the advantages of impedance
+        reactivity can be crucial, and it would hence be desirable to                     control and a passive control system without dependency on
+        instead use a controller that feeds back the actual state of the                  time. In contrast to [12] and [13] which are based on redistri-
+        robot to the DS, see Fig. 1, right.                                               bution of kinetic energy along the desired direction of motion,
+           Manuscript received August 31, 2015; accepted December 8, 2015. Date           we propose a control structure which is based on selective
+        of publication December 17, 2015; date of current version January 11, 2016.       dissipation of energy in directions that are irrelevant to the
+        This paper was recommended for publication by Associate Editor A. M.
+                                                                                          task. As we shall see, this allows to easily tune the mechani-
+        Zanchettin and Editor P. Rocco upon evaluation of the reviewers’ com-
+        ments. This work was supported by the European Union Seventh Framework            cal impedance while ensuring passivity. In recent years, many
+        Programme FP7/2007-2013 under Grant 288533 ROBOHOW.COG.                           researchers have introduced various learning systems for time-
+           The authors are with the Learning Algorithms and Systems Laboratory            independent DS motion models [2], [6], [5], [7]. The focus
+        (LASA), Ecole Polytechnique Federale de Lausanne (EPFL), 1015 Lausanne,
+        Switzerland (e-mail: klas.kronander@epfl.ch; aude.billard@epfl.ch).
+                                                                                          in these works has been on the ability to learn from example
+           Digital Object Identifier 10.1109/LRA.2015.2509025                             trajectories and to ensure that integration of resulting models
+
+                                 2377-3766 © 2015 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                     See http://www.ieee.org/publications_standards/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+       KRONANDER AND BILLARD: PASSIVE INTERACTION CONTROL WITH DYNAMICAL SYSTEMS                                                                                     107
+
+
+
+       satisfied the topological desiderata, e.g. boundedness or stabil-                  asymptotically stable1 . Therefore, we do not request that the
+       ity. However, how these systems should be used in closed-loop                      resulting closed-loop system be asymptotically stable at the
+       control has not been addressed. In this paper, we introduce a                      attractor, even if the task DS f (ξ) has this property when
+       new controller that allows to use such learned DS task models                      considered in isolation.
+       in a closed-loop configuration and at the same time ensures sta-
+       ble interaction with any passive environment. Summarizing, the
+       main contributions of this paper are:                                                                   III. P ROPOSED A PPROACH
+          1) A design methodology for a damping matrix whose direc-                       A. Selective Energy Dissipation With Task Varying Damping
+              tionality varies as a function of the desired velocity.
+          2) Using the damping design to allow passive velocity feed-                       Consider a feedback controller consisting solely of a damp-
+              back control in conservative DS.                                            ing term and a gravity cancellation term:
+          3) Applying the concept of energy tanks to allow velocity                                                   τc = g(ξ) − Dξ̇                               (2)
+              feedback control when the desired dynamics are non-
+              conservative systems.                                                       where D ∈ RN ×N is some positive semi-definite matrix.
+          4) An analysis of the link to classical impedance control and                   Obviously, since the nominal model f (ξ) does nor appear in
+              impedance specification of the proposed controller.                         Eq. (2), we do not expect that the system would converge to the
+          We evaluate our controller in a robotic reaching task with                      desired velocity under this simple control. However, this struc-
+       limited knowledge on 1) the robot dynamics and 2) the envi-                        ture does allow to selectively tune the dissipation of energy in
+       ronment. We show that the proposed controller has advantages                       desired and undesired directions.
+       over classical impedance control both in respecting the shape of                      It is easy to show that the controller in (2) renders the sys-
+       the desired motion as well as keeping forces low in unexpected                     tem (1) passive with respect to the input τe , output ξ̇ with the
+       contact.                                                                           kinetic energy as storage function. This is true for an arbitrarily
+                                                                                          varying damping, as long as it remains positive semi-definite.
+                                                                                          We will exploit this fact and construct a varying damping
+                             II. P ROBLEM S TATEMENT                                      term that dissipates selectively in directions orthogonal to the
+                                                                                          desired direction of motion given by f (ξ). Let e1 , . . . , eN be an
+          Let f (ξ) be a Dynamical System describing a nominal                            orthonormal basis for RN with e1 pointing in the desired direc-
+       motion plan for a robotic task. The variable ξ represents a gen-                   tion of motion. Hence, let e1 = ff (ξ) (ξ) , and let e2 , . . . eN a be
+       eralized state variable, which could be e.g. robot joint angles                    an arbitrary set of mutually orthogonal and normalized vectors.
+       or Cartesian position. Any integral curve of f represents the                      Let the matrix Q(ξ) ∈ RN ×N be a matrix whose columns are
+       desired motion of the robot in the absence of perturbations.                       e1 , . . . , eN . This matrix is a function of the state ξ, since the
+       In this work, we make the following assumptions on the task                        vectors e1 and hence all e1 , . . . eN depend on ξ via f (ξ). We
+       dynamics:                                                                          then define the state-varying damping matrix D(ξ) as follows:
+          1) It is known, we have access to it and can evaluate f (ξ) for
+             any ξ at any time.                                                                                   D(ξ) = Q(ξ)ΛQ(ξ)T                                 (3)
+          2) f (ξ) is a continuous function.
+          3) It has a single equilibrium point ξ ∗ such that f (ξ ∗ ) = 0.                where Λ is a diagonal matrix with non-negative values on the
+             Furthermore, ξ ∗ is a stable equilibrium point.                              diagonal λ1 , . . . , λN ≥ 0.
+          There exist several techniques that allow to learn such sta-                       By adjusting these damping values, different dissipation
+       ble DS models from demonstrations [6], [5], [15], [7] and the                      behaviors can be achieved. For example, setting λ1 = 0 and
+       learning of such models is hence not treated in this paper. We                     λ2 , . . . , λN > 0 results in a system that selectively dissi-
+       consider rigid-body dynamics described in the generalized state                    pates energy in directions perpendicular to the desired motion.
+       variable ξ:                                                                        Hence, external work in irrelevant directions is opposed while
+                                                                                          along the integral curves of f (ξ) the system is free to move. If
+                       M(ξ)ξ̈ + C(ξ, ξ̇)ξ̇ + g(ξ) = τc + τe                       (1)     f (ξ) is very small (e.g. near the equilibrium point), finding
+                                                                                          the basis for the damping becomes ill-defined. This can easily
+       The goal of this work is to design a controller τc so that Eq. (1)                 be handled by keeping the previous basis if f (ξ) < η, where
+       has the following properties:                                                      η > 0 is some predetermined small threshold value.
+         1) Passivity (τe , ξ̇) should be preserved for the controlled
+             system.                                                                      B. Tracking in Conservative DS
+         2) The controller should make the robot move according to
+             f , and dissipate kinetic energy in directions perpendicular                    While the selective damping in Section III-A allowed selec-
+             to f .                                                                       tive energy dissipation, it can not drive the robot forward along
+         3) It should be possible to vary task-based impedance of                         the integral curves of f . The system would hence only move if
+             the manipulator, e.g. how dynamics defining how external                     external energy is provided to it, in which case kinetic energy
+             forces τe affect the velocity ξ̇.                                            along the desired direction of motion would be accepted while
+         In this work, we consider interaction control scenarios.                           1 Asymptotic stability is neither desirable nor possible in the presence of
+
+       Hence, the goal is to have a passive system, but not necessarily                   persistent perturbations.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+        108                                                                                 IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 1, NO. 1, JANUARY 2016
+
+
+
+        kinetic energy in directions perpendicular to the desired motion                  C. Extension to Nonconservative DS
+        would be dissipated. In order to make the robot move along                           The restriction to conservative systems previously was nec-
+        the integral curves of f without external input, we have to add
+                                                                                          essary to cancel the term λ1 ξ̇ T f (ξ) in the rate of change of
+        some driving control to Eq. (2). This can be achieved through                     the kinetic energy in the system. However, that term only has
+        rather simple means, provided that the nominal task model f                       to be canceled for ξ̇ T f (ξ) > 0. If ξ̇ T f (ξ) ≤ 0, the control
+        is the negative gradient of an associate potential function. This
+                                                                                          is contributing to the decrease of kinetic energy. Consider at
+        restricted class of DS will be referred to as conservative vector                 time t0 that the system has a particular energy level W (t0 ).
+        fields in the remainder of this paper.                                            Now assume that at t1 > t0 energy has been dissipated so that
+           Definition 1 (Conservative DS): An autonomous dynamical
+                                                                                          W (t1 ) < W (t0 ). This dissipated energy provides in a sense
+        system f (ξ) is conservative if and only if there exists a scalar                 a passivity margin — the system would be passive even if
+        potential function Vf such that:                                                  W (t1 ) = W (t0 ). This fact can be exploited by augmenting the
+                                    f (ξ) = −∇Vf (ξ)                              (4)     state vector with a virtual state that is capable of storing energy
+                                                                                          that would otherwise be lost in dissipation. This stored energy
+           Consider now a modified controller with negative velocity                      can then be released in order to implement control actions that
+        error feedback:                                                                   would be non-passive in the original system without the storage
+                                                                                          element. This concept, sometimes referred to as energy tanks,
+           τc = g(ξ) − D(ξ)(ξ̇ − f (ξ)) = g(ξ) − D(ξ)ξ̇ + λ1 f (ξ)                        features prominently bilateral tele-manipulation [17]–[19] and
+                                                                  (5)                     has also been applied to variable stiffness control [20].
+                                                                                             Let f (ξ) be decomposed into a conservative part and a non-
+        The last equality is due to the fact that f (ξ) is an eigenvector of              conservative part:
+        D(ξ) as described in Section III-A.
+          Proposition 1: Let f (ξ) be a conservative system with an                                                f (ξ) = fC (ξ) + fR (ξ)                           (9)
+        associated potential function Vf (ξ). Then, the system (1) under
+        control given by (5) is passive with respect to the input output                  where fc denotes the conservative part which has an associ-
+        pair τe , ξ̇ with the storage function W (ξ, ξ̇) = 12 ξ̇ T M(ξ)ξ̇ +               ated potential function, and fR denotes the non-conservative
+        λ1 Vf (ξ)                                                                         part. Any system can be written in this form, although it may
+              Proof: The rate of change of W is:                                          not always be trivial to find such a decomposition. Section III-
+                                                                                          D gives guidelines as to how such a decomposition can be
+                                          1                                               acquired.
+                Ẇ (ξ, ξ̇) = ξ̇ T M(ξ)ξ̈ + ξ̇ T Ṁ(ξ)ξ̇ + λ1 ∇VfT ξ̇              (6)
+                                          2                                                  We shall consider an additional state variable s ∈ R that rep-
+                                                                                          resents stored energy. It is a virtual state to which we can assign
+        Substituting Mξ̈ from Eq. (1) with τc given by Eq. (5) yields:                    arbitrary dynamics. We shall consider dynamics coupled with
+                                1 T                                                       the robot state variables ξ, ξ̇ as follows:
+                 Ẇ (ξ, ξ̇) =     ξ̇ (Ṁ − 2C)ξ̇ − ξ̇ T Dξ̇ + ξ̇ T τe +
+                                2
+                                                                                                              ṡ = α(s)ξ̇ T Dξ̇ − βs (z, s)λ1 z                    (10)
+                                + λ1 ξ̇ T f (ξ) + λ1 ∇VfT ξ̇                      (7)
+                                                                                          where z = ξ̇ T fR (ξ). The scalar functions α : R → R and β :
+        where dependencies of M, D on ξ and C of ξ̇ have been omit-                       R × R → R control the flow of energy between the virtual stor-
+        ted for cleanliness of notation. In Eq. (7) the first term is null                age s and the robot, and will be defined in the following. It is
+        due to the skew-symmetry of the matrix Ṁ − 2C and the last                       necessary to put an upper bound on the virtual storage, such that
+        two terms cancel because f (ξ) = −∇Vf . Hence, we have:                           it can only store a finite amount of energy. Let s > 0 denote this
+                                                                                          upper bound. Then, α(s) should satisfy:
+                             Ẇ (ξ, ξ̇) = −ξ̇ T Dξ̇ + ξ̇ T τe                     (8)
+                                                                                                                
+        which shows that the system is passive with τe , ξ̇ as                                                    0 ≤ α(s) ≤ 1 s < s
+                                                                                                                                                       (11)
+        input/output pair.                                                                                       α(s) = 0        s≥s
+           It is important to remark that it is never necessary to evalu-
+        ate the potential function, since it is merely its existence that                 Disregarding for the moment the second term in Eq. (10), it
+        is required. The controller derived in this section is strongly                   is clear that the first term (energy that would otherwise be
+        related to a class of controllers based on energy-shaping, pio-                   dissipated) only adds to the virtual storage as long as the lat-
+        neered by [16]. The controller given by Eq. (5) satisfies the                     ter remains below its upper bound, s < s. Now turning to the
+        requirements from Section II. Unfortunately, only very simple                     second term of Eq. (10), βs (z, s) should satisfy:
+        tasks can be modeled with conservative (also called irrota-                                    ⎧
+        tional) DS models, and learned models such as Stable Estimator                                 ⎪
+                                                                                                       ⎨βs (z, s) = 0        s ≤ 0 and z ≥ 0
+        of Dynamical Systems (SEDS) [5] or Locally Modulated                                             βs (z, s) = 0       s ≥ s and z ≤ 0         (12)
+                                                                                                       ⎪
+                                                                                                       ⎩
+        Dynamical Systems (LMDS) [6] are not in general conser-                                          0 ≤ β(z, s) ≤ 1 elsewhere
+        vative. The accuracy to which the desired dynamics will be
+        followed in absence of external wrench depends on the dynamic                     Considering the second term in Eq. (10), it is clear that with βs
+        properties of the manipulator as well as the desired dynamics.                    satisfying Eq. (12), transfer to the virtual storage (z < 0) is only
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+       KRONANDER AND BILLARD: PASSIVE INTERACTION CONTROL WITH DYNAMICAL SYSTEMS                                                                                     109
+
+
+
+       possible as long as s < s. Conversely, extraction of energy from
+       the storage (z > 0) is only possible as long as s > 0. When
+       the storage is depleted, the controller can no longer be allowed
+       to drive the system along fR if this results in increasing the
+       kinetic energy of the system. Therefore, we introduce the scalar
+       function βR (z, s) whose role is to modify the control signal if
+       the storage is depleted.
+              τc = g(ξ) − Dξ̇ + λ1 fc (ξ) + βR (z, s)λ1 fR (ξ)                   (13)
+                                                                                          Fig. 2. The figures indicate the velocity from a DS evaluated over a 2-
+       where βR : R × R → R is a scalar function that should satisfy:
+                                                                                          dimensional work-space. a) A task model represented with LMDS, Eq. (19).
+                                                                                         b)The conservative component (linear isotropic system used as original dynam-
+                       βR (z, s) = βs (z, s) z ≥ 0                                        ics in LMDS), Eq. (20a) c) Non-conservative component, Eq. (20b).
+                                                                 (14)
+                       βR (z, s) ≥ βs (z, s) z < 0
+                                                                                          part, as per Eq. (9). As shown in Section III-B, the conserva-
+       We are now ready to state the main result of this section.
+                                                                                          tive part of the DS can always be tracked. The non-conservative
+          Theorem 1: Let the nominal task model f (ξ) be composed of
+                                                                                          part may be scaled to zero if the energy tank is depleted, see
+       conservative and non-conservative parts according to Eq. (9).
+                                                                                          Eq. (13). Importantly, the passivity of the controller does not
+       Let the system (1) be controlled by Eq. (13) and assume the
+                                                                                          rely on the decomposition of Eq. (9) being perfect (in other
+       functions α, βs , βR satisfy the conditions in Equations (11),
+                                                                                          words, it is not necessary that fR is purely rotational). For
+       (12) and (14) respectively. Let 0 < s(0) ≤ s. The resulting
+                                                                                          example, any DS can be used with fC = 0 and fR = f . The
+       closed loop system is passive with respect to the input-output
+                                                                                          advantage of extracting a conservative component fC is that
+       pair τe , ξ̇.
+                                                                                          this component can always be followed even when the energy
+             Proof: First, note that 0 < s(0) ≤ s ⇒ 0 ≤ s(t) ≤                            tank is depleted. Therefore, it is interesting to provide as good
+       s, ∀t > t0 , trivially from Equations (10), (11) and (12).                         a decomposition as possible.
+       Consider the storage function W (ξ, ξ̇, s) = 12 ξ̇ T Mξ̇ +                            How to extract a conservative component from a DS depends
+       λ1 Vc(ξ) + s, where Vc (ξ) is the potential function associated                    on the method that was used to learn and encode the DS
+       with fc (ξ). The rate of change of W is:                                           model. We recently proposed an approach for learning stable
+                                     1                                                    DS models based on some known original dynamics. Locally
+              Ẇ (ξ, ξ̇) = ξ̇ T Mξ̈ + ξ̇ T Ṁξ̇ + λ1 ∇VcT ξ̇ + ṡ                (15)     Modulated Dynamical Systems (LMDS) [6] is based on locally
+                                     2
+                                                                                          reshaping an existing model in a way that cannot alter the stabil-
+       Substituting Mξ̈ from Eq. (1) with τc given by Eq. (13) and                        ity properties of the original model. Let fL (ξ) denote an LMDS
+       using the skew-symmetry of Ṁ − 2C as in Proposition 1                             system and let fO (ξ) denote the original dynamics. LMDS has
+       yields:                                                                            the form:
+                  Ẇ (ξ, ξ̇) = −ξ̇ T Dξ̇ + ξ̇ T τe + βR (z, s)λ1 z+                                                 fL (ξ) = G(ξ)fO (ξ)                            (19)
+                                + λ1 ξ̇ T fc (ξ) + λ1 ∇VcT ξ̇ + ṡ               (16)
+                                                                                          where G(ξ) ∈ RN ×N represents the continuous matrix val-
+       The second-to-last two terms cancel because fc (ξ) =                               ued modulation function. Reshaped systems result by designing
+       −∇Vc (ξ). Substituting ṡ from Eq. (10) then yields:                               the modulation function G(ξ) such that the desired behavior
+                                                                                          is achieved. In [6], we proposed an algorithm for incremen-
+          Ẇ (ξ, ξ̇) = − {1 − α(s)} ξ̇ T Dξ̇ + ζ(z, s)λ1 z + ξ̇ T τe (17)                 tal imitation learning in such systems. In that work, we also
+                          
+                                 ≥0                                                       showed that highly complex systems can be modeled even if
+                                                                                          simple linear conservative systems are used as original dynam-
+       where ζ(z, s) = βR (z, s) − βs (z, s) has been introduced to                       ics. LMDS models fL that are based on conservative original
+       ease the notation. Note that by Eq. (11) we have 1 − α(s) ≥ 0.                     dynamics fO have an implicit decomposition into conservative
+       By Equations (12) and (14) we have that ζ(z, s) = 0 for all                        and non-conservative parts:
+       z > 0 and ζ(z, s) ≥ 0 for z < 0. Hence, we have:
+                                                                                                                       fC (ξ) = fO (ξ)                           (20a)
+                                    Ẇ (ξ, ξ̇) ≤ ξ̇ T τe                         (18)
+                                                                                          and
+       which concludes the proof.                                   
+          The specifications of the functions α, βs , βR allow some                                         fR (ξ) = (M(ξ) − IN ×N ) fO (ξ)                      (20b)
+       flexibility in the design. The functions used in this paper are
+       described in the Appendix.                                                         This decomposition is illustrated in Fig. 2.
+                                                                                             Several previously proposed methods for learning stable DS
+                                                                                          models in literature make use of a known Lyapunov function
+       D. Decomposition of Task DS
+                                                                                          for ensuring stability of non-linear DS models during learn-
+         The controller described in Section III-C relies on the decom-                   ing. Examples include DS learning with Extreme Learning
+       position of the DS into a conservative and a non-conservative                      Machines (ELM) [7] and our previous work Stable Estimator
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+        110                                                                                 IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 1, NO. 1, JANUARY 2016
+
+
+
+        of Dynamical Systems (SEDS) [5]. This class of DS have a
+        straightforward decomposition given implicitly by the known
+        Lyapunov function. Let fP (ξ) denote such a system and let
+        VP (ξ) denote the associated Lyapunov function. Since VP (ξ)
+        is known, a conservative component can be found by taking its
+        gradient:
+
+                                   fC (ξ) = −∇VP (ξ)                            (21a)
+
+        and
+                                                                                          Fig. 3. A 2d illustration of a task model that locally encodes a stiffness-like
+                                                                                          behavior. The green dashed path corresponds to the reference trajectory. The
+                fR (ξ) = fP (ξ) − fC (ξ) = fP (ξ) + ∇VP (ξ)                    (21b)      shaded area roughly delineates the region in which the behavior of the DS is
+                                                                                          qualitatively similar to a stiffness attraction toward the reference trajectory. In
+           It is possible to combine the LMDS approach with batch-                        this example, a perturbation from the nominal trajectory would yield a restoring
+        learning methods using a known Lyaupunov function. For                            force within the shaded region. The response to a large perturbation that makes
+        example, a stable SEDS model can serve as original dynam-                         the robot leave the shaded area is instead met with a completely different path
+        ics in LMDS [6]. The conservative part of the SEDS model,                         to the target point.
+        Eq. (21a) would then also be the conservative part of the
+        reshaped system, and the non-conservative part is simply the                      corresponding to a steady-state stiffness equal to the Jacobian
+        difference between the reshaped dynamics and the conservative                     of f at the equilibrium point scaled by the value of λ1 . Globally,
+        part, see Eq. (9).                                                                the term λ1 f (ξ) can be interpreted as a nonlinear stiffness term
+                                                                                          centered on the equilibrium point of f .
+                                                                                             While the classical notion of stiffness manifests itself in
+        E. Impedance Adjustment                                                           vicinity of the equilibrium point of f , it is not generally pos-
+           The architecture used in this paper differs fundamentally                      sible to generalize this to stiffness around general points in
+        from the classical impedance control framework in that there                      the work-space. To see this, consider again the steady-state lin-
+        is no notion of reference position. Instead, there is only a ref-                 earization of the left-hand side of Eq. (22), but this time around
+        erence velocity, which is generated online as a function of                       an arbitrary point ξ  with f (ξ  ) = 0:
+        the robot position. The classical mass-spring-damper model
+                                                                                                                               ∂f
+        which is most commonly used in impedance control has the                                         −λ1 f (ξ  ) − λ1             (ξ − ξ  ) = τe                 (24)
+                                                                                                                               ∂ξ ξ=ξ
+        advantage that a designer can develop an intuition for how the
+        system behavior will change as a result of a modification of                         A key observation is that a ‘stiffness behavior’ includes
+        the impedance parameters. This section is aimed at elucidating                    symmetry, where perturbations around a point on the desired
+        the link between the proposed controller and this model, to aid                   trajectory are opposed uniformly around the reference trajec-
+        intuitive understanding of the behavior of the proposed system.                   tory. The DS task model, on the other hand, encodes infinitely
+           We write the closed loop dynamics of the system (1) under                      many desired trajectories, given by the integral curves of f .
+        control τc = g(ξ) − Dξ̇ + λ1 f (ξ). Note that the passive con-                    Hence, if the classical behavior of symmetrically converging
+        troller derived in Section III-C yields the same closed loop                      toward a fixed trajectory is desired, this should be encoded in
+        behavior in the ideal case that the virtual storage is never                      the task model f . An example of a DS that locally encodes this
+        depleted.                                                                         spring-like behavior is given in Fig. 3.
+               M(ξ)ξ̈ + (D(ξ) + C(ξ, ξ̇))ξ̇ − λ1 f (ξ) = τe .                    (22)
+                                                                                                                 IV. ROBOT E XPERIMENT
+        Similarly to impedance controllers implemented without force
+        sensing, it is not possible to alter the inertia of the system.                     We consider a task of inserting a plate into a dish rack
+        We have control of the damping in directions orthogonal to                        with perturbed location. A DS describing the task was learned
+        the desired motion via the damping values λ2 · · · λN which                       by demonstration using LMDS [6], reshaping an original DS
+        are allowed to vary with time, state or any other variable (see                   model encoded with SEDS [5] and extracted a conservative
+        Section III-A). The stiffness term is replaced by λ1 f (ξ) which                  component from the DS as described in Section III-D. The
+        can be interpreted as a nonlinear stiffness term. This interpreta-                motion is a parabolic reaching motion as depicted in Fig. 4.
+        tion is evident when considering the behavior of Eq. (22) close
+        to the stable equilibrium point of f . For simplicity, consider the
+                                                                                          A. Experimental Setup
+        robot in steady state (ξ̇ = ξ̈ = 0) near the equilibrium point ξ ∗
+        such that f (ξ ∗ ) = 0. Accounting for steady state and approxi-                     The task DS has a single attractor to which all trajectories
+        mating the left-hand side of Eq. (22) with a first order Taylor                   will converge. Ideally, this attractor would be placed exactly
+        expansion around ξ ∗ then yields:                                                 in the slot where the plate should be placed. In real scenarios,
+                                                                                          mismatch between environment state and the expected state is
+                                    ∂f                                                    unavoidable. To account for this, we conduced three sets of task
+                             −λ1            (ξ − ξ ∗ ) = τe                      (23)
+                                    ∂ξ ξ=ξ∗                                               executions, in each of which the target location of the task DS
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+       KRONANDER AND BILLARD: PASSIVE INTERACTION CONTROL WITH DYNAMICAL SYSTEMS                                                                                      111
+
+
+
+
+                                                                                           Fig. 5. Left, Middle: Examples of final configurations for controller B. Right:
+                                                                                           Typical final configuration for controller A.
+
+
+                                                                                           directions and hence helps respect the shape of the motion as
+                                                                                           seen in Figures 6a, 6b and 6c, left plots.
+       Fig. 4. The figure shows the experiment setup for the plate insertion task.
+                                                                                              As is clear from Figures 6d, 6e and 6f, controller A also
+       The motion starts somewhere in the encircled region. The DS is describing a         has an advantage over controller B in terms of contact force
+       parabolic motion that has an attractor in one of three different perturbed target   after impact. At the time of impact, the reference point for
+       locations whose approximate position is shown with red dots.                        controller B has already reached its final point, which is why
+                                                                                           there is no gradual ramp-up of the contact force as would nor-
+       was offset in different locations behind the real location of the                   mally be expected in contact with a timed trajectory. In the
+       dish rack, see Fig. 4. In each set of experiments, 5 task execu-                    second perturbed location (Figures 6b and 6e) controller B
+       tions were carried out using two different controllers described                    resulted in some of the trials landing in a final configuration
+       below.                                                                              on the rack and some of the trials landed in a configuration
+          A. The controller from Section III-C with s = s(0) = 10,                         under the rack. This is visible in the divergence of the trajec-
+             λ1 = 20 and λ2 = λ3 = 200 is used. The value of λ1                            tories near the end-point in Fig. 6b right, and also the high
+             was chosen to the minimal value capable of overcoming                         variance in the final contact force in Fig. 6e right. It should
+             static joint friction at the point of departure. The coupling                 be emphasized that both controllers have been chosen to be as
+             functions are described in the Appendix.                                      compliant as possible for this task, but the low stiffness is not
+          B. Trajectory integrated open-loop initialized by the starting                   enough to ensure a low contact force for positioning errors of
+             position of the robot, tracked by a simple impedance con-                     this magnitude.
+             troller without inertia shaping. The stiffness was set to
+             K = kI3×3 with k = 100, the minimum value capable of
+             reaching the final point of the task in free motion.                                                      V. D ISCUSSION
+          All task executions were started somewhere in a small region                        We have proposed a controller allowing to use the full model-
+       shown in Fig. 4. Rotational motion of the end-effector was                          ing power of DS task representations at task execution time by
+       in both cases simply damped by a high amount (4 Ns/rad)                             closing the loop so that the DS is continuously updated with
+       which effectively kept the orientation constant during the task                     the actual state of the robot. We demonstrated the approach
+       execution.                                                                          in a robotic manipulation task with unexpected collision and
+                                                                                           showed the advantage over the classical approach of integrat-
+                                                                                           ing a reference trajectory and following it with an impedance
+       B. Results
+                                                                                           controller. The controller is passive, guaranteeing stable inter-
+          Since very low gains were used, and no inverse dynamics                          action with any passive environment. We have exemplified it
+       control was applied, it is not expected that either controller                      on DS learned using LMDS [6], but its applicability extends
+       would be able to track the nominal motion given by f with                           more generally to autonomous DS models such as SEDS [5]
+       good accuracy. This is confirmed in Figures 6a, 6b and 6c                           and ELM [7]. Possible applications for the proposed controller
+       which plot the nominal and actual trajectories for each setup                       include uncertain manipulation scenarios, rehabilitation and
+       for each perturbed location of the dish rack. Note especially                       Human-robot collaboration scenarios. The passivity property is
+       the ‘shortcut‘ tendency of the impedance controller. The pro-                       necessary for safely interacting with humans although not suf-
+       posed controller has a clear advantage in terms of respecting                       ficient. A robot controlled with PICDS can still be dangerous to
+       shape of the desired reaching motion. In this particular task, the                  a human depending on the DS model and/or velocity feedback
+       shortcut effect meant that the robot was approaching the rack                       gains.
+       from the wrong direction, which sometimes lead to problem-                             There are works that have also made use of DS task descrip-
+       atic final configurations as depicted in Figures 5a and 5b. In                      tion for ensuring passive control [12], [13]. These works pro-
+       each of the three perturbed scenarios, controller A consistently                    pose power-continuous controllers that are interesting because
+       placed the plate correctly because the pattern of approach was                      no energy is dissipated and wasted. This is achieved with a
+       respected, see Fig. 5c. It should be pointed out that the degree                    virtual flywheel in [12] and with potential function [13]. In
+       to which the shape of the DS will be followed depends on the                        contrast to both [13] and [12] which both actively redirect any
+       selection of the velocity feedback gain λ1 but also on the damp-                    energy in the system along the desired DS, our approach uses
+       ing gains λ2 and λ3 . In this task, we chose λ2 , λ3 to relatively                  dissipation as the main instrument to deal with perturbations.
+       high values. This quickly dissipates kinetic energy in unwanted                     Note that a completely power-continuous controller will keep
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+        112                                                                                     IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 1, NO. 1, JANUARY 2016
+
+
+
+
+        Fig. 6. Top: Actual (solid lines) and nominal (dotted lines) trajectories for the dish rack experiment. Figures a,b,c show the results of the three different perturbed
+        scenarios, in each case with controller A on the left plot and controller B on the right plot. The motion in the YZ-plane is shown since the position in X direction
+        remains almost constant during the motion. Bottom: The plots show the norm of the external force over time. The raw data are plotted in gray and a temporal
+        average is plotted in black. Figures d,e,f show the data from each of the three perturbed scenarios with controller A on the left plot and controller B on the right
+        plot. Due to imperfect estimation of the external force from the torque sensors of the robot, there is a small force even before impact with the dish rack.
+
+
+
+        any energy provided to it by the environment, hence the robot
+        may accelerate sharply and change its direction of movement
+        drastically if an strong external force is applied to it. It is easy
+        to imagine scenarios where this may be counter-intuitive or
+        even dangerous to a human working in proximity to the robot.
+        Dissipation is a simpler, safer and more intuitive manner of
+        dealing with undesired energy, albeit more wasteful.
+           As was pointed out in [14], the tuning of the mechanical
+                                                                                             Fig. 7. The figure shows the smooth step functions used to compose α, βs
+        impedance is not so clear in [12] and [13]. As an alternative                        and βR .
+        solution, [14] proposed a method based on standard impedance
+        control with a mechanism for regulating the speed along the
+                                                                                                                       A PPENDIX A
+        desired trajectory to ensure passivity. The approach of [14]
+                                                                                                               S MOOTH C OUPLING F UNCTIONS
+        offers the possibility to passive tracking in contact, but lacks
+        the flexibility of our approach since a single trajectory is used                       In Section III-C, the scalar functions α, βs and βR were intro-
+        as reference.                                                                        duced. This appendix provides a one possible choice of these
+           The virtual storage concept used in Section III-C is not a                        functions that satisfy Equations (11), (12) and (14) respectively.
+        novel idea but has been used by several works before us [19],                           Note that it is not necessary that the functions be continu-
+        [17]. Recent works making use of energy tanks are [20] which                         ous in z or s. However, to avoid sharp changes in control if
+        uses it to implement varying stiffness control, and [21] use                         the storage is depleted, we make use of smooth step functions
+        the technique to incorporate sensor-based force tracking into                        for defining these coupling functions. To this end, we introduce
+                                                                                                                          −
+        Cartesian impedance control. Any method based on the concept                         the functions Ha,b and Ha,b       denoting smooth step functions
+        of a limited virtual energy storage may not be able to con-                          defined as:
+        trol the system as desired, depending on external perturbations                       ⎧
+                                                                                              ⎪
+                                                                                              ⎪ Ha,b (x) = 0                                       x<a
+        that are unknown prior to task execution. This is controlled via                      ⎨
+        the choice of the upper bound for the energy storage, which is                          Ha,b (x) = 6( x−a    5        x−a 4        x−a 3
+                                                                                                               b−a ) − 15( b−a ) + 10( b−a )       a≤x≤b
+                                                                                              ⎪
+                                                                                              ⎪
+        hence of great importance and should be chosen as a function                          ⎩
+        of the task. This is also a potential problem of the PICDS con-                         Ha,b (x) = 1                                       x>b
+        troller proposed in this paper, which may be forced to fall-back                                                                                 (25a)
+                                                                                                                       −
+        to following the conservative part of the desired dynamics if                                                 Ha,b (x) = 1 − Ha,b (x)                          (25b)
+        the virtual storage is depleted. While this may be better than
+        stopping completely, it will generally be detrimental to task                        The fifth order polynomial has the role of transitioning
+        performance and the starting level of the virtual storage hence                      smoothly from 0 to 1 in the interval [a, b], while matching first
+        needs to be chosen according to the task. This is especially crit-                   and second order derivatives (= 0) at x = a and x = b. Fig. 7
+        ical if no conservative component can be extracted from the                          illustrates these functions.
+        DS model. Future research will be aimed at how a suitable                               Starting by α(s), this function has the role of limiting the
+        level of virtual storage can be learned under supervision of a                       harvest of damping work which would otherwise be dissipated.
+        human.                                                                               This harvest (first term in Eq. (10), is only allowed as long as
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+       KRONANDER AND BILLARD: PASSIVE INTERACTION CONTROL WITH DYNAMICAL SYSTEMS                                                                                       113
+
+
+
+                                                                                             [3] S. Calinon, Z. Li, T. Alizadeh, N. G. Tsargarakis, and D. Caldwell,
+                                                                                                 “Statistical dynamical systems for skills acquisition in humanoids,” in
+                                                                                                 Proc. 12th Int. Conf. Humanoid Robots, 2012, pp. 323–329.
+                                                                                             [4] P. Pastor, H. Hoffmann, T. Asfour, and S. Schaal, “Learning and gener-
+                                                                                                 alization of motor skills by learning from demonstration,” in Proc. IEEE
+                                                                                                 Int. Conf. Robot. Autom. (ICRA), 2009, pp. 763–768.
+                                                                                             [5] S. M. Khansari-Zadeh and A. Billard, “Learning stable non-linear dynam-
+                                                                                                 ical systems with Gaussian mixture models,” IEEE Trans. Robot., vol. 27,
+                                                                                                 no. 5, pp. 943–957, Oct. 2011.
+                                                                                             [6] K. Kronander, S. M. Khansari-Zadeh, and A. Billard, “Incremental
+                                                                                                 motion learning with locally modulated dynamical systems,” Robot.
+                                                                                                 Auton. Syst., vol. 70, pp. 52–62, 2015.
+                                                                                             [7] A. Lemme, K. Neumann, R. F. Reinhart, and J. J. Steil, “Neural learning
+                                                                                                 of vector fields for encoding stable dynamical systems,” Neurocomputing,
+                                                                                                 vol. 141, pp. 3–14, 2014.
+                                                                                             [8] S. M. Khansari-Zadeh and A. Billard, “A dynamical system approach to
+                                                                                                 realtime obstacle avoidance,” Auton. Robots, vol. 32, no. 4, pp. 433–454,
+                                                                                                 Mar. 2012.
+                                                                                             [9] H. Hoffmann, P. Pastor, D.-H. Park, and S. Schaal, “Biologically-inspired
+                                                                                                 dynamical systems for movement generation: Automatic real-time goal
+                                                                                                 adaptation and obstacle avoidance,” in Proc. IEEE Int. Conf. Robot.
+                                                                                                 Autom. (ICRA), 2009, pp. 2587–2592.
+       Fig. 8. The figure shows the β-functions and their difference over their 2d          [10] N. Hogan, “Impedance control: An approach to manipulation,” J. Dyn.
+       domain. Relatively high values of δs , δz are used for illustrations purposes.            Syst. Meas. Control, vol. 107, no. 12, pp. 1–24, 1985.
+       a) βr b: βs c: βr − βs .                                                             [11] E. Colgate and N. Hogan, “Robust control of dynamically interacting
+                                                                                                 systems,” Int. J. Control, vol. 48, no. 1, pp. 65–88, 1988.
+                                                                                            [12] P. Li and R. Horowitz, “Passive velocity field control of mechanical
+       there is still space in the virtual storage, i.e. s < s. We define α                      manipulators,” IEEE Trans. Robot. Autom., vol. 15, no. 4, pp. 751–763,
+                                                                                                 Aug. 1999.
+       simply as an inverted smooth step function:                                          [13] V. Duindam, S. Stramigioli, and J. Scherpen, “Passive compensation of
+                                           −
+                                                                                                 nonlinear robot dynamics,” IEEE Trans. Robot. Autom., vol. 20, no. 3,
+                                   α(s) = Hs−δs ,s
+                                                   (s)                             (26)          pp. 480–487, Jun. 2004.
+                                                                                            [14] Y. Kishi, Z. Luo, F. Asano, and S. Hosoe, “Passive impedance control
+       where δs is a smoothness parameter determining the length of                              with time-varying impedance center,” in Proc. IEEE Int. Symp. Comput.
+                                                                                                 Intell. Robot. Autom., 2003, pp. 1207–1212.
+       the transition from 1 to 0. In this work, δs = 0.1s was always                       [15] S. M. Khansari-Zadeh and A. Billard, “Learning control Lyapunov
+       used.                                                                                     function to ensure stability of dynamical system-based robot reaching
+         The βs function is defined as:                                                          motions,” Robot. Auton. Syst., vol. 62, no. 6, pp. 752–765, Jun. 2014.
+                                                                                            [16] M. Takegaki and S. Arimoto, “A new feedback method for dynamic con-
+                                     −             −                                             trol of manipulators,” J. Dyn. Syst. Meas. Control, vol. 103, pp. 119–125,
+         βs (s, z) = 1 − H−δz ,0 (z)Hs,s+δs
+                                            (s) − H0,δz
+                                                        (z)Hs−δs ,s (s)                          1981.
+                                                                    (27)                    [17] M. Franken, S. Stramigioli, S. Misra, C. Secchi, and A. MacChelli,
+                                                                                                 “Bilateral telemanipulation with time delays: A two-layer approach com-
+                                                                                                 bining passivity and transparency,” IEEE Trans. Robot., vol. 27, no. 4,
+       where δz > 0 is a smoothness parameter. The function is plotted                           pp. 741–756, Aug. 2011.
+       in Fig. 8b.                                                                          [18] D. Lee and K. Huang, “Passive-set-position-modulation framework for
+          Finally, the βR function is defined as:                                                interactive robotic systems,” IEEE Trans. Robot., vol. 26, no. 2, pp. 354–
+                                                                                                 369, Apr. 2010.
+                                        −                                                   [19] S. Stramigioli, C. Secchi, A. J. van der Schaft, and C. Fantuzzi, “Sampled
+            βR (s, z) = 1 − H−δz ,0 (z)Hs,s+δs
+                                               (s) ∗                                             data systems passivity and discrete port-Hamiltonian systems,” IEEE
+                                                                                                 Trans. Robot., vol. 21, no. 4, pp. 574–587, Aug. 2005.
+                                             −
+                           ∗ 1 − H−δz ,0 (z)H0,δz
+                                                  (z)Hs−δs ,s (s)                  (28)     [20] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+                                                                                                 impedance control with variable stiffness,” in Proc. IEEE Int. Conf.
+                                                                                                 Robot. Autom. (ICRA), May 2013, pp. 4948–4953.
+       Fig. 8a plots βR . To avoid unnecessarily scaling the non-                           [21] C. Schindlbeck and S. Haddadin, “Unified passivity-based cartesian
+       conservative velocity component, δz should be chosen small.                               force/impedance control for rigid and flexible joint robots via task-
+                                                                                                 energy tanks,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), 2015,
+       In this work, we have always used δz = 0.01.                                              pp. 440–447.
+
+
+                                       R EFERENCES
+         [1] J. Kober, J. A. Bagnell, and J. Peters, “Reinforcement learning in robotics:
+             A survey,” Int. J. Robot. Res., vol. 32, pp. 1238–1274, 2013.
+         [2] E. Gribovskaya, S. M. Khansari-Zadeh, and A. Billard, “Learning non-
+             linear multivariate dynamics of motion in robotic manipulators,” Int. J.
+             Robot. Res., vol. 30, no. 1, pp. 80–117, 2011.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:39:56 UTC from IEEE Xplore. Restrictions apply.
+

@@ -1,0 +1,456 @@
+                                                                                                                                                                          2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)
+                                                                                                                                                                          October 25-29, 2020, Las Vegas, NV, USA (Virtual)
+
+
+
+
+                                                                                                                                                                                Passivity Filter for Variable Impedance Control
+                                                                                                                                                                                                                Maciej Bednarczyk1 , Hassan Omran1 and Bernard Bayle1
+2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS) | 978-1-7281-6212-6/20/$31.00 ©2020 IEEE | DOI: 10.1109/IROS45743.2020.9340758
+
+
+
+
+                                                                                                                                                                             Abstract— While impedance control is one of the most                          human arm stiffness, from the derivatives of force and posi-
+                                                                                                                                                                          commonly used strategies for robot interaction control, variable                 tion [11], or from the measurement of muscle activity with
+                                                                                                                                                                          impedance control is a more recent preoccupation. If designing                   electromyography [12]. However, in all these contributions,
+                                                                                                                                                                          impedance control with varying parameters allows increasing
+                                                                                                                                                                          the system flexibility and dexterity, it is still a challenging issue,           the resulting impedance of the robot is identified or learned
+                                                                                                                                                                          as it may result in a loss of passivity of the control system.                   during task execution, and therefore these methods cannot be
+                                                                                                                                                                          This has an important impact on the stability and therefore                      used to check before execution whether a given impedance
+                                                                                                                                                                          on the safety of the interaction. In this paper, we propose                      profile will lead to for stable execution.
+                                                                                                                                                                          methods to design passivity filters that guarantee passivity of
+                                                                                                                                                                          the interaction. They aim at either checking whether a desired                      Though in practice varying the stiffness does not necessar-
+                                                                                                                                                                          impedance profile is passive, or modifying it if required.                       ily lead to unstable behavior, several contributions addressed
+                                                                                                                                                                                                                                                           the issue of guaranteeing a stable execution of VIC, with
+                                                                                                                                                                                                    I. I NTRODUCTION                                       a given impedance profile. In [13], the authors showed that
+                                                                                                                                                                             Robots are increasingly present in the same space as                          exploiting kinematic redundancies can ensure passivity for a
+                                                                                                                                                                          humans. The development of collaborative robots designed                         larger panel of impedance profiles. Gain scheduling control
+                                                                                                                                                                          to safely support operators during the execution of tasks                        has also been used to address VIC by interpolating feedback
+                                                                                                                                                                          has certainly played an important role in this evolution,                        gains between operating points [14]. Virtual energy-storing
+                                                                                                                                                                          with applications such as lifting of heavy tools and pieces,                     tanks [15] are another solution to modify the impedance
+                                                                                                                                                                          hand-guiding or collaborative assembly. In this context, the                     model and guarantee passivity, by storing energy dissipated
+                                                                                                                                                                          question of handling physical contact in the best possible                       by the system. This stored energy can then be re-injected to
+                                                                                                                                                                          way has become crucial. This can be obtained typically                           simultaneously implement stiffness variations and in guar-
+                                                                                                                                                                          by controlling the compliance of the interaction between                         antee stable execution. This approach has been successfully
+                                                                                                                                                                          the robot and its environment, resulting in the classical                        implemented in several applications, as in [16], [17], or [18].
+                                                                                                                                                                          impedance control (IC) scheme [1]. IC consists in imposing                       In [15], it is used to deal with the interactions resulting from
+                                                                                                                                                                          a mass-spring-damper behavior to the whole system, for                           tissues and membranes penetration during a robotic needle
+                                                                                                                                                                          attracting the robot to the desired trajectory and for managing                  insertion.The tank-based strategy has been shown very well
+                                                                                                                                                                          the interactions, both with the environment and potential                        suited for VIC, in spite of some difficulties to tune its
+                                                                                                                                                                          humans involved in a collaborative task.                                         parameters. Nevertheless, it is dependent on the states of
+                                                                                                                                                                             One of the main challenges in interaction management                          the system, measured during task execution and so can only
+                                                                                                                                                                          using IC lies in the proper selection of the impedance                           be applied online.
+                                                                                                                                                                          parameters, not only according to the task but also to ensure                       Other authors proposed an approach that can be used
+                                                                                                                                                                          stability for all possible parameters variations. Indeed, if                     to check the passivity of a given time-varying impedance
+                                                                                                                                                                          using fixed impedance parameters makes the system passive                        profile before the execution of the task [4]. While this
+                                                                                                                                                                          and hence stable when interacting with a passive environ-                        allows to check whether the interaction will have passive
+                                                                                                                                                                          ment [2], [3], this property no longer holds for arbitrarily                     dynamics, it provides no solution to modify a profile that
+                                                                                                                                                                          varying parameters [4]. Not being able to modify the system                      would not respect passivity conditions. The present paper
+                                                                                                                                                                          impedance during the task is a notable drawback that may                         aims to overcome this issue. Based on the combination of
+                                                                                                                                                                          limit application ranges. For instance, human-robot interac-                     passivity conditions with an adaptation law on the impedance
+                                                                                                                                                                          tion may benefit from the ability to adapt to human’s force                      profile, the proposed solution allows checking whether a
+                                                                                                                                                                          or fatigue, or to dynamically modify the interaction [5].                        given profile is passive, and if it is not, it provides a method
+                                                                                                                                                                             As a result, variable impedance control (VIC) has recently                    to modify it in a way to guarantee passivity. The proposed
+                                                                                                                                                                          attracted more and more attention. VIC has been explored                         method can thus be used either offline, before the execution
+                                                                                                                                                                          for challenging objectives, for example to deal with explosive                   of the profile, or online.
+                                                                                                                                                                          movements [6], to optimize the performance of hammering                             The paper is organized as follows. Firstly, the control
+                                                                                                                                                                          tasks [7], allow risk-sensitive interactions [8] or maximize                     background and passivity analysis are introduced in Section
+                                                                                                                                                                          robot links velocities [9]. VIC has been implemented using                       II. Then, Section III describes the proposed design methods
+                                                                                                                                                                          reinforcement learning [10], as well as adaptive approaches                      for passivity filters for VIC. In Section IV the features of the
+                                                                                                                                                                          for human-robot collaboration based on the estimation of the                     proposed passivity filters are explored, first in simulation and
+                                                                                                                                                                             1 ICube, UMR 7357, University of Strasbourg, CNRS, 1 place de                 then using an experimental setup. Section V finally provides
+                                                                                                                                                                          l’Hôpital, 67091, Strasbourg, France. m.bednarczyk@unistra.fr                   conclusions and perspectives of the work.
+
+                                                                                                                                                                          978-1-7281-6212-6/20/$31.00 ©2020 IEEE                                      7159
+                                                                                                                                                                 Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:10:26 UTC from IEEE Xplore. Restrictions apply.
+                             II. C ONTROL BACKGROUND                                      increasing stiffness. Alternative storage functions need to
+         A. Rigid Body Dynamics and Linearized Model                                      be explored. In order to facilitate the passivity analysis, the
+                                                                                          authors of [20] propose to use a filtered tracking error-like
+            Consider the model of a n-joint serial robotic manipulator
+                                                                                          variable r ∈ Rm
+                     H(q)q̈ + c(q̇, q) + g(q) = τc − J(q)T fext                   (1)                                   r = ėp + αep                                (6)
+                                 n
+         where q̈, q̇, q ∈ R     are joint accelerations, velocities                      where α ∈ R+ is a constant. As shown in [21], if r
+         and positions, respectively, τc ∈ Rn are the commanded                           is bounded then ep , ėp are bounded and, in this case, if
+         joint torques, fext ∈ Rm is the end-effector wrench,                             r → 0, then ep , ėp → 0. With this in mind, it is possible
+         J(q) ∈ Rm×n is the robot Jacobian matrix and                                     to reformulate the control objectives using r
+         H(q) ∈ Rn×n , c(q̇, q) ∈ Rn and g(q) ∈ Rn are the inertia                                Z t              Z t
+         matrix and the Coriolis and gravity terms, respectively. A                                   rT fext dτ =      {rT (M ëp + Dėp + Kep )}dτ
+         classical solution to linearize equation (1) is to apply the                           Z t0                 0
+         computed torque control law, resulting in a double integrator                        =     {rT (M (ëp + αėp ) − αM ėp + Dėp + Kep )}dτ
+         model in joint space, or its equivalent in task space [19].                               0
+
+         B. Impedance Control                                                             Using equation (6) and its derivative, it follows that
+                                                                                                Z t             Z t
+            In order to dynamically link the system positions, veloc-                                T
+                                                                                                    r fext dτ =     {rT M ṙ + ėTp (D − αM )ėp
+         ities and accelerations with the external forces, the input of                             0                    0
+         the linearized system is computed in order to obtain                                          +eTp (K + αD − α2 M )ėp + eTp (αK)ep )}dτ                    (7)
+                              M ëp + Dėp + Kep = fext                           (2)     By introducing a symmetric, positive semidefinite and con-
+                                                                                          tinuously differentiable matrix C, equation (7) can be written
+         with ep = pr − p ∈ Rm , where p is the robot end effector                           Z t              Z t
+                                                                                                  T                                      1
+         pose and pr a reference motion. The interaction is then                                 r fext dτ =       {rT M ṙ + eTp C ėp + eTp Ċep }dτ
+         characterized by the impedance resulting from the apparent                           0                                          2
+                                                                                                         Z t 0
+         virtual mass M ∈ Rm×m , the desired damping D ∈ Rm×m                                                                                  1
+                                                                                                      +     {ėTp (D − αM )ėp + eTp (αK − Ċ)ep
+         and the desired stiffness K ∈ Rm×m . Note that M , D and                                         0                                    2
+         K are symmetric positive definite matrices and are chosen                                               +eTp (K + αD − α2 M − C)ėp }dτ (8)
+         diagonal to simplify developments. For VIC, the case where
+         D(t) and K(t) are time-varying is considered, while M is                         which can be written as
+                                                                                                  Z t                                Z t
+         assumed to be constant. From now on, time dependency will                                    rT fext dτ = V2 (t) − V2 (0) +     W2 dτ                       (9)
+         generally not be mentioned in the notations for simplicity.                                    0                                        0
+                                                                                          with
+         C. Passivity analysis
+                                                                                                                        1 T      1
+            In order to investigate the stability of VIC given by (2)                                           V2 =      r M r + eTp Cep                        (10)
+                                                                                                                        2        2
+         with varying stiffness and damping terms, the following                          and
+         storage function can be considered                                                                                              1
+                               1             1                                                         W2 = ėTp (D − αM )ėp + eTp (αK − Ċ)ep
+                       V1 = ėTp M ėp + eTp Kep               (3)                                                                       2
+                               2             2                                                                     +eTp (K + αD − α2 M − C)ėp                   (11)
+         As K and M are symmetric, differentiating V1 leads to                            It is worth noticing that if we define C = K + αD − α M ,              2
+
+                  V̇1 = ėTp fext + 12 eTp K̇ep − ėTp Dėp                               the candidate storage function (10) is the same as in [4],
+                                                           
+                                                               (4)
+                                                                                          resulting in the stability the conditions
+         If stiffness is constant or decreasing V̇1 ≤ ėTp fext , which
+                                                                                                                   0 ≤D − αM                                     (12)
+         leads to the passivity condition
+                                           Z t                                                                     0 ≤2αK − K̇ − αḊ                             (13)
+                         V1 (t) − V1 (0) ≤     ėTp fext dτ         (5)                   This particular choice leads to W2 ≥ 0, allowing to conclude
+                                                    0
+                                                                                          on system passivity, as in this case equation (9) leads to
+         Because of stiffness time-dependency in equation (4), the                                                          Z t
+         sign of the term in brackets may change, possibly leading to                                     V2 (t) − V2 (0) ≤     rT fext dτ         (14)
+         a violation of the passivity condition (5) in case of increasing                                                            0
+         stiffness. Passivity can only be guaranteed if the stiffness                       Passivity conditions (12) and (13) can be used in order to
+         is either constant or decreasing. In this case, the storage                      verify whether passivity is guaranteed for a given impedance
+         function can be used as a Lyapunov-like function to show                         profile. However, they do not give any information about
+         stability. Also, it is well known that the interaction with a                    how to modify a profile that is not passive. In the following,
+         passive environment yields a passive, thus stable, interaction.                  we will be interested in designing a method capable of
+            The storage candidate function (3) is conservative and                        guaranteeing passivity properties for any given impedance
+         should not be used to conclude on system passivity for                           profile based on conditions (12) and (13).
+
+                                                                                     7160
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:10:26 UTC from IEEE Xplore. Restrictions apply.
+                         III. PASSIVITY FILTERS FOR VIC                                   the conservatism of the passivity conditions. The constant
+           This section introduces the design of a passivity filter, that                 value α plays an important role in the conditions resulting
+         makes it possible to modify a non passive impedance profile                      from function V2 . In [4] it is chosen in the worst case,
+         online, in order to guarantee passivity.                                         thus reducing the variation range of the parameters. In the
+                                                                                          following, we will be interested in changing the candidate
+         A. Guaranteeing passivity                                                        storage function in order to find less conservative passivity
+            Let us consider the change in system impedance, with the                      conditions resulting in better tracking performance of the
+         stiffness (respectively the damping) varying from K0 to K1                       switching function γ̄.
+         (respectively from D0 to D1 ). In the following only the case                    B. Modifying the storage function
+         K0 < K1 is considered, as stiffness increase is the only case                       In this section, we are interested in finding a novel
+         for which the passivity condition can be violated, as stated                     candidate storage function that may allow us to conclude
+         in Section II-C. Let us now define K and D such that                             on system passivity in a less conservative way. To do so,
+                              K = K(t) = K0 + Γ(t)δK                            (15)      let us fist modify the assumptions on (6) to replace α by a
+                                                                                          time-dependent matrix :
+                              D = D(t) = D0 + Γ(t)δD                            (16)
+                                                                                                                    r = ėp + M −1 Bep                           (20)
+         with δK = K1 − K0 , δD = D1 − D0 and Γ a diagonal
+                                                                                                            m×m
+         matrix where all diagonal terms γi are differentiable gains                      where B ∈ R       is a time-dependent diagonal matrix with
+         such that 0 ≤ γi ≤ 1.                                                            bounded eigenvalues.
+            As M , K, D were chosen to be diagonal, the impedance
+         behavior can be decoupled. In order to ensure passivity using                       Lemma 1: Considering the filtered tracking error as de-
+         conditions on V2 , K and D need to satisfy equations (12) and                    fined in (20) with M a constant diagonal matrix and B a
+         (13). Condition (12) allows choosing α easily. For instance,                     time-dependent diagonal matrix with bounded eigenvalues.
+         in [4] it is chosen as the ratio between the smallest eigenvalue                 If r is bounded then ep , ėp are bounded and that if r → 0
+         of D and the largest eigenvalue of M . Condition (13) implies                    then ep , ėp → 0 (see Appendix A for the proof).
+         that ∀i ∈ {1, 2, . . . , n}                                                      In this case, using the same strategy as previously in equation
+                                                                                          (9) yields
+                     γ˙i (αδdi + δki ) − 2α(k0i + γδki ) ≤ 0,                   (17)           Z t                Z t
+                                                                                                     T                                      1
+                                                                                                   r fext dτ =        {rT M ṙ + eTp C ėp + eTp Ċep }dτ
+         with δki and δdi the diagonal terms of δK and δD respec-                               0                  0                        2
+                                                                                                Z t
+         tively, and k0i the diagonal terms of K0 .                                                                                               1
+            Generally, an increase in the desired stiffness does not                          +      {ėTp (D − B)ėp + eTp (BM −1 (K − Ḃ) − Ċ)ep
+                                                                                                  0                                               2
+         come with a decrease in the desired damping, which would
+                                                                                                           +eTp (K + BM −1 (D − B) − Ḃ − C)ėp }dτ
+         be the most constraining case in terms of stability. Then,
+                                                                                                                                                        (21)
+         let us assume that δdi ≥ 0. As δki > 0 and α ≥ 0, then
+         αδdi + δki > 0. Equation (17) can then be written as                             that is
+                                                                                                     Z t                                       Z t
+                                      γ˙i ≤ ai γi + bi                          (18)                       rT fext dτ = V3 (t) − V3 (0) +            W3 dτ       (22)
+                                                                                                       0                                         0
+         with                                                                             with
+                                                                                                             T 
+                              2αδki                           2αk0i
+                                                                                                                                                      
+                    ai =                     and     bi =                                                  1 ėp  M                   B                ėp
+                                                                                                      V3 =                                                       (23)
+                            αδdi + δki                      αδdi + δki                                     2 ep    B             C + BM −1 B           ep
+          Combining equation (17) with a low-pass filter, in order to                     and
+         ensure smoothness of γi , a passivity filter can be designed                                                                   1
+         in such a way that it takes as input the desired switching                         W3 = ėTp (D − B)ėp + eTp (BM −1 (K − Ḃ) − Ċ)ep
+                                                                                                                                        2
+         profile γ̄i and generates an output profile γi that guarantees                                  +eTp (K + BM −1 (D − B) − Ḃ − C)ėp (24)
+         the system passivity. The filter can be then defined by
+                                                                                            The choice C = K + BM −1 (D − B) − Ḃ allows can-
+                           γ̇i = min(β(γ̄i − γi ), ai γi + bi )                 (19)      celing out the cross-terms. According to equation (24), the
+                                                                                          positivity of V3 is obtained as a consequence of Schur lemma
+         where β is the filter parameter. The integration of (19)
+                                                                                          [22] and the condition
+         permits to obtain γi that tracks γ¯i in such a way that
+         passivity conditions are respected. Note also that if the                                                          0≤C                                  (25)
+         damping decreases while the stiffness increases, the previous                    The positivity of W3 is obtained if the following novel
+         reasoning can be applied, but should be adapted, based on                        passivity conditions hold
+         the numerical values of δdi and δki (the case αδdi +δki = 0
+         is singular and should be avoided).                                                                   0≤D−B                                             (26)
+            Though the usage of the proposed filter may guaran-                                                                    1
+                                                                                                               0 ≤ BM −1 (K − Ḃ) − Ċ                           (27)
+         tee passivity, the tracking performance highly depends on                                                                 2
+
+                                                                                     7161
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:10:26 UTC from IEEE Xplore. Restrictions apply.
+         It is worth noticing that the storage function V2 of equation                    In fact, when the constraint is active, we have γ̇i ≥ 0 and
+         (10), initially defined by [4], is a special case of V3 defined in               (35) becomes an equality. In this case it can be shown that
+         equation (23) with B = αM , C = K + αD and α constant.
+         The analogy between the scalar α in equation (6) and the                                           2a5 a2 γi + a5 a3 γi2 + (a2 a4 − a3 a6 )
+                                                                                                    γ̈i =                                            γ̇i
+         matrix DM −1 in equation (20), and then between αM and                                                         (a2 + a3 γi )2
+         D suggests that the candidate storage function could be
+         modified to limit the conservatism of the worst-case choice                      and
+         for α. This leads to set B = D and C = K − Ḋ. A fourth                                                  4        mi
+         storage function is then defined, such that                                         a2 a4 − a3 a6 =          δki ( d0i + δdi k0i + d0 2i δdi ) ≥ 0
+                                                                                                                  m2i      2
+                        T                                
+                     1 ėp      M               D              ėp
+              V4 =                                                     (28)               resulting in γ̈i ≥ 0. This leads to the fact that if γ̇i respects
+                     2 ep       D K + DM −1 D − Ḋ ep                                     the constraint given by equation (35), then it also respects
+         and the resulting passivity conditions are deduced from                          the passivity condition (32). Finally, the proposed passivity
+         equations (25) to (27)                                                           filter resulting from conditions (33) and (35) is defined by
+
+                           0 ≤ K − Ḋ                                           (29)                    γ̇i = min(h2i (γi ), h3i (γi ), β(γ̄i − γi ))            (36)
+                                        −1
+                           0 ≤ 2DM           (K − Ḋ) − K̇ + D̈                 (30)
+                                                                                                                     IV. VALIDATION
+         As previously, all matrices are chosen diagonal and the
+         problem can be decoupled, thus (30) is equivalent to                             A. Simulations
+                                   2                 2                                       In order to illustrate the advantages of the proposed ap-
+                           k̇i +      di d˙i − d¨i −    ki di ≤ 0
+                                   mi                mi                                   proach, simulations analyzing passivity properties on a one-
+         resulting in                                                                     dimensional mass-spring-damper system were performed.
+                                                                                          The simulated system has a constant mass m = 10kg, a
+           −a1i γ̈i + a2i γ̇i + a3i γi γ̇i − a4i γi − a5i γi2 − a6i ≤ 0 (31)              stiffness varying between k0 = 2N/m and k1 = 22N/m and
+                                                                                          a damping ratio of 0.1. The considered reference trajectory
+         with                                                                             was set such that pr = 10 sin 0.1t. The stiffness is expected
+                                                            2                             to vary according to the switching function γ̄ illustrated in
+                a1i = δdi                    a2i = δki +       d0i δdi
+                                                            mi                            Fig. 1 in dashed gray. The passivity filters (19) and (36),
+                      2 2                          2                                      associated to storage functions V2 and V4 , respectively, are
+                a3i =    δd                  a4i =    (d0i δki + k0i δdi )
+                      mi i                         mi                                     tuned with the parameter β = 10. The resulting switching
+                      2                            2                                      functions γ are represented in Fig. 1. One can see that even
+                a5i =    δki δdi             a6i =    k0i d0i
+                      mi                           mi
+         which are all positive since δK and δD are positive. Then, as
+         a2i > 0 and γi is such that 0 ≤ γi ≤ 1, ∀γi ,a2i + a3i γi > 0.
+         This allows to write the passivity condition
+                      a1i γ̈i + a4i γi + a5i γi2 + a6i
+              γ̇i ≤                                    , h1i (γ̈i , γi )        (32)
+                                a2i + a3i γi
+          Additionally, in the case where δdi 6= 0, equation (29) gives                   Fig. 1. Switching variable γ resulting from filter with conditions from V2
+                                                                                          and V4 and its reference.
+         a second passivity condition for γ̇i such that
+                                      δki      k0i                                        if the outputs of both filters first evolve similarly, the output
+                              γ̇i ≤       γi +     , h2i (γi )                  (33)
+                                      δdi      δdi                                        of filter (36) converges much more rapidly to the reference
+           Using passivity conditions (32) and (33), a new passivity                      switching variable. This illustrates the fact that the conditions
+         filter similar to (19) could be defined such that                                given by V4 are less conservative than those given by V2 .
+                                                                                          Note that no external force is applied to the system, and
+                      γ̇i = min(h1i (γ̈i , γi ), h2i (γi ), β(γ̄i − γi ))       (34)      in this case passivity is guaranteed if the derivative of the
+                                                                                          storage (Lyapunov-like) function is negative. As shown in
+           Condition (32) is however not well suited for practical
+                                                                                          Fig. 2, when comparing the evolution of V̇1 , V̇2 and V̇4 in
+         implementation as it requires derivating γ̇i , which is the
+                                                                                          the case where γ is calculated using passivity condition (19)
+         output of a min-switch and therefore can be discontinuous.
+                                                                                          (based on V2 ), one can see that in contrary to function V1
+         For this reason, we choose to use a more conservative but
+                                                                                          which is too conservative, V2 and V4 guarantee passivity.
+         practically implementable constraint, such that
+                                                                                          On the other hand, using passivity condition (36) (based on
+                                 a4i γi + a5i γi2 + a6i                                   V4 ), one can see in Fig. 3 that functions V1 and V2 cannot
+                         γ̇i ≤                          , h3i (γi )             (35)      guarantee passivity, whereas V4 is capable of doing so.
+                                      a2i + a3i γi
+                                                                                     7162
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:10:26 UTC from IEEE Xplore. Restrictions apply.
+                                                                                          chosen such that all inertial terms mi = 5kg and the damping
+                                                                                          ratio is set to be 1. The desired stiffness varies with the
+                                                                                          depth in the phantom such that k̄i = 3000, 3500, 4000N/m
+                                                                                          for fat/liver, skin and muscle, respectively. Outside of the
+                                                                                          phantom, the system starts insertion with k̄i = 1000N/m and
+                                     (a) Storage functions.
+                                                                                          extracts the needle with k̄i = 3000N/m. The filter parameter
+                                                                                          is β = 50. The VIC algorithm implemented in C++ generates
+                                                                                          torque commands fed to the system at 500Hz, using KUKA’s
+                                                                                          Fast Robot Interface protocol.
+
+
+
+                               (b) Derivative of storage functions.
+         Fig. 2. Time evolution of storage functions for γ calculated to respect
+         passivity constraints (19) (based on V2 ).
+
+
+                                                                                                 (a) Stiffness and damping profiles for needle insertion and extraction.
+
+
+
+
+                                     (a) Storage functions.
+
+
+                                                                                               (b) Passivity constraints and γ˙i during stiffness increase. Condition h2i
+                                                                                               increases to high values and was cut-out of the scope for readability.
+                                                                                                        Fig. 5.   Impedance profile and evolution of γ˙i .
+
+                                                                                             The effective stiffness and damping (ki and di ), generated
+                               (b) Derivative of storage functions.                       by the passivity filter are shown on Fig 5a. The influence of
+         Fig. 3. Time evolution of storage functions for γ calculated to respect          the passivity filter on the impedance profile can be observed
+         passivity constraints (36) (based on V4 ).                                       when the needle punctures the skin, at t = 9.35s, and the
+                                                                                          stiffness is increased from 1000 to 3500N/m. In this case,
+                                                                                          the velocity of the switching variable γi increases freely until
+         B. Experiment                                                                    it meets the constraint h3i imposed by the passivity filter (36)
+           The passivity filter (36) was then tested experimentally in                    (Fig 5b) that shapes its further increase rate. This allows an
+         a needle insertion task, inspired by the scenario described in                   important stiffness increase while guaranteeing passivity.
+         [15]. A 16G medical needle was placed in a needle holder,                                   V. C ONCLUSIONS AND PERSPECTIVES
+         mounted at the end-effector of a KUKA iiwa 14 robot,
+         equipped with an ATI-Mini40 force-torque sensor (Fig. 4).                           In this paper we propose a design method for filters
+                                                                                          that permit the tracking of impedance profiles for variable
+                                                                                          impedance control, while guaranteeing passivity. Two filters
+                                                                                          are derived based on two candidate storage functions. The
+                                                                                          proposed passivity filters were validated in simulation and in
+                                                                                          an experimental setup featuring a KUKA iiwa collaborative
+                                                                                          robot executing a needle insertion task.
+                                                                                             Future work aims at expanding the proposed filter design
+                                                                                          with other passivity conditions in search of even less con-
+                                                                                          servative passivity guarantees. Also, it can be investigated
+                                                                                          how unusual impedance profile variations, such as increasing
+                                                                                          stiffness while decreasing damping, impact on the passivity
+                                Fig. 4.   Experimental setup.                             guarantees and the design of the passivity filters.
+
+            The needle punctured a 4-layer silicon phantom, whose                                            ACKNOWLEDGMENT
+         layers imitate skin, fat, muscle and liver, respectively. The                       This work was supported by the French government re-
+         muscle is the stiffest layer, followed by skin, fat and liver.                   search program Investissements d’Avenir under the Robo-
+         Generally, during needle insertion procedures, no rotations of                   tex Equipment of Excellence and Labex CAMI (ANR-10-
+         the needle are desired, thus we choose to change impedance                       EQPX- 44 and ANR-11-LABX-0004) and by the IDEX of
+         profiles only in translation. The impedance parameters are                       the University of Strasbourg.
+
+                                                                                     7163
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:10:26 UTC from IEEE Xplore. Restrictions apply.
+                                                  A PPENDIX                                                                                  R EFERENCES
+                                                                                                                [1] N. Hogan, “Impedance control: An approach to manipulation,” Journal
+         A. Proof of Lemma 1.                                                                                       of Dynamlc Systems, Measurement, and Contral, vol. 107, pp. 1–7,
+                                                                                                                    Mar 1985.
+           As the matrices M and B are chosen to be diagonal, the                                               [2] J. E. Colgate and N. Hogan, “Robust control of dynamically interacting
+         problem can be decoupled accordingly to the diagonal terms.                                                systems,” International Journal of Control, vol. 48, no. 1, pp. 65–88,
+         Hence ∀i ∈ {1, 2, . . . , n} :                                                                             Jul 1988.
+                                                                                                                [3] N. Hogan, “On the stability of manipulators performing contact tasks,”
+           1) if ri is bounded then ep i , ėpi are bounded : the solution                                          IEEE Journal on Robotics and Automation, vol. 4, no. 6, pp. 677–686,
+         of the differential equation                                                                               Dec 1988.
+                                                                                                                [4] K. Kronander and A. Billard, “Stability considerations for variable
+                                                                bi                                                  impedance control,” IEEE Transactions on Robotics, vol. 32, no. 5,
+                                              ri = ėpi +          ep                                   (37)        pp. 1298–1305, Oct 2016.
+                                                                mi i                                            [5] R. Ikeura and H. Inooka, “Variable impedance control of a robot
+                                                                                                                    for cooperation with a human,” in IEEE International Conference on
+         is given by                                                                                                Robotics and Automation (ICRA), vol. 3, 1995, pp. 3097–3102.
+                                                           Z t                                                  [6] D. Braun, M. Howard, and S. Vijayakumar, “Optimal variable stiffness
+                       −
+                           R t bi (τ )
+                                         dτ                          −
+                                                                         R t bi (σ)
+                                                                                      dσ                            control: formulation and application to explosive movement tasks,”
+            ep i = e        0   mi
+                                              ep i (0) +         e        τ   mi
+                                                                                           ri (τ )dτ    (38)        Autonomous Robots, vol. 33, no. 3, pp. 237–253, Oct 2012.
+                                                            0                                                   [7] M. Garabini, A. Passaglia, F. Belo, P. Salaris, and A. Bicchi, “Opti-
+                                                                                                                    mality principles in variable stiffness control: The VSA hammer,” in
+         As bi ∈ R+ is considered to be bounded such that                                                           IEEE/RSJ International Conference on Intelligent Robots and Systems,
+         bi ≤ bi ≤ b̄i , (38) can be upper bounded by                                                               Sep 2011, pp. 3770–3775.
+                                                                                                                [8] J. R. Medina, D. Sieber, and S. Hirche, “Risk-sensitive interaction
+                                     Z t    b
+                                                                                                                    control in uncertain manipulation tasks,” in IEEE International Con-
+                                          − i (t−τ )                                                                ference on Robotics and Automation (ICRA), May 2013, pp. 502–507.
+              |ep i | ≤ |ep i (0)| +     e mi        |ri (τ )|dτ
+                                      0                                                                         [9] S. Haddadin, M. Weis, S. Wolf, and A. Albu-Schaeffer, “Optimal
+                                                    Z t     b
+                                                                                                                    control for maximizing link velocity of robotic variable stiffness
+                                                          − i (t−τ )                                                joints,” IFAC Proceedings Volumes, vol. 44, no. 1, pp. 6863–6871,
+                      ≤ |ep i (0)| + sup(|ri (τ )|)     e mi         dτ
+                                                  t                      0                                          Jan 2011.
+                                                    mi      b                                                  [10] J. Buchli, F. Stulp, E. Theodorou, and S. Schaal, “Learning variable
+                                                           − i t
+                       ≤ |ep i (0)| + sup(|ri (τ )|) (1 − e mi )                                        (39)        impedance control,” The International Journal of Robotics Research,
+                                       t            bi                                                              vol. 30, no. 7, pp. 820–833, Jun 2011.
+                                                                                                               [11] T. Tsumugiwa, R. Yokogawa, and K. Hara, “Variable impedance
+           what shows that if ri is bounded then ep i is bounded.                                                   control based on estimation of human arm stiffness for human-robot
+                                                                                                                    cooperative calligraphic task,” in IEEE International Conference on
+         Additionally, using (37) one get that                                                                      Robotics and Automation (ICRA), vol. 1, 2002, pp. 644–650.
+                                                                                                               [12] S. Grafakos, F. Dimeas, and N. Aspragathos, “Variable admittance
+                                                      b̄i                                                           control in pHRI using EMG-based arm muscles co-activation,” in IEEE
+                                     |ėpi | ≤            |ep | + |ri (t)|                              (40)
+                                                      mi i                                                          International Conference on Systems, Man, and Cybernetics (SMC),
+                                                                                                                    Oct 2016, pp. 1900–1905.
+         that can be written using (39)                                                                        [13] F. Ficuciello, L. Villani, and B. Siciliano, “Variable impedance control
+                                                                                                                    of redundant manipulators for intuitive human-robot physical interac-
+                                                                                                                    tion,” IEEE Transactions on Robotics, vol. 31, no. 4, pp. 850–863,
+                       b̄i                            b̄i     b
+                                                             − i t                                                  Aug 2015.
+           |ėpi | ≤       |ep i (0)| + sup(|ri (τ )|) (1 − e mi ) + |ri (t)|
+                       mi                t            bi                                                       [14] K. Lee and M. Buss, “Force tracking impedance control with variable
+                                                                                                                    target stiffness,” IFAC Proceedings Volumes, vol. 41, no. 2, pp. 6751–
+         what shows that if ri is bounded then ėpi is bounded.                                                     6756, 2008.
+                                                                                                               [15] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach
+                                                                                                                    to impedance control with variable stiffness,” in IEEE International
+            2) if ri → 0 then ep i , ėpi → 0: Considering                                                          Conference on Robotics and Automation (ICRA), 2013, pp. 4948–
+                                                                                                                    4953.
+         the 2-norm   qR for a scalar function f ∈ R defined by                                                [16] F. Ferraguti, N. Preda, A. Manurung, M. Bonfe, O. Lambercy,
+                         ∞ 2
+         ||f ||2 =       0
+                            f (τ )dτ , one can show that ||ep i ||2 is                                              R. Gassert, R. Muradore, P. Fiorini, and C. Secchi, “An energy tank-
+                                                                                                                    based interactive control architecture for autonomous and teleoperated
+         bounded. Hence                                                                                             robotic surgery,” IEEE Transactions on Robotics, vol. 31, no. 5, pp.
+                              b
+                                           Z t R b (σ)                                                              1073–1088, Oct 2015.
+                            − i t               − t i    dσ                                                    [17] C. Schindlbeck and S. Haddadin, “Unified passivity-based cartesian
+            ||ep i ||2 = ||e mi ep i (0) +     e τ mi ri (τ )dτ ||2
+                                            0                                                                       force/impedance control for rigid and flexible joint robots via task-
+                              b
+                                                Z t   b
+                                                                                                                    energy tanks,” in IEEE International Conference on Robotics and
+                            − mi t                   − i (t−τ )                                                     Automation (ICRA), May 2015, pp. 440–447.
+                       ≤ ||e i ep i (0)||2 + ||     e mi        ri (τ )dτ ||2
+                                                                     0
+                                                                                                               [18] E. Lutscher, E. C. Dean-Leon, and G. Cheng, “Hierarchical force
+                                                                                                                    and positioning task specification for indirect force controlled robots,”
+              b                                                                                                     IEEE Transactions on Robotics, vol. 34, no. 1, pp. 280–286, Feb 2018.
+         as mii is constant, following the same steps of the proof                                             [19] B. Siciliano and O. Khatib, Springer Handbook of Robotics. Springer
+                                                                                               bi
+                                                                                           −        t               International Publishing, 2016.
+         of Lemma 1.6 in [21], one can show that ||e mi ep i (0)||2                                            [20] A. Behal, W. Dixon, D. M. Dawson, and B. Xian, Lyapunov-Based
+                                  R t − bi (t−τ )                                                                   Control of Robotic Systems. CRC Press, 2009.
+         is bounded and that || 0 e mi            ri (τ )dτ ||2 is bounded
+                                                                                                               [21] D. M. Dawson, Nonlinear Control of Electric Machinery. CRC Press,
+         as ||ri ||2 is bounded. This shows that ||ep i ||2 is bounded.                                             2019.
+         Using Corollary 1.1 from [21], as ep i , ėpi and ||ep i ||2                                          [22] S. P. Boyd, Linear matrix inequalities in system and control theory,
+         are bounded, then limt→∞ ep i = 0. Finally, from (40) with                                                 ser. SIAM studies in applied mathematics. Society for Industrial and
+                                                                                                                    Applied Mathematics, 1994.
+         limt→∞ ep i = 0 and limt→∞ ri = 0, one can conclude that
+         limt→∞ ėpi = 0.
+
+                                                                                                           7164
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:10:26 UTC from IEEE Xplore. Restrictions apply.
+

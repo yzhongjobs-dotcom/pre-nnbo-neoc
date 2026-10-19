@@ -1,0 +1,1066 @@
+        1404                                                                                                           IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+
+         Impedance Learning-Based Adaptive Force Tracking
+                  for Robot on Unknown Terrains
+               Yanghong Li, Li Zheng , Graduate Student Member, IEEE, Yahao Wang , Erbao Dong , Member, IEEE,
+                                               and Shiwu Zhang , Member, IEEE
+
+
+           Abstract—Aiming at the robust force tracking challenge for                      environments [1], [2], [3], [4]. Complex tasks such as biarm
+        robots in continuous contact with uncertain environments, a novel                  collaboration, flexible grasping, and human–robot interaction
+        adaptive variable impedance control policy based on deep rein-                     also require contact force stabilization [5]. Unlike soft robots
+        forcement learning (DRL) is proposed in this article. The policy
+        includes a neural network feedforward controller and a variable                    based on material impedance, manipulators require a rigid
+        impedance feedback controller. Based on the DRL algorithm, the                     structure to ensure operational accuracy [6]. Especially facing
+        iterative network feedforward controller explores and prelearns                    delicate tasks, such as machining and grinding, following the
+        the optimal policy for impedance tuning in simulation scenarios                    reference trajectory while maintaining the desired force often
+        with randomly generated terrain. The converged results are then                    becomes a contradiction [7].
+        used as feedforward inputs in the variable impedance feedback
+        controller to improve the force-tracking performance of the robot                     As a classical force control framework, impedance control and
+        during contact. A simplified dynamic contact model between the                     force–position hybrid control [8], [9], [10], [11] have achieved
+        robot and the uncertain environment called the “couch model,”                      good control results in structured environments. By correct
+        which satisfies the Lipschiz continuity condition, is developed to                 modeling of the robot and the environment, it is possible to
+        provide boundary conditions for the safe transfer of capabilities                  control the contact force quickly and stably. The introduction
+        learned in simulation to real robots. Unlike the exhaustive example
+        that relies on the completeness of the learning samples, this article              of impedance control on industrial robots [10], [12], [13], [14],
+        gives theoretical proofs of the stability and convergence of the                   [15] improves the success and efficiency of shaft-hole assembly
+        proposed control policy via Lyapunov’s theorem and contraction                     tasks. Force–position hybrid control helps promote stability in
+        mapping principle. The control method proposed in this article is                  grasping similar objects with dexterous hands [16]. However,
+        more interpretable and shows higher sample utilization efficiency                  impedance control has many problems in the application of
+        and generalization ability in simulations and experiments.
+                                                                                           robots interacting with unstructured environments. For uncertain
+          Index Terms—Compliance and impedance control, cooperating                        environments, the unknown information about the environment,
+        robots, force tracking, model learning for control.                                such as stiffness and position, leads to frequent overloading
+                                                                                           of joint actuators or damage of contact parts during physical
+                                    I. INTRODUCTION                                        interaction [17], [18], [19]. If it is possible to remain compliant or
+               ITH the development of emerging technologies,                               adjust the impedance parameters in time during the interaction,
+        W      such as collaborative robotic arms, dexterous hands,
+        quadrupedal robots, and wearable robotic exoskeletons, robots
+                                                                                           the contact force interacting with the object can be controlled,
+                                                                                           thus avoiding the above-mentioned problems [20], [21], [22].
+        are being increasingly applied to contact tasks in various                         The core of force control in uncertain environments is the prob-
+                                                                                           lem of impedance parameter adjustment. [23], [24], [25], [26].
+           Received 6 September 2024; revised 18 December 2024; accepted 7 January
+                                                                                              The studies of force tracking problems in uncertain envi-
+        2025. Date of publication 15 January 2025; date of current version 13 February     ronments are mainly categorized into three types [27], [28] as
+        2025. This work was supported in paty by the Science and Technology Innova-        follows.
+        tion Key Project of Anhui Province under Grant 202423h08050003, in part by
+        the National Key R&D Program of China under Grant 2018YFB1307400, and
+                                                                                              1) Direct or indirect adjustment of the reference trajectory.
+        in part by the Fundamental Research Funds for the Central Universities. This             The core idea lies in estimating the stiffness and position
+        article was recommended for publication by Associate Editor M. R. Dogar and              information of the environment based on the feedback
+        Editor J. Kober upon evaluation of the reviewers’ comments. (Corresponding
+        author: Erbao Dong.)
+                                                                                                 information, and thus adjusting the reference trajectory
+           Yanghong Li, Li Zheng, Yahao Wang, and Erbao Dong are with the Hu-                    or impedance gain. By extending the Kalman filter es-
+        manoid Robotics Institute, State Key Laboratory of Precision and Intelligent             timation to analyze the stiffness definition, the control
+        Chemistry, CAS Key Laboratory of Mechanical Behavior and Design of Ma-
+        terials, Department of Precision Machinery and Precision Instrumentation,
+                                                                                                 gain can come to realize force tracking [29]. Vision has
+        University of Science and Technology of China, Hefei 230026, China (e-mail:              also been used to give a reference trajectory to assist
+        ebdong@ustc.edu.cn).                                                                     force tracking [30], [31]. Medina [32] accomplished a
+           Shiwu Zhang is with the Humanoid Robotics Institute, CAS Key Laboratory
+        of Mechanical Behavior and Design of Materials, Department of Precision
+                                                                                                 contact task in an unstructured environment based on an
+        Machinery and Precision Instrumentation, University of Science and Technology            optimal feedback control method. Duan [25] proposed an
+        of China, Hefei 230026, China.                                                           adaptive variable impedance control method that stabilizes
+           This article has supplementary downloadable material available at
+        https://doi.org/10.1109/TRO.2025.3530345, provided by the authors.
+                                                                                                 the system by adjusting the gain online based on the force
+           Digital Object Identifier 10.1109/TRO.2025.3530345                                    feedback information. A fuzzy logic-based impedance
+
+              1941-0468 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and similar technologies.
+        Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                   1405
+
+
+
+              controller [33], [34] can realize the grinding and polishing                  Considering the problems of the above-mentioned studies,
+              task. Although these methods have achieved good results                    this article proposes an adaptive impedance learning method
+              in the simulation of control systems, they are only effective              to realize the force-tracking task in complex dynamic environ-
+              for surfaces with linear or nearly linear variations. This                 ments. It combines the idea of RL and the advantages of variable
+              is because the real environmental variations are often                     impedance control and is divided into an impedance learning
+              nonlinear, which leads to force tracking errors that are                   part and a variable impedance control part. The tuning policy
+              always present [35]. In addition, the estimation of the en-                of impedance parameters in the variable impedance controller
+              vironmental information is subject to error, which further                 will be given by the deep reinforcement learner. In the virtual
+              affects the dynamic effect of force tracking [36].                         environment of randomly generated surfaces, actor–critic DRL
+          2) Humanoid variable impedance regulation. Usually, the                        is used to find the optimal policy for impedance adjustment.
+              robot model can be known accurately enough, but it is                      The actor network adjusts the impedance parameters based
+              difficult to obtain an accurate environment model [17],                    on the value function; the critic network fits the relationship
+              [19]. The human central nervous system has been proven                     between the impedance state and the cost function. Based on
+              to be able to effectively adjust its muscle impedance to                   the data of the digital twin robot interacting with the virtual
+              achieve stable interaction in a nonlinear dynamic envi-                    environment, the network parameters are updated to minimize
+              ronment [37]. To imitate this impedance regulation in                      the cost function (i.e., force error) by backpropagation. The
+              humans, scholars have proposed many variable impedance                     converged impedance learning results are mapped onto the same
+              control methods [38]. Yang [39] realized force tracking                    real robot to achieve a safe transfer of learning outcomes.
+              control without estimating the environmental stiffness                        The main contributions of this article are as follows.
+              by processing electromyography signals collected from                         1) Regarding the force tracking problem under uncertain
+              human muscles to assist robot stiffness adjustment. Based                         environments, a RL control policy with interpretability is
+              on human–robot interaction technology, Kronander [40]                             proposed by combining DRL feedforward and variable
+              enabled the robot to efficiently learn human impedance                            impedance feedback, and its stability and convergence
+              adjustment ability. However, the process of humanoid                              analysis are given.
+              impedance learning often requires a high concentration                        2) Considering the dynamic changes in the equilibrium posi-
+              of the experimenter’s energy and a high workload with                             tion of the environment, a simplified contact model of the
+              low transfer efficiency. It is a method based on a priori ex-                     robot’s end-effector with the unstructured environment,
+              perience, which is greatly influenced by human state [41].                        called the “couch model,” is developed. By satisfying the
+          3) Reinforcement learning (RL)-based control methods. RL                              Lipschiz continuity condition, boundary conditions are set
+              is an important area of artificial intelligence, which is                         for the safe transfer of impedance learning results from
+              based on the principle of finding the optimal policy for                          simulation to real terrain.
+              a given cost. Especially with the development of deep                         3) By including the observable state quantities of the dynamic
+              reinforcement learning (DRL), it has been widely applied                          system in the regression vector of the neural network, the
+              to robot control problems, such as wearable exoskele-                             overfitting phenomenon caused by other network control
+              tons [4], [42], bipedal robot walking [43], and dexterous                         policies that rely only on inputs and outputs in uncertain
+              hand grasping [44]. Li and Buchli [42], [45] combined                             systems is avoided. Simulations in different terrains and
+              reinforcement learning with impedance control to adjust                           real robot experiments validate our method.
+              the impedance gain parameters based on stochastic op-                         The rest of this article is organized as follows. Section II
+              timal theory, which realizes tradeoffs between system                      establishes an equivalent model of the dynamic force track-
+              accuracy, energy consumption and impedance, but the                        ing problem in an unknown environment, and introduces the
+              learning results lacked interpretability. Although RL has                  proposed adaptive impedance learning method. Section III an-
+              been effectively applied to solve a variety of problems,                   alyzes the stability and convergence of the proposed control
+              it has rarely been used to deal with force tracking. This                  algorithm. Sections IV and V carry out a series of simulations
+              is because the process of learning variable impedance                      and experiments to verify the feasibility, and the control effect
+              control requires a lot of physical interaction with the                    is compared with other variable impedance control methods.
+              environment, which may be a security issue. Worse still,                   The advantages of this study over other neural network-based
+              the results of learning are often uncertain, i.e., there is                methods are discussed. Finally, Section VI concludes this article.
+              no guarantee of convergence of the learning process and
+              overfitting often occurs.
+                                                                                                                    II. METHODOLOGY
+          In summary, the first category of methods is based on clas-
+       sical adaptive adjustment mechanisms and always suffers from                         In this study, the main focus is on the force tracking problem
+       force-tracking errors when facing higher order nonlinear dy-                      during robot contact with the environment with unknown stiff-
+       namical systems [10], [19]. The second category of methods is                     ness and terrain information, aiming to determine the optimal
+       heavy workload, low efficiency, and cannot target force-sensitive                 impedance parameter adjustment policy. We first model the
+       tasks [19], [37]. The third category incorporating DRL is robust                  interaction between a general unstructured environment and a
+       to nonlinear changes in the system but needs to address the                       robot. The force tracking problem is then transformed into a
+       safe interaction problem and interpretability analysis of the                     problem of finding the optimal policy for Bellman’s equation.
+       controller [18], [19], [40].                                                      The intelligent agent is trained to learn to autonomously adjust
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1406                                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+                                         TABLE I
+                                  NOTATION IN THIS ARTICLE
+
+
+
+
+                                                                                          Fig. 1.   Couch model for robot contact with dynamic nonlinear environments.
+
+
+
+
+                                                                                          Fig. 2. Schematic diagram of robot–environment contact force in different
+                                                                                          phases.
+
+
+                                                                                          stabilization process (t1 − t2 ). The third phase represents the
+        the impedance parameters to adapt to changes in the environment                   process in which the environment dynamically changes and the
+        location. The notations used in this section and the rest sections                robot tracks the changes and restabilizes (t2 − t3 ).
+        are shown in Table I.                                                                As shown in Fig. 2, in most situations, the environmental
+                                                                                          dynamic changes in the third phase are often unavoidable and
+                                                                                          nonlinear. Biomechanical studies have shown that human be-
+        A. System Modeling and Variable Impedance Control
+                                                                                          ings, after years of empirical learning, have a well-developed
+           Consider the workspace vector x ∈ Rm of a manipulator in a                     ability to regulate variable impedance [37]. Humans can adapt
+        singularity-free region. To describe the change of contact force                  to nonlinear dynamic changes in the environment by adjusting
+        from unconstrained to dynamically constrained, the robot is                       the stiffness and damping of their skeletal muscles. This is
+        presented by a second-order mass–damping–spring model                             essentially an adaptive variable impedance control based on
+                                                                                          neural networks. We expect the robot to learn this ability of
+          M (ẍm − ẍr ) + B(ẋm − ẋr ) + K(xm − xr ) = fm − fd (1)
+                                                                                          impedance adjustment and adjust the impedance parameters
+        where M ∈ Rm×m , B ∈ Rm×m , and K ∈ Rm×m denote the in-                           in real time to track the desired force. To avoid unwanted
+        ertia gain matrix, damping gain matrix, and stiffness gain matrix                 oscillations, the parameters to be tuned by the controller are
+        in the time-varying impedance model, respectively. xm ∈ Rm                        B(t) and K(t), which are the row vectors corresponding to the
+        and xr ∈ Rm are the measured position trajectory and reference                    impedance matrix of (1) in the task space.
+        position trajectory of the end-effector in Cartesian workspace,                      At each stage of force tracking, the reference trajectory xr
+        respectively. fm ∈ Rm and fd ∈ Rm are the measured and de-                        and the impedance parameters [stiffness B(t), damping K(t)]
+        sired contact forces between the robot end and the environment,                   are provided to the variable impedance controller
+        respectively. Let the force tracking error Δf = fm − fd .
+           The environment is modeled as a position-varying stiffness                                           I(t) = [K(t), B(t), xr (t)]T                         (3)
+        model to describe the dynamic changes in the environment
+                                                                                          where t ∈ {0, 1, . . ., N − 1} is a discrete-time series and posi-
+                               Kenv (xm − xenv ) = fenv                            (2)    tive integer N < ∞.
+                                                                                             The controller outputs the end-effector trajectory control com-
+        where Kenv , xenv denote the stiffness and rest position of the                   mand α(I), and α depends on the impedance parameter I(t).
+        environment, respectively.                                                        A nonredundant manipulator with n(≥ m) joints moving in a
+           The force tracking process can be formulated as three phases,                  singularity-free region of the workspace is chosen to execute the
+        as shown in Fig. 1. The first phase is unconstrained free space                   control command. According to the inverse dynamics compen-
+        (0 − t1 ) where the robot is approaching the environment. The                     sation, the joint torque τ ∈ Rn can be written as
+        second phase is the beginning of the contact between the robot
+        and the environment, which is usually a rapid collision to a                                             τ = J T (q)α + Ff q̇ + ĝ(q)                        (4)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                   1407
+
+
+
+       where q ∈ Rn denotes the vector of current joint variables,                          Then, the tracking error can be rewritten as
+       J(q) ∈ Rn×m is the end-effector geometric Jacobian matrix, Ff
+                                                                                                               e(t) = yp (t) − yr (t) = Δf                        (10)
+       is a positive-definite (diagonal) matrix of viscous friction coef-
+       ficients at the joints and the term ĝ(q) is needed to compensate                 with Δf defined in (1). The detailed proof of the existence and
+       for the static torques due to gravity.                                            uniqueness of Property 2 is given in the literature [48].
+          The state change of the environment causes the force er-                          Assumption 1: To simplify the analysis, we assume the same
+       ror. The designed RL feedforward controller will adjust the                       initial state for all trials. i.e.,
+       impedance parameters as the actions
+                                                                                                                      ∀sp (0) = sr (0).                           (11)
+                                                             T
+                             ΔI(t) = [ΔK, ΔB, Δxr ]                               (5)
+                                                                                           The tracking problem is equivalent to learning the optimal
+       to generate the feedforward control signal u .         f                          impedance tuning policy from the observed data.
+          The updated impedance parameters will be applied to the
+       robot via (4) to generate new joint torques.                                      C. DRL for Impedance Learning
+
+                              I(t + 1) = I(t) + ΔI(t).                            (6)       Fig. 3 depicts the proposed DRL-based variable impedance
+                                                                                         control solution. The deep neural network controller is pre-
+                                                                                         trained in a randomly generated virtual environment. The trained
+       B. Tracking Problem Formulation
+                                                                                         network is used to correct the impedance parameters in real time
+          The considered model of robot–environment dynamic inter-                       during the control process. The control signal consists of two
+       action is confronted with a more generalized terrain. Dynamic                     parts
+       changes in the equilibrium position of the environment make
+                                                                                                                   u(t) = uf (t) + ub (t)                         (12)
+       explicit expressions for the contact forces unavailable or difficult
+       to handle. Therefore, we model the interaction process as a                       where uf (t) is the feedforward control input and ub (t) is the
+       Markov decision process in a finite state, described by the                       feedback control input. ub (t) is determined by the current feed-
+       following general form of nonlinear state–space discrete-time                     back e(t), in this case ub (t) ∝ e(t). The core of this article is
+       systems, which was also studied in [42] and [47]:                                 uf (t).
+                                                                                            1) DRL controller: The neural network controller contains
+                            sp (t + 1) = h (sp (t), up (t))
+                                                                                         an actor and an estimator. For the pth trial, the actor employs an
+                                  yp (t) = KC sp (t)                              (7)    multilayer perception (MLP) structure to output the feedforward
+                                                                                         signal
+       where t is the discrete-time index defined in (3), p ∈ N+ rep-
+       resents the trial, up (t) ∈ Rm , sp (t) = [xm , xenv ]T , and yp (t) ∈                                      ufp (t) = g (ν p−1 (t))                        (13)
+       Rm are inputs, states, and outputs of the system at the pth trial,                where ν p−1 (t) is the regression vector containing the signals
+       h(·, ·) represents the dynamic system consisting of the robot and                 recorded during the previous trial. ν p−1 (t) is composed of two
+       the environment and is a nonlinear function, xenv will be random                  components
+       to characterize the uncertain environmental variations, and KC
+       is the matrix with appropriate dimensions.                                                           ν p−1 (t) = [up−1 (t), xp−1 (t)]T .                   (14)
+          Considering the realistic constraints and the existence of
+                                                                                            Remark 1: Notably, the observed force errors come from two
+       solutions, let the system (7) studied in this article satisfy the
+                                                                                         sources: the position error of the end-effector to the environment
+       following properties and assumptions [47], [48].
+                                                                                         and the position error due to the environment change. Dynamic
+          Property 1: h(·, ·) is globally Lipschiz continuous on sp (t)
+                                                                                         changes in the environment often bring about changes in other
+       and up (t). That is, for any t ∈ {0, . . ., N − 1}, there exists a
+                                                                                         orthogonal force information. Therefore, instead of other itera-
+       positive constant l satisfying
+                                                                                         tive neural network controllers [46], [47] (which treat the system
+                       h (s1 (t), u1 (t)) − h (s2 (t), u2 (t))                         as a black box and train the network only with the inputs and
+                                                                                         outputs of the system), we train the network with the input u
+                     ≤ l (s1 (t) − s2 (t) + u1 (t) − u2 (t))                  (8)    and the robot state x of the system, which reduces the loss of
+       where l = max{hu (t), hs (t)}.                                                    state information. On the other hand, this makes the feedback
+          Property 2: For any realizable desired force yr (t) and given                  controller necessary since it contains information about the
+       reference state sr (t) = [xr , xenv ]T , there exists a unique u∗ (t)             output of the system. We will further explain the reasons later
+       that satisfies the following state–space equation:                                in the study.
+                                                                                            Our MLP network for iterative impedance learning uses the
+                             sr (t + 1) = h (sr (t), u∗ (t))                             following structure:
+                                                                                                           φ     ν                     
+                                  yr (t) = KC sr (t)                              (9)          ufp (t) = W2,p φ W1,p   ν p−1 (t) + W1,p
+                                                                                                                                     b
+                                                                                                                                          + W2,pb
+                                                                                                                                                        (15)
+                                                                                                   ν        u       x        b
+       which means that the desired force uniquely determines the                        where W1,p  = [W1,p   , W1,p   ], W1,p  are the adaptive weight matri-
+       reference trajectory based on the environment’s stationary state                  ces connecting the input, states, and bias between the input layer
+                                                                                                                  φ        b
+       and stiffness coefficient.                                                        and the hidden layer, W2,p   , W2,p   are the adaptive weight weights
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1408                                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+
+        Fig. 3.   Overview of the simulation, training, and control method.
+
+
+        and bias matrices between the hidden layer and the output layer,                  and the total expected cost is
+        φ(·) is the nonlinear activation function and hyperbolic tangent                                                   −1
+                                                                                                                         
+                                                                                                                         N
+        is chosen in this article.                                                                       Jcost (θp ) =          E [Q(t) + βH (up (t))]              (20)
+           Although (15) has only one hidden layer, it can represent any                                                 t=0
+        nonlinear continuous function with assumed accuracy. Impor-
+        tantly, the proposed approach makes it possible to use more                       where θp = [W1,p , W2,p ]T is the generalized network parameter
+        complex models.                                                                   vector, β > 0 is the temperature coefficient, and H(·) is the
+           The estimator in the DRL controller is designed to evaluate                    entropy of the neural network controller output. Maximizing
+        the performance of the actor. For a time series t within the pth                  the entropy of the policy to better explore the impedance tuning
+        trial, define the observations                                                    policy. The goal of training is to find the corresponding optimal
+                                                                                          parameters θ∗ that maximize Jcost
+                                 op (t) = [xp (t), ep (t)]T                      (16)
+                                                                                                                  θ∗ = arg max Jcost (θp ).                         (21)
+                                                                                                                                 θ
+        and the immediate reward function                                                    Then, according to the chain rule, the gradient of the expected
+                                                                                          cost concerning the controller hyperparameters θp is computed
+                            rp (t) = rconst − eT
+                                               p (t)Re ep (t)                    (17)
+                                                                                          as
+        where rconst (> 0) is the positive reward, Re is a diagonal matrix.                                                  ∂Jcost
+                                                                                                                 Δθp = −η                               (22)
+        The total discounted reward or the Q-function (γ < 1) is chosen                                                        ∂θp
+        as                                                                                where η is the learning rate.
+                                   ⎡                              ⎤                          After several iterations, the network parameters θp are updated
+                                               −t−1
+                                              N
+           Q (op (t), up (t)) = E ⎣rp (t) +         γ j rp (t + j)⎦ (18)                  by backpropagation. A gradient-based policy search is applied
+                                                      j=1
+                                                                                          to progressively approximate the optimal control parameters θ∗ .
+
+        and the Q-function satisfies the Bellman equation                                                    III. CONTROL SYSTEM ANALYSIS
+                                                                                            In this section, we qualitatively analyze the stability of the
+           Q (op (t), up (t)) = rp (t) + γQ (op (t + 1), up (t + 1)) . (19)
+                                                                                          control system and the convergence of the DRL controller.
+          2) Control training: The dynamic changes in the environ-
+                                                                                          A. Preliminaries
+        ment resulted in different instantaneous output errors. For better
+        evaluation of the control performance, the total expected cost Jp                    In order to satisfy Assumption 1 that the initial state starts
+        over the whole discrete time is used as the evaluation criterion,                 in the reference state, this requires that the initial state must
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                   1409
+
+
+
+       be stable. Different initial impedance parameters will affect the                 force fm ∈ Rm is measured by the force sensor. Usually, the
+       effectiveness of the control. For this reason, we use spectral                    robot’s gravity term can be obtained with sufficient accuracy,
+       analysis to select the initial impedance parameters that satisfy                  i.e., ĝ(q) = g(q).
+       the stabilization condition, at which point the DRL controller                        Then, some useful properties of the dynamic model (27) for
+       does not update the impedance parameters of the system. In                        analyzing stability are presented in the following [6].
+       the workspace, the reference trajectory error ΔXr can be trans-                       Property 3: D(q) in (27) is symmetric and positive-definite. If
+       formed into the frequency domain [25]                                             dmin (dmax ) denotes its minimum (maximum) eigenvalue, then
+                                                                                         it is
+             M ΔX (z)z 2 + BΔX (z)z + KΔX (z) = ΔF(z)                           (23)
+                                                                                                              0 < dmin I ≤ D(q) ≤ dmax I                          (28)
+       where z is the complex variable and the corresponding variables
+       are capitalized to indicate the result of the transformation in the               with dmax < ∞.
+       frequency domain.                                                                   Property 4: The matrix N (q, q̇) = Ḋ(q, q̇) − 2C(q, q̇) is
+          The dynamics between the force tracking error ΔF and                           skew-symmetric, i.e., for all ξ ∈ Rn , the following equation
+       the positional perturbation ΔX is described by a second-order                     holds:
+       system with transfer function G(z) = [M z 2 + Bz + K]−1 . The
+       control system adjusts the robot impedance parameters to gen-                                                  ξ T N (q, q̇)ξ = 0.                         (29)
+       erate the position correction ΔXr . ΔXr modifies the reference
+                                                                                            Theorem 1: Consider the system (7) with property 2 and the
+       trajectory to output the control command Xd = Xr + ΔXr =
+                                                                                         controlled object (27) with Properties 3–4. The initial damping
+       Xr + ΔF · G(z). In position servocontrol mode, then Xm = Xd
+                                                                                         matrix B(0) is chosen as a positive-definite matrix, then Δfss →
+       holds.
+                                                                                         0 is asymptotically stable if
+          Fenv is measured by the force sensor, i.e., Fm = Fenv . From
+       (2), the force tracking error can be rewritten as                                              λmin {ΔB(t)} ≥ 0, ∀t ∈ {0, . . ., N − 1}                    (30)
+            ΔF(z) = Fm − Fd = Kenv (Xd − Xenv ) − Fd                                     where ΔB(t) is the action defined in (5) and λmin {·} denotes
+                      = Kenv (Xr + G(z)ΔF(z) − Xenv ) − Fd .                    (24)     the minimum eigenvalue of a matrix.
+                                                                                            Proof: As a simplified dynamic tracking process, only vis-
+         Substituting G(z) = [M z 2 + Bz + K]−1 into (24), it is or-                     cous friction is considered, i.e., τf (q̇) = Ff q̇. Plugging (4) in
+       ganized as                                                                        (27) gives
+                      (M z 2 + Bz + K)[Kenv (Xr − Xenv ) − Fd ]                                           D(q)q̈ + C(q, q̇)q̇ + J T fm = J T α.                   (31)
+         ΔF(z) =                                                . (25)
+                               M z 2 + Bz + K − Kenv
+                                                                                            Let ėq = q̇ − q̇r and ex = xm − xenv denote the configura-
+          Then from (25), the steady-state force tracking error is ob-
+                                                                                         tion space velocity error and task space position error, respec-
+       tained as follows:
+                                                                                         tively, where q̇r is the reference angular velocity vector. Property
+                                       K · [Kenv (Xr − Xenv ) − Fd ]                     2 ensures the unique existence of the optimal reference trajectory
+          Δfss = lim ΔF(z) =                                         . (26)
+                    z→0                         K − Kenv                                 xr and leads to ẋr = J q̇r = ẋenv .
+          For the force tracking steady-state error to be zero, the ref-                    Consider the Lyapunov function candidate as follows:
+       erence position should satisfy Kenv (Xr − Xenv ) − Fd = 0 or                                               1 T            1
+       K = 0. However, xenv and Kenv of the environment considered                                          V=      ėq D(q)ėq + eT Kenv ex .                    (32)
+                                                                                                                  2              2 x
+       in this article are not known in advance. Any change in the en-
+       vironment information will bring about corresponding changes                      Since Kenv is positive-definite and property 3, we have
+       in the steady-state error. And if setting the stiffness parameter                                   1              1
+       to zero, we have Δfss = 0 as an equilibrium state.                                           V≥       dmin ėq  + λmin {Kenv } ex  > 0.                (33)
+                                                                                                           2              2
+          The same is true for the other dimensions due to the or-
+       thogonality and independence of the Cartesian variables in                        Based on the preliminary analysis, choosing
+       the workspace. Therefore, K = 0n×n will be exploited in the                                          α = J −T (Dq̈r + C q̇r ) − B(t)ėx                    (34)
+       subsequent system analysis.
+                                                                                         where B(t) = ΔB(t − 1) + B(t − 1) is the variable
+       B. Lyapunov Stability Analysis                                                    impedance parameter in the controller α.
+                                                                                            In deriving (34), the inverse of the Jacobian matrix can be
+         Considering the manipulator in (4), the counterpart of the
+                                                                                         computed directly for a nonredundant manipulator (n = m)
+       dynamic model can be described as
+                                                                                         moving in a singularity-free region of the workspace, whereas
+              D(q)q̈ + C(q, q̇)q̇ + g(q) + τf (q̇) = τ − J T fm                 (27)     the pseudoinverse can be used in the redundant case (n > m) in
+                                                                                         conjunction with a suitable term in the null space of the Jacobian
+       where D(q) ∈ Rn×n is the inertia matrix, C(q, q̇) ∈ Rn×n is                       matrix describing the internal motion of the manipulator [6].
+       the nonlinear term matrix of Coriolis and centrifugal forces,                     Folding (34) into (31) gives
+       g(q) ∈ Rn is the gravity vector, τf ∈ Rn is the torque due to
+       joint friction, τ ∈ Rn is the driving torque, and the external                                    Dëq = −C ėq − J T (fm + B(t)ėx ) .                    (35)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1410                                                                                                            IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+           Computing the time derivative of (32) and substituting (35)                    denote the partial derivatives of the DRL controller concerning
+        into it. From (2) and Property 4, we have                                         the input error and the tracking error, respectively.
+                                                                                             Proof: For the system (7) with Property 2 holding, the error
+                    1 T
+               V̇ =   ė Ḋėq + ėT          T
+                                   q Dëq + ėx Kenv ex                                   of the pth iteration result relative to (9) is given by
+                    2 q
+                          1                                                                        Δsp (t + 1) = h (sp (t), up (t)) − h (sr (t), u∗ (t))
+                 = ėT
+                     q      Ḋ − C ėq + ėT x (Kenv ex − fm − B(t)ėx )
+                          2                                                                              Δyp (t) = Kc Δsp (t)                                         (42)
+                 = −ėT
+                      x B(t)ėx .                                                (36)     where state error Δsp = sp − sr = [xm − xr , 0]T =
+                                                                                          [Δxp , 0]T and Δyp = ep defined in (10).
+          Thanks to the positive definiteness of the initial damp-
+                                                                                             Let Δup = up − u∗ , on the assumption of Property 1, taking
+        ing matrix B(0), we have B(1) = ΔB(0) + B(0) >
+                                                                                          the Euclidean norm for both sides of the state–space (42) is given
+        max{ ΔB(0) , B(0) } > 0, i.e., B(1) is also positive-definite.
+        Following mathematical induction, it can be concluded that                                     Δxp (t + 1) = Δsp (t + 1)
+        maintaining ΔB(t) semipositive-definite yields a positive-                                                              ≤ l (Δsp (t) + Δup (t)) .         (43)
+        definite B(t), which implies a negative definite V̇. Combining
+        (33) and using the Lyapunov stability criterion, we get that the                    From the same initial state of Assumption 1, it follows that
+        system is asymptotically stable and it will always return to force                Δsp (0) = 0. Noticing the recursive nature of (43) yields
+        equilibrium state. Thus fm → fd is asymptotically stable, i.e.,                                                             
+                                                                                                                                    t−1
+        Δfss → 0 is asymptotically stable. This sets the constraints for                                        Δxp (t) ≤               lt−i Δup (i) .            (44)
+        impedance learning and thus ensures the stability of the DRL                                                                i=0
+        variable impedance control system.
+                                                                                             Since the feedback control signal ub (t) is not updated dur-
+                                                                                          ing impedance learning, Δup (t) = Δufp (t). Applying Taylor’s
+        C. DRL Controller Convergence Analysis                                            formula to the DRL controller (13) with regression vector (14)
+           Although we discussed control system stability in the previous                 and taking the mathematical expectation of the Euclidean norm,
+        section, it is expected that the DRL controller can explore the                   yields
+        optimal state trajectory to the equilibrium state after impedance
+                                                                                                E Δup+1 (t) ≤ E gu Δup (t) + E gx Δxp (t) .                     (45)
+        learning, i.e., converge to the optimal controller. This article
+        focuses on two convergence properties.                                                 In view of (44), the inequality (45) can be rewritten as
+           Property 5: Input optimality
+                                                                                                 E Δup+1 (t) ≤ gu  E Δup (t)
+                                                      ∗
+                                    lim up (t) = u (t).                          (37)                                                 
+                                                                                                                                      t−1
+                                    p→∞
+                                                                                                                       + gx               lt−i E Δup (i) .        (46)
+           Property 6: Tracking zero error property                                                                                   i=0
+
+                         lim ep (t) = 0, ∀t ∈ {0, . . ., N − 1} .                (38)        Applying the λ-norm to (46), i.e., multiplying both sides of
+                        p→∞                                                               the inequality by the same a−kλ and then taking the upper bound,
+          Before starting the convergence analysis of impedance learn-                    gives
+        ing, we introduce the following definition.                                              Δup+1 (t)λ ≤ sup gu  · Δup (t)λ
+          Definition 1: [49]: Assuming a set of random vectors v(t)                                                         t
+        concerning t ∈ {0, . . ., N − 1}, define the λ-norm of v(t) as                                                                
+                                                                                                                                      t−1
+                                                                                                   + sup gx  · sup a−tλ                    lt−i E Δup (i) .       (47)
+                             v(t)λ = sup a−tλ E v(t)                         (39)                   t               t
+                                                                                                                                       i=0
+                                             t
+
+        with a > 1 and a finite constant λ > 0, where E ·  denotes the                       Let a > max{1, l}, then the last term in (47) can be simplified
+        Euclidean norm of the mathematical expectation of a random                        as
+        vector.                                                                                                  
+                                                                                                                 t−1
+
+          Now, we can give sufficient conditions for the convergence of                           sup a−tλ             lt−i E Δup (i)
+                                                                                                   t
+                                                                                                                 i=0
+        our DRL control system.
+          Theorem 2: Consider the system (7) with Properties 1–2 and                                             
+                                                                                                                 t−1
+                                                                                                                                                                 
+        Assumption 1 holds, then the DRL feedforward controller (13)                                ≤ sup              a−(λ−1)(t−i)          sup a−λi E Δup (i)
+                                                                                                            t                                 t
+        with regressor (14) satisfies convergence property 5 if                                                  i=0
+
+                                                                                                       1 − a−(λ−1)N
+                                     sup gu (t) < 1                            (40)               ≤                  Δup (t)λ .                                   (48)
+                                       t                                                                  aλ−1 − 1
+        where                                                                                  Substituting (48) into (46) yields
+                       ∂g (up (t), xp (t))            ∂g (up (t), xp (t))                                                           1 − a−(λ−1)N
+           gu (t) =                        , gx (t) =                            (41)        Δup+1 (t)λ ≤            ρu + ρx                         Δup (t)λ (49)
+                            ∂up (t)                        ∂xp (t)                                                                    aλ−1 − 1
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                   1411
+
+
+
+       where
+                      ρu = sup gu (t) , ρx = sup gx (t) .                   (50)
+                               t                        t
+
+          If (40) holds, i.e., ρu < 1, then there always exists a suffi-
+                                        −(λ−1)N
+       ciently large λ such that ρx 1−a
+                                      aλ−1 −1   < 1 − ρu , which further
+       gives
+                            Δup+1 (t)λ ≤ ρ Δup (t)λ                         (51)
+       holds, where
+                                          1 − a−(λ−1)N
+                          ρ = ρu + ρx                  < 1.                     (52)
+                                            aλ−1 − 1
+          Thus, from the contracting mapping principle it follows that:
+                    lim Δup (t)λ = 0, ∀t ∈ {0, . . ., N − 1} .                (53)
+                   p→∞                                                                   Fig. 4. CoppeliaSim model in different phases. (a) Random terrain. (b) Contact
+                                                                                         interaction. (c) Feedforward correction. (d) Soft update networks.
+         Noticing Δup (t) ≥ 0 and the finiteness of t, it can be
+       concluded that
+                     lim Δup (t) = 0, ∀t ∈ {0, . . ., N − 1}                  (54)        Similarly, since Δsp (t) ≥ 0 and t is finite, it implies that
+                    p→∞
+
+       which implies limp→∞ up (t) = u∗ (t) holds for all ∀t ∈                                         lim Δsp (t) = 0, ∀t ∈ {0, . . ., N − 1} .                (59)
+                                                                                                      p→∞
+       {0, . . ., N − 1} and thus input optimality, i.e., Property 5 is
+                                                                                            Folding (59) into (42), it is easy to obtain that
+       satisfied.
+          Remark 2: [47]: Based on the above-mentioned analysis, to                          lim ep (t) = lim Δyp (t) = 0, ∀t ∈ {0, . . ., N − 1}
+                                                                                             p→∞                p→∞
+       guarantee the convergence of impedance learning, the MLP                                                                                       (60)
+       network in (15) of the DRL feedforward controller so as to satisfy                which implies that limp→∞ ep (t) = 0 for all t = 0, . . ., N − 1,
+                                                         
+                                      T       T                                      i.e., Property 6 holds. The proof is thus completed.
+                                     φ                u 
+           sup gu (t) = sup  W2,p ◦ φ            W1,p  < 1 (55)
+             t               t                           
+                                                                                                       IV. COPPELIASIM SIMULATION STUDIES
+                     ∂u ∈ R
+                   = ∂φ     h×m
+       where φ                  is the activation function derivative and                   In order to verify the proposed control scheme and analysis,
+       ◦ is the elementwise product.                                                     a series of simulation studies are conducted and presented in
+          Thanks to the chosen hyperbolic tangent activation function,                   this section. First, the learning procedure for impedance tuning
+       the range of φ is restricted to (0, 1). Thus, the convergence                     is designed and the stopping criterion is set. Then simulations
+       condition (55) of the DRL controller can be simplified as                         are performed to test the effectiveness of the proposed control
+                                          
+                                 φ u                                                   scheme and verify the convergence analysis, which covers most
+                            sup W2,p W1,p  < 1.                 (56)                   of the actual force-tracking scenarios.
+                                   t
+
+          We adopt weight normalization [50] and set a reasonable
+                                                                                         A. CoppeliaSim Model Setup
+       initial weight matrix to satisfy (56), thus guaranteeing the
+       convergence of the output of the DRL controller during the                           We studied the force-tracking control problem using Cop-
+       impedance learning process. This provides a theoretical basis                     peliaSim, a well-established simulator in the field of robotics.
+       for the convergence of impedance learning, which is no longer                     The robot–environment interaction model, as shown in Fig. 4,
+       an unknown black box.                                                             consists of a manipulator arm with a fixed base and different
+          Corollary 1: Given the nonlinear system (7) with the DRL                       terrains generated with random polynomial parameters. In this
+       feedforward controller (13) satisfying theorem 2, it tracks zero                  article, the digital twin model of Universal Robots UR5 is
+       error at convergence (Property 6).                                                adopted to illustrate the implementation. The model settings,
+          Proof: Apply the λ-norm to (44) and let a > max{1, L}, the                     such as kinematics and dynamics parameters, are modeled with
+       derivation along (48) readily yields                                              reference to the real robot and precompensated for tool end force
+                                                                                         errors. The position and stiffness parameters of the environment
+                                         1 − a−(λ−1)N                                    are unknown, but the initial position of the environment, i.e., the
+                  0 ≤ Δsp (t)λ ≤                    Δup (t)λ .              (57)
+                                           aλ−1 − 1                                      initial state, is constant. In this study, the impedance parameters
+          From (53), ∀ε > 0, the λ-norm of the input error for the system                of the robot are tuned by the DRL feedforward controller for
+       that satisfies Theorem 2 is less than ε when p is sufficiently large.             each sampling time t ∈ {0, . . ., N − 1}. The weight parameters
+       Thus, by the squeeze theorem, it follows that:                                    of the neural network model are updated for each training cycle
+                                                                                         p ∈ R. The updated DRL feedforward controller replaces the
+                    lim Δsp (t)λ = 0, ∀t ∈ {0, . . ., N − 1} .                (58)     target neural controller for the current training cycle and opens
+                   p→∞
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1412                                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+
+          Algorithm 1: Impedance Learning for Force Tracking.                             training sessions is set to be 900, the maximum sampling batch
+           Input: Target output yr , tolerance error εe                                   is 350, and the sampling interval is 0.05 s. Provide that when
+           Output: Optimal weights (within tolerance) θ∗                                  the average force error for ten consecutive complete samples is
+           1: Initialization: Iteration index p ← 0; Initialize the                       less than 3% of the desired force and the overshoots σ% are all
+              normalized weight network θ0 by (56), impedance                             less than 75%, the training is done. That is, the current DRL
+              parameters I(0) and state-action value Q(0); Batch                          variable impedance controller is considered to have converged
+              index ibat                                                                  to the optimal impedance controller within the tolerance error
+           2: repeat                                                                      εe . The upper limit of overshooting is set to avoid unacceptable
+           3: Set Initial States: Time index t ← 0; Initial States                        overshooting behavior of the agent. 2) Pretests: The tests are
+                sp (0) ← sr (0); Generate xenv with random                                mainly employed to illustrate the effectiveness, convergence and
+                polynomial interpolation                                                  robustness of the proposed control method. First, three typical
+           4: repeat                                                                      surface terrains are selected to test the force-tracking effect of
+           5:     Take Action: Generate feedforward input ufp (t) by                      the DRL variable impedance controller and compared with other
+                  (15); Compute impedance parameters I(t) by (6);                         control methods to illustrate the effectiveness and advantages.
+                  Obtain reward rp and observations op (t), op (t + 1)                    Then, the tracking force error of the controller at different
+           6:     Evaluate: Add input up (t), observations op (t),                        training stages is tested to verify the convergence. Finally, we
+                  op (t + 1) and reward rp (t) to the replay buffer;                      test for terrain not present in the training dataset to illustrate the
+                  Compute Q function error by (19) and cost Jcost (θp )                   robustness of the controller.
+                  by (20)
+           7:     t←t+1                                                                   C. Simulation Results
+           8: until t > N
+           9: if Buffer size Np ≥ ibat N then                                                1) Force tracking tests: In order to evaluate the control
+          10:     Update Controller: Update network weights θp by                         effect of the proposed method, we tested the trained DRL
+                  (21) and (22)                                                           variable impedance control on different terrains for force
+                                                                                         tracking. We selected three typical terrain scenarios: planes
+          11:     y p ← N1p t yp (t)
+                                                                                          (ẋenv = 0, ẍenv = 0), slope surface (ẋenv = 0, ẍenv = 0), and
+          12:     p←p+1
+                                                                                          complex surface (ẋenv = 0, ẍenv = 0). And, the force-tracking
+          13: end if
+                                                                                          effect of our method is compared with classical constant
+          14: until y p − yr  < εe
+                                                                                          impedance control, adaptive control [25], and sliding mode
+          15: return θ∗ ← θp
+                                                                                          variable impedance control [27]. Fig. 5 shows the force tracking
+                                                                                          results of different control methods in one complete sampling
+                                                                                          period.
+        the next round of impedance learning training. The updating
+                                                                                             The above-mentioned simulation results show that the con-
+        rules are based on the principle of gradient descent besides
+                                                                                          stant impedance control tracks well in the plane, but is poorly ro-
+        satisfying Theorems 1 and 2, and Corollary 1.
+                                                                                          bust to changing terrain (ẋenv = 0) and suffers from steady-state
+           In addition, artificial Gaussian noise is added to state s in
+                                                                                          errors. The sliding mode control is robust to terrain with constant
+        CoppeliaSim to simulate sensor noise, with the sensor noise
+                                                                                          variation (ẍenv = 0) but appears to oscillate when contacting
+        variance set to 30% of the performance tolerance bound. The
+                                                                                          surfaces with specific slopes. This is caused by the oscillation
+        state s is defined in (16). We also added collision calculations
+                                                                                          of the state parameters in the neighborhood of the predesigned
+        during model contact interactions, which is a consideration to
+                                                                                          sliding mode surface. This explains why the sliding mode control
+        make the simulation more realistic.
+                                                                                          in Table II performs well on planar and most of the slopes but less
+                                                                                          well on sinusoidal surfaces. The adaptive variable impedance
+        B. Simulation Procedure                                                           control proposed by Duan changes the impedance parameters
+           Algorithm 1 summarizes how our proposed DRL variable                           by force error information, which can gradually approach the
+        impedance controller implements impedance parameter tuning                        target value while ensuring stability. However, it suffers from
+        and network updating. In order to normalize the data types,                       time lag because the feedback force comes from the current
+        Algorithm 1 normalizes the state parameter s and maps the                         or past moments, and the current impedance parameters do
+        action parameter ΔI within the action bounds [−1, 1] by the                       not always meet the requirements, thus failing to track large
+        common logarithmic relation. Set the reward decay coefficient                     environmental perturbations in time. In contrast, our proposed
+        γ = 0.99 and the learning rate η = 0.001. The built-in actor–                     variable impedance control based on DRL feedforward not
+        critic network is updated at each training cycle until the train-                 only performs well under structured terrain, but is also robust
+        ing is successful. The simulation study consists of two main                      to uncertainly varying terrain. Although terrain variations are
+        parts: training and pretests. 1) Training: The DRL variable                       observable but uncontrollable perturbations, the DRL controller
+        impedance controller is applied to explore the optimal policy                     generates feedforward signals to compensate for the pertur-
+        for tuning the impedance parameters, i.e., impedance learning,                    bations based on the impedance tuning model obtained from
+        in a randomly generated terrain scene. The maximum number of                      previous iterative learning. As shown in Table II, our method
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                      1413
+
+
+
+
+       Fig. 5. Statistical comparisons between different control methods. The first row shows typical planar, oblique and sinusoidal environments. The second and third
+       rows of plots reflect the measured force (fm ) and the measured position (xm ) changes under different control methods, respectively. It can be seen that our method
+       (DRL control) significantly outperforms other methods in force tracking in different environments (especially for nonlinear environments).
+
+
+                                                                         TABLE II
+                                   COMPARISON BETWEEN VARIOUS VARIABLE IMPEDANCE CONTROL METHODS FOR DIFFERENT SURFACES
+
+
+
+
+       reduces the force error on nonlinear surfaces by 62.8% compared                    iterations. At the 200th iteration, the tracking error is already
+       to other variable impedance controls, while taking into account                    acceptable.
+       the necessary metrics such as setting time, maximum overshoot,                        Taking the sinusoidal surface as an example, Fig. 7 shows the
+       and oscillation suppression.                                                       force control and impedance parameter evolution process under
+          2) Controller convergence: To verify the convergence of the                     different numbers of iterations. As can be seen from the results,
+       DRL feedforward controller, we tested the tracking force error                     in the early stage of learning, the input uncertainty of the DRL
+       with different numbers of iterations on the same set of surfaces                   feedforward model is large due to the insufficient data collected.
+       (containing planar, inclined, and higher order surfaces) satisfy-                  Thanks to the setting of the action exploration boundary (the
+       ing Properties 1–2. Fig. 6 shows the force tracking results for                    second row in Fig. 7, the damping parameter needs to be kept
+       different number of iterations. It is observed that the force track-               positive), more useful data can be obtained during the interaction
+       ing error gradually decreases with the increase in the number of                   process. With the continuous enrichment of the interaction data,
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1414                                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+                                                                                                                        TABLE III
+                                                                                               STATISTICAL RESULTS OF FORCE TRACKING IN DIFFERENT TERRAINS
+
+
+
+
+                                                                                          DRL controller is less than 5% of the maximum desired force
+                                                                                          under different terrains and can quickly stabilize and suppress
+                                                                                          overshooting. This is because the feedforward controller accu-
+                                                                                          rately fits the relationship between the environmental rate of
+        Fig. 6. Mean absolute error of force tracking over the whole time interval at     change Δxenv and the impedance parameter tuning ΔI during
+        the 10th, 100th, 200th, and 400th iterations.                                     the impedance learning process. Since we model the interaction
+                                                                                          process as a Markov decision process with the same initial state,
+                                                                                          then for any realizable desired force, there always exists a unique
+        the learned DRL model continuously improves the control policy                    interaction position on the Lipschitz continuous terrain that
+        and tunes the distribution of the impedance parameters to achieve                 makes the feedback force equal to the desired force. Thus, the
+        better tracking results. After 400 iterations, the DRL controller                 satisfaction of Assumption 1 and Properties 1–2 gives the DRL
+        has converged to the desired impedance characteristics (fourth                    controller the ability to generalize to unknown environments.
+        column in Fig. 7). As shown in that column, during free space                        In summary, simulation studies show that the proposed DRL
+        (phase 1), the low damping allows the end to reach the contact                    variable impedance controller can achieve excellent tracking
+        surface quickly. After contact with the environment (phase 2),                    results in uncertain environments.
+        the rapidly increasing high damping allows the end to reach
+        the desired contact force quickly and suppresses oscillations.                                       V. EXPERIMENTS VERIFICATION
+        When the environment changes (phase 3), accurate correction
+        of the reference trajectory and corresponding damping allows                      A. Experiment Setup
+        the end to maintain stable tracking of the contact force. Note                       In this section, experiments are conducted on the test-bed
+        that the reference trajectory at this point is not equivalent to the              shown in Fig. 9 to verify the practical effectiveness of the
+        stationary state of the environment; the difference between them                  proposed DRL controller. The UR5 robot was chosen to avoid
+              −1
+        is Kenv  fd .                                                                     the possible influence on the impedance learning results due to
+            We conducted ablation studies to show the effect of the choice                the difference in dynamics parameters between the real robot
+        of regression vector ν(t) on the convergence of the DRL con-                      and the virtual digital model. The robot arm is equipped with an
+        troller. Fig. 8 illustrates the variation of the average reward along             ATI-Gamma force sensor (the nominal capacity of fz is 400 N
+        the iterations. The average reward of the other control methods is                and the accuracy is 0.05 N). The self-developed DRL controller
+        also added on. DRL control policies that rely only on the inputs                  was used to control the robot, and the control period was set at
+        and outputs of the system often result in nonconvergence or over-                 0.05 s.
+        fitting. Higher reward is easily obtained when the magnitude of                      The experiments included precalibration experiments and ter-
+        terrain change is small (ẋenv ≈ 0). Due to the lack of regression                rain experiments. 1) Calibration experiments. Before performing
+        on the system state s, the ν u -type and ν u+e -type regressors                   force-tracking experiments on different terrains, a calibration
+        overestimate the input u at this point, which leads to overfitting.               step is required to compensate for the gravitational and frictional
+        On the other hand, our proposed DRL control policy combining                      moments of the end tool. Based on the given desired force
+        neural network feedforward with variable impedance feedback                       range, vertical contact experiments without feedforward inputs
+        can solve this problem well. Through the impedance learning                       are performed in the target environment. The contact experiment
+        process, the DRL feedforward controller can obtain the position                   calibrates the initial impedance parameters in the feedback
+        correction Δxr by adjusting the impedance parameters to track                     controller, which in turn yields a range for impedance tuning.
+        the terrain change Δxenv . Therefore, the system observable state                 On the other hand, the measured position where the measured
+        s is necessary for the convergence of the regressors. Theorem                     force is equal to the desired force is set as the initial reference
+        2 provides a theoretical justification for this while the ablation                position to meet the assumption 1 condition. The pretraining
+        experiments verify Theorem 2 and Corollary 1.                                     results obtained from the simulation then need fine-tuning. A
+            3) Generalization: Further, to evaluate the generalization                    random exploration is required for RL. To ensure training safety,
+        effect of the proposed DRL controller, we performed the gen-                      fine-tuning is therefore performed in a virtual environment. The
+        eralizability test on different terrains outside the training set,                maximum episodes are set to 50 and the training time for each
+        respectively. The range of environmental stiffness (N/m) is set                   episode is determined by a single task cycle. Therefore, the
+        to [250, 25000] and the range of target force (N) is set to [10, 50].             fine-tuning process can always be completed in a limited time.
+        As shown in Table III, the mean force tracking error of the                       In all controller training, the objective defined by the reward
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                        1415
+
+
+
+
+       Fig. 7. Impedance parameter evolution and force control process on the sinusoidal plane. The solid line and shading are the desired value and 95% confidence
+       interval of the DRL controller output, respectively. The first row is the contact force variation, the second row is the profile of the desired damping Bd , and the
+       third row is the profile of the reference trajectory xr .
+
+
+
+
+                                                                                              Fig. 9.   Experimental hardware setup. DRL controller is integrated in laptop.
+
+       Fig. 8. Comparison of average rewards for DRL control with different re-
+       gression vectors ν u = u, ν u+e = [u, e]T and ν u+x = [uf + ub , s]T (Ours).
+       Thanks to the negative correlation between the reward and the square of the force         1) Constant impedance control: Set B = kb I and K = kk I,
+       error, the larger cumulative rewards imply the smaller force error, i.e., the better
+       control results. It can be seen that the regression vector consisting of system              where kb and kk are constants.
+       inputs and states enables the DRL feedforward controller to converge to the               2) Adaptive control: The velocity-based adaptive control is
+       optimum asymptotically, effectively avoiding overfitting.                                    proposed in [25]. This method is to generate adaptive
+                                                                                                    velocity adjustment from force error.
+                                                                                                 3) DRL control: The impedance learning-based DRL control
+       function remains unchanged: tracking expected force in different                             method proposed by us is used.
+       environments while achieving high robustness and energy opti-
+       mization. The learning rate η and reward decay coefficient γ also
+       remain unchanged during the process. A large enough boundary                           B. Results and Discussion
+       Iinf is chosen to replace ∞ for implementation convenience.                               Scene 1: Robot machining. Because the material removal
+       2) Terrain experiments. Variable impedance feedback signals                            by grinding is very small, the workpiece being ground can
+       and fine-tuned neural network feedforward signals are integrated                       be considered as a static environment. The designed grinding
+       into the DRL controller. The experiments comprise three differ-                        machining experiments require the end-effector to maintain as
+       ent scenes: a static environment, a quasistatic environment, and                       constant a force as possible on the surface of the workpiece
+       a dynamic environment. To evaluate the proposed impedance                              to guarantee the grinding accuracy. The workpiece is a resin
+       learning-based DRL control strategy, the following three control                       plate fixed to an aluminum alloy with dimensions 280 × 40 × 50
+       conditions are compared.                                                               mm and its stiffness is unknown. A grinding head is added
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1416                                                                                                              IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+
+        Fig. 10. Results of the robot performing a machining task under constant impedance (blue), velocity-based adaptive control (cyan), and the proposed DRL control
+        method (red). Terrain surface types include: a) stiffness-varying planes b) sloped surfaces, and c) curved surfaces. (a) Force tracking on flat terrain with different
+        stiffness switching. The switched materials include one-rubber, two-resin, three-glass, four-aluminum, and five-steel. (b) Force tracking error on oblique terrain
+        with different tilt angles θ ∈ [−45, 45] ◦ . (c) Ratio of force tracking errors on curved terrain with different desired forces fd ∈ [1, 40] N. (a) On flat terrain. (b)
+        On sloped terrain. (c) On curved terrain.
+
+
+
+        to the robot end-effector, and the diameter of the grinding                          sloped surface with an inclination angle of θ. Fig. 10(b) shows
+        head is 16 mm. After the calibration experiments are com-                            the force-tracking results of the three control methods. Due to
+        pleted, three typical terrains are selected for robotic grinding                     the fixed impedance parameter, the constant impedance control
+        machining tests. To maintain the consistency of the initial                          tracks well on the plane but suffers from steady-state error on
+        state, set sp (0) = sr (0) = [0.15, 0.1]T m. In other words, the                     the inclined plane. In contrast, the adaptive control can adjust
+        initial position of the robot and the environment is constant                        the impedance parameters according to the force error feedback
+        and the robot is not in contact with the environment at the                          to track the force, but with some hysteresis. The proposed
+        beginning.                                                                           DRL control strategy generates feedforward signals based on
+           If the contact environment is a flat terrain, it satisfies ẋenv = 0,             orthogonal force information, which effectively removes the
+        ẍenv = 0. To test the robustness of different control strategies                    hysteresis of the control process. Consistent with the results of
+        to the environmental stiffness change ΔKenv , the suddenly                           the simulation, our method outperforms the other two control
+        changed environmental stiffness is                                                   methods in force tracking on inclined surfaces with different
+                                                                                            inclination angles.
+                                    kenv0 0 s ≤ t ≤ 8 s
+                        Kenv =                                                                  If the contact environment is a curved terrain, it satis-
+                                   kenv (i) 8 s ≤ t ≤ 16 s
+                                                                                             fies ẋenv = 0, ẍenv = 0, and other assumptions are the same.
+        where kenv0 is the initial environmental stiffness, i is the num-                    Fig. 10(c) illustrates the results of the ratio of the errors relative
+        ber of experimental groups, and satisfies kenv (1) < kenv (2) =                      to the desired force for different desired forces. It can be seen
+        kenv0 < kenv (3) < kenv (4) < kenv (5). From Fig. 10(a), it can                      that the average error ratio of the proposed DRL control stays
+        be seen that the desired force can be tracked after a short over-                    below 5%, which is lower than the other two methods.
+        shoot when the environmental stiffness changes. The smaller the                         From the above-mentioned three experiments, it can be con-
+        change in stiffness, the smaller the overshoot. The three control                    cluded that the simulation-trained impedance learning method
+        methods are robust to stiffness changes in the environment.                          shows a better force-tracking effect in the real environment and
+           If the contact environment is a sloped terrain, it satisfies                      effectively realizes the transfer of training results to the real
+        ẋenv = 0, ẍenv = 0. The robot moves from a flat surface to an                     robot.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                      1417
+
+
+
+
+       Fig. 11. Results of the robot performing the peeling task under constant impedance (blue), velocity-based adaptive control (cyan), and the proposed DRL method
+       (red). (a) Peeling success rate under different desired forces fd (∈ [1, 9] N). (b) Radially measured force of the peeled object under different control methods (fd
+       = 5 N). None of the objects contacted the end-effector at the beginning. (c) Statistics of peeling thickness for different objects (fd =5 N). Constant impedance
+       control for cucumber peeling does not give corresponding results because the task failed in all three tests.
+
+
+
+          Scene 2: Robot peeling. We chose three different ingre-                         to the jamming of the knife caused by too large force or the
+       dients (apples, potatoes, and cucumbers) as peeling objects.                       peel breakage caused by too small force. The three control
+       The peeling process removes the surface peel causing a small                       methods have the best peeling effect when the desired force
+       change in the environment, so the contact surface can be vi-                       is 5 N, as shown in Fig. 11(b). In the experiments, the bumps or
+       sualized as a quasistatic terrain, i.e., (xenv )p+1 = (xenv )p and                depressions on the surface of the objects lead to changes in the
+       (xenv )p+1 − (xenv )p ≈ 0. The ends of the objects are fixed to                    measured force, which in turn affects the thickness of the peel.
+       the base. The robot end-effector is a stainless steel knife with a                 In contrast, the proposed control strategy can track the desired
+       blade length of 50 mm. After the calibration experiments are                       cutting force stably. Fig. 11(c) compares the mean and standard
+       completed, the unpeeled objects are selected for the robotic                       deviation of the thickness of the object obtained by cutting at
+       peeling experiments.                                                               fd = 5 N. It can be seen that the thickness of the peel cut under
+          The task is done if the peeling is continuous and there is no                   the proposed DRL control is more uniform, and the standard
+       jamming of the knife. Under the same conditions, the lateral                       deviations of its thicknesses are 0.058 mm (apple), 0.033 mm
+       sides of the object are selected for three separate peeling tests.                 (potato), and 0.033 mm (cucumber) are lower than those of the
+       Fig. 11(a) shows the success rate of each control method under                     adaptive control counterparts of 0.106, 0.092, and 0.177 mm.
+       different desired forces. Constant impedance control is difficult                     Scene 3: Human–robot interaction. Robots with compliance
+       to apply to complex surfaces and has the lowest success rate with                  control can be used for human–robot interaction. The interaction
+       an average of only 15.6%. Adaptive control and our method                          process is illustrated with examples of shaking hands, combing
+       effectively improve the peeling success rate (with 57.8% and                       hair, and swabbing skin between a robot and a human. Desired
+       73.3%, respectively). The peeling success rate is reduced due                      forces fdhandshake = [0, 0, 5]T N, fdcomb = [0.1t, 0, 2]T N,
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1418                                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+
+        Fig. 12. Results of human–robot interaction under velocity-based adaptive control (cyan) and the proposed DRL method (red). (a) Measured forces for different
+        interaction tasks in the workspace. (b) Statistical results of tracking force errors. (c) Average human effort during human–robot interaction.
+
+
+
+
+        and fdswab = [sin π(t/5 + 1), 0, 1]T N are set for handshaking,                   impedance learning thus obtaining better force tracking. The
+        combing, and swabbing, respectively, to drive the robot to per-                   statistical results of the force errors for the three tasks are shown
+        form these tasks. Human stiffness is unknown and the epidermis                    in Fig. 12(b), where our method outperforms the adaptive control
+        is disturbed by friction and pressure, leading to dynamic changes                 and reduces the force error by 55.4% on average compared to
+        in surface morphology. Therefore, the same safe position of the                   it. Since the reduction of force tracking error in human–robot
+        arm is selected for the calibration and test experiments. Con-                    interaction may come from two aspects, i.e., the performance
+        sidering the poor dynamic response of the constant impedance                      improvement of the controller or the human effort, the friendli-
+        control which may lead to injuries, only the proposed controller’s                ness of human–robot interaction should also be considered in the
+        force-tracking performance relative to the adaptive feedback                      experiments. To maintain contact force stabilization, the human
+        control is compared, as shown in Fig. 12(a). In the handshake                     can show compliance or impedance to the robot by constantly
+        test, the robot approaches the human hand at the same speed and                   adjusting his/her state (position or stiffness), but this will bring
+        generates a force overshoot at the beginning. Based on the force                  about constant oscillations in xm or fm . To evaluate the human
+        error information, the robot adjusts its impedance to increase                    effort Jhuman of driving the robot during the interaction, the
+        flexibility to follow the motion of the human hand. Our method                    following formula [51] is applied:
+        demonstrates a faster response. In the hair combing test, the                                                    T0
+                                                                                                                                T
+        x-axis is set to gradually increase the force to drive the robot to                                 Jhuman =          fm  (t)ẋm (t) dt
+        complete the combing task due to the damping from the hair. The                                                     0
+
+        velocity-based adaptive control showed hysteresis during the                      where T0 is the task duration and ẋm is the interaction speed.
+        contact (from 3 s). In five consecutive swabbing tests (starting                     Fig. 12(c) shows that the human effort during human–robot
+        from 2 s), the skin was stiffened due to the extrusion stack,                     interaction is always less than or equal to that of the adaptive
+        resulting in five sinusoidal peaks. The proposed DRL control                      control, which suggests that the reduction of force tracking
+        adapts to the stiffness variation law of the skin through the priori              error comes entirely from the enhancement of the controller
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+       LI et al.: IMPEDANCE LEARNING-BASED ADAPTIVE FORCE TRACKING FOR ROBOT ON UNKNOWN TERRAINS                                                                     1419
+
+
+
+       performance to exclude the deliberate human effort. On the                         [3] X. Li, W. Wang, and J. Yi, “Foot contact force of walk gait for a quadruped
+       other hand, it also suggests that our method can reduce the                            robot,” in Proc. IEEE Int. Conf. Mechatron. Automat., Harbin, China, 2016,
+                                                                                              pp. 659–664.
+       human effort used to maintain force stabilization, especially                      [4] Z. Li, X. Li, Q. Li, H. Su, Z. Kan, and W. He, “Human-in-the-loop control
+       on dynamic human–robot interaction tasks (e.g., handshaking).                          of soft exosuits using impedance learning on different terrains,” IEEE
+       Thus, the proposed DRL controller not only produces better                             Trans. Robot., vol. 38, no. 5, pp. 2979–2993, Oct. 2022.
+                                                                                          [5] X. Chen, N. Wang, H. Cheng, and C. Yang, “Neural learning enhanced
+       tracking performance, but also reduces the workload of driving                         variable admittance control for human–robot collaboration,” IEEE Access,
+       the robot and therefore has a better human–robot interaction                           vol. 8, pp. 25727–25737, 2020.
+       experience.                                                                        [6] B. Siciliano and L. Villani, Robot Force Control. Berlin, Germany:
+                                                                                              Springer, 2000.
+          In the above-mentioned three experimental scenarios, static,                    [7] P. Jaroonsorn et al., “Robot-assisted transcranial magnetic stimula-
+       quasistatic, and dynamic environments are included. The pro-                           tion using hybrid position/force control,” Adv. Robot., vol. 34, no. 24,
+       posed controller can be learned in the virtual environment and                         pp. 1559–1570, 2020.
+                                                                                          [8] S. Jung and T. C. Hsia, “Force tracking impedance control of robot
+       used in the complex real environment. The experimental results                         manipulators for environment with damping,” in Proc. IEEE 33rd Annu.
+       verify the effectiveness of impedance learning feedforward and                         Conf. Ind. Electron. Soc., 2007, pp. 2742–2747.
+       the feasibility of DRL control. The designer can easily adjust the                 [9] H. F. N. Al-Shuka et al., “Active impedance control of bioinspired motion
+                                                                                              robotic manipulators: An overview,” Appl. Bionics Biomech., vol. 2018,
+       desired impedance metrics and the robot can track the desired                          no. 1, 2018, Art. no. 8203054.
+       force stably in uncertain environments.                                           [10] S. Hjorth and D. Chrysostomou, “Human–robot collaboration in industrial
+                                                                                              environments: A literature review on non-destructive disassembly,” Robot.
+                                                                                              Comput.- Integr. Manuf., vol. 73, 2022, Art. no. 102208.
+                                   VI. CONCLUSION                                        [11] R. Mengacci, F. Angelini, M. G. Catalano, G. Grioli, A. Bicchi, and M.
+                                                                                              Garabini, “Stiffness bounds for resilient and stable physical interaction
+          Force tracking is an important issue in the contact manipu-                         of articulated soft robots,” IEEE Robot. Automat. Lett., vol. 4, no. 4,
+       lation of robots with uncertain environments. In this article, we                      pp. 4131–4138, Oct. 2019.
+       propose an interpretable DRL control policy for force tracking                    [12] X. Lamy, F. Colledani, and P. -O. Gutman, “Identification and exper-
+                                                                                              imentation of an industrial robot operating in varying-impedance en-
+       in unknown environments, which is a combination of DRL                                 vironments,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2010,
+       feedforward and variable impedance feedback. Two key prop-                             pp. 3138–3143.
+       erties of the proposed control policy are analyzed: stability and                 [13] Z. Jiang, Z. Sun, H. Li, W. Ni, and J. Xu, “Designing of a kind of impedance
+                                                                                              controller for industrial robots to assemble satellites,” in Proc. IEEE 7th
+       convergence. Sufficient conditions for stability and zero-error                        Annu. Int. Conf. Cyber Technol. Automat., Control, Intell. Syst., Honolulu,
+       convergence of the proposed DRL control are given by estab-                            HI, USA, 2017, pp. 436–441.
+       lishing a simplified contact model of the robots interacting with                 [14] P. Yuan, “An adaptive feedback scheduling algorithm for robot assembly
+                                                                                              and real-time control systems,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots
+       uncertain environments.                                                                Syst., Beijing, China, 2006, pp. 2226–2231.
+          By satisfying the Lipschiz continuity condition, the                           [15] J. Wu et al., “Smooth transition adaptive hybrid impedance control
+       impedance learning results in the virtual environment are guar-                        for connector assembly,” Ind. Robot, vol. 45, no. 2, pp. 287–299,
+                                                                                              2018.
+       anteed to be safely transferred to the real environment, which                    [16] N. Rojas-García, A. Chávez-Olivares, and O. Mendoza-Gutiérrez,
+       equips the robot with impedance adjustment intelligence in un-                         “Force/position control with bounded actions on a dexterous robotic
+       certain environments. In conjunction with ablation experiments,                        hand with two-degree-of-freedom fingers,” Biocybernetics Biomed. Eng.,
+                                                                                              vol. 42, pp. 233–246, 2022.
+       the effect of the regression vector selection on the convergence                  [17] S. S. Ge, Y. Li, and C. Wang, “Impedance adaptation for optimal robot–
+       of the feedforward network is discussed. The analysis shows                            environment interaction,” Int. J. Control, vol. 87, pp. 249–263, 2014.
+       that the observable state of the uncertain system is necessary                    [18] T. Xue, W. Wang, J. Ma, W. Liu, Z. Pan, and M. Han, “Progress and
+                                                                                              prospects of multimodal fusion methods in physical human–robot inter-
+       in the learning process; otherwise it may lead to overfitting or                       action: A review,” IEEE Sensors J., vol. 20, no. 18, pp. 10355–10370,
+       underfitting phenomena. This phenomenon is prevalent in other                          Sep. 2020.
+       neural network controllers that rely only on input–output.                        [19] A. Hameed et al., “Control system design and methods for collaborative
+                                                                                              robots: Review,” Appl. Sci., vol. 13, no. 1, 2023, Art. no. 675.
+          Then, based on the results of the theoretical analysis, simula-                [20] H. Hu, X. Wang, and L. Chen, “Impedance with finite-time control scheme
+       tion and real robot experiments were carried out under different                       for robot-environment interaction,” Math. Problems Eng., vol. 2020,
+       material terrains and different desired forces. The results show                       pp. 1–18, 2020.
+                                                                                         [21] H. Cao, X. Chen, Y. He, and X. Zhao, “Dynamic adaptive hybrid
+       that the proposed DRL control policy not only generalizes to                           impedance control for dynamic contact force tracking in uncertain en-
+       untrained scenarios, but also can perform well in static or dy-                        vironments,” IEEE Access, vol. 7, pp. 83162–83174, 2019.
+       namic uncertain environments. In future work, we will consider                    [22] C. Hongli, “Design of a fuzzy fractional order adaptive impedance
+                                                                                              controller with integer order approximation for stable robotic contact
+       extending the proposed DRL control policy to more kinds of                             force tracking in uncertain environment,” Acta Mechanica et Automatica,
+       robot interaction tasks with uncertain environments, such as                           vol. 16, no. 1, pp. 16–26, 2022.
+       universal grasping and bipedal running.                                           [23] Z. Li, “A fuzzy adaptive admittance controller for force tracking in an un-
+                                                                                              certain contact environment,” IET Control Theory, vol. 15, pp. 2158–2170,
+                                                                                              2021.
+                                         REFERENCES                                      [24] S. Jung and D. J. Jeong, “Admittance force tracking control schemes for
+                                                                                              robot manipulators under uncertain environment and dynamics,” Int. J.
+        [1] A. Ibarguren, P. Daelman, and M. Prada, “Control strategies for dual              Control, Automat. Syst., vol. 19, pp. 3753–3763, 2021.
+            arm co-manipulation of flexible objects in industrial environments,” in      [25] J. Duan et al., “Adaptive variable impedance control for dynamic contact
+            Proc. IEEE Conf. Ind. Cyberphysical Syst., Tampere, Finland, 2020,                force tracking in uncertain environment,” Robot. Auton. Syst., vol. 102,
+            pp. 514–519.                                                                      pp. 54–65, 2018.
+        [2] X. Qin et al., “The adaptive neural network sliding mode control for         [26] J. Peng, Z. Yang, and T. Ma, “Position/Force tracking impedance control
+            angle/force tracking of the dexterous hand,” Adv. Mech. Eng., vol. 13,            for robotic systems with uncertainties based on adaptive Jacobian and
+            2021, Art. no. 168781402110380.                                                   neural network,” Complexity, vol. 2019, pp. 1–16, 2019.
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+        1420                                                                                                          IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+        [27] M. Iskandar, C. Ott, A. Albu-Schäffer, B. Siciliano, and A. Dietrich,                                  Yanghong Li received the B.Eng. degree from the
+             “Hybrid force-impedance control for fast end-effector motions,” IEEE                                   University of Science and Technology of China,
+             Robot. Automat. Lett., vol. 8, no. 7, pp. 3931–3938, Jul. 2023.                                        Hefei, China, in 2020, where he is currently working
+        [28] C. Li et al., “Efficient force control learning system for industrial                                  toward the Ph.D. degree in the precision instrumen-
+             robots based on variable impedance control,” Sensors, vol. 18, 2018,                                   tation and machinery.
+             Art. no. 2539.                                                                                            His research interests include the force control of
+        [29] L. Roveda, N. Iannacci, F. Vicentini, N. Pedrocchi, F. Braghin, and L. M.                              the manipulator and model learning for control.
+             Tosatti, “Optimal impedance force-tracking control design with impact
+             formulation for interaction tasks,” IEEE Robot. Automat. Lett., vol. 1,
+             no. 1, pp. 130–136, Jan. 2016.
+        [30] L. Wang and B. Meng, “Adaptive vision-based force/position tracking
+             of robotic manipulators interacting with uncertain environment,” in Proc.
+             Chin. Control Decis. Conf., Nanchang, China, 2019, pp. 5126–5131.
+        [31] M. Xu, A. Hu, and H. Wang, “Image-based visual impedance force control
+             for contact aerial manipulation,” IEEE Trans. Automat. Sci. Eng., vol. 20,                             Li Zheng (Graduate Student Member, IEEE) re-
+             no. 1, pp. 518–527, Jan. 2023.                                                                         ceived the B.Eng. degree from the Dalian University
+        [32] J. R. Medina, D. Sieber, and S. Hirche, “Risk-sensitive interaction control                            of technology, Dalian, China, in 2020. He is currently
+             in uncertain manipulation tasks,” in Proc. IEEE Int. Conf. Robot. Automat.,                            working toward the Ph.D. degree in the precision
+             Karlsruhe, Germany, 2013, pp. 502–507.                                                                 instrumentation and machinery with the University
+        [33] B. Baigzadehnoe et al., “On position/force tracking control problem of                                 of Science and Technology of China, Hefei, China.
+             cooperative robot manipulators using adaptive fuzzy backstepping ap-                                      His research interests include the motion planning
+             proach,” ISA Trans., vol. 70, pp. 432–446, 2017.                                                       of the manipulator and deep reinforcement learning.
+        [34] Y. Shen, Y. Lu, and C. Zhuang, “A fuzzy-based impedance control for
+             force tracking in unknown environment,” J. Mech. Sci. Technol., vol. 36,
+             pp. 5231–5242, 2022.
+        [35] S. Ito et al., “Effect of robot position control using force information:
+             Human versus robot with force sensor,” in Proc. Int. Conf. Inf. Educ.
+             Technol., Okayama, Japan, 2021, pp. 257–261.
+        [36] S. Hashimura et al., “Influence of configuration error in bolted joints on
+             detection error of clamp force detection method,” Int. J. Automat. Technol.,                           Yahao Wang received the B.Eng. degree from Anhui
+             vol. 15, no. 4, pp. 396–403, 2021.                                                                     Engineering University, Ma’anshan, China, in 2018.
+        [37] B. Vanderborght et al., “Variable impedance actuators: A review,” Robot.                               He is currently working toward the Ph.D. degree
+             Auton. Syst., vol. 61, no. 12, pp. 1601–1614, 2013.                                                    in the precision instrumentation and machinery with
+        [38] J. Abu-Dakka and S. Fares Matteo, “Variable impedance control and                                      the University of Science and Technology of China,
+             learning–A review,” Front. Robot. AI, vol. 7, 2020, Art. no. 590681.                                   Hefei, China.
+        [39] C. Yang, C. Zeng, P. Liang, Z. Li, R. Li, and C. -Y. Su, “Interface design of                             His research focuses on the motion planning of the
+             a physical human–robot interaction system for human impedance adaptive                                 manipulator.
+             skill transfer,” IEEE Trans. Automat. Sci. Eng., vol. 15, no. 1, pp. 329–340,
+             Jan. 2018.
+        [40] K. Kronander and A. Billard, “Learning compliant manipulation through
+             kinesthetic and tactile human-robot interaction,” IEEE Trans. Haptics,
+             vol. 7, no. 3, pp. 367–380, Jul.–Sep. 2014.
+        [41] A. Bolotnikova, S. Courtois, and A. Kheddar, “Adaptive task-space force
+             control for humanoid-to-human assistance,” IEEE Robot. Automat. Lett.,
+             vol. 6, no. 3, pp. 5705–5712, Jul. 2021.                                                               Erbao Dong (Member, IEEE) received the B.S. and
+        [42] M. Li, Y. Wen, X. Gao, J. Si, and H. Huang, “Toward expedited impedance                                Ph.D. degrees in precision machinery and precision
+             tuning of a robotic prosthesis for personalized gait assistance by reinforce-                          instrumentation from the University of Science and
+             ment learning control,” IEEE Trans. Robot., vol. 38, no. 1, pp. 407–420,                               Technology of China, Hefei, China, in 2005 and 2010,
+             Feb. 2022.                                                                                             respectively.
+        [43] J. van den Kieboom and A. J. Ijspeert, “Exploiting natural dynamics in                                    He is currently an Associate Professor with the
+             biped locomotion using variable impedance control,” in Proc. 13th IEEE-                                University of Science and Technology of China. His
+             RAS Int. Conf. Humanoid Robots, Atlanta, GA, USA, 2013, pp. 348–353.                                   research interests include artificial muscles and bionic
+        [44] Z. Zhang, “A computational framework for robot hand design via rein-                                   robots, intelligent mobile robots, and dual-arm col-
+             forcement learning,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst.,                                laborative robots.
+             Prague, Czech Republic, 2021, pp. 7216–7222.
+        [45] J. Buchli et al., “Variable impedance control - A reinforcement learning
+             approach,” in Proc. Conf. Robotics: Sci. Syst., Zaragoza, Spain, 2010.
+        [46] D. Shen, W. Zhang, and J. Xu, “Iterative learning control for discrete
+             nonlinear systems with randomly iteration varying lengths,” Syst. Control
+             Lett., vol. 96, pp. 81–87, 2016.
+        [47] K. Patan and M. Patan, “Neural-network-based iterative learning control
+                                                                                                                    Shiwu Zhang (Member, IEEE) received the B.S.
+             of nonlinear systems,” ISA Trans., vol. 98, pp. 445–453, 2020.
+                                                                                                                    degree in mechanical and electronic engineering and
+        [48] H. Khalil, Nonlinear Systems, 3rd ed. Upper Saddle River, NJ, USA:
+                                                                                                                    the Ph.D. degree in the precision instrumentation
+             Prentice Hall, 2002.                                                                                   and machinery from the University of Science and
+        [49] M. Pierallini et al., “A provably stable iterative learning controller for
+                                                                                                                    Technology of China (USTC), Hefei, China, in 1997
+             continuum soft robots,” IEEE Robot. Automat. Lett., vol. 8, no. 10,
+                                                                                                                    and 2003, respectively.
+             pp. 6427–6434, Oct. 2023.
+                                                                                                                       He is currently a Professor with the Department of
+        [50] T. Salimans and D. P. Kingma, “Weight normalization: A. simple reparam-                                Precision Machinery and Precision Instrumentation,
+             eterization to accelerate training of deep neural networks,” in Proc. Adv.
+                                                                                                                    USTC. He was a Visiting Scholar with University of
+             Neural Inf. Process. Syst., 2016, pp. 901–909.
+                                                                                                                    Wollongong, Wollongong, NSW, Australia, in 2016,
+        [51] X. Xing, E. Burdet, W. Si, C. Yang, and Y. Li, “Impedance learning
+                                                                                                                    and Ohio State University, Columbus, OH, USA, in
+             for human-guided robots in contact with unknown environments,” IEEE
+                                                                                                                    2012, respectively.
+             Trans. Robot., vol. 39, no. 5, pp. 3705–3721, Oct. 2023.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:53:05 UTC from IEEE Xplore. Restrictions apply.
+

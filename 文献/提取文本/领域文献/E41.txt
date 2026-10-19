@@ -1,0 +1,968 @@
+        1174                                     IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 28, NO. 2, APRIL 2023
+
+
+
+
+                           Model Predictive Variable Impedance
+                           Control of Manipulators for Adaptive
+                             Precision-Compliance Tradeoff
+                             Zhehao Jin , Dongdong Qin, Andong Liu , Wen-an Zhang , Member, IEEE,
+                                                   and Li Yu , Member, IEEE
+
+
+           Abstract—Impedance control (IC) is widely used in                                                          I. INTRODUCTION
+        contact-rich manipulator tasks since it provides manipula-
+                                                                                              MPEDANCE control (IC) [1] is a reliable control archi-
+        tors with both operation precision and contact compliance,
+        and trades them off by impedance parameters. However,
+        fixed impedance parameters limit the applicability of IC
+                                                                                          I   tecture for contact-rich robot tasks since it provides robots
+                                                                                          with the contact-compliance property. Actually, IC determines
+        in complex tasks during which the focus on the opera-                             a tradeoff between the operation precision and contact com-
+        tion precision or the contact compliance is variable, such
+        as physical human–robot collaboration and complex as-                             pliance for robots. The specific tradeoff mode is dependent on
+        sembly tasks. This article presents model predictive vari-                        the impedance parameters of the IC. However, a single and
+        able impedance control approaches for adaptive precision-                         fixed tradeoff mode is only effective for structure tasks, such
+        compliance tradeoff to satisfy variable task requirements.                        as those in factory assembly lines. For more flexible tasks, such
+        Specifically, we establish a novel impedance model, which                         as working with humans or other robots, robots are expected to
+        transforms the variable impedance law design problem into
+        a control law design problem, and allows us to consider                           have different precision-compliance tradeoff modes to cope with
+        novel impedance constraints that can determine manipu-                            different task statuses [2]. Variable impedance control (VIC)
+        lators’ extreme precision and compliance properties. Ac-                          which combines the IC with a variable impedance law serves as
+        cording to whether state constraints are further considered,                      a good solution to provide robots with this adaptive ability [3].
+        one-step (OS) and multistep (MS) model predictive control                         Thus, in recent years, numerous works [4], [5], [6] have been
+        approaches are proposed to solve these transformed con-
+        trol problems, and the corresponding optimization problem                         done to explore the benefits of the VIC.
+        of the OS MPC can be established as a QP problem due                                 The adaptive ability is fully determined by the variable
+        to the special form of the novel impedance model. A tank-                         impedance law which is the key element of the VIC. Design
+        based approach is further proposed to correct the variable                        of the variable impedance law is not trivial and goes beyond the
+        impedance laws for the system passivity concern. Various                          control engineering domain [7], [8]. A popular way to establish
+        comparative experiments are conducted to validate the ef-
+        fectiveness of the presented approaches.                                          the variable impedance law is based on human demonstration.
+                                                                                          In [9], an interface that allows a human teacher to indicate
+          Index Terms—Model predictive control, optimization,                             impedance variation by physically interacting with the robot dur-
+        precision-compliance tradeoff, variable impedance control
+                                                                                          ing the task execution was presented. In [10], the interface pre-
+        (VIC).
+                                                                                          sented in [9] was further enhanced, and a modified Gaussian mix-
+                                                                                          ture model/Gaussian mixture regression (GMM/GMR) learning
+                                                                                          algorithm was designed to transmit the human impedance vari-
+                                                                                          ation law to the robot. In [11], the variable impedance law was
+                                                                                          described as a dynamic movement primitive model in which the
+           Manuscript received 5 April 2022; revised 18 July 2022; accepted               parameters were optimized by applying the locally weighted
+        1 September 2022. Date of publication 15 September 2022; date of                  regression algorithm on a demonstrated dataset. With the same
+        current version 18 April 2023. Recommended by Technical Editor M. Ko-
+        mori and Senior Editor M. Basin. This work was supported in part by the           idea of using supervised learning algorithms as [10] and [11],
+        National Natural Science Foundation of China under Grant 61973275,                the variable impedance law was derived in [12] using the hidden
+        in part by the Zhejiang Provincial Natural Science Foundation of China            semi-Markov model/Gaussian mixture regression algorithm. A
+        under Grant LD21F030002, and the Fundamental Research Funds
+        for the Provincial Universities of Zhejiang under Grant RF-A2020004.              major disadvantage of the above supervised-based demonstra-
+        (Corresponding author: Andong Liu.)                                               tion learning algorithms is that the ground truth of the human
+           The authors are with the College of Information Engineering,                   impedance parameters is difficult to be obtained. For example,
+        Zhejiang University of Technology, Hangzhou 310032, China (e-mail:
+        jzh839881963@163.com;           178910450@qq.com;     lad@zjut.edu.cn;            the electromyographic (EMG) signal used to represent human
+        wazhang@zjut.edu.cn; lyu@zjut.edu.cn).                                            stiffness in [11] requires a complex preprocessing on the raw
+           This article has supplementary material provided by the au-                    EMG signal. An approach to deal with this issue was presented
+        thors and color versions of one or more figures available at
+        https://doi.org/10.1109/TMECH.2022.3204350.                                       in [13], where human impedance parameters were served as
+           Digital Object Identifier 10.1109/TMECH.2022.3204350                           hidden variables of a Gaussian process model.
+
+                            1083-4435 © 2022 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                          See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: MODEL PREDICTIVE VIC OF MANIPULATORS FOR ADAPTIVE PRECISION-COMPLIANCE TRADEOFF                                                                 1175
+
+
+
+          Demonstration learning-based VIC aims to transform the                                 cost function to exactly capture the objective of robot
+       human impedance variable skills to robots, where there may not                            precision-compliance tradeoff.
+       exist specific task-related objective functions. For some tasks,                      2) Due to the specificity of the novel impedance model,
+       we may have explicit objectives, such as increasing tracking                              we can accept any form of the optimal solution of the
+       precision and improving contact compliance for contact-rich                               MPC optimization problem, even with the numerical
+       trajectory tracking tasks. With an objective function, we can                             form. Constraints are thus acceptable in the MPC opti-
+       compare two variable impedance laws and define the optimal                                mization problem. Novel constraints, named impedance
+       variable impedance law. Recently, reinforcement learning (RL)                             constraints, which rule the scope of the impedance pa-
+       algorithms have become popular for designing optimal variable                             rameters and determine robots’ extreme precision and
+       impedance laws for these tasks with explicit objectives. By                               compliance properties, are considered to improve robot
+       designing reward functions to be consistent with the task objec-                          operation performances.
+       tives, RL algorithms always derive helpful variable impedance                         3) Two specific MPC approaches, i.e., one-step (OS) MPC
+       laws [14], [15], [16], [17]. However, since RL algorithms                                 and multistep (MS) MPC approaches are presented to
+       are always trained in virtual environments and improve their                              design the variable impedance laws for different types of
+       performances through trial-and-errors, the final performances                             tasks. The OS MPC optimization problem satisfies the
+       of learned variable impedance laws are determined by gaps                                 standard QP formulation, and it is designed to solve tasks
+       between the virtual and real environments. The reason for                                 with only impedance constraints. The MS MPC approach
+       trial-and-errors is that RL algorithms always assume that the                             faces the heavier computational burden but is free of the
+       environment model is completely or partly unknown, which                                  limitation for constraint formulation.
+       is the major difference between RL algorithms and control                             4) A tank-based approach is presented to ensure the passivity
+       algorithms. Model predictive control (MPC) is the most similar                            of the variable impedance systems resulting from the pre-
+       to RL algorithms among all control algorithms, either from the                            sented MPC-based VIC approaches, which can increase
+       perspective of formulation or objective [18], [19].                                       the robot operation safety for contact-rich tasks.
+          MPC-based VIC approaches have also been reported in recent                        Various practical experiments are conducted to validate the
+       years. Similar to the RL-based VIC approaches, the MPC-                           effectiveness of the presented MPC-based VIC approaches. The
+       based VIC approaches also aim to search the optimal variable                      remaining contents are structured as follows. The background of
+       impedance laws with respect to task-specific objective functions.                 the robot dynamic control and impedance control are introduced
+       Moreover, MPC-based VIC approaches are more efficient and                         in Section II. A detailed description of the studied problem is
+       interpretable than RL-based VIC approaches, due to their full                     given in Section III. MPC-based VIC approaches and passivity
+       utilization of the model knowledge. In [20], [21], and [22]                       analyses are introduced in Sections IV and V, respectively.
+       where trajectory tracking tasks were considered, impedance                        Experimental results are shown in Section VI. A discussion is
+       models were rewritten as linear models, and MPC approaches                        provided in Section VII. Finally, Section VIII concludes this
+       with quadratic cost functions were presented to online gener-                     article and presents the future works.
+       ate optimal impedance parameters for robots to trade off the
+       tracking precision against the contact compliance. In [23] and
+                                                                                                              II. CONTROL BACKGROUND
+       [24], LQR approaches, i.e., unconstrained MPC approaches with
+       the quadratic cost function and infinite predictive horizon, were                 A. Robot Dynamic Control
+       used to derive variable impedance laws for compliant physical
+                                                                                            We consider the following n-DOF robot dynamic model:
+       human–robot interactions. However, all of the aforementioned
+       MPC-based VIC approaches did not consider constraints since
+                                                                                                        H(q)q̈ + C(q, q̇)q̇ + g(q) = J T f + τ                      (1)
+       they need to maintain solutions of the MPC optimization prob-
+       lems to be consistent with the formulation of the impedance
+       controller. Furthermore, with linear models used in previous                      where H(q) ∈ Rn×n , C(q, q̇) ∈ Rn×n , and g(q) ∈ Rn are the
+       MPC-based VIC approaches, the precision-compliance tradeoff                       inertia matrix, Coriolis/centripetal matrix, and gravity vector
+       problem was only partially solved, i.e., cost functions of the                    of the robot, respectively. Matrix J(q) ∈ Rm×n is the robot
+       MPC approaches were not exactly consistent with the precision-                    Jacobian and the vector f ∈ Rm is the contact force where
+       compliance tradeoff objective.                                                    m < n is the dimension of the task space. To track the desired
+          In this article, novel MPC-based VIC approaches, which can                     joint acceleration ν, the controller can be designed as
+       consider constraints and exactly handle the adaptive precision-
+       compliance tradeoff problem are presented. Specific contribu-                                    τ = H(q)ν + C(q, q̇)q̇ + g(q) − J T f.                      (2)
+       tions are listed as follows:
+           1) A novel impedance model, in which impedance param-                         The velocity in task space and joint space can be related as
+               eters are directly served as the control input, is estab-                 ξ˙ = J q̇ where ξ = [ x y z θx θy θz ]T is the pose of the end-
+               lished to replace the classical linear impedance model.                   effector in task space. Taking the derivative of both sides, one
+               With this novel impedance model, the variable impedance                   can obtain
+               law design problem can be naturally transformed into a                                                           
+               controller design problem, and we can design the MPC                                             ν = J + ξ¨ − J˙q̇ .                    (3)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+        1176                                                                             IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 28, NO. 2, APRIL 2023
+
+
+
+        Substituting (3) into (2), one can obtain the following control                   unstructured, such as working near humans. Thus, an approach
+        law to track the desired task space acceleration υ                                to online adjust tradeoff modes, i.e., determine different pairs
+                                                                                        of impedance parameters according to the task status, is very
+              τ = H(q)J + υ − J˙q̇ + C(q, q̇)q̇ + g(q) − J T f (4)                        significant. These approaches aiming to find proper variable
+                                                                                          impedance laws and taking them into the impedance control
+        B. Impedance Control                                                              framework are referred to as the VIC.
+                                                                                             In this work, we consider MPC-based approaches to online
+           The impedance control in task space can be described as
+                                                                                          adjust the precision-compliance tradeoff mode. We refer to these
+                                  M ë + Dė + Ke = f                              (5)    approaches as MPC-based VIC approaches. MPC is a popu-
+                                                                                          lar and convincing approach due to its strong interpretability
+        where M , D, and K are desired inertia, damping, and stiffness                    and optimization background. Previous MPC-based VIC ap-
+        matrices, respectively. Assuming M , D, and K are positive                        proaches [20], [21], [22], [23], [24] approximated the model
+        definite and diagonal, we can decouple the model (5) to obtain                    (6) as the following linear state space model (or similar to this
+        the following 1-D model:                                                          linear state space model):
+                               mj ëj + dj ėj + ki ej = fj                        (6)                       ⎧
+                                                                                                             ⎪  ṡ = As + bω
+                                                                                                             ⎪
+                                                                                                             ⎪
+        where the subscript j indicates the jth dimension, ej = ξj −                                         ⎪
+                                                                                                             ⎪  s = e ė f
+                                                                                                                                T
+                                                                                                             ⎪
+                                                                                                             ⎪
+                                                                                                             ⎪
+                                                                                                             ⎪       ⎡          ⎤
+        ξr,j and ξr,j is the jth dimension of the reference pose. For                                        ⎪
+                                                                                                             ⎨         0 1 0
+        convenience, we only consider the 1-D model, and the subscript                                          A = ⎣0 0 0⎦                             (9)
+        j is omitted in the rest of the article. The impedance model                                         ⎪
+                                                                                                             ⎪
+                                                                                                             ⎪
+                                                                                                             ⎪         0  0   0
+        (6) is actually a mass-damping-spring system, and describes the                                      ⎪
+                                                                                                             ⎪                 T
+                                                                                                             ⎪
+                                                                                                             ⎪  b= 0 1 0
+        relationship between the contact force f and the robot’s motion                                      ⎪
+                                                                                                             ⎪
+                   ¨ such as                                                                                 ⎩                    1 T
+        behavior ξ,                                                                                             ω = −k m
+                                                                                                                            −d
+                                                                                                                            m     m
+                                                                                                                                      s.
+                                  f − ke − dė ¨                                          The gap between the models (9) and (6) is caused by the as-
+                             ξ¨ =             + ξr .                (7)
+                                       m                                                  sumption f˙ = 0. Discretizing the model (9) and incorporating it
+                                                                                          in the MPC framework result in the following MPC optimization
+        We can set the υ in (4) as υ = ξ¨ and compute the final control
+                                                                                          problem:
+        signal τ as follows:                                                                               t+H−1                   
+                                                                                                            
+                                +   f − ke − dė ¨      ˙                                     min J(Υt ) =          si Qt + rt ωi + st+H 2Qt (10)
+                                                                                                                         2        2
+                   τ = H(q)J                    + ξr − J q̇                                    Υt
+                                        m                                                                           i=t
+
+                            + C(q, q̇)q̇ + g(q) − J f.   T
+                                                                                   (8)    subject to
+
+           The relationship (7) implies that the goal of the impedance                                          si+1 = (AT + I)si + T bωi                           (11)
+        control is not to eliminate the tracking error (e, ė), but to find               where H is the prediction horizon, Υt represents the control
+        a tradeoff between the tracking precision and the contact com-                    sequence (ωt , . . . , ωt+H−1 ), (11) is the discretized model, and
+        pliance, i.e., the influence to the system caused by the contact                  T is the control period. Qt and rt are weight parameters of
+        force f . The contact compliance is important to ensure the                       the cost function. Since the model (11) is linear and the cost
+        contact safety for contact-rich tasks, and thus, we cannot ignore                 function (10) is quadratic, the optimal solution ωt∗ satisfies the
+        it. The specific precision-compliance tradeoff mode is deter-                     form
+        mined by the impedance parameters m, d, and k. For example,
+        large stiffness and damping parameters (k, d) will reduce the                                                       ωt∗ = βt∗ s                             (12)
+        system compliance but can eliminate the tracking error (e, ė)
+                                                                                          where βt∗ can be computed by Ricatti recursion. By consisting
+        well.
+                                                                                          the last equation in (9) with the solution form (12), we can
+                                                                                          compute the optimal impedance parameters. Solving the op-
+                               III. PROBLEM STATEMENT                                     timization problem (10), (11) at every time step, we can obtain
+           We have mentioned that the impedance control involves a                        an optimal variable impedance law.
+        tradeoff between the tracking precision and contact compliance.                      Observing the cost function (10), we can find that the previous
+        However, a pair of fixed impedance parameters is related to                       MPC-based VIC approaches actually adjust the tradeoff between
+        one particular tradeoff mode. For different tasks, or even for                    the tracking error (e, ė) and the control input ωt . Although the
+        different stages of a task, we may need different tradeoff modes.                 control input ωt somehow reflects the degree of the compliance
+        For example, the robot is expected to have large stiffness when it                due to its special form (12), they are still not the same. This
+        is asked to track a high-speed trajectory, and have low stiffness                 drawback is caused by the formulation of the model (11), in
+        when the reference trajectory’s speed is low. Although, a robot                   which impedance parameters do not directly appear. Addition-
+        with large stiffness can also track the low-speed reference trajec-               ally, if we further consider other constraints, such as constrains
+        tory well, it could be unsafe when the robot’s working space is                   on state s, the specific form (12) will become unobtainable.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: MODEL PREDICTIVE VIC OF MANIPULATORS FOR ADAPTIVE PRECISION-COMPLIANCE TRADEOFF                                                                 1177
+
+
+
+                                                                                         the tank-based approach to ensure the system passivity. The
+                                                                                         corrected variable impedance law is finally fed to the impedance
+                                                                                         controller to generate suitable control input for the manipulator.
+
+                                                                                                              IV. MPC-BASED VIC DESIGN
+                                                                                            In this section, we firstly establish the novel impedance
+                                                                                         model, which allows us to conveniently handle the precision-
+                                                                                         compliance tradeoff problem. Then, we introduce the MPC-
+       Fig. 1. Scheme of the proposed model predictive variable impedance
+       control approach.                                                                 based VIC approaches based on this novel impedance model
+                                                                                         with considerations of impedance and state constraints.
+                                                                                            As previously mentioned, the main drawback of the original
+                                                                                         model (9) or (11) is that the impedance parameters are hidden
+       Thus, the first problem that will be considered in this article is
+                                                                                         in the control input ω, and thus they cannot be directly used
+       to derive a novel impedance model, which allows us to handle
+                                                                                         to construct the cost function conveying the idea of a proper
+       the precision-compliance tradeoff problem more directly and
+                                                                                         precision-compliance tradeoff. Another drawback is that with
+       conveniently.
+                                                                                         this model, we cannot casually introduce constraints into the
+          Secondly, we consider injecting the human domain knowl-
+                                                                                         MPC optimization problem, otherwise the ideal form (12) may
+       edge into the tradeoff adjustment process to make it more
+                                                                                         be destroyed. Taking these two issues in the mind, we slightly
+       effective. In this article, we will introduce impedance constraints
+                                                                                         modify the original model (11) to make the impedance param-
+       that define the scope of the impedance parameters into the MPC
+                                                                                         eters directly serve as the control input. The novel impedance
+       optimization problem. Impedance constraints have never been
+                                                                                         model is given as follows:
+       considered by the previous MPC-based VIC approaches since
+       impedance parameters are hidden in the control input ω in the                                     st+1 = (AT + I)st + T (b + β)sTt ut                      (13)
+       model (9). However, impedance constraints are significant to
+                                                                                                                      T
+       ensure some extreme properties. For example, if the minimal                       where β =        T
+                                                                                                          2   0 0   , and the input ut is defined as
+       stiffness and damping parameters are set as large values, we                                                                   T
+       can ensure the robot’s high tracking precision. We also consider                                       ut = − m kt
+                                                                                                                         t
+                                                                                                                            − dt
+                                                                                                                              mt
+                                                                                                                                    1
+                                                                                                                                   mt     .                       (14)
+       constraints on the state s. Though these state constraints can also
+       be considered in previous MPC-based VIC approaches in which                          Remark 1: We here introduce an additional vector β to allow
+       the optimization problems like (10) and (11), they never do it                    the input ut to influence the next time error et+1 . Actually,
+       otherwise the ideal form (12) might be lost.                                      with this setting, the model (9) is discretized with the uniform
+          The final consideration is about the passivity issue. It has been              acceleration assumption.
+       shown that introducing a variable impedance law into the system                      With the above novel impedance model, the variable
+       (6) will raise potential nonpassive risks [25], [26]. Passivity is                impedance law design problem is naturally transformed into
+       directly related to the safety and thus cannot be ignored. We                     a controller design problem. Moreover, the abovementioned
+       consider using a tank-based approach, which will correct the                      two drawbacks can be overcome. Firstly, the input u which
+       variable impedance law derived by the MPC approach to ensure                      is constructed by impedance parameters and directly related
+       the passivity of the final system.                                                to the contact compliance can be used to construct the cost
+          As a conclusion, the considered problems which have not                        function. Secondly, we can introduce other constraints into the
+       been solved by previous MPC-based VIC approaches contain                          MPC optimization problem since we can accept any form of the
+       the following:                                                                    optimal solution u∗t , even the numerical form solution.
+           1) establishing a novel impedance model which allows us to                       However, to get these excellent properties, the linear property
+              consider the precision-compliance tradeoff problem more                    is lost in the novel impedance model (13), which increases
+              directly and conveniently;                                                 the difficulty for solving the corresponding MPC optimization
+           2) introducing impedance and state constraints into the MPC                   problems. In the rest of this section, we will introduce two kinds
+              optimization problem to make the variable impedance law                    of MPC-based VIC approaches, i.e., one-step (OS) MPC-based
+              more effective;                                                            VIC approach and multistep (MS) MPC-based VIC approach.
+           3) designing MPC-based VIC approaches with impedance                          The reason to distinguish the OS and MS MPC-based VIC ap-
+              and state constraints based on the novel impedance model;                  proaches is that these two approaches have their own strengths.
+           4) using the tank-based approach to ensure the passivity of                   For the OS MPC-based VIC approach, the optimization problem
+              the variable impedance systems resulting from the MPC-                     can be transformed into a QP problem in which the global
+              based VIC approaches.                                                      optimal solution can be efficiently searched. However, this ap-
+          The overall scheme of the proposed MPC-based VIC is shown                      proach can only handle tasks with impedance constraints. On
+       in Fig. 1. An original variable impedance law is firstly generated                the contrary, the MS MPC-based VIC approach is accessible
+       by the MPC-based planner with consideration of the impedance                      to tasks with broader types of constraints but with the expense
+       and state constraints according to the novel impedance model.                     of losing the exquisite form of the corresponding optimization
+       The original variable impedance law is then corrected using                       problem.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+        1178                                                                             IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 28, NO. 2, APRIL 2023
+
+
+
+        A. One-Step MPC-Based VIC Design                                                  and bt are given as
+                                                                                                   ⎧        ⎡           ⎤
+           For the one-step (OS) MPC-based VIC approach, we consider
+                                                                                                   ⎪          −ct 0 0
+                                                                                                   ⎪
+                                                                                                   ⎪        ⎢ ct
+        the following optimization problem at every time step:                                     ⎪
+                                                                                                   ⎪              0 0⎥
+                                                                                                   ⎪
+                                                                                                   ⎪  Gt = ⎢⎣
+                                                                                                                        ⎥
+                         min J(ut ) = sTt+1 Qt st+1 + uTt Rt ut                  (15)              ⎪
+                                                                                                   ⎨           0 −ct 0 ⎦
+                          ut                                                                                   0  ct 0                                              (22)
+                                                                                                   ⎪
+                                                                                                   ⎪                                     T
+            subject to                                                                             ⎪
+                                                                                                   ⎪  ht = kt,max −kt,min dt,max −dt,min
+                                                                                                  ⎪
+                                                                                                   ⎪
+                                                                                                   ⎪                T
+                         st+1 = (AT + I)st + T (b + β)sTt ut                                       ⎩ At = 0 0 ct
+                                                                                                   ⎪
+                                                                                 (16)                 bt = 1.
+                         ut ∈ Ωt
+        where Qt and Rt are positive-definite weight matrices, and Ωt                        Substituting the novel impedance model (13) into the objec-
+        is the constrained set for the current input ut . The cost function               tive function (15) and using the impedance constraints form (17),
+        (15) implies a tradeoff between the tracking precision (related to                the OS MPC optimization problem can be rewritten as
+        minimize sTt+1 Qst+1 ) and contact compliance (related to min-                                                       1 T
+                                                                                                           min J(ut ) =       u Q ut + pTt ut + ct                  (23)
+        imize uTt Rut ) because decreasing sTt+1 Qt st+1 usually needs a                                      ut             2 t t
+        relatively large uTt Rt ut . The input constraint ut ∈ Ωt is referred                 subject to
+        to as impedance constraints and it is formulated as                                                              
+                                                                                                                            Gt ut  ht
+                                       Gt ut  ht                                                                            At ut = b
+                                                                                                                                                                    (24)
+                                                                         (17)
+                                       At ut = bt .
+                                                                                          where
+        The impedance constraints form (17) is very flexible. In this                                ⎧
+        article, we consider two practically useful types of impedance                               ⎨ Qt = 2T 2 st (b + β)T Qt (b + β)sTt + 2Rt
+                                                                                                       p = 2T st (b + β)T Qt (AT + I) st                            (25)
+        constraints which both satisfy the formulation (17). The first type                          ⎩ t
+        is called over-damping impedance constraints, which is listed as                               ct = sTt (AT + I)T Qt (AT + I)st .
+        follows:                                                                          Obviously, Qt is positive-definite and, thus, the optimization
+                            ⎧
+                            ⎨ mt = ct
+                            ⎪                                                             problem (23) and (24) is strictly convex, and actually a QP
+                               kt ∈ [kt,min , kt,max ]                 (18)               problem which we can solve efficiently. It should be noted that
+                            ⎪          √
+                            ⎩ d t = 2 mt √ k t .                                          the form of u∗t is not limited since whatever the u∗t form is, we can
+                                                                                          always recover the optimal impedance parameters (m∗t , d∗t , kt∗ )
+                                                      kt,min
+
+        Constraints (18) result in a constant inertia, over-damping, and                  according to the ut definition (14).
+        variable stiffness system. The over-damping property can im-                         It should also be noted that weight matrices Qt and Rt , or
+        prove the stability of the impedance system and is caused by the                  impedance constraint parameters (ct , kt,min , kt,max ) can all be
+        fact                                                                              set as st -dependent without changing the QP form. Using this
+                               √        kt                                               property, we can insert domain experiences to the MPC-based
+                       d t = 2 mt            ≥ 2 k t mt .          (19)                  VIC to improve algorithm’s effectiveness. For example, when
+                                       kt,min
+                                                                                          we observe large external force at time step t, we can decrease
+        In this setting, the values of Gt , ht , At , and bt are given as                 kt,max or increase Rt to improve contact-compliance. The short-
+                           ⎧                                                            coming for the OS MPC method is that it cannot consider state
+                           ⎪
+                           ⎪          −ct 0 0
+                           ⎪
+                           ⎪  Gt =                                                        constraints, such as position and velocity constraints, since intro-
+                           ⎪
+                           ⎪           ct 0 0
+                           ⎪
+                           ⎪                                                              ducing these constraints may raise an infeasible QP problem. We
+                           ⎨ ht = kt,max −kt,min T
+                                                                                        leave state constraints considerations to the MS MPC method.
+                                         0        0 ct                    (20)
+                           ⎪
+                           ⎪             √
+                           ⎪
+                           ⎪  A t =   √ 2 ct
+                                                 −1 0
+                           ⎪
+                           ⎪                                                              B. Multistep MPC-Based VIC Design
+                           ⎪
+                           ⎪
+                                         kt,min
+                           ⎩                T
+                              bt = 1 0                                                      For the MS MPC-based VIC approach, we consider the fol-
+                                                                                          lowing optimization problem at time step t:
+          The second type of impedance constraints is called free-
+        damping impedance constraints which have the form                                                                 
+                                                                                                                         t+H−1
+                         ⎧                                                                              min J(Ut ) =               l(si , ui ) + lf (st+H )         (26)
+                         ⎨ mt = c t                                                                      Ut
+                                                                                                                             i=t
+                            kt ∈ [kt,min , kt,max ]           (21)
+                         ⎩                                                                    subject to
+                            dt ∈ [dt,min , dt,max ].                                                   ⎧
+                                                                                                       ⎨ si+1 = (AT + I)si + T (b + β)sTi ui
+        Compared with the over-damping impedance constraints, the                                        s i ∈ Si                                                   (27)
+        free-damping impedance constraints decouple the damping pa-                                    ⎩
+                                                                                                         ui ∈ Ωi
+        rameter with the stiffness and inertia parameters. This setting
+        will be useful when the damping variation is used to achieve                      for all i ∈ [t, t + H − 1] where Ut = [ ut , . . . , ut+H−1 ] is
+        special goals, such as reducing the robot velocity and maintain-                  the control sequence; l(si , ui ) = sTi Qi si + uTi Ri ui and
+        ing the robot position. In this setting, the values of Gt , ht , At ,             lf (st+H ) = sTt+H Qst+H are stage and terminal cost functions,
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: MODEL PREDICTIVE VIC OF MANIPULATORS FOR ADAPTIVE PRECISION-COMPLIANCE TRADEOFF                                                                 1179
+
+
+
+       respectively. Scalar H ⩾ 2 is the prediction horizon; si ∈ Si                     for all i ∈ [t, t + H − 1] where
+       and ui ∈ Ωi are state and impedance constraints, respectively.                                   
+                                                                                                           ˜lc (si , μi ) = lc (si , μi ) + η(si )
+       The impedance constraints here are set as the free-damping                                             i               i
+                                                                                                                                                                  (35)
+       impedance constraints as                                                                            ˜lf (st+H ) = lf (st+H ) + η(st+H ).
+                           ⎧
+                           ⎨ mi = c i                                                    Then, the simplified optimization problem (33) and (34) can
+                             ki ∈ [ki,min , kimax ]             (28)                     be solved using the iterative linear quadratic regulator (iLQR)
+                           ⎩
+                             di ∈ [di,min , di,max ].                                    algorithm [29]. Once we compute the μ∗t , we can compute the
+                                                                                         optimal stiffness and damping using the definition (29).
+       Noticed that the di is not coupled with ki and mi here because di
+       is important to ensure the state constraints so that we need to give
+       it enough variation freedom. For example, when the reference                       V. TANK-BASED APPROACH TO ENSURE SYSTEM PASSIVITY
+       velocity is zero, increasing di will decrease robot velocity and                     This section is divided into two parts where in the first part
+       prevent robot motion. Obviously, the optimization problem (26)                    we provide a passivity analysis for the continuous variable
+       and (27) is not a QP problem, and even not a convex optimization                  impedance system. However, every practical implementation is
+       problem; we here simplify it using the variable-change and                        conducted in the discrete manner. Thus, in the second part we
+       barrier function techniques.                                                      introduce how the passivity conditions derived in the first part
+           We firstly introduce the variable-change technique. Since ki                  can be used in the discrete control scenarios, such as MPC-based
+       and di should satisfy the constraints ki ∈ [ki,min , ki,max ] and di ∈            VIC approaches presented in the last section.
+       [di,min , di,max ], respectively, we reparameterize ki and di using
+       μi = [ μi,k μi,d ]T as                                                            A. Passivity Analysis
+             
+                               π(μi,k )+1
+                 k(μi,k ) =        2      (ki,max − ki,min ) + ki,min                       We here utilize the tank-based approach to ensure the passivity
+                               π(μi,d )+1                                (29)
+                 d(μi,d ) =               (d i,max − di,min ) + di,min
+                                                                                         of variable impedance system. The central idea of the tank-
+                                   2
+                                                                                         based approach is to store the energy dissipated by the variable
+                               −x
+                           x
+                              −e
+       where π(x) = eex +e       −x ∈ (−1, 1). Thus, we have no constraints              impedance system in a tank and extract the stored energy from
+       on the new variable μi . Substituting (29) and the constraint mi =                the tank for implementing the nonpassive variable impedance
+       ci into the stage cost function l(si , ui ) and the novel impedance               behaviors. We consider the following impedance system with
+       model (13), we can obtain the transformed stage cost function                     variable damping and stiffness:
+       lci (si , μi ) and the transformed novel impedance model si+1 =
+       gci (si , μi ). It should be noted that ci is determined and known for                               më + d(t)ė + kc e + kv (t)e = f                     (36)
+       all i ∈ [t, t + H − 1], and thus it does not serve as a variable.                 where kc and kv (t) are the constant and variable parts of the stiff-
+       Then, denoting Ψt = (μt , . . . , μt+H−1 ), we can simplify the                   ness, respectively. The damping d(t) and stiffness kc + kv (t) are
+       original optimization problem (26) and (27) as                                    always positive for any t. The constant part of stiffness can be
+                                       
+                                      t+H−1                                              arbitrarily designed; for example, we can set it as zero if it is not
+                   min J(Ψt ) =               lci (si , μi ) + lf (st+H )       (30)     needed.
+                    Ψt
+                                       i=t                                                 Let us firstly consider the following storage function of the
+           subject to                                                                    variable impedance system (36):
+                                 
+                                     si+1 = gci (si , μi )                                                                 m 2 kc 2
+                                                                                (31)                                V =      ė + e .                             (37)
+                                     s i ∈ Si                                                                              2     2
+       for all i ∈ [t, t + H − 1].                                                       Its time-derivative can be computed as
+          We then introduce the barrier function technique to soften the
+       state constraints si ∈ Si . The barrier function η(si ) is defined                            V̇ = mėë + kc eė
+       as                                                                                                      f − kv (t)e − kc e − d(t)ė
+                                                                                                         = mė                             + kc eė
+                         η(si ) = α (1 − exp(−φ(si , Si )/δ))                   (32)                                       m
+                                                                                                                                   
+       where α and δ are positive scalars; function φ(si , Si ) represents                               = ėf − d(t)ė2 + kv (t)eė .                            (38)
+       the distance between the state si and the constrained set Si .                    The above equation indicates that the rate of dissipated en-
+       Incorporating the barrier function (32) into the novel stage cost                 ergy by the variable impedance system is d(t)ė2 + kv (t)eė.
+       function lci (si , μi ) and terminal cost function lf (st+H ), we can             Note that the term “dissipated” here has its direction, i.e., if
+       obtain the following softened optimization problem:                               d(t)ė2 + kv (t)eė < 0, the energy is negatively dissipated and
+                                       
+                                      t+H−1                                              actually injected to the variable impedance system (36). A tank
+                   min J(Ψt ) =               ˜lc (si , μi ) + ˜lf (st+H )      (33)     is used to accept the dissipated energy. However, the volume of
+                                                 i
+                    Ψt
+                                       i=t                                               the tank is limited and it also should not be exhausted. Thus, the
+           subject to                                                                    energy variation of the tank is designed as
+                                                                                                                                         
+                                    si+1 = gci (si , μi )                       (34)                       Γ̇(t) = σ1 d(t)ė2 + kv (t)eė             (39)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+        1180                                                                             IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 28, NO. 2, APRIL 2023
+
+
+
+        where Γ(t) is the tank energy; parameter σ1 is used to ensure that                which implies the passivity condition
+        the tank energy in a predefined interval [Γmin , Γmax ], Γmin > 0                                                                t
+        and it is designed as                                                                                W (t) − W (0) ≤                 ė(τ )f (τ )dτ         (47)
+             ⎧                                                                                                                       0
+             ⎨ σ1 = 0, d(t)ė2 + kv (t)eė > 0 and Γ > Γmax                               and completes the proof.                                                    
+                σ1 = 0, d(t)ė2 + kv (t)eė < 0 and Γ < Γmin          (40)
+             ⎩
+                σ1 = 1.
+                                                                                          B. Practical Implementation
+           The above definition implies that the energy channel between                      In the last section, we have introduced an approach to ensure
+        the tank and the variable impedance system will be closed if                      the passivity of the continuous variable impedance system.
+        the condition Γ ∈ [Γmin , Γmax ] is going to be violated. We have                 However, to be practical, we must implement the approach
+        introduced how to store the energy into a tank; now, we introduce                 in the discrete manner. Before introducing main contents in
+        how to use the stored energy to implement variable impedance                      this section, we make a basic assumption that conditions to
+        behaviors. From (38), we can find that only the variable stiffness                ensure the passivity of the continuous system are still useful
+        may inject energy into the variable impedance system, thus we                     to ensure passivity of the corresponding discrete system if the
+        introduce a condition to the stiffness variation, which raises the                control period T used in discretization process is small enough.
+        following conditioned variable impedance system:                                  Actually, this assumption may be the case for many control
+                          më + d(t)ė + kc e + σ2 kv (t)e = f                   (41)     engineering practices where the system stability is analyzed in
+                                                                                          the continuous manner.
+        where the condition variable σ2 is designed as                                       It should be noted that the key of the implementation is to
+                                                                                         determine the condition parameter σ2 . For practical implemen-
+                         σ2 = 1, d(t)ė2 + kv (t)eė > 0                                  tation, we care about how to compute the σ2 at current time step
+                                                                                 (42)
+                         σ2 = σ1 , else.                                                  based on the current information. Available information at time
+                                                                                          step i contains (Γi , ei , ėi ), and we can firstly compute di and
+        The above condition implies that if the energy is positively
+                                                                                          kv,i using the presented MPC approaches. According to (40),
+        dissipated, i.e, d(t)ė2 + kv (t)eė > 0, the variable stiffness be-
+                                                                                          we can then compute the time step i’s tank parameter σ1,i , and
+        havior will be fully conducted. Otherwise, the variable stiffness
+                                                                                          further compute the condition parameter σ2,i according to (42).
+        behavior will depend on the tank parameter σ1 . We will show
+                                                                                          Arriving here we can implement the control according to (41)
+        that the conditioned variable impedance system (41) is passive
+                                                                                          as
+        with respect to the input–output pair (f, ė).
+                                                                                                               fi − (kc + σ2,i kv,i ) ei − di ėi ¨
+                                                                                                 υi = ξ¨i =
+           Theorem 1: The conditioned variable impedance system (41)
+                                                                                                                                                 + ξr,i             (48)
+        is passive with respect to the input–output pair (f, ė) if the tank                                                m
+        dynamic Γ̇, tank parameter σ1 , and the condition variable σ2 are                 where υi will be sent to the low level controller (4). Finally, the
+        designed as (39), (40), and (42), respectively.                                   next-time tank energy Γi+1 can be computed by integrating Γ̇i
+           Proof: Considering the following storage function:                             as Γi+1 = Γi + Γ̇i T . After a control period T , the information
+                                         m 2 kc 2                                         (ei+1 , ėi+1 ) will be automatically generated by the real envi-
+                                 W =       ė + e + Γ                            (43)     ronment, which completes an iteration. The specific algorithm
+                                         2     2
+                                                                                          for the proposed MPC-based VIC approach is concluded as
+        its time-derivative can be computed as                                            Algorithm 1.
+          Ẇ = mėë + kc eė + Γ̇
+                                                                                                                    VI. EXPERIMENTS
+               = ėf − σ2 kv (t)eė − d(t)ė2 + σ1 d(t)ė2 + kv (t)eė                       This section is divided into two parts, where contact-rich and
+                                                                         
+               = ėf − (1 − σ2 )d(t)ė2 − (σ2 − σ1 ) d(t)ė2 + kv (t)eė                  contact-free experiments are conducted, respectively, to validate
+                                                                         (44)             the proposed MPC-based VIC algorithm. Two contact-rich ex-
+                                                                                          periments are designed where the first one is used to validate
+        where the second line is obtained by substituting the conditioned                 the OS MPC-based VIC’s capacity for online adjustment of the
+        variable impedance system (41) and tank dynamic (39) into the                     precision-compliance tradeoff modes. The second contact-rich
+        first line. According to the definitions of σ1 and σ2 in (40) and                 experiment focuses on validating the state constraints capacity
+        (42), respectively, we can conclude that                                          of the MS MPC-based VIC.
+                                                                                            In the contact-free experiment, we show that the proposed
+                        σ2 ≤ 1                                      (45)                MPC-based VIC algorithm will behave properly under different
+                        (σ2 − σ1 ) d(t)ė2 + kv (t)eė ≥ 0.                               reference trajectories, i.e., have large and low impedance param-
+        Substituting (45) into the last line of the (44) and using the fact               eters for high-velocity and low-velocity reference trajectories,
+        that d(t) > 0, we can conclude that                                               respectively. We will also provide an approach to make the
+                                                                                          algorithm pay more attention to increase tracking precision.
+                                          Ẇ ≤ ėf                               (46)     All the experiments are conducted on the Franka-Panda robot
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: MODEL PREDICTIVE VIC OF MANIPULATORS FOR ADAPTIVE PRECISION-COMPLIANCE TRADEOFF                                                                 1181
+
+
+
+
+        Algorithm 1: The Proposed MPC-Based VIC Approach.
+         for Time step i = 1, · · · do
+            Observing the state si
+            Computing the original variable impedance law
+            (di , kv,i ) by solving the MPC optimization problem
+            (23), (24) or (33), (34) according to whether the state
+            constraints are also considered
+            Computing the tank parameter σ1,i and condition
+            parameter σ2,i according to (40) and (42), respectively.
+            Computing the desired acceleration according to (48)
+            Computing the torque according to the low level                              Fig. 3. Comparison results for the OS MPC-based VIC, small
+            controller (4) and sending it to the manipulator                             impedance control, and large impedance control. (a) Reference and real
+                                                                                         trajectories of different controllers. (b) Reference and real x-trajectories
+            Computing the tank energy variation Γ̇i according to                         of different controllers. (c) Reference and real y-trajectories of different
+            (39)                                                                         controllers. (d) Stiffness trajectories for the OS MPC-based VIC ap-
+            Computing the next-time tank energy as                                       proach. (e) fx trajectories of different controllers. (f) fy trajectories of
+                                                                                         different controllers.
+            Γi+1 = Γi + Γ̇i T
+         end for
+                                                                                         where diag() represents a diagonal matrix with components
+                                                                                         listed in the brackets. Sampling period is equal to the control
+                                                                                         period T in this article. It should be noted that VIC is only
+                                                                                         conducted on the (x, y) plane, and the z-direction is applied force
+                                                                                         control, which is presented in [28]. We compare the experimental
+                                                                                         results of the proposed OS MPC-based VIC approach with these
+       Fig. 2.   First contact-rich experiment.                                          of the large impedance control (kt = 1500), small impedance
+                                                                                         control (kt = 100), classical MPC-based VIC [20], [21], and
+                                                                                         RL-based VIC [16] approaches. Large and small impedance
+       and a computer with Intel Core i7-8700 K CPU, 3.70 GHz.
+                                                                                         control approaches are served as baselines, and they can be re-
+       The VIC approaches are achieved using the python language
+                                                                                         garded as precision position control and fully compliant control,
+       with packages numpy and cvxopt. The low level control (4) is
+                                                                                         respectively.
+       achieved using the C++ libfranka.
+                                                                                            To make the results clearer, we only plot the comparative
+                                                                                         results between the proposed MPC-based VIC, large impedance
+       A. Contact-Rich Experiments
+                                                                                         control, and small impedance control approaches, and leave the
+           1) First Contact-Rich Experiment: The first contact-rich ex-                  full comparative results to be shown by bar charts with accuracy
+       periment is shown in Fig. 2 where the robot is asked to track                     and compliance performance measures. Comparison results be-
+       the reference trajectory (red colored in Fig. 2) under contact                    tween the proposed MPC-based VIC, large impedance control,
+       with curve obstacles. In experiments of this article, the con-                    and small impedance control approaches are shown in Fig. 3.
+       tact force is measured using a 6-D force/torque sensor. Curve                     Fig. 3(a)–(c) shows the reference trajectories and real trajectories
+       obstacles provides specific shape spaces (as the wavy curve                       generated by the OS MPC-based VIC, large impedance control,
+       shape space shown in Fig. 2) in which the robot can move                          and small impedance control. Subscripts V I, LI, SI, and r
+       freely, otherwise the robot motion will be prevented and re-                      denote the OS MPC-based VIC, large impedance control, small
+       shaped. A fully compliant robot will be easily influenced by                      impedance control, and reference respectively. As we can see,
+       the contact environment. For example, it may stop at a spe-                       the VIC and large impedance control can both allow the robot to
+       cific point because of the friction and resistance provided by                    complete the tracking task. However, the robot motion will be
+       the obstacles. By contrast, a precision robot (such as a robot                    prevented if it is controlled by the small impedance controller.
+       under position control) will try its best to track the refer-                     These phenomenons are reasonable because the large and small
+       ence trajectory even its behaviors will generate large interac-                   impedance control pay attention to precision and compliance, re-
+       tive forces. Our purpose is to adaptively adjust the precision-                   spectively, and the proposed VIC approach focuses on searching
+       compliance tradeoff mode to make the robot track the reference                    proper tradeoffs between precision and compliance. The central
+       trajectory well and maintain a certain degree of compliance.                      idea of the proposed VIC is to generate the large/small stiffness
+       The OS MPC-based VIC approach introduced in Section III-                          parameter for the large/small tracking error. This idea is directly
+       A is used to achieve this purpose. We choose over-damping                         shown by the stiffness ellipses in Fig. 3(a). The height and width
+       impedance constraints to conduct analyses. Control and con-                       of the stiffness ellipse represent the stiffness values in the y
+       straint parameter settings for the OS MPC-based VIC approach                      and x directions, respectively. We can find that ky increases as
+       are listed as kmin,t = 100 N/m, kmax,t = 1500 N/m, ct = 1,                        |ey | increases. The specific stiffness trajectories in the x and y
+       Q = diag(50, 0.1, 0.1), R = diag(10−6 , 10−6 , 10−6 )/500, T =                    directions are shown in Fig. 3(d). As we can see, the value of
+       0.015 s, kc = 300 N/m, Γ0 = 0.1, Γmax = 1, and Γmin = 0.01                        kx is always larger than the value of ky , which is caused by the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+        1182                                                                             IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 28, NO. 2, APRIL 2023
+
+
+
+
+        Fig. 4. Quantitative descriptions of the accuracy and compliance per-
+        formance for the proposed MPC-based VIC, classical MPC-based VIC,
+        RL-based VIC, large impedance control, and small impedance control
+        approaches. (a) Bar chart for accuracy performance. (b) Bar chart for
+        compliance performance.
+                                                                                          Fig. 5. Tank energy and parameter variations of the proposed MPC-
+                                                                                          based VIC approach with different settings of kc . (a) Tank energy varia-
+                                                                                          tion in x direction with different kc . (b) Tank energy variation in y direction
+        fact that |ey | is smaller than |ex |. This fact can be obtained by               with different kc . (c) σ2 trajectory in x direction with different kc . (d) σ2
+        comparing the scales of the abscissa and ordinate of Fig. 3(a).                   trajectory in y direction with different kc . (e) fx trajectories under different
+        Moreover, stiffness parameters always satisfy the impedance                       kc settings. (f) fy trajectories under different kc settings.
+        constraints, which implies that we can moderate values of kmin
+        and kmax to artificially determine the extreme robot precision and
+        compliance properties. Fig. 3(e) and (f) shows the contact forces
+        in the x and y directions, respectively. As is expected, the contact
+        force of the large/small impedance control is the highest/lowest,
+        and the force of VIC is in between. A very interesting thing
+        shown in Fig. 3(e) and (f) is that the large impedance control and
+        small impedance control both raise jump behaviors, such as at
+        approximately step 485 (indicated by the green circle)/step 260
+        (indicated by the blue circle) for large/small impedance control.
+                                                                                          Fig. 6.   Second contact-rich experiment.
+        These jump behaviors can also be observed at Fig. 3(a)–(c).
+        Jump behaviors of small and large impedance control are caused
+        by the cumulative tracking error and large stiffness, respectively.               performs similarly with the small impedance control approach
+        The proposed VIC can handle these issues by online adjusting                      with respect to the compliance measure, which implies that the
+        the precision-compliance tradeoff modes, and thus, the motion                     proposed MPC-based VIC approach can properly and adaptively
+        and force trajectory shapes of the VIC are smoother.                              handle the accuracy-compliance tradeoff problem and ensure the
+           Remark 2: The static errors in Fig. 3(a)–(c) is caused by the                  accuracy and compliance simultaneously.
+        static friction. Large stiffness can decrease the influence of the                   We also investigate the influence of the tank-based approach.
+        friction, and thus, have the smaller static error.                                Tank energy and parameter variations with different kc settings
+           The bar charts showing full comparative results are given in                   are shown in Fig. 5. As we can find in Fig. 5(a)–(d), the range of
+        Fig. 4 where labels “VIC_PRO,” “VIC_CMPC,” “VIC_RL,”                              kc to maintain the original variable impedance law derived by the
+        “LI,” and “SI” represent the proposed MPC-based VIC, clas-                        MPC approach is very large, which is reflected by the fact that
+        sical MPC-based VIC, RL-based VIC, large impedance con-                           only kc is set as a very large value 1400 (approach the maximum
+        trol, and small impedance control approaches, respectively.                       value 1500), the tank could have the probability to be exhausted
+        We choose the maximum/root-mean-square position error and                         (Γ = Γmin = 0.01), and might make σ2 = 0 according to (40)
+        maximum/root-mean-square force to measure the accuracy and                        and (42). We also investigate the influence of the suddenly switch
+        compliance performances, respectively. As is expected, the large                  of σ2 . It can be seen from Fig. 5(e) and (f) that there exist high-
+        and small impedance control act as two extremes, and these VIC                    frequency force variations around the σ2 -switch areas (step 50–
+        approaches can both improve the overall performance. As we                        step 200, step 400–step 450 for fx , and step 190–step 210 for fy ).
+        can see, these VIC approaches can decrease the position error                     These force tremors are caused by the high-frequency stiffness
+        into a similar level with that of the large impedance control                     variations due to the high-frequency σ2 switches. Although these
+        approach, while maintain a better compliance performance com-                     tremors will not have very serious influences with respect to the
+        pared with the large impedance control approach. However, both                    performance measures according to the experiment results, we
+        classical MPC-based VIC and RL-based VIC approach have                            recommend to avoid these tremors by choosing the kc in a proper
+        obviously worse compliance performance than that of the small                     range.
+        impedance control approach. This is because that the classical                       2) Second Contact-Rich Experiment: The second contact-
+        MPC cannot directly handle the accuracy-compliance tradeoff                       rich experiment is shown in Fig. 6 where the robot is asked
+        problem as mentioned in Section III, and the RL algorithm                         to track a reference trajectory (red colored) with the position
+        always suffers from the model gap and local optimum prob-                         constraint (blue colored) under the control of the MS MPC-based
+        lems. On the contrary, the proposed MPC-based VIC approach                        VIC. Comparative experiments are not conducted here since
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: MODEL PREDICTIVE VIC OF MANIPULATORS FOR ADAPTIVE PRECISION-COMPLIANCE TRADEOFF                                                                 1183
+
+
+
+
+                                                                                         Fig. 8.   Contact-free experiment.
+
+
+                                                                                         that the reference velocity is set as zero, which will lead to a
+                                                                                         classical mass-damping-spring system. In this experiment, kt,min
+       Fig. 7. Experimental results of VIC with different position constraints.          and reference velocity are all set as zero, and thus, when the robot
+       (a) Reference and real trajectories of VIC with different position con-           approaches the constraint-violated area, we can totally remove
+       straints. (b) Reference and real x-trajectories of VIC with different posi-       the spring-like force (the power to drive the robot to enter the
+       tion constraints. (c) Reference and real y-trajectories of VIC with different
+       position constraints. (d) Stiffness trajectories of VIC with different posi-      constraint-violated area) and increase the system viscosity (the
+       tion constraints. (e) Damping trajectories of VIC with different position         power to prevent robot motions).
+       constraints.
+
+                                                                                         B. Contact-Free Experiment
+       both classical MPC-based VIC and RL-based VIC approaches
+                                                                                            The previous contact-rich experiments show the proposed
+       cannot handle state constraints. For the position constraint
+                                                                                         VIC approach’s capacities for online precision-compliance
+       shown in Fig. 6, the distance function φ(si , Si ) in (32) can be
+                                                                                         tradeoff adjustment and handling state-dependent constraints.
+       designed as
+                                                                                         In this section, we focus on contact-free tasks and discuss
+                            
+                               0, 1 0 0 s + xr ⩽ xc                                      how the precision-compliance tradeoff adjustment capacity
+                  φ(s, S) =                                         (49)
+                                1 0 0 s + xr − xc , else                                 of the proposed VIC approach can benefit the contact-free
+                                                                                         cases. The experimental design is shown in Fig. 8. During
+       where xc represents the constrained position in the x di-                         the step1 to step2, the robot is asked to track the first refer-
+       rection. Other control and constrained parameters are set                         ence trajectory to arrive a posture where the robot can clamp
+       as kmin,t = 0, kmax,t = 1500, dmin,t = 20, dmax,t = 100, ct =                     a test-tube. During the step2 to step3, the robot is asked to
+       1, Q = diag(50, 0.1, 0.1), R = diag(10−6 , 10−6 , 10−6 )/1000,                    track the second reference trajectory to insert the test-tube into
+       T = 0.015, H = 10, δ = 2, and α = 50.                                             a hole of the test-tube support. During the step3 to step4, the
+          Remark 3: We choose the position constraint as a specific                      robot is asked to track the third reference trajectory to arrive a
+       state constraint for intuitive experimental effect. Practically,                  predefined posture. We refer to this experiment as “contact-free”
+       other state constraints such as velocity constraint can also be                   experiment since no contact is expected to be happened during
+       achieved using the MS MPC-based VIC approach.                                     the experiment. The OS MPC-based VIC approach is used for
+          Experimental results of MS MPC-based VIC with different                        these trajectory tracking tasks.
+       position constraints are shown in Fig. 7, where subscripts indi-                     Different from previous contact-rich experiments, this
+       cate the values of different position constraints (‘uc’ indicates                 contact-free experiment more highly focuses on the tracking
+       that the algorithm is conducted without any position constraint                   accuracy, especially for the second trajectory tracking processes.
+       and can be used for a benchmark). From Fig. 7(a) and (b), we                      If the static error is too large, the test-tube will not be inserted
+       can find that all position constraints (represented by dot lines                  into the hole and there may raise a large contact force caused by
+       with different colors) can be approximately satisfied with slight                 the collision. There are many approaches to increase the tracking
+       violations. These slight violations may be caused by various                      accuracy, such as increasing Q and decreasing R. However, a
+       reasons. Firstly, the low-level controller may be imprecision                     more convenient and intuitive way is to change the kt,min ac-
+       due to the inaccurate model parameters. Secondly, the con-                        cording to the current robot state. As discussed in Section IV-A,
+       strained optimization (26) and (27) is solved using the barrier                   a state-dependent kt,min will not influence the QP form of the
+       function technique, which belongs to soften techniques those                      OS MPC optimization problem. To increase tracking accuracy,
+       can reduce computation burden but with the expense of losing                      the state-dependent kt,min is designed as
+       the hard constraint property. Thus, slight constraint violations                                                                             
+       are acceptable for the optimization algorithm. Fig. 7(d) and (e)                                                            ξt − ξgoal 22
+                                                                                           kt,min = kt,max − k min − δ exp −                           + k min
+       shows the ways how the MS MPC-based VIC to ensure these                                                                           2σ 2
+       position constraints. As we can see, when the robot approaches                                                                                      (50)
+       the constrained areas, the stiffness and damping parameters                       where k min and δ are two constants, and they represent the
+       will be suddenly changed to kt,min and dt,max , respectively.                     minimal value of kt,min and the distance between the largest value
+       These phenomenons are reasonable since the small stiffness will                   of kt,min and kt,max , respectively. The above function determines
+       reduce the spring-like force, which will make the robot track                     a bell curve and implies that kt,min will achieve its largest value
+       the reference trajectory lying in the constraint-violated area [as                kt,max − δ when the current posture ξt equals to the goal posture
+       shown in Fig. 7(a) and (b)]. On the contrary, the large damping                   ξgoal . Besides, the sharpness of the bell curve is determined
+       parameters will increase the viscosity of the system, which will                  by the parameter σ. In this experiment, we set k min = 100,
+       prevent robot motions. The precondition for this property is                      δ = 50, and σ = 0.08. Other parameters for OS MPC-based
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+        1184                                                                             IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 28, NO. 2, APRIL 2023
+
+
+
+                                                                                                                     TABLE I
+                                                                                           PROPERTY COMPARISON OF THE PROPOSED MPC-BASED VIC APPROACH
+                                                                                                          AND OTHER EXISTED APPROACHES
+
+
+
+
+                                                                                          be successfully and smoothly inserted into the hole if we apply
+        Fig. 9. Experimental results of VIC with high and low speed reference             the state-dependent law (50) for kt,min , which can be reflected
+        trajectories. (a) Reference and real trajectories of VIC with high and low
+        speed reference trajectories. (b) Bar chart for tracking error. (c) Bar chart     by the small contact forces. On the contrary, when the law (50)
+        for velocity. (d) kx trajectories of VIC with high and low speed reference        is not used, the test-tube will not be aligned with the hole, and
+        trajectories. (e) Bar chart for contact force.                                    thus, a large collision force will be raised.
+
+                                                                                                                      VII. DISCUSSION
+        VIC is set as kmax,t = 1000, ct = 1, Q = diag(50, 0.1, 0.1),
+        R = diag(10−6 , 10−6 , 10−6 )/1000, and T = 0.015 s.                                 In this section, we give a more intuitive discussion for advan-
+           It is expected that using the OS MPC-based VIC approach, the                   tages of the proposed MPC-based VIC approaches over other
+        robot can adaptively tune its impedance parameters to properly                    existent approaches. Properties of these approaches are listed
+        track different types of reference trajectories for contact-free                  in Table I where “Prop_VIC,” “CMPC_VIC,” and “RL_VIC”
+        tasks. Concretely, the robot is expected to have the large and                    stand for the proposed MPC-based VIC, classical MPC-based
+        low stiffness to track the high and low speed reference trajec-                   VIC, and RL-based VIC approaches, respectively. “TV” is the
+        tories, respectively. This variable mode is desirable since the                   abbreviation of time-varying. As we can see, only the proposed
+        robot is always expected to complete the tracking task with                       VIC approach can ensure the system passivity. For constraints,
+        impedance parameters, or gains as small as possible. This setting                 the classical MPC-based VIC approach cannot handle any con-
+        also reflects the variable precision-compliance tradeoff modes                    straints, whether the constraint is time-varying or time invariant.
+        although there may be no contact in the contact-free tasks.                       The RL-based VIC can only handle time-invariant impedance
+           To validate this capacity of the OS MPC-based VIC approach,                    constraints utilizing the special structure of the neural network
+        we demonstrate the robot with two types of reference trajec-                      (such as tanh activation function). The proposed MPC-based
+        tories, i.e., high speed and low speed reference trajectories,                    approach can handle any constraints.
+        to complete the task shown in Fig. 8. Comparison results are
+        shown in Fig. 9 where subscripts “low” and “high” are used                                     VIII. CONCLUSION AND FUTURE WORKS
+        to distinguish the low and high speed cases, respectively. From
+                                                                                             This article presented novel MPC-based VIC approaches to
+        Fig. 9(a) and (b), we can find that both tracking tasks can be
+                                                                                          deal with the adaptive precision-compliance tradeoff problem
+        well completed with the small dynamic error and tiny static
+                                                                                          for robot tracking tasks. A novel impedance model was es-
+        error. The dynamic error is small since we choose a relatively
+                                                                                          tablished, which allows us to consider impedance and state
+        small R, and the static error is approximately eliminated using
+                                                                                          constraints during the MPC-based VIC design. Impedance con-
+        the law (50), which can be seen in Fig. 9(d). As we can see,
+                                                                                          straints are significantly useful to ensure some extreme robot
+        values of kt,min,low and kt,min,high both gradually increase when
+                                                                                          properties such as worst tracking precision (by tuning kt,min )
+        the robot approaches the goal position, which will generate
+                                                                                          and worst contact compliance (by tuning kt,max ). Two types
+        stiff robotic behaviors near the robot goal position and ensure
+                                                                                          of MPC approaches, i.e., OS MPC and MS MPC approaches,
+        a precision control (similar with position control). When the
+                                                                                          were presented to design variable impedance laws under only
+        distance between the robot position and goal position is large,
+                                                                                          impedance constraints and both impedance and state constraints,
+        the law (50) can be neglected and the robot is controlled by
+                                                                                          respectively. We also provided a tank-based approach to ensure
+        the VIC, which also considers the robot compliance. We then
+                                                                                          the passivity of the variable impedance system. We validated the
+        compare the behaviors between the low and high speed cases
+                                                                                          proposed VIC approaches by two types of tasks, i.e., contact-rich
+        in the area away from the goal position. As we can see, the
+                                                                                          and contact-free tasks.
+        shape of stiffness trajectories in the high-speed cases is sharper
+                                                                                             In this article, the dynamic model uncertainty of the robot is
+        than that in the low-speed cases. This phenomenon is not only
+                                                                                          not considered, which might reduce the control performance.
+        caused by the fact that the tracking time for the high-speed
+                                                                                          Thus, VIC approaches with online adaptive model learning will
+        case is shorter but also due to the larger stiffness chosen in
+                                                                                          be researched in our future works.
+        the high-speed case. Fig. 9(e) shows the contact force in the
+        z direction, which can indicate whether the test-tube is well
+        inserted into the hole. The additional label “constant kt,min ”                                                 REFERENCES
+        represents the fz corresponding to the high-speed case where                        [1] N. Hogan, “Impedance control: An approach to manipulation,” in Proc.
+        the law (50) is not used. As what we expected, the test-tube can                        Amer. Control Conf., 1984, pp. 304–313.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+       JIN et al.: MODEL PREDICTIVE VIC OF MANIPULATORS FOR ADAPTIVE PRECISION-COMPLIANCE TRADEOFF                                                                      1185
+
+
+
+        [2] X. Chen, N. Wang, H. Cheng, and C. Yang, “Neural learning enhanced              [23] H. Modares, I. Ranatunga, F. L. Lewis, and D. O. Popa, “Optimized
+            variable admittance control for human-robot collaboration,” IEEE Access,             assistive human-robot interaction using reinforcement learning,” IEEE
+            vol. 8, pp. 25727–25737, 2020.                                                       Trans. Cybern., vol. 46, no. 3, pp. 655–667, Mar. 2016.
+        [3] C. Yang, G. Ganesh, S. Haddadin, S. Parusel, A. Albu-Schaeffer, and             [24] Z. Li, J. Liu, Z. Huang, Y. Peng, H. Pu, and L. Ding, “Adaptive
+            E. Burdet, “Human-like adaptation of force and impedance in stable and               impedance control of human-robot cooperation using reinforcement
+            unstable interactions,” IEEE Trans. Robot., vol. 27, no. 5, pp. 918–930,             learning,” IEEE Trans. Ind. Electron., vol. 64, no. 10, pp. 8013–8022,
+            Oct. 2011.                                                                           Oct. 2017.
+        [4] M. Sharifi, A. Zakerimanesh, J. K. Mehr, A. Torabi, V. K. Mushahwar, and        [25] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+            M. Tavakoli, “Impedance variation and learning strategies in human-robot             impedance control with variable stiffness,” in Proc. IEEE Int. Conf. Robot.
+            interaction,” IEEE Trans. Cybern., vol. 52, no. 7, pp. 6462–6475, Jul. 2022,         Automat., 2013, pp. 4948–4953.
+            doi: 10.1109/TCYB.2020.3043798.                                                 [26] F. Ferraguti et al., “An energy tank-based interactive control architecture
+        [5] G. Medrano-Cerda, “Counterexample to passivity preservation for                      for autonomous and teleoperated robotic surgery,” IEEE Trans. Robot.,
+            variable impedance control of compliant robots,” IEEE/ASME Trans.                    vol. 31, no. 5, pp. 1073–1088, Oct. 2015.
+            Mechatronics, to be published, doi: 10.1109/TMECH.2020.3019651.                 [27] K. Kronander and A. Billard, “Passive interaction control with dynamical
+        [6] E. Spyrakos-Papastavridis, P. R. N. Childs, and J. S. Dai, “Passivity preser-        systems,” IEEE Robot. Automat. Lett., vol. 1, no. 1, pp. 106–113, Jan. 2016.
+            vation for variable impedance control of compliant robots,” IEEE/ASME           [28] S. Jung, T. C. Hsia, and R. G. Bonitz, “Force tracking impedance
+            Trans. Mechatronics, vol. 25, no. 5, pp. 2342–2353, Oct. 2020.                       control of robot manipulators under unknown environment,” IEEE
+        [7] L. Rozo, S. Calinon, D. G. Caldwell, P. Jimenez, and C. Torras, “Learning            Trans. Control Syst. Technol., vol. 12, no. 3, pp. 474–483, May 2004,
+            physical collaborative robot behaviors from human demonstrations,” IEEE              doi: 10.1109/TCST.2004.824320.
+            Trans. Robot., vol. 32, no. 3, pp. 513–527, Jun. 2016.                          [29] Y. Tassa, T. Erez, and E. Todorov, “Synthesis and stabilization of complex
+        [8] X. Yu et al., “Bayesian estimation of human impedance and motion                     behaviors through online trajectory optimization,” in Proc. IEEE/RSJ Int.
+            intention for human–robot collaboration,” IEEE Trans. Cybern., vol. 51,              Conf. Intell. Robots Syst., 2012, pp. 4906–4913.
+            no. 4, pp. 1822–1834, Apr. 2021.
+        [9] K. Kronander and A. Billard, “Online learning of varying stiffness through
+            physical human-robot interaction,” in Proc. IEEE Int. Conf. Robot. Au-
+            tomat., 2012, pp. 1842–1849.
+       [10] K. Kronander and A. Billard, “Learning compliant manipulation through
+            kinesthetic and tactile human-robot interaction,” IEEE Trans. Haptics,
+            vol. 7, no. 3, pp. 367–380, Jul./Sep. 2014.                                                               Zhehao Jin received the B.Eng. degree in
+       [11] C. Yang, C. Zeng, C. Fang, W. He, and Z. Li, “A DMPs-based framework                                      automation from the Zhejiang University of
+            for robot learning and generalization of humanlike variable impedance                                     Technology, Hangzhou, China, in 2018. He is
+            skills,” IEEE/ASME Trans. Mechatronics, vol. 23, no. 3, pp. 1193–1203,                                    currently working towards the Ph.D. degree in
+            Jun. 2018.                                                                                                control theory and control engineering with the
+       [12] C. Zeng, C. Yang, H. Cheng, Y. Li, and S.-L. Dai, “Simultane-                                             Zhejiang University of Technology.
+            ously encoding movement and sEMG-Based stiffness for robotic skill                                           His current research interests include demon-
+            learning,” IEEE Trans. Ind. Inform., vol. 17, no. 2, pp. 1244–1252,                                       stration learning, reinforcement learning, robot
+            Feb. 2021.                                                                                                compliant control, and predictive control.
+       [13] J. R. Medina, H. Borner, S. Endo, and S. Hirche, “Impedance-based
+            Gaussian processes for modeling human motor behavior in physical and
+            non-physical interaction,” IEEE Trans. Biomed. Eng., vol. 66, no. 9,
+            pp. 2499–2511, Sep. 2019.
+       [14] F. Stulp, J. Buchli, A. Ellmer, M. Mistry, E. A. Theodorou, and S. Schaal,
+            “Model-free reinforcement learning of impedance control in stochas-
+            tic environments,” IEEE Trans. Auton. Ment. Develop., vol. 4, no. 4,
+            pp. 330–341, Dec. 2012.                                                                                   Dongdong Qin received the B.Eng. degree
+       [15] F. Dimeas and N. Aspragathos, “Reinforcement learning of variable ad-                                     in automation from the Huangshan University,
+            mittance control for human-robot co-manipulation,” in Proc. IEEE/RSJ                                      Huangshan, China, in 2018. He is currently
+            Int. Conf. Intell. Robots Syst., 2015, pp. 1011–1016.                                                     working towards the master’s degree in control
+       [16] R. Martin-Martin, M. A. Lee, R. Gardner, S. Savarese, J. Bohg, and                                        theory and control engineering with the Zhejiang
+            A. Garg, “Variable impedance control in end-effector space: An action                                     University of Technology.
+            space for reinforcement learning in contact-rich tasks,” in Proc. IEEE/RSJ                                   His current research interests include dis-
+            Int. Conf. Intell. Robots Syst., 2019, pp. 1010–1017.                                                     tributed model predictive control and formation
+       [17] J. Luo et al., “Reinforcement learning on variable impedance controller                                   control.
+            for high-precision robotic assembly,” in Proc. Int. Conf. Robot. Automat.,
+            2019, pp. 3080–3087.
+       [18] D. Ernst, M. Glavic, F. Capitanescu, and L. Wehenkel, “Reinforcement
+            learning versus model predictive control: A comparison on a power system
+            problem,” IEEE Trans. Syst., Man, Cybern. B, Cybern., vol. 39, no. 2,
+            pp. 517–529, Apr. 2009.
+       [19] Y. Lin, J. McPhee, and N. L. Azad, “Comparison of deep reinforcement                                    Andong Liu received the B.Eng. degree in
+            learning and model predictive control for adaptive cruise control,” IEEE                                automation from Guangxi University, Nanning,
+            Trans. Intell. Veh., vol. 6, no. 2, pp. 221–231, Jun. 2021.                                             China, in 2007, and the Ph.D. degree in con-
+       [20] Y. Wu, F. Zhao, T. Tao, and A. Ajoudani, “A framework for autonomous                                    trol theory and control engineering from the
+            impedance regulation of robots based on imitation learning and opti-                                    Zhejiang University of Technology, Hangzhou,
+            mal control,” IEEE Robot. Automat. Lett., vol. 6, no. 1, pp. 127–134,                                   China, in 2014.
+            Jan. 2021.                                                                                                 He is currently an Associate Professor with
+       [21] S. Calinon, D. Bruno, and D. G. Caldwell, “A task-parameterized proba-                                  the Department of Automation, College of In-
+            bilistic model with minimal intervention control,” in Proc. IEEE Int. Conf.                             formation Engineering, Zhejiang University of
+            Robot. Automat., 2014, pp. 3339–3344.                                                                   Technology. From 2016 to 2018, he was a Post-
+       [22] L. Rozo, D. Bruno, S. Calinon, and D. G. Caldwell, “Learning optimal                                    doctoral Research Fellow with the Department
+            controllers in human-robot cooperative transportation tasks with position       of Electronic Engineering, City University of Hong Kong, Hong Kong. His
+            and force constraints,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst.,      research interests include model predictive control, networked control
+            2015, pp. 1024–1030.                                                            systems, and mobile robots.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+        1186                                                                             IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 28, NO. 2, APRIL 2023
+
+
+
+                                Wen-an Zhang (Member, IEEE) received the                                        Li Yu (Member, IEEE) received the B.S. degree
+                                B.Eng. degree in automation and the Ph.D. de-                                   in control theory from Nankai University, Tianjin,
+                                gree in control theory and control engineer-                                    China, in 1982, and the M.S. and Ph.D. degrees
+                                ing from the Zhejiang University of Technology,                                 in control theory and control engineering from
+                                Hangzhou, China, in 2004 and 2010, respec-                                      Zhejiang University, Hangzhou, China.
+                                tively.                                                                            He is currently a Professor with the College
+                                   Since 2010, he has been with the Zhejiang                                    of Information Engineering, Zhejiang University
+                                University of Technology, where he is currently                                 of Technology. He has authored or coauthored
+                                a Professor with the Department of Automation.                                  three books and more than 200 journal or con-
+                                From 2010 to 2011, he was a Senior Research                                     ference papers. His current research interests
+                                Associate with the Department of Manufacturing                                  include wireless sensor networks, networked
+        Engineering and Engineering Management, City University of Hong                   control systems, and motion control.
+        Kong, Hong Kong. His current research interests include networked
+        control systems, multisensor information fusion estimation, and robotics.
+          Dr. Zhang was awarded an Alexander von Humboldt Fellowship,
+        2011–2012. From September 2016, he has been serving as a Subject
+        Editor for Optimal Control Applications and Methods.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:46:51 UTC from IEEE Xplore. Restrictions apply.
+

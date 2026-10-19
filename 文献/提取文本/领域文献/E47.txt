@@ -1,0 +1,651 @@
+        426                                                      IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. 16, NO. 2, APRIL 2024
+
+
+
+
+              Passive Model-Predictive Impedance Control for
+                  Safe Physical Human–Robot Interaction
+                                      Ran Cao , Long Cheng , Senior Member, IEEE, and Houcheng Li
+
+
+           Abstract—Various cognitive systems have been designed to                       and the interaction force as a virtual mass-spring-damper
+        model the position and stiffness profiles of human behavior and                   system [3], [4], [5]. One main challenge in the impedance
+        then to drive robots by mimicking the human’s behavior to                         control is that the controller’s parameters are set to be con-
+        accomplish physical human–robot interaction tasks through a
+        properly designed impedance controller. However, some studies                     stant which cannot adapt to different interaction requirements
+        have shown that variable stiffness parameters of the impedance                    and unstructured environments [6].
+        controller can cause the violation of the passivity constraint of                     Research on the human’s central nervous system has shown
+        the robot states, and make the robot’s stored energy exceed the                   that human adjusts the arm’s mechanical stiffness to interact
+        external energy injected from the human user, thus leading to the                 with unstable environments [7]. Motivated by this finding, the
+        unsafe human–robot interaction. To solve this problem, this arti-
+        cle proposes a novel passive model-predictive impedance control                   variable impedance controller integrated with a cognitive system
+        method including two control loops. In the bottom-loop of the                     has been proposed to complete more complex interaction tasks.
+        proposed controller, the robot is driven by a variable impedance                  The cognitive system generates the controller’s variable stiffness
+        controller to achieve the desired compliant interaction behavior.                 parameters according to the task rules or the movement model
+        In the top-loop of the proposed controller, the model-predictive                  obtained from human demonstrations [8], [9]. For example,
+        control (MPC) is used to ensure that the robot states satisfy the
+        passivity constraint by calculating a complementary torque to                     based on the task rule of the minimal assistance, the assist-as-
+        limit the stored energy of the robot. The passivity of the closed-                needed control scheme was proposed to determine the stiffness
+        loop robot system and the feasibility of MPC are guaranteed by                    parameters of the impedance controller according to the human
+        theoretical analysis, ensuring the safety of the robotic movement                 intention [10]. When the robot needs to assist the human user,
+        in the human–robot interaction. The effectiveness of the proposed                 the stiffness parameter of the controller is set to be a high
+        method is demonstrated by the simulation and experiment on the
+        Franka Emika Panda robot.                                                         value. When the human user tries to move actively, the stiffness
+                                                                                          parameter is set to be a low value. Based on the stiffness model
+          Index Terms—Impedance control, model-predictive control                         encoded from the human’s demonstrations, Rozo et al. [11] and
+        (MPC), passivity, physical human–robot interaction.
+                                                                                          Abu-Dakka et al. [12] generated time-varying stiffness param-
+                                                                                          eters for a variable impedance controller to drive the robot to
+                                                                                          reproduce a human-like interaction behavior. Though the above
+                                   I. I NTRODUCTION                                       studies introduced how to design the variable stiffness profile
+                                                                                          to complete interaction tasks, it has been noted that variable
+            N RECENT years, robots have been widely applied in
+        I   many physical human–robot interaction application scenar-
+        ios, such as assisting the human operators in the manufacturing
+                                                                                          stiffness parameters of the impedance controller may threaten
+                                                                                          the stability of the physical human–robot interaction [13].
+                                                                                              Passivity theory provides an energy-based tool to
+        factory or helping the therapists conduct the rehabilitation                      evaluate the coupled stability of physical human–robot
+        training [1], [2]. In these scenes, to keep a compliant human–                    interaction [14], [15]. A robot system is passive if the stored
+        robot interaction, the impedance control has been proposed to                     energy of the robot is always lower than the external energy
+        regulate the dynamic relationship between the robotic motion                      injected from the environment, which means that the robot
+                                                                                          does not generate the extra energy. Research has shown that
+           Manuscript received 6 January 2023; revised 5 March 2023 and 15 April
+        2023; accepted 30 April 2023. Date of publication 11 May 2023; date of            the interaction between robot and human is stable when the
+        current version 9 April 2024. This work was supported in part by the National     robot system is passive [16]. Motivated by this idea, a virtual
+        Key Research and Development Program under Grant 2022YFB4703204, and              energy-storing tank strategy was designed to preserve the
+        in part by the National Natural Science Foundation of China under Grant
+        62025307 and Grant U1913209. (Corresponding author: Long Cheng.)                  passivity of the robot under a variable impedance controller by
+           This work involved human subjects or animals in its research. Approval of      storing the robot’s passivity violating energy [17]. The main
+        all ethical and experimental procedures and protocols was granted by Ethics       shortcoming of the method based on the virtual energy-storing
+        Committee of the Institute of Automation, Chinese Academy of Sciences
+        under Application No. IA-201942.                                                  tank is that its performance depends on the manually designed
+           Ran Cao and Long Cheng are with the School of Artificial Intelligence,         initial tank energy. Bednarczyk et al. [18] designed a passivity
+        University of Chinese Academy of Sciences, Beijing 100049, China, and also        filter to modify variable stiffness parameters when the robot
+        with the State Key Laboratory of Multimodal Artificial Intelligence, Institute
+        of Automation, Chinese Academy of Sciences, Beijing 100190, China (e-mail:        system is not passive. However, the proposed filter requires
+        long.cheng@ia.ac.cn).                                                             the stiffness parameter matrix of the impedance controller
+           Houcheng Li is with the State Key Laboratory of Multimodal Artificial          to be diagonal, which limits its applications. In addition,
+        Intelligence, Institute of Automation, Chinese Academy of Sciences, Beijing
+        100190, China.                                                                    the proposed filter exhibits excessive conservativeness when
+           Digital Object Identifier 10.1109/TCDS.2023.3275217                            adjusting stiffness parameters based on passivity constraints,
+                               2379-8920 
+                                         c 2023 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                             See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        CAO et al.: PASSIVE MODEL-PREDICTIVE IMPEDANCE CONTROL                                                                                                       427
+
+
+
+        and therefore does not achieve the minimum correction of                                 under the proposed controller is lower. Additionally,
+        the system.                                                                              the proposed controller does not require to make any
+           Some studies show that the brain has an internal model                                assumption on the controller’s stiffness parameters.
+        of the environment and its own body, and uses this model
+        to compute the optimal control inputs that minimize a cost                                                  II. M ETHODOLOGY
+        function that reflects the task goals and constraints [19], [20].                    In this section, the PMPIC scheme consisting of the bottom-
+        This process involves solving a dynamic optimization problem                      loop variable impedance control (Section II-A) and the top-
+        that balances the tradeoff between accuracy and effort. Model-                    loop MPC (Section II-B) is introduced. The entire structure of
+        predictive control (MPC) adopts a similar scheme to seek the                      the proposed control framework is shown in Fig. 1.
+        optimal control performance with multiple constraints in an
+        online way [21], [22], [23], [24], [25].
+                                                                                          A. Bottom-Loop: Variable Impedance Control
+           Recent papers have shown that MPC can be applied in
+        interaction control. In [26], based on a predicted contact force                    An n-joint robotic manipulator model operating in an
+        between the robot arm and the environment, the authors used                       m-dimensional task space is described in the following
+        MPC to calculate the path points of the robot arm to inter-                       Euler–Lagrange form:
+        act with the environment. Matschek et al. [27] combined a                                M(q(t))q̈(t) + C(q(t), q̇(t))q̇(t) + g(q(t)) = τc (t)
+        direct force control strategy and a model-predictive tracking
+                                                                                                                                     + J T (q(t))fin (t)            (1)
+        control method. The proposed approach drove the robot to
+        track the path while desired contact forces can be maintained.                    where q(t), q̇(t), q̈(t) ∈ Rn denote the joint position, velocity,
+        In [28], an MPC framework for lower limb exoskeletons com-                        and acceleration, respectively, M(q(t)) ∈ Rn×n is the symmet-
+        bined with a human intention identification strategy based on                     ric positive definite inertia matrix, C(q(t), q̇(t))q̇(t), g(q(t)),
+        a fuzzy logic algorithm was proposed. The designed algorithm                      and τc (t) ∈ Rn denote the Coriolis torque, the gravitational
+        achieved an assist-as-needed control for patients. However,                       torque, and the control torque, respectively, J(q(t)) ∈ Rm×n
+        the above methods cannot guarantee a compliant interaction                        denotes the robot Jacobian matrix, and fin (t) ∈ Rm denotes
+        between the robot and the human user. To address this issue,                      the interaction torque in task space.
+        Bednarczyk et al. [29] designed a model-predictive impedance                         A typical control law τc (t) = M(q(t))v(t)+C(q(t), q̇(t))q̇(t)
+        controller by combining the MPC method with the impedance                         +G(q(t))−J T (t)fin (t) is employed to linearize the manipulator
+        control. One essential difference between this article and [29]                   model (1) into a double-integrator model
+        is that the impedance controller in [29] is only employed to
+                                                                                                                         q̈(t) = v(t)                               (2)
+        generate a desired trajectory for the MPC. In addition, the
+        model-predictive impedance controller cannot satisfy the pas-                     where v(t) denotes a new control command in joint space. To
+        sivity constraint that has a close relationship with the safety                   obtain the system model in task space, by using a forward dif-
+        of the human–robot interaction.                                                   ferential kinematic model p̈(t) = J(q(t))q̈(t) + J̇(q(t), q̇(t))q̇(t)
+           To solve the above problems and achieve a safe human–                          where p(t) ∈ Rm is the robot end-effector position, the
+        robot interaction, this article proposes a passive model-                         double-integrator model defined by (2) in joint space can be
+        predictive impedance control (PMPIC) to combine impedance                         transformed into the task space form as follows:
+        control and MPC with a passivity guarantee. First, an
+        impedance controller with variable stiffness parameters is                                                     p̈(t) = utask (t)                            (3)
+        applied to transform the robot’s system model into a desired                      where the control command utask (t) satisfies v(t) =
+        mass-spring-damper system model. Based on this impedance                          J + (q(t))utask (t) − J + (q(t))J̇(q(t), q̇(t))q̇(t) where J + (q(t))
+        model, MPC calculates a feasible complementary input to                           denotes the Moore–Penrose inverse of J(q(t)). In order to
+        make the robot states satisfy the passivity constraint. The                       guarantee the robot can interact compliantly with a human
+        optimization objective of MPC is to minimize the complemen-                       user, impedance control is employed to make the robot behave
+        tary input, which is employed to reduce the conservativeness                      like a virtual compliant mass-spring-damper system under
+        of the controller. The passivity of the proposed controller                       the interaction force. A typical impedance control command
+        with variable stiffness profiles is theoretically analyzed, and                   utask (t) is designed as
+        the feasibility of the MPC problem is guaranteed. The main                                                              
+        contributions of this article consist of the following two parts.                             utask (t) = p̈r (t) − Mv−1 Dv (t)(ṗ(t) − ṗr (t))
+                                                                                                                                                   
+           1) The proposed PMPIC combines the advantages of vari-                                                 +Kv (t)(p(t) − pr (t)) − fin (t)          (4)
+               able impedance control and MPC. On the one hand, it
+                                                                                          where pr (t) ∈ Rm denotes the robot end-effector’s reference
+               can drive the robot to achieve a compliant interaction
+                                                                                          position, Mv ∈ Rm×m denotes the constant mass parameter,
+               behavior with the human user. On the other hand,
+                                                                                          and Dv (t) ∈ Rm×m and Kv (t) ∈ Rm×m denote the time-varying
+               the passivity condition of the closed-loop human–robot
+                                                                                          damping and stiffness parameters of the virtual mass-spring-
+               system can be satisfied.
+                                                                                          damper system, respectively. Define the tracking error e(t) =
+           2) Compared with the existing passivity preserving strate-
+                                                                                          p(t) − pr (t). Under the control law (4), system (2) can be
+               gies [18], the conservativeness of the proposed controller
+                                                                                          rewritten as follows:
+               is lower due to the optimality of the MPC, which means
+               that the modification to the original stiffness profiles                                Mv ë(t) + Dv (t)ė(t) + Kv (t)e(t) = fin (t).               (5)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        428                                                      IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. 16, NO. 2, APRIL 2024
+
+
+
+
+        Fig. 1.   Overview of the proposed PMPIC scheme.
+
+
+           Remark 1: In practice, the mass, damping, and stiffness                           The problem of how to make a variable impedance con-
+        parameters of the virtual mass-spring-damper system are deter-                    troller satisfy the passivity condition without a significant
+        mined according to the task requirement. Researchers design                       modification of the manually designed variable stiffness profile
+        these parameter matrices based on practical experiences or the                    can be viewed as a constrained optimal control problem. In this
+        machine learning-based methods. However, some studies have                        article, MPC is employed to solve this finite-horizon optimal
+        pointed out that variable stiffness and damping parameters may                    control problem with passivity constraint at each time step.
+        threaten the entire closed-loop robot system’s passivity feature                     Based on the impedance controller designed in Section II-A,
+        that is necessary to achieve a stable interaction with the human                  the closed-loop system model (5) integrated with an MPC
+        user. In the following section, a passive model-predictive con-                   output is
+        troller is proposed to guarantee the passivity of the entire
+                                                                                                  Mv ë(t) + Dv (t)ė + Kv (t)e(t) = fin (t) + umpc (t).            (7)
+        system under varying stiffness and damping parameters.
+                                                                                          The external energy in (6), i.e., the time integral of the inner
+        B. Top-Loop: Passive Model-Predictive Control                                     product between an output signal αe(t)+ė(t) and a input signal
+          First, the definition of passivity is given here. A general                     fin (t) yields
+                                                                                              t
+        system model with the state variable χ (t) ∈ Rn , the input
+        variable u(t) ∈ Rm , and the output variable y(t) ∈ Rm can be                            (αe(τ ) + ė(τ ))T fin (τ )dτ
+        written as the following state-space model:
+                                                                                               0
+                                                                                                  t                    
+                                                                                             =       (αe(τ ) + ė(τ ))T Mv (ë(τ ) + αė(τ ) − αė(τ ))
+                                  χ̇ (t) = f (χ (t), u(t))                                        0
+                                                                                                                                           
+                                   y(t) = h(χ (t), u(t)).                                        +Dv (τ )ė(τ ) + Kv (t)e(τ ) − umpc (τ ) dτ
+        The system is said to be passive if the input variable u and                              t
+        the output variable y satisfy the following condition with the                       =         (αe(τ ) + ė(τ ))T Mv (αė(τ ) + ë(τ )) + eT (τ )C(τ )ė(τ )
+                                                                                                  0
+        initial state χ (0) ∈ Rm :                                                                                             t
+                                                                                                   1                                                     
+                                            t                                                   + eT (τ )Ċ(τ )e(τ ) dτ +          ėT (τ ) Dv (τ ) − αM ė(τ )
+                     V(χ (t)) − V(χ (0)) ≤     uT (τ )y(τ )dτ      (6)                             2                             0
+                                                   0                                                                   1      
+                                                                                                 +e (τ ) αKv (τ ) − Ċ(τ ) e(τ )
+                                                                                                     T
+        where V(·) denotes a positive semidefinite energy storing func-                                                 2
+                                                                                                                  T
+        tion. The left hand side of (6) represents the stored energy,                            + αe(τ ) + ė(τ ) umpc (τ )
+                                                                                                                                                       
+        and the right hand side of (6) represents the external energy.                                                                          
+        In a human–robot interaction context, with a input signal fin (t)                        +eT (τ ) Kv (τ ) + αDv (τ ) − α 2 M − C(τ ) ė(τ ) dτ           (8)
+        and a output signal αe(t) + ė(t) where α is a constant posi-
+        tive value and defined later, the passivity condition (6) ensures                 where C(t) is a positive semidefinite matrix. To cancel out the
+        that the stored energy of the robot is always lower than the                      cross-terms, let C(t) = Kv (t) + αDv (t) − α 2 Mv . Note that
+                                                                                                     t
+        external energy injected from a human user. Under the assump-                                    T                    1                
+        tion that a human user does not intentionally try to destabilize                                  e (τ )C(τ )ė(τ ) + eT (τ )Ċ(τ )e(τ ) dτ
+                                                                                                      0                        2
+        the interaction, the couple stability of the entire human–robot                                 1 T                  1
+        interaction system can be guaranteed [14].                                                  = e (t)C(τ )e(t) − e(0)T C(0)e(0).                  (9)
+                                                                                                        2                    2
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        CAO et al.: PASSIVE MODEL-PREDICTIVE IMPEDANCE CONTROL                                                                                                       429
+
+
+
+        Taking (9) into (8), it has                                                       where Â(t) = A(t)t + I2n×2n , B̂ = Bt, and t denotes the
+                 t                                                                       unit sample time.
+                    (αe(τ ) + ė(τ ))T fin (t)dτ                                            The condition (11) can be included in the MPC formulation
+                       0                                                                  by integrating with a generalized state variable z as follows:
+                   = V(t) − V(0)
+                        t                                                                                  ż(t) = xT (t)P(t)x(t) − xT (t)Humpc (t)
+                            T                                  
+                     +      x (τ )P(τ )x(τ ) − xT (τ )Humpc (τ ) dτ              (10)
+                             0                                                                              z(t) ≥ 0, z(0) = 0.                                    (14)
+        where                                                                             Discretizing the auxiliary system (14), it can be obtained that
+                                                                                                                                                  
+                     1 T      Kv (t) + αDv (t) αM                                              z(t + 1) = z(t) + t xT (t)P(t)x(t) − xT (t)Humpc (t)
+              V(t) = x (t)                             x(t)
+                     2               αM          M
+                                                                                                z(t) ≥ 0, z(0) = 0.                                (15)
+                      αKv (t) − 12 K̇v (t) + α Ḋv (t)       0m×m
+              P(t) =                                                                         Then the MPC problem can be written into the following
+                                   0m×m                  Dv (t) − αMv
+                                                                                      form:
+                      e(t)             αIm×m
+              x(t) =        , H=                .                                                                 N−1
+                      ė(t)             Im×m
+                                                                                                 min         J=         umpc (k|t)T Rumpc (k|t)
+                                                                                               umpc (k|t)
+           To ensure V(t) is positive semi-definite, choose α as the                                              k=0
+        ratio between the smallest eigenvalue of Dv (t) and the largest                              s.t. x(k + 1|t) = Â(k|t)x(k|t) + B̂umpc (k|t) + B̂fin
+        eigenvalue of Mv . Note that V(t) is the stored energy func-                                                               
+                                   t                                                                      z(k + 1|t) = z(k|t) + t xT (k|t)P(k|t)x(k|t)
+        tion in (6) and W(t) = 0 (xT (τ )P(τ )x(τ ) − xT (τ )Humpc (τ ))dτ                                                                     
+        is the dissipated energy function. If the dissipated energy                                                     + xT (k|t)Humpc (k|t)
+        function W(t) is nonnegative, i.e., satisfies the following                                       z(k|t) ≥ 0
+        condition:                                                                                           z(N|t) ≥ 0
+                  t
+                      T                                                                                    k = 0, . . . , N − 1                                  (16)
+                      x (τ )P(τ )x(τ ) − xT (τ )Humpc (τ ) dτ ≥ 0     (11)
+                   0
+                                                                                          where N denotes the prediction horizon, k denotes the kth
+                                                 t
+        then the passivity condition 0 (αe(τ ) + ė(τ ))T fin (τ )dτ ≥                    sample time, x(k|t) denotes the predicted state of the system
+        V(t) − V(0) holds, and the closed-loop robot system (7) is                        at time step k for the current time t, and R is a constant weight
+        passive.                                                                          matrix. Note that the cost function J only includes one comple-
+           Remark 2: In the existing studies, the passivity con-                          mentary input term, because the proposed controller focuses
+        dition (11) does not contain the complementary input                              on utilizing a minimum complementary input to make the
+        umpc (t) introduced in this article and can be written as                         system satisfy the passivity condition. In this article, the pas-
+          t T
+         0 x (τ )P(τ )x(τ )dτ ≥ 0. As a result, the passivity of the robot                sivity of the robot system with the proposed model-predictive
+        system is only determined by the positive definitiveness of                       impedance controller is guaranteed by theoretical analysis. The
+        the matrix P(t) that is closely related to the desired damping                    feasibility of the MPC problem means that there always exists
+        Dv (t) and stiffness Kv (t). If the desired damping and stiffness                 one solution umpc (t) satisfying the passivity condition. Hence,
+        parameters are learned from human demonstrations, it is hard                      the feasibility of the MPC problem and the passivity of the
+        to ensure the positive definitiveness of P(t). To address this                    robot system are equivalent.
+        issue, this article uses an extra complementary input umpc (t)                       The main theorem is given here.
+        to make the passivity condition always holds, even if P(t)                           Theorem 1: The MPC problem (16) is recursively feasible,
+        may not be positive semidefinite. To minimize its effect on the                   and the input signal fin (t) and the output signal αe(t) + ė(t)
+        desired interaction behavior, the complementary input is calcu-                   of the closed-loop system (5) have a passive relationship.
+        lated by employing MPC when the norm of the complementary                            The proof can be found in the Appendix.
+        input is chosen as the cost function of MPC.                                         Remark 3: In practice, consider the fact that the external
+           The system model (7) can be transformed into a state-space                     energy injected from a human user is always bounded, the
+        formulation as follows:                                                           passivity condition (11) can be relaxed by replacing z(t) ≥ 0
+                                                                                          with z(t) ≥ zmin , where zmin is a nonpositive constant. Here,
+                           ẋ(t) = A(t)x(t) + Bumpc (t) + Bfin (t)               (12)     zmin denotes the minimum acceptable excess of the external
+        where                                                                             energy injected from a human user over the kinetic energy of
+                                                                                        the robot, which is determined according to practical experi-
+                                         0n×n       In×n
+                            A(t) =                                                        ences. By choosing an appropriate zmin , the conservativeness
+                                     −Mv−1 Kv (t) −Mv−1 Dv (t)
+                                                                                        of the passivity condition can be reduced without threatening
+                                     0                                                    the safety of the human–robot interaction.
+                                 B = n×n    .
+                                      Mv−1
+        Discretizing system (12), it gives                                                  III. V ERIFICATIONS BY S IMULATION AND E XPERIMENT
+                                                                                          To demonstrate the effectiveness of the proposed method,
+                     x(t + 1) = fx x(t), umpc (t)                                         two simulations on the Franka Emika Panda robot are
+                                     = Â(t)x(t) + B̂u(t) + B̂fin (t)            (13)     presented based on Gazebo and ROS platforms and one
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        430                                                      IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. 16, NO. 2, APRIL 2024
+
+
+
+                                                                                          The three diagonal elements of the matrix kx , ky , and kz denote
+                                                                                          three stiffness parameters of the robot along x-, y-, and z-axes,
+                                                                                          respectively. The varying stiffness parameter along y-axis is
+                                                                                          given by
+
+                                                                                                          ky (t) = 22 + 12 sin(t − π/2) N/m                        (18)
+
+                                                                                          while the stiffness parameters along x- and z-axes are set
+                                                                                          as a constant value kx = kz = 500 N/m. The mass matrix
+                                                                                          is set as Mv = diag([1, 5, 1]) kg, and the damping ratio
+                                                                                          along y-axis is chosen as 0.01 to visualize the passivity effect
+                                                                                          while the damping ratios along x- and z-axes are chosen as 1.
+                                                                                          The compared impedance controller runs at 1 kHz, which is
+                                                                                          same as the running frequency of the proposed controller’s
+                                                                                          inner control loop.
+                                                                                             The simulation results are presented in Fig. 3. The stiffness
+        Fig. 2.   Franka Emika Panda robot in simulations.                                profile adopted in two controllers can be seen in Fig. 3(a).
+                                                                                          Fig. 3(b)–(d) show the position, velocity, and acceleration tra-
+        experiment is presented based on the physical Franka Emika                        jectories of the robot end-effector along y-axis under two
+        Panda robot. In the first simulation, to show that the proposed                   controllers, respectively. Fig. 3(e) shows the dissipated energy
+        method can guarantee the passivity of the variable impedance                      z(t) under two controllers. The complementary input umpc (t)
+        controller and the safety of the human–robot interaction,                         calculated in the proposed controller is shown in Fig. 3(f).
+        the proposed method is compared with one general variable                         Obviously, after the interaction force acted on the robot,
+        impedance controller. In the second simulation, the passiv-                       the rapidly varying stiffness leads to the negative dissipated
+        ity performance, referred to the dissipated energy and the                        energy, which means that the stored energy exceeds the exter-
+        modified stiffness value, are compared between the proposed                       nal energy produced by the interaction force. As a result,
+        controller and the passivity filter proposed in [18]. In the                      the general variable impedance controller cannot stabilize the
+        experiment, the effectiveness of the proposed controller is                       robot under the interaction force, and the position, velocity,
+        verified in a sawing task. The research on human sub-                             and acceleration trajectories of the robot end-effector gradu-
+        jects is reviewed and approved by the Ethics Committee of                         ally diverge. Meanwhile, the proposed controller calculates an
+        the Institute of Automation, Chinese Academy of Sciences                          appropriate complementary force to dissipate the extra energy,
+        (IA-201942), and the informed consent was signed by subjects.                     which ensures that the robot’s stored energy is always lower
+           In simulations and experiments, the dynamic model of                           than the external energy. In conclusion, under the same param-
+        Franka Emika Panda robot can be modeled using the Euler–                          eter settings of the controllers, the proposed controller has the
+        Lagrange model based on (1). The inertia matrix, the Coriolis                     ability of making the robot’s states satisfy the passivity condi-
+        torque, and the gravitational torque are obtained from a                          tion and stabilizing the robot while the robot states under the
+        C++ library called “Libfranka.” The impedance control at                          general impedance controller diverge.
+        the bottom-loop of the whole controller runs at 1 kHz, and
+        the MPC at the top-loop of the whole controller runs at
+        100 Hz. The solver of the optimization problem is chosen                          B. Comparison Study
+        as OSQP [31] which has been broadly adopted because of its                           The second simulation is divided into two parts according
+        fast computation speed and desired performance. The general-                      to different comparison objectives. The first part demonstrates
+        ized nonlinear system model is linearized at the current state                    the influence of parameter zmin introduced in Remark 3,
+        to reduce the computation time.                                                   and the conservativeness of the proposed algorithm is ana-
+                                                                                          lyzed. The second part shows the performance of a variable
+        A. Passivity Validation                                                           impedance controller with a passive filter proposed in [18], and
+                                                                                          its conservativeness is compared with the proposed controller.
+           In the first simulation, the control performance under the
+                                                                                          In the first part, the robot’s end-effector moves vertically and
+        proposed model-predictive impedance controller satisfying the
+                                                                                          experiences a time-varying interaction force along y-axis that
+        passivity constraint and the control performance under the
+                                                                                          satisfies (17). The stiffness parameters along x-axis and z-axis
+        general variable impedance controller without the passivity
+                                                                                          are set as kx = 100 N/m and kz = 100 N/m, respectively.
+        constraint are analyzed and compared. The virtual robot plat-
+                                                                                          Meanwhile, the stiffness parameter along y-axis is set as,
+        form is shown in Fig. 2. The robot initially stays at the
+                                                                                          ky = 10 + 500/(1 + e10(5.0−t) ) N/m. The damping param-
+        equilibrium position, and is then affected by the interaction
+                                                                                          eters are determined to keep the damping ratio of 1
+        force along y-axis after 3.5 s that satisfies
+                                                                                          for the impedance model. The mass matrix is set as
+                                                5                                         Mv = diag([1, 5, 1]) kg. The prediction horizon for the
+                              fin (t) =                    N.                    (17)
+                                          1 + e50(3.5−t)                                  MPC is set to N = 10 because a longer horizon requires
+        For the two controllers, the time-varying stiffness parameter                     more computing resources and more accurate system model,
+        of the impedance control is chosen as a 3-D diagonal matrix.                      and a shorter horizon may affect the motion performance of
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        CAO et al.: PASSIVE MODEL-PREDICTIVE IMPEDANCE CONTROL                                                                                                       431
+
+
+
+
+                                  (a)                                                 (b)                                                  (c)
+
+
+
+
+                                  (d)                                                 (e)                                                  (f)
+
+        Fig. 3. Simulation results under the proposed PMPIC and the variable impedance controller without the passivity guarantee. (a) Variable stiffness profile.
+        (b) Position trajectories. (c) Velocity trajectories. (d) Acceleration trajectories. (e) Dissipated energy profiles of the robot. (f) Complementary input.
+
+
+
+        the robot. The weight of the optimization target is set as                          zmin . The force combined with the interaction force and the
+        R = I3×3 . The first part of the simulation selects four groups                     complementary force leads to a drift in position, velocity, and
+        of zmin = {0.0, −1.0, −2.0, −3.0}, which means that the min-                        acceleration trajectories. With a smaller zmin , the lower bound
+        imum acceptable excess of the external energy injected from a                       of the dissipated energy of the robot is lower, and the chance
+        human user over the robot’s kinetic energies are 0.0, 1.0, 2.0,                     that the passivity condition is violated is lower, which leads
+        and 3.0 J, respectively. In the second part, the compared vari-                     to a shorter time duration that the complementary force takes
+        able impedance controller with a passivity filter works under                       action and smoother position, velocity, and acceleration tra-
+        the same task condition, stiffness matrix, damping matrix, and                      jectories. Fig. 4(e) shows the dissipated energy of the robot
+        mass matrix. The filter parameters are chosen the same as the                       that equal to the robot’s external energy minus the stored
+        ones in [18]. Considering that the passivity filter maintains the                   energy injected from the interaction force. In the case that
+        passivity by modifying the stiffness parameters and damping                         zmin = 0.0, the minimum dissipated energy of z(t) in the sim-
+        parameters, one equivalent complementary input umod (t) is cal-                     ulation is 0 J, which satisfies the passivity condition strictly.
+        culated from the modification of the stiffness matrix Kmod (t)                      And in the case that zmin = {−1.0, −2.0, −3.0}, the minimum
+        and the damping matrix Dmod (t) as follows:                                         dissipated energies of z(t) in the simulation are −1.0, −2.0,
+                                                                                            and −3.0 J, respectively. Hence, it can be concluded that the
+                      umod (t) = Kmod (t)e(t) + Dmod (t)ė(t).
+                                                                                            proposed model-predictive impedance controller is effective.
+        The conservativeness of two controllers can be judged by                            Meanwhile, as zmin gets closer to 0, the time that the comple-
+        comparing the equivalent complementary input umod (t) of the                        mentary torque does not equal to 0 and takes effect is longer,
+        compared controller and the complementary input umpc (t) of                         and the maximum velocity and acceleration are lower, which
+        the proposed controller.                                                            means that the passivity condition is stricter and the interaction
+           All simulation results are shown in Figs. 4 and 5. The mean-                     behavior is smoother. In conclusion, engineers can adjust zmin
+        ings of different line types have been shown in legends, and the                    according to the detailed task requirement and safe limit. A
+        abbreviation “pf” denotes the compared variable impedance                           lower zmin means that the modification to the original variable
+        controller with the passivity filter. Fig. 4(a) demonstrates                        impedance behavior is less, however, it may lead to a loss of
+        the time-varying stiffness parameter during the simulation.                         safety when the robot’s stored energy is far greater than the
+        Fig. 4(b)–(d) indicates the position, velocity, and accelera-                       external energy.
+        tion trajectories of the robot end-effector, respectively. The                         The simulation results under the variable impedance con-
+        interaction force acting on the robot end-effector increases to                     troller with the passivity filter indicate that the robot is also
+        5N after t = 3.5 s and the complementary force umpc (t) shown                       passive under the stiffness parameters modified by the pas-
+        in Fig. 5 takes action to avoid the dissipated energy lower than                    sivity filter. However, as shown in the first subfigure of
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        432                                                       IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. 16, NO. 2, APRIL 2024
+
+
+
+
+                                  (a)                                                     (b)                                              (c)
+
+
+
+
+                                                            (d)                                                  (e)
+
+        Fig. 4. Simulation results under the proposed PMPIC with four groups of zmin and the variable impedance controller with the passivity filter. (a) Variable
+        stiffness profile. (b) Position trajectories. (c) Velocity trajectories. (d) Acceleration trajectories. (e) Dissipated energy profiles of the robot.
+
+
+
+                                                                                               In the experiment, the robot assists one human operator in
+                                                                                            completing a sawing task. The task consists of two stages,
+                                                                                            “push” and ‘pull.” In the stage of “push,” the robot maintains
+                                                                                            a low stiffness while following the human’s movement, and
+                                                                                            in the stage of “pull,” the robot keeps a high stiffness, forcing
+                                                                                            the person to move along with it. The entire duration of the
+                                                                                            experiment is 20 s, with two stages both lasting 10 s. During
+                                                                                            the experiment, two different disturbances were applied to the
+                                                                                            robot: 1) at 9.8 s, which is at the end of the first stage, the human
+                                                                                            operator tried to move the robot in the opposite direction and
+                                                                                            2) at 15.2 s, which is in the middle of the second stage, another
+                                                                                            human applied the external force trying to stop the robot from
+                                                                                            moving. The snapshots of the experiment are shown in Fig. 6.
+                                                                                            The controller parameters are chosen as follows: the stiffness
+                                                                                            parameter along y-axis is set as ky = 30+40(1+e2(10−t) ) N/m,
+                                                                                            and the stiffness parameters along x-axis and z-axis are set as
+        Fig. 5. Complementary input profiles under the proposed PMPIC with four
+        groups of zmin and the variable impedance controller with the passivity filter.     kx = kz = 100 N/m. In order to highlight the performance of the
+                                                                                            passivity-based control, this experiment sets the damping ratio
+        Fig. 5, to achieve the passivity, the proposed controller with                      along y-axis to be 0.8, and the damping ratios along x-axis and
+        zmin = 0.0 uses a lower complementary torque, and the                               z-axis are still 1. The mass matrix is set as Mv = diag([1, 1, 1])
+        maximum complementary torque is 26.92% lower than the                               kg. The minimal acceptable excess of the robotic dissipated
+        maximum control torque calculated by the controller proposed                        energy is zmin = −0.01. The prediction horizon of MPC is 10.
+        in [18]. This means that the passive filter is more conservative                    The weight matrix is R = I3×3 .
+        than the proposed controller.                                                          The experimental results are shown in Fig. 7. Fig. 7(a)–(c)
+                                                                                            show the stiffness profile and the position trajectory, and the
+                                                                                            dissipated energy profile, respectively. It can be seen that under
+        C. Physical Experiment                                                              the use of the proposed PMPIC, the robot’s dissipated energy
+          To validate the effectiveness of the proposed algorithm, one                      is greater than zero, which indicates that the robot’s kinetic
+        human–robot interaction experiment is conducted on the real                         energy is always lower than the external energy injected from
+        Franka Emika Panda robot platform in this section.                                  the human.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        CAO et al.: PASSIVE MODEL-PREDICTIVE IMPEDANCE CONTROL                                                                                                       433
+
+
+
+
+        Fig. 6.   Snapshots of the sawing task.
+
+
+
+
+                                  (a)                                                  (b)                                                 (c)
+
+        Fig. 7.   Experiment results of the sawing task under the proposed PMPIC. (a) Variable stiffness profile. (b) Position trajectory. (c) Dissipated energy profile.
+
+
+
+                                    IV. D ISCUSSION                                          parameters of the impedance control can be set as time-varying
+           Learning from demonstration enables robots to mimic the                           values, which allows the robot to adapt to different interaction
+        human’s variable impedance skill by encoding varying human                           task requirements. Meanwhile, the passivity of the robot can
+        stiffness into a machine learning-based model. However, as                           be guaranteed by the theoretical analysis, which means that
+        shown in Section III-A, inappropriate stiffness and damping                          the entire interaction is stable. Simulation results show that
+        parameters can result in the loss of the passivity of the robot                      the maximum complementary input of the proposed controller
+        system, which leads to the unsafe human–robot interaction                            is 26.92% lower than the maximum complementary input of
+        behavior. In this article, MPC supplies an efficient tool to                         the existing controller, which means that the proposed con-
+        preserve the passivity of the robot and to minimize the con-                         troller is less conservative and the variable stiffness feature is
+        servativeness of the controller while the stiffness and damping                      preserved to the some extent.
+        parameters are obtained from the machine learning based
+        model. The comparison in Section III-B has verified this point.                                                    A PPENDIX
+        An obvious advantage brought by reducing the conservative-                                                 P ROOF OF T HEOREM 1
+        ness is the variable impedance profile obtained from practical                          Assume that     u∗ (t)      = {u∗ (0|t), . . . , u∗ (N − 1|t)} is the
+        experience, manual rules, or machine learning methods can                            optimal solution of the MPC problem (16) at time t, x∗ (t) =
+        be preserved to a maximum extent. In addition, engineers can                         {x∗ (1|t), . . . , x∗ (N|t)} is the corresponding optimal state, and
+        actively determine the conservativeness of the controller by                         z∗ (t) = {z∗ (1|t), . . . , z∗ (N|t)} is the corresponding auxiliary
+        adjusting zmin . The main disadvantage of PMPIC is that the                          system state. The following proof indicates that there exists a
+        effectiveness of the MPC relies on an accurate robot dynamic                         feasible solution at time t + 1.
+        model. This requirement can be relaxed partially by reducing                            Consider the candidate solution
+        the prediction horizon N in the MPC problem (16). One alter-
+                                                                                                                         u∗ (k + 1|t),    k = 0, . . . , N − 2
+        native method is to combine the existing robust MPC strategies                            umpc (k|t + 1) =                                                 (19)
+        with the passivity analysis. In future work, the authors plan to                                                 us ,             k =N−1
+        consider the uncertainty in the robot dynamics and to improve                        where us is one solution satisfying the following feasibility
+        the robustness of PMPIC, and to reduce its dependence on the                         condition:
+        model accuracy.
+                                                                                                      xT (N − 1|t + 1)P(N − 1|t + 1)x(N − 1|t + 1)
+                                    V. C ONCLUSION                                                  ≥ xT (N − 1|t + 1)Hus .                        (20)
+           This article provides an approach by combining the MPC                            To show that there exists at least one solution us , the situation
+        and the impedance control to help the robot interact compli-                         that xT (N −1|t +1)P(N −1|t +1)x(N −1|t +1) = xT (N −1|t +
+        antly and safely with humans. The passivity condition of the                         1)Hus is considered here. Note that: 1) if xT (N−1|t+1) = 02m ,
+        model-predictive impedance control is satisfied, which ensures                       us can be any real vector and 2) if xT (N − 1|t + 1) = 02m , at
+        that robots complete the safe interaction task. The stiffness                        least one solution us exists because rank([xT (N −1|t+1)P(N −
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        434                                                      IEEE TRANSACTIONS ON COGNITIVE AND DEVELOPMENTAL SYSTEMS, VOL. 16, NO. 2, APRIL 2024
+
+
+
+        1|t + 1)x(N − 1|t + 1) | xT (n − 1|t + 1)H]) = rank([xT (N −                       [8] J. Li, Z. Li, X. Li, Y. Feng, Y. Hu, and B. Xu, “Skill learning
+        1|t + 1)P(N − 1|t + 1)x(N − 1|t + 1)]) = 1. Hence, us always                           strategy based on dynamic motion primitives for human–robot coop-
+                                                                                               erative manipulation,” IEEE Trans. Cogn. Devel. Syst., vol. 13, no. 1,
+        exists.                                                                                pp. 105–117, Mar. 2021.
+           Then at time t + 1, z(N|t + 1) can be calculated as follows:                    [9] N. Wang, C. Chen, and A. D. Nuovo, “A framework of hybrid
+                                                                                               force/motion skills learning for robots,” IEEE Trans. Cogn. Devel. Syst.,
+                 z(N|t + 1)                                                                    vol. 13, no. 1, pp. 162–170, Mar. 2021.
+                                                                                         [10] A. U. Pehlivan, D. P. Losey, and M. K. Omalley, “Minimal assist-as-
+               = z(N − 1|t + 1) + t −xT (N − 1|t + 1)Hus                                      needed controller for upper limb robotic rehabilitation,” IEEE Trans.
+                                                                                              Robot., vol. 32, no. 1, pp. 113–124, Feb. 2016.
+                  +xT (N − 1|t + 1)P(N − 1|t + 1)x(N − 1|t + 1)                           [11] L. Rozo, S. Calinon, D. G. Caldwell, P. Jiménez, and
+               ≥ z(N − 1|t + 1)                                                    (21)        C. Torras, “Learning physical collaborative robot behaviors from human
+                                                                                               demonstrations,” IEEE Trans. Robot., vol. 32, no. 3, pp. 513–527,
+        where the second inequality is obtained by (20).                                       Jun. 2016.
+                                                                                          [12] F. J. Abu-Dakka, L. Rozo, and D. G. Caldwell, “Force-based variable
+          Substituting (19) into (13) and (15), the system state can be                        impedance learning for robotic manipulation,” Robot. Auton. Syst.,
+        solved as follows:                                                                     vol. 109, pp. 156–167, Nov. 2018.
+                                                                                          [13] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+                                 x∗ (k + 1|t),        k = 1, . . . , N − 1
+              x(k|t + 1) =                                                 (22)                impedance control with variable stiffness,” in Proc. IEEE Int. Conf.
+                                 fx (x∗ (N|t), us ), k = N                                     Robot. Autom., Karlsruhe, Germany, 2013, pp. 4948–4953.
+                                                                                          [14] F. E. Tosun and V. Patoglu, “Necessary and sufficient conditions
+                                 z∗ (k + 1|t),      k = 1, . . . , N − 1
+               z(k|t + 1) =                                                (23)                for the passivity of impedance rendering with velocity-sourced series
+                                 z(N|t + 1),        k = N.                                     elastic actuation,” IEEE Trans. Robot., vol. 36, no. 3, pp. 757–772,
+                                                                                               Jun. 2020.
+            According to (21) and (23), it can be concluded that z(N|t +                  [15] J. E. Colgate and N. Hogan, “Robust control of dynamically interacting
+        1) ≥ z(N − 1|t + 1) = z∗ (N|t) ≥ 0. From (23), it is obvious                           systems,” Int. J. Control, vol. 48, no. 1, pp. 65–88, 1988.
+                                                                                          [16] A. Q. Keemink, H. van der Kooij, and A. H. Stienen, “Admittance
+        that z(k|t + 1) satisfies the constraint z(k|t + 1) ≥ 0, k =                           control for physical human–robot interaction,” Int. J. Robot. Res.,
+        0, . . . , N − 1. Hence, the MPC problem (16) is recursively                           vol. 37, no. 11, pp. 1421–1444, 2018.
+        feasible, and the closed-loop system (13) is always passive.                      [17] F. Ferraguti et al., “An energy tank-based interactive control architecture
+                                                                                               for autonomous and teleoperated robotic surgery,” IEEE Trans. Robot.,
+            Remark 4: In some papers focusing on the passive con-                              vol. 31, no. 5, pp. 1073–1088, Oct. 2015.
+        trol for the human–robot interaction, the output signal of the                    [18] M. Bednarczyk, H. Omran, and B. Bayle, “Passivity filter for variable
+        closed-loop system is chosen as ė(t) rather than αe(t) + ė(t)                        impedance control,” in Proc. IEEE Int. Conf. Intell. Robots Syst., Las
+                                                                                               Vegas, NV, USA, 2020, pp. 7159–7164.
+        like in this article. The main reason of the difference is that                   [19] E. Todorov, “Optimality principles in sensorimotor control,” Nat.
+        choosing ė(t) as the output signal results in that the auxiliary                      Neurosci., vol. 7, no. 9, pp. 907–915, 2004.
+        complementary input umpc cannot always ensure the passiv-                         [20] S. Kamiya, G. Kawakita, S. Sasai, J. Kitazono, and M. Oizumi, “Optimal
+                                                                                               control costs of brain state transitions in linear stochastic systems,”
+        ity of the closed-loop system. In this situation, the feasibility                      J. Neurosci., vol. 43, no. 2, pp. 270–281, 2023.
+        condition (20) can be rewritten as ėT (N − 1|t + 1)Dv (N − 1|t +                 [21] C. Meo, G. Franzese, C. Pezzato, M. Spahn, and P. Lanillos, “Adaptation
+        1)ė(N −1|t+1)− 12 eT (N −1|t+1)K̇v (N −|t+1)e(N −1|t+1) ≥                             through prediction: Multisensory active inference torque control,” IEEE
+                                                                                               Trans. Cogn. Devel. Syst., vol. 15, no. 1, pp. 32–41, Mar. 2023.
+        ėT (N − 1|t + 1)umpc (N − 1|t + 1). Obviously, it is impossi-                    [22] X. Huang, W. Wu, and H. Qiao, “Computational modeling of emotion-
+        ble to find a suitable umpc (N − 1|t + 1) to hold this passivity                       motivated decisions for continuous control of mobile robots,” IEEE
+        condition as ė(N − 1|t + 1) = 0, e(N − 1|t + 1) = 0, and                             Trans. Cogn. Devel. Syst., vol. 13, no. 1, pp. 31–44, Mar. 2021.
+                                                                                          [23] J. Nubert, J. Khler, V. Berenz, F. Allgwer, and S. Trimpe, “Safe and
+        K̇v (N − 1|t + 1) is negative definite. If αe(t) + ė(t) is chosen                     fast tracking on a robot manipulator: Robust MPC and neural network
+        as the output variable, there always exists umpc (N − 1|t + 1)                         control,” IEEE Robot. Autom. Lett., vol. 5, no. 2, pp. 3050–3057,
+        to satisfy the passivity condition (11).                                               Apr. 2020.
+                                                                                          [24] J. Kohler, M. A. Muller, and F. Allgower, “A nonlinear model predictive
+                                                                                               control framework using reference generic terminal ingredients,” IEEE
+                                      R EFERENCES                                              Trans. Autom. Control, vol. 65, no. 8, pp. 3576–3583, Aug. 2020.
+                                                                                          [25] E. Garone, S. D. Cairano, and I. Kolmanovsky, “Reference and com-
+         [1] S. F. Atashzar, M. Shahbazi, M. Tavakoli, and R. V. Patel, “A                     mand governors for systems with constraints: A survey on theory and
+             passivity-based approach for stable patient–robot interaction in haptics-         applications,” Automatica, vol. 75, pp. 306–328, Jan. 2017.
+             enabled rehabilitation systems: Modulated time-domain passivity con-         [26] M. Killpack, C. Kapusta, and A. Kemp, “Model predictive control for
+             trol,” IEEE Trans. Control Syst. Technol., vol. 25, no. 3, pp. 991–1006,          fast reaching in clutter,” Auton. Robots, vol. 40, no. 3, pp. 537–560,
+             May 2017.                                                                         2016.
+         [2] H. Li, L. Cheng, Z. Li, and W. Xue, “Active disturbance rejection            [27] J. Matschek, J. Bethge, P. Zometa, and R. Findeisen, “Force feedback
+             control for a fluid-driven hand rehabilitation device,” IEEE/ASME Trans.          and path following using predictive control: Concept and application
+             Mechatronics, vol. 26, no. 2, pp. 841–853, Apr. 2021.                             to a lightweight robot,” in Proc. Int. Federation Autom. Control World
+         [3] N. Hogan, “Impedance control: An approach to manipulation,” in Proc.              Congr., Toulouse, France, 2017, pp. 9827–9832.
+             Amer. Control Conf., San Diego, CA, USA, 1984, pp. 304–313.                  [28] T. Teramae, T. Noda, and J. Morimoto, “EMG-based model predictive
+         [4] S. M. Sha and H. R. Momeni, “A new impedance and robust adaptive                  control for physical human-robot interaction: Application for assist-as-
+             inverse control approach for a teleoperation system with varying time             needed control,” IEEE Robot. Autom. Lett., vol. 3, no. 1, pp. 210–217,
+             delay,” Sci. China Technol. Sci., vol. 52, pp. 2629–2643, Aug. 2009.              Jan. 2018.
+         [5] L. Fu and J. Zhao, “Maxwell-model-based compliance control for               [29] M. Bednarczyk, H. Omran, and B. Bayle, “Model predictive impedance
+             human–robot friendly interaction,” IEEE Trans. Cogn. Devel. Syst.,                control,” in Proc. IEEE Int. Conf. Robot. Autom., Paris, France, 2020,
+             vol. 13, no. 1, pp. 118–131, Mar. 2021.                                           pp. 4702–4708.
+         [6] T. Sun, L. Peng, L. Cheng, Z. G. Hou, and Y. Pan, “Composite learning        [30] J. Kohler, M. A. Muller, and F. Allgower, “Nonlinear reference tracking:
+             enhanced robot impedance control,” IEEE Trans. Neural Netw. Learn.                An economic model predictive control perspective,” IEEE Trans. Autom.
+             Syst., vol. 31, no. 3, pp. 1052–1059, Mar. 2020.                                  Control, vol. 64, no. 1, pp. 254–269, Jan. 2019.
+         [7] E. Burdet, R. Osu, D. W. Franklin, T. E. Milner, and M. Kawato, “The         [31] B. Stellato, G. Banjac, P. Goulart, A. Bemporad, and S. Boyd, “OSQP:
+             central nervous system stabilizes unstable dynamics by learning optimal           An operator splitting solver for quadratic programs,” Math. Program.
+             impedance,” Nature, vol. 414, no. 6862, pp. 446–449, 2001.                        Comput., vol. 12, no. 4, pp. 637–672, 2020.
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+        CAO et al.: PASSIVE MODEL-PREDICTIVE IMPEDANCE CONTROL                                                                                                       435
+
+
+
+                                  Ran Cao received the B.E. degree in control engi-                                Houcheng Li received the B.E. degree in control
+                                  neering from Harbin Engineering University, Harbin,                              engineering from Beijing University of Posts and
+                                  China, in 2015, and the M.S. degree in control                                   Telecommunications, Beijing, China, in 2017. He
+                                  engineering from Harbin Institute of Technology,                                 is currently pursuing the Ph.D. degree in control
+                                  Shenzhen, Guangdong, China, in 2018. He is                                       theory and control engineering with the State Key
+                                  currently pursuing the Ph.D. degree in computer                                  Laboratory of Management and Control for Complex
+                                  applied technology with the School of Artificial                                 Systems, Institute of Automation, Chinese Academy
+                                  Intelligence, University of Chinese Academy of                                   of Sciences, Beijing.
+                                  Sciences, Beijing, China.                                                           His current research interests include rehabilita-
+                                     He is also with the Institute of Automation,                                  tion robot control, robot system design, and human–
+                                  Chinese Academy of Sciences, Beijing. His current                                robot interaction.
+        research interests include human–robot interaction and robot learning.
+
+
+
+
+                                  Long Cheng (Senior Member, IEEE) received the
+                                  B.S. (Hons.) degree in control engineering from
+                                  Nankai University, Tianjin, China, in 2004, and the
+                                  Ph.D. (Hons.) degree in control theory and con-
+                                  trol engineering from the Institute of Automation,
+                                  Chinese Academy of Sciences, Beijing, China, in
+                                  2009.
+                                     He is currently a Full Professor with the Institute
+                                  of Automation, Chinese Academy of Sciences. He
+                                  is also an Adjunct Professor with the University
+                                  of Chinese Academy of Sciences, Beijing. He has
+        authored and coauthored more than 100 technical papers in peer-refereed
+        journals and prestigious conference proceedings. His current research interests
+        include rehabilitation robot, intelligent control, and neural networks.
+           Dr. Cheng was a recipient of the IEEE T RANSACTIONS ON N EURAL
+        N ETWORKS Outstanding Paper Award from IEEE Computational Intelligence
+        Society, the Aharon Katzir Young Investigator Award from International
+        Neural Networks Society, and the Young Researcher Award from
+        Asian–Pacific Neural Networks Society. He is currently an Associate
+        Editor/Editorial Board Member of IEEE T RANSACTIONS ON C YBERNETICS,
+        IEEE T RANSACTIONS ON AUTOMATION S CIENCE AND E NGINEERING,
+        IEEE T RANSACTIONS ON C OGNITIVE AND D EVELOPMENTAL S YSTEMS,
+        International Journal of Systems Science, and Acta Automatica Sinica.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 12:49:46 UTC from IEEE Xplore. Restrictions apply.
+

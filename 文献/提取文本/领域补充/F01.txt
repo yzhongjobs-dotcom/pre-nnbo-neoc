@@ -1,0 +1,521 @@
+                                                    Safe and Optimal Variable Impedance Control via Certified
+                                                                    Reinforcement Learning
+                                                                                           Shreyas Kumar and Ravi Prakash
+                                                                                           shr-eyas.github.io/CGMS
+arXiv:2511.16330v2 [cs.RO] 1 Mar 2026
+
+
+
+
+                                        Fig. 1: Comparison of policy execution under certified vs. unconstrained learning. Top: With (proposed) C-GMS, policy sampling is restricted to a certified
+                                        manifold, ensuring Lyapunov stability and safe execution through a via-point to the goal. Bottom: Without C-GMS, unconstrained sampling may violate
+                                        the stability conditions, leading to unsafe behaviors, including collisions with the environment/human.
+
+
+                                           Abstract— Reinforcement learning (RL) offers a powerful                     only inevitable but essential. To navigate this new paradigm,
+                                        approach for robots to learn complex, collaborative skills by                  robots require the ability to adapt learned behaviors to
+                                        combining Dynamic Movement Primitives (DMPs) for motion                        new settings, which is often achieved through task param-
+                                        and Variable Impedance Control (VIC) for compliant interac-
+                                        tion. However, this model-free paradigm often risks instability                eterization using representations like Dynamic Movement
+                                        and unsafe exploration due to the time-varying nature of                       Primitives (DMPs) [1]. While DMPs excel at generalizing a
+                                        impedance gains. This work introduces Certified Gaussian-                      movement to new endpoints, handling complex motions that
+                                        Manifold Sampling (C-GMS), a novel trajectory-centric RL                       require passing through a series of via-points is not trivial.
+                                        framework that learns combined DMP and VIC policies while                      For this, and for safe physical interaction, robots also need
+                                        guaranteeing Lyapunov stability and actuator feasibility by
+                                        construction. Our approach reframes policy exploration as                      the ability to dynamically adjust their stiffness and damping,
+                                        sampling from a mathematically defined manifold of stable                      a capability provided by Variable Impedance Control (VIC).
+                                        gain schedules. This ensures every policy rollout is guaranteed                   The complexity of designing time-varying impedance pro-
+                                        to be stable and physically realizable, thereby eliminating the                files has motivated the adoption of data-driven methods,
+                                        need for reward penalties or post-hoc validation. Furthermore,
+                                                                                                                       with Reinforcement Learning (RL) emerging as a powerful
+                                        we provide a theoretical guarantee that our approach ensures
+                                        bounded tracking error even in the presence of bounded model                   approach. In model-based families, such as Differential Dy-
+                                        errors and deployment-time uncertainties. We demonstrate the                   namic Programming (DDP) [2], Iterative Linear Quadratic
+                                        effectiveness of C-GMS in simulation and verify its efficacy on a              Regulator (iLQR) [3], and Model Predictive Control (MPC)
+                                        real robot, paving the way for reliable autonomous interaction                 [4], a robot’s dynamics model is exploited to compute opti-
+                                        in complex environments.
+                                                                                                                       mal sequences. These methods can incorporate actuator and
+                                                               I. INTRODUCTION                                         stability constraints via Control Lyapunov Functions (CLFs),
+                                                                                                                       but they are computationally expensive, depend heavily on
+                                          The field of robotics is undergoing a fundamental shift,                     model accuracy, and typically pre-schedule gains rather than
+                                        moving from static, repetitive industrial tasks to dynamic,                    learning them adaptively.
+                                        unstructured environments where physical interaction is not                       Model-free approaches avoid explicit dynamics modeling,
+                                                                                                                       enabling the discovery of complex behaviors in unstructured
+                                          Both authors are with Human-interactive Robotics Lab, IISc Bangalore.
+                                          This work was supported in part by ARTPARK, IISc Bangalore.                  environments. RL, particularly Path Integral (PI2 ) [5], [6],
+                                          Corresponding author: shreyaskumar@iisc.ac.in                                has proven effective for learning intricate motor skills. Sem-
+                                    Stability Aware         Actuator-Limit         Handles Non-linear            Optimizes                                 Model-Free
+        Method Family                                                                                                              Adaptive Gains
+                                         (VIC)                  Aware                  Dynamics                  Task Cost                                  Learning
+         iLQR / DDP /                 (local CLF             (include as                  (local
+                                                                                                                      ✓             (pre-schedule)              ✗
+        Trajectory-MPC                 constraints)            constraint)              linearization)
+                                        (safety
+       CBF / RMP Safety                                      (included as
+                                     invariance, not                                          ✓                       ✗                     –                    –
+            Filters                                            constraint)
+                                      VIC-specific)
+                                                                    ✗
+     Energy-Tank / PO-PC                    ✓               (passivity/power                  ✓                       ✗                    ✓                     –
+                                                                 aware)
+       Model-based VIC
+                                            ✗                       ✗                         ✓                       ✓                    ✓                     ✗
+          learning
+        PI2 / PI-BB VIC                     ✗                       ✗                         ✓                       ✓                    ✓                     ✓
+      Our method (PI2 +
+                                            ✓                       ✓                         ✓                       ✓                    ✓                     ✓
+          C-GMS)
+TABLE I: Comparison of method families for learning variable impedance control policies. Our method is the only one to combine model-free learning, gain scheduling, stability
+certification, and actuator feasibility within a unified optimization framework.
+
+inal work by Buchli et al. [7] pioneered the use of PI2 to                               boundedness of the tracking error in presence of model and
+simultaneously learn DMP trajectory parameters and time-                                 sensor inaccuracies, thus providing a strong foundation for
+varying impedance gains, laying the groundwork for data-                                 its applicability in real-world scenarios.
+driven compliant control. Later, Rey et al. [8] refined this
+                                                                                                                  II. PRELIMINARIES
+approach by incorporating human demonstrations, improving
+efficiency. While highly successful at optimizing task costs,                            A. Rigid Body Dynamics
+these methods, like many in the safe RL literature that use                                 We assume that the joint-space rigid-body dynamics of
+reward penalties [9] or post-hoc safety filters [10], do not                             an n-DoF manipulator is given by M(q) q̈ + C(q, q̇) q̇ +
+explicitly enforce stability during learning, leaving Variable                           g(q) = τ c + τ e , where q, q̇, q̈ ∈ Rn denote joint position,
+Impedance Control susceptible to instability, as rigorously                              velocity, and acceleration, M(q) ≻ 0 the inertia matrix,
+proven by Kronander and Billard [11].                                                    C(q, q̇) q̇ the Coriolis/centrifugal term, g(q) the torque
+   Alternative approaches have focused on safety through                                 due to gravity, and τ c , τ e ∈ Rn are the commanded and
+other principles. Passivity-based controllers, such as Energy-                           external torques. In task space with Jacobian J(q) ∈ Rm×n ,
+Tank methods [12]–[14], guarantee stability by maintaining                               the operational-space inertia [17] is defined as Λ(q) =
+passivity, but they cannot directly optimize general task costs.                         (J(q) M−1 (q) J⊤ (q))−1 ∈ Rm×m . Let µ(q, q̇) ∈ Rm
+Safety Filters, such as Control Barrier Functions (CBFs) [10]                            collect Coriolis/centrifugal wrenches and p(q) ∈ Rm be the
+and Reactive Motion Planning (RMP) [15], provide generic                                 gravity wrench mapped to task space. Then the end-effector
+safety invariance layers, but they are not tailored to the                               dynamics reads
+time-varying nature of VIC and are not tightly integrated                                                Λ(q) ẍ + µ(q, q̇) + p(q) = fc + fe ,                           (1)
+into policy search. Model-based VIC learning approaches
+[16] optimize gains directly but remain limited by modeling                              where x, ẋ, ẍ ∈ Rm are the task-space position, velocity,
+assumptions and lack guarantees during exploration. As                                   and acceleration, and fc , fe ∈ Rm are the commanded and
+summarized in Table I, current methods lack built-in stability                           external wrenches. Torques are obtained via the wrench-
+and actuator-limit awareness, posing a significant risk of                               torque map τ c = J⊤ (q) fc . These relations follow the
+instability in VIC [11].                                                                 standard operational-space formulation and fix the notation
+                                                                                         used throughout.
+   In this work, we introduce Certified Gaussian-Manifold
+Sampling (C-GMS), a novel reinforcement learning frame-                                  B. Variable Impedance Control
+work that unifies model-free policy search with rigorous                                    Let x̃ = x − xd and x̃˙ = ẋ − ẋd denote the Carte-
+stability analysis. Unlike prior methods that penalize insta-                            sian error and its velocity, where the reference xd (t) is
+bility or apply safety filters post hoc, our approach guar-                              assumed to be twice differentiable. We shape the interaction
+antees Lyapunov stability [11] and actuator feasibility by                               behavior using time-varying symmetric positive-definite gain
+construction. By embedding the stability criterion directly                              schedules K(t) = K⊤ (t) ≻ 0, and D(t) = D⊤ (t) ≻ 0
+into the RL exploration loop, we restrict policy sampling to                             The desired task-space inertia is fixed to a constant matrix
+a certified manifold of stable gain schedules. Each Gaussian                             H = H⊤ ≻ 0. Under operational-space inverse-dynamics
+perturbation is analytically sampled from this manifold, en-                             (OSID), we command the wrench fc
+suring that every single rollout remains stable and physically
+                                                                                                   fc = Λẍcmd + µ + p + ΛH−1 − I fe ,
+                                                                                                                                       
+realizable. This integration eliminates the need for separate                                                                                     (2)
+                                                                                                                           |      {z     }
+safety critics or penalty terms and enables reliable policy                                                                               feedforward term ff
+optimization in complex tasks. Furthermore, we establish
+                                                                                         where the commanded acceleration is defined as
+a formal theorem demonstrating that our method not only
+                                                                                                  ẍcmd = ẍd − H−1 D(t) x̃˙ + K(t) x̃ .
+                                                                                                                                       
+ensures internal stability but also guarantees uniform ultimate                                                                                                          (3)
+Substituting (2), (3) into operational-space dynamics (1) and       cost terms (see [6] for the explicit expression). PI2 evaluates
+simplifying, the closed-loop error dynamics become                  Eq. (6) by Monte Carlo rollouts, i.e., it approximates the
+                  ¨ + D(t) x̃˙ + K(t) x̃ = fe .                     path-integral expectation with a sample-weighted average
+                H x̃                                         (4)
+                                                                    over trajectories. (cf. Table 1 in [7] for the algorithm).
+This matches the classical form of a time-varying impedance
+behavior with desired inertia H.                                                            III. METHOD
+
+C. Stability in VIC                                                    We present Certified Gaussian-Manifold Sampling (C-
+                                                                    GMS), a trajectory-centric reinforcement learning framework
+   Under dynamic decoupling with a constant desired inertia         for variable impedance control (VIC) that guarantees Lya-
+H ≻ 0 and in free space (fe = 0), Kronander & Billard [11]          punov stability and actuator feasibility during exploration.
+show that the closed-loop impedance dynamics in (4) are             C-GMS samples policies via Gaussian perturbations in pa-
+globally uniformly stable if there exists α > 0 such that, for      rameter space, but each sample is from a manifold where
+all t,                                                              safety and stability conditions are enforced analytically. This
+              α H − D(t) ≼ 0         and,                           manifold is defined by a time-varying Lyapunov certificate
+                                                                    (cf. Eq. (5)), and gain schedules are synthesized using slack
+              K̇(t) + α Ḋ(t) − 2α K(t) ≼ 0.                 (5)
+                                                                    variables that satisfy these conditions by construction. As
+These are state-independent, pointwise-in-time constraints on       a result, every rollout, regardless of the sampled policy,
+the gain schedules that can be constructed offline. In our          remains certified–yielding stable, safe, and physically real-
+setting, the external wrench fe appears explicitly on the           izable interaction. C-GMS thus combines model-free policy
+right-hand side of the dynamics, while Eq. (5) certifies the        learning with model-based guarantees, eliminating the need
+stability of the internal (unforced) system. This ensures that      for penalty terms, barriers, or post-hoc projection.
+the impedance behavior defined by (H, D(t), K(t)) is a
+dissipative and well-posed map throughout the motion.               A. Trajectory Parametrization via DMPs
+
+D. Policy Improvement with Path Integrals                              PI2 computes the optimal control update (cf. Eq. (6)) for
+                                                                    a system with a parameterized policy at = Φt (θ + ξ t ),
+   We consider the problem of minimizing the expected               where θ is a learned parameter vector and ξ t is exploration
+trajectory cost                                                     noise. In C-GMS, Gaussian perturbations are sampled once
+                        
+                           Z T
+                                                                   per episode, ξ ∼ N (0, Σ), and applied consistently across
+         J(τ ) = Φ x(T ) +     ℓ x(t), u(t), t dt,                  time, i.e., ξ t = ξ for all t. The basis functions are defined
+                                0
+                                                                    by
+where x(t) ∈ R is the system state, u(t) ∈ Rnu is the
+                  nx
+
+control input, ℓ(·) is the running cost, and Φ(·) is the terminal                     Ψj (st )                     
+                                                                                                                      (s −c )2
+                                                                                                                               
+                                                                      [Φ(st )]j = PM              , Ψj (st ) = exp − t2σ2j       ,
+cost. The dynamics are assumed to be control-affine with                             k=1 Ψk (st )
+                                                                                                                           j
+
+additive noise:
+                                                                    with canonical phase st = 1 − t/τ , where M is the number
+         ẋ = f (x, t) + G(x, t) u(t) + G(x, t) ξ(t),               of radial basis functions (RBFs).
+where ξ(t) is zero-mean Gaussian noise. When the noise                To ensure smooth, structured control signals compatible
+covariance and control penalty satisfy Σξ = λ R−1 , a log-          with PI2 , we parametrize the desired trajectory using Dy-
+arithmic transformation of the value function yields a linear       namic Movement Primitives (DMPs). Let (x(t), ẋ(t), ẍ(t))
+HJB equation. Following established results in stochastic           denote the kinematic state in RD over the horizon t ∈ [0, T ].
+optimal control [5], [6], the solution admits the form              The DMP transformation dynamics are defined as
+
+                                                                       τ 2 mẍ(t) = k(g(t) − x(t)) − τ dẋ(t) + γ(t)fforcing (t),
+               "                       Z T               !!#
+Ψ(xi , ti ) = E exp − λ1 Φ(xT ) +          q(x(t), t) dt     ,
+                                            ti                      where τ is the temporal scaling factor, and k, d, m are the
+where q(·) is the state cost, and the expectation is over           stiffness, damping, and mass parameters, respectively. The
+stochastic trajectories initiated at (xi , ti ).                    goal trajectory g(t) may be constant or time-varying, and
+   Thus the stochastic optimal control problem becomes a            γ(t) is a phase-dependent scaling term. The nonlinear forcing
+path-integral estimation problem. Rather than computing the         term fforcing (t) modulates the trajectory to encode complex
+value function explicitly, the optimal control can be written       motion patterns, and is modeled as
+as an expectation over trajectories [5], [6]:                                   fforcing (t) = Φtraj (st )(θ traj + ξ traj ),
+                           Z
+                  uti =       P (τi ) u(τi ) dτi ,        (6)       where Φtraj (st ) is the normalized RBF vector, and θ traj ∈
+                                    −1                             RM ×D parametrizes the forcing profile and thus the tra-
+with u(τi ) = R−1 G⊤ GR−1 G⊤
+                                                    
+                                        G ξti − bti .               jectory. We next describe how C-GMS ensures that all
+  Here P (τi ) is the probability density of a trajectory           sampled gain schedules (D(t), K(t)) satisfy stability and
+segment τi starting at (xi , ti ), and bti collects drift and       torque feasibility throughout the policy search process.
+Fig. 2: Overview of the C-GMS framework. Trajectories are parameterized using DMPs, and time-varying VIC gains are parameterized using slacks. In a
+standard approach, gains are sampled directly from a Gaussian, which can violate Lyapunov stability conditions and lead to unstable rollouts. In contrast,
+C-GMS enforces stability by sampling from a certified manifold where the Lyapunov condition [11] holds resulting in stable trajectories throughout learning.
+
+B. Gain Parametrization via C-GMS                                               actuator-limit awareness directly in gain space–without aux-
+                          2
+   To extend the PI parametrization beyond trajectories,                        iliary constraints, projections, or loss of stability. This is
+we introduce an analogous representation for time-varying                       achieved by introducing a torque√ governor that uniformly
+impedance gains. The objective is to ensure that exploration                    scales the slack variables by        β ∈ [0, 1]: SβD (t) =
+                                                                                √             β       √
+remains confined to a certified manifold, where every sample                       β SD (t), SK (t) = β SK (t), resulting in scaled gains
+satisfies Lyapunov stability and feasibility conditions by                         Dβ (t) = α H + β SD (t) S⊤
+                                                                                                            D (t),
+construction. Following the conditions for global uniform
+stability in [11], we enforce the inequalities structurally by                     K̇β (t) + α Ḋβ (t) − 2α Kβ (t) = −β SK (t) S⊤
+                                                                                                                                K (t).                (11)
+introducing matrix-valued slack variables SD (t) and SK (t):                    The gains Kβ (t) and Dβ (t) remain certificate-compliant for
+                      α H − D(t) = −SD (t) S⊤                                   all β ∈ [0, 1], as they preserve the structure required by
+                                            D (t) ≼ 0,                  (7)
+                                                                                the Lyapunov inequalities. Since the control law is affine in
+    K̇(t) + α Ḋ(t) − 2α K(t) = −SK (t) S⊤
+                                         K (t) ≼ 0.                     (8)     both K and D, the overall torque command is also affine
+These slacks are parametrized analogously to the trajectory                     in β. Denoting the β-independent component as τ 0 and the
+forcing term using time-varying basis functions:                                β-dependent component as τ 1 , the control input takes the
+                                                                                form:
+               vec△ (SD (t)) = ΦD (st ) (θ D + ξ K ),                                               τ (β) = τ 0 + β τ 1 ,
+               vec△ (SK (t)) = ΦK (st ) (θ K + ξ D ),                   (9)     the maximum admissible scaling factor β ⋆ under actuator
+where ΦD (st ) and ΦK (st ) share the normalized RBF struc-                     box constraints τ min ≤ τ (β) ≤ τ max is
+ture, and the parameter vectors θ D , θ K ∈ RM ×D define the
+                                                                                                 
+                                                                                                          −τ0,i
+                                                                                                  τmax,i
+                                                                                                       τ1,i     , τ1,i > 0,
+gain profiles.                                                                          ⋆
+                                                                                      β = min τ                             ∈ [0, 1].
+   To ensure K(t) remains symmetric positive definite (SPD),                                  i  min,i −τ0,i
+                                                                                                       τ1,i     , τ1,i < 0,
+we evolve its Cholesky factor Q(t):                                                                                             ⋆
+                                                                                The controller is executed with Sβ(·) and corresponding
+                B(t) := −αḊ(t) − SK (t) S⊤
+                                          K (t),                                gains. This actuator-limit governor preserves the Lyapunov
+                                 1  −⊤
+                Q̇(t) = α Q(t) + 2 Q (t) B(t),                                  certificate pointwise, enabling safe execution under torque
+                          ⊤
+                K(t) = Q (t) Q(t),                                    (10)      saturation.
+
+with Q(0) initialized such that K(0) ≻ 0. Differentiating                       D. Convergence Guarantee
+K = Q⊤ Q and substituting (10) yields K̇(t) = 2α K(t) +                            We analyze the closed-loop stability of the VIC under
+B(t), ensuring that K̇ + αḊ − 2αK = −SK S⊤       K ≼ 0 holds                   time-varying gains synthesized via the C-GMS framework.
+identically while maintaining K(t) ≻ 0 for all t.                               Specifically, we aim to show that the tracking error remains
+   This construction confines policy search to a certified man-                 bounded, even in the presence of model mismatch and other
+ifold of gain schedules that provably satisfy the Lyapunov                      deployment-time uncertainties.
+conditions, eliminating the need for penalties, constraints, or                    At each time step t, the desired trajectory
+post-hoc projections.                                                           (xd (t), ẋd (t), ẍd (t)) is generated by evaluating the
+                                                                                DMP forcing function fforcing (t) = Φtraj (st ) θ traj , followed
+C. Certificate-Aware Gain Contraction                                           by integration of the DMP dynamics. Simultaneously,
+  Leveraging C-GMS’s slack-based gain synthesis, which                          the time-varying gains are synthesized via basis
+admits a certificate preserving contraction, we impose                          expansions ΦD (st ), ΦK (st ), which define slack variables
+ {.}      {.}
+SD (t), SK (t). These are converted into damping and
+stiffness gains D(t), K(t) using equations (7) and (10), and
+used in the OSID control law (2)-(3).
+   The deployment of a trained policy in real-world settings
+brings along challenges such as plant-model mismatch, feed-
+forward wrench ff errors, and sensor noise, all of which may
+induce a residual input ures (t) into the closed-loop system.
+To this end, we establish that the gains generated by C-GMS
+ensure a bounded tracking error under these conditions.
+Theorem. Consider the perturbed dynamics under VIC with
+model error and feedforward uncertainty aggregated as a
+bounded residual input ∥ures (t)∥ ≤ ū < ∞. If the gains
+D(t), K(t) satisfy the differential Lyapunov conditions (17)
+with strict margins (εD , εK ) > 0, then the tracking er-
+             ˙
+ror (x̃(t), x̃(t)) is uniformly ultimately bounded, with an
+ultimate error radius O(ūres ) that decreases as (εD , εK )      (a) The robot learns to move from a start pose to a predefined goal near the
+increase. Proof in Appendix A.                             □      human’s hand, initially following a minimum-jerk trajectory.
+
+                   IV. EXPERIMENTS
+A. Experimental Setup
+   We consider a collaborative human-robot handover task
+in which a 7-DoF Franka Research 3 (FR3) manipulator
+transfers a stationery organizer to a seated human participant.
+The motivation for the task arises from an everyday scenario:
+the human is engaged with a notebook and requires a pen,
+prompting the robot to initiate a handover. The motion is         (b) A    learned policy under C-       (c) A policy learned without C-GMS
+                                                                  GMS introduces a via-point to avoid    violates the Lyapunov condition, re-
+executed under real-time VIC at 1 kHz in the task space,          the obstacle while ensuring stable,    sulting in unsafe trajectories and po-
+with feedback from the robot’s internal force-torque sensors.     compliant behavior resulting in a      tential collision with the environ-
+   In the initial phase (Fig. 3a), the robot learns a             collision-free trajectory.             ment or human.
+smooth reaching motion from a starting pose xstart =                  Fig. 3: Experimental setup for the human-robot collaborative task.
+[0.55, 0.00, 0.11] m to a final handover location xgoal =
+[0.05, 0.72, 0.11] m, following a minimum-jerk trajectory in         The initial parameters for the trajectory are obtained by
+task space over a 10 second horizon. This motion serves           training the DMP to a minimum-jerk trajectory connecting
+as the nominal demonstration and establishes a baseline for       xstart and xgoal . The slack parameters are initialized such
+downstream optimization. To evaluate the system’s adapt-          that the resulting stiffness matrix K(t) is constant and
+ability, an obstacle is introduced along the nominal path,        isotropic with magnitude 200 N/m along each axis. Damping
+partially occluding the direct line between the start and goal.   is initialized at a constant value of 30 Ns/m, also uniformly
+The robot must now adjust both its trajectory and impedance       across axes. Complete parameter settings, including DMP
+behavior to complete the handover safely. The adapted             bases, slack initializations, and cost weights are provided in
+motion bends around the obstruction by passing through an         Appendix B for reproducibility.
+intermediate region centered near [0.30, 0.48, 0.40] m (the       C. Optimization Objective
+obstacle’s coarse pose and was specified a priori, in practice
+                                                                     We formulated the cost function to primarily support via-
+they can be obtained automatically via open-vocabulary
+                                                                  point tracking. To achieve this, the objective function explic-
+perception pipelines [18]). Fig. 3b shows the physical con-
+                                                                  itly emphasizes tracking accuracy near the via-point, while
+figuration of the task space, including the obstacle location
+                                                                  also regularizing stiffness magnitude and motion smoothness.
+and handover geometry. We further evaluate generalization
+                                                                  The total cost over a trajectory of length T is:
+by executing five diverse free-space via-point policies under
+                                                                          T
+a consistent task setup, with quantitative results in Table II.           X
+                                                                             λK tr(Kt ) + λacc ∥ẍt ∥2 + wvia (t) ∥xt − xref, t ∥2 ,
+                                                                                                                                 
+                                                                  J=
+B. Policy Representation                                                  t=1
+
+   We adopt the PI2 as policy improvement framework (cf.             • tr(Kt ) penalizes the magnitude of the task-space stiff-
+§II-D) to jointly optimize the task-space trajectory and               ness matrix at time t, encouraging compliant behavior.
+                                                                             2
+the time-varying Cartesian impedance gains. The policy is            • ∥ẍt ∥ regularizes acceleration, promoting smooth mo-
+parameterized by a vector θ, consisting of DMP weights                 tion.
+                                                                                                            2
+for the reference trajectory as well as slack parameters that        • The tracking error term ∥xt −xref,t ∥ is scaled by a time-
+indirectly control the stiffness and damping schedules as              varying weight wvia (t), which intensifies the penalty
+detailed in §III.                                                      near the via-point.
+       (a) Under full C-GMS, policies remain stable and smooth throughout learning, with impedance gains adapting locally around the via-point
+
+
+
+
+       (b) When C-GMS is applied only until the via-point (i.e., stability constraints are disabled afterward), the policy continues to optimize task
+       cost but exhibits unstable behavior beyond the via-point, including oscillations and unbounded gain growth.
+Fig. 4: VIC gain schedules and corresponding end-effector trajectories of the robot initially, after 15 updates and after 50 updates. The policy obtained
+after the 50th update was executed on hardware (cf. § III-D). Via-points are marked by circles.
+
+The weighting function is given by wvia (t) = w0 + γ · g(t)                          Scenario   RMSE x   RMSE y     RMSE z    Sat. w/ Gov   Sat. w/o Gov
+where g(t) is a Gaussian kernel centered at the via-point                            S1         2e−2      53e−4      54e−4         ✗             ✗
+time t̂.                                                                             S2         38e−4     35e−4      76e−4         ✗             ✓
+                                                                                     S3         11e−3     22e−3       3e−2         ✗             ✗
+   Learning is performed over 50 policy updates, each with                           S4         27e−4     19e−4      28e−4         ✗             ✓
+12 sampled rollouts in MuJoCo, a physics engine for simula-                          S5         23e−3     51e−4       1e−2         ✗             ✓
+
+tion using the FR3 model. At every iteration, the PI2 update                    TABLE II: Hardware metrics across five unique scenarios [Start-Via-End]:
+rule is applied to the parameter vector θ. All sampling is                      S1: [0.30, 0.00, 0.47] − [0.42, 0.30, 0.34] − [0.54, 0.43, 0.47],
+constrained to a certified manifold that satisfies the time-                    S2: [0.37, −0.34, 0.03] − [0.62, 0.00, 0.32] − [0.45, 0.27, 0.06],
+                                                                                S3: [0.40, 0.00, 0.15] − [0.32, 0.50, 0.42] − [0.00, 0.40, 0.10],
+varying stability condition (cf. Eq. (5)). This ensures that all                S4: [0.20, 0.17, 0.43] − [0.34, 0.20, 0.36] − [0.48, 0.34, 0.0.43],
+explored policies yield stabilizing behavior under the VIC                      S5: [0.58, −0.35, 0.18] − [0.31, 0.00, 0.43] − [0.00, 0.56, 0.05].
+dynamics in Eqs. (1)-(3).                                                       RMSE-x, y, z denotes the end-effector tracking error (in m) in task space.
+                                                                                The final two columns indicate whether torque saturation was observed
+D. Results and Analysis                                                         during execution, with and without the actuator-limit governor. Note that
+                                                                                with governor, saturation was not reached for any segment.
+   Figure 3 demonstrates the task execution on real hardware.                   Note: To evaluate the efficacy of § III-C, we virtually reduced FR3’s
+With certification (Fig. 3b), the learned policy follows a                      default torque limits ([87, 87, 87, 87, 12, 12, 12] Nm) by half, emulating
+                                                                                deployment on lower-capacity hardware. The proposed governor maintains
+stable trajectory through the via-point and completes the han-                  certification without exceeding these reduced limits.
+dover safely. Without certification (Fig. 3c), the learned pol-
+icy violates the Lyapunov condition and produces unstable                       the two regimes. With C-GMS (Fig. 4a), trajectories con-
+trajectories eading to unsafe behaviors, including collisions                   verge smoothly and stiffness rises near the via-point before
+with the environment/human. Figure 4 compares the evolu-                        relaxing, aligning naturally with task demands. Without cer-
+tion of end-effector trajectories and stiffness profiles under                  tification (Fig. 4b), trajectories become oscillatory and gains
+    (a) Learning Curve (C-GMS)           (b) Stability Condition (C-GMS)        (c) Learning Curve (no C-GMS)        (d) Stability Condition (no C-GMS)
+
+Fig. 5: Learning curve and eigenvalue evolution for Eq. (5). Under C-GMS based sampling, the eigenvalues remain negative, ensuring that the impedance
+profile guarantees stable control. However, when sampling shifts to an unsafe region, the cost function may still converge (since the via-point is reached
+prior to C-GMS being disabled), but the eigenvalues become positive, potentially leading to severe instability in the end-effector trajectory.
+
+diverge, despite reductions in cost. Figure 5 summarizes                       research. We plan to extend this analysis to explore broader
+optimization across both cases. Under C-GMS (Figs. 5a, 5b),                    task families, including contact-rich and orientation-sensitive
+the cost decreases steadily while the minimum eigenvalue of                    interactions. Future work will also explore how this governor
+Eq. (5) remains strictly negative, certifying stability at every               can be extended to dynamically adapt to varying payload
+iteration. Without certification (Figs. 5c, 5d), even though                   conditions.
+the cost converges, the eigenvalue crosses into the positive
+domain, indicating loss of guaranteed stability. This explains                                              APPENDIX
+the unsafe executions in Fig. 4b. Table II summarizes per-                     A. Robustness to Modeling Error
+formance of trained policy on hardware across five unique                         During execution with OSID and wrench feedforward, the
+segments apart from the aforementioned collaborative task.                     tracking error x̃ = x − xd evolves as
+   Together, these results show that while unconstrained
+                                                                                           ¨ + D(t) x̃(t)
+                                                                                         H x̃(t)     ˙    + K(t) x̃(t) = ures (t),                  (12)
+learning can converge in terms of cost, it may yield unsta-
+ble and unsafe policies. By embedding stability constraints                    where the residual input ures (t) collects plant–model
+directly into the sampling process, not only policies are                      mismatch and feedforward/sensing imperfections and is
+guaranteed to be stable, but are also physically realizable on                 bounded: ∥ures (t)∥ ≤ ū < ∞. Gains are synthesized by
+hardware, enabling the safe discovery of variable impedance                    C-GMS from slacks with strict margins εD , εK > 0 so that
+policies.                                                                      for all t,
+          V. CONCLUSION AND LIMITATIONS                                                                        α H − D(t) ≼ − εD I,                 (13)
+   We have introduced Certified Gaussian-Manifold Sam-                                       K̇(t) + α Ḋ(t) − 2α K(t) ≼ − εK I.                    (14)
+pling (C-GMS), a novel framework that demonstrates how
+stable and optimal policy optimization can be achieved for                     C-GMS guarantees K(t) = Q⊤(t)Q(t) ≻ 0 and D, K
+variable impedance control by constraining the reinforcement                   are continuous. On any horizon [0, T ], continuity implies
+learning exploration to a certified manifold. By leveraging                    uniform bounds
+the analytically verifiable stability criterion, our approach                         hmin I ≼ H ≼ hmax I,             0 < kI ≼ K(t) ≼ k̄I.
+guarantees that every policy rollout is Lyapunov stable and
+physically realizable. The results highlight a critical distinc-               Assumption: D(t) is uniformly bounded, ∥D(t)∥ ≤ d¯ <
+tion: even with identical cost shaping and initialization, an                  ∞ (true if D is continuous and its generating slacks are
+unconstrained optimizer continues to reduce task cost but                      bounded).
+can produce unsafe gain schedules that lead to erratic and                       Consider the standard energy
+unstable robot execution. In contrast, C-GMS ensures the                                        V (t) = 12 x̃˙⊤ H x̃˙ + 12 x̃⊤ K(t) x̃.             (15)
+policy converges smoothly while preserving formal safety
+guarantees at each update. Our experiments further validate                    Because H ≻ 0 and K(t) ≻ 0, V is positive definite; there
+that C-GMS produces compliant trajectories that respect                        exist m1 , m2 > 0 such that
+task constraints, showcasing its practical viability for safe
+                                                                                                                          x̃˙
+                                                                                                                          
+autonomous interaction. The integration of certificate-aware                           m1 ∥z∥2 ≤ V (t) ≤ m2 ∥z∥2 ,  z :=      .     (16)
+                                                                                                                          x̃
+actuator-limit governor presents a robust foundation for a
+physically realizable and safe learning system.                                Differentiating (15) along (12) and using x̃⊤ Kx̃˙ = x̃˙⊤ Kx̃
+   A primary limitation of our current framework is its                        gives
+reliance on the stability criterion [11], which is formulated
+for free-space dynamics and does not account for external                                    V̇ = − x̃˙⊤ D x̃˙ + 12 x̃⊤ K̇ x̃ + x̃˙⊤ ures .         (17)
+contact. This prevents its direct application to contact-rich                  From (13), D ⪰ αH + εD I, hence
+tasks, a critical domain for compliant robotics. Additionally,
+the current cost function focuses solely on via-point tracking                                − x̃˙⊤ D x̃˙ ≤ − α x̃˙⊤ H x̃˙ − εD ∥x̃∥
+                                                                                                                                   ˙ 2.             (18)
+and lacks terms for orientation control, which is necessary
+                                                                               From (14),
+for more realistic manipulation tasks. Despite these limita-
+                                                                                      1 ⊤              ⊤       α ⊤          εK    2
+tions, our work opens several promising avenues for future                            2 x̃ K̇ x̃ ≤ α x̃ K x̃ − 2 x̃ Ḋ x̃ − 2 ∥x̃∥ .                (19)
+                                              ˙                                       TABLE III: Key hyperparameters used in all experiments.
+Using α2 x̃⊤ Ḋ x̃ = dtd α ⊤             ⊤
+                                 
+                         2 x̃ Dx̃ − α x̃ Dx̃, combine (17)-
+(19) to obtain                                                                 Parameter                                Value
+                                                          
+                                                                               Time step dt                             0.001 s
+  V̇ ≤ − α x̃˙⊤ H x̃˙ − εD ∥x̃∥
+                             ˙ 2 + α x̃⊤ K x̃ − d α x̃⊤ Dx̃
+                                                dt 2                           Certificate scaling α                    0.05
+                                                                               Task matrix H                            I3×3
+                   + α x̃⊤ D x̃˙ − ε2K ∥x̃∥2 + x̃˙⊤ ures .           (20)      RBF count (DMP)                          51
+                                                                               RBF count (slacks)                       7
+Define the augmented storage V := V + α2 x̃⊤ Dx̃. Then                         RBF intersection height (DMP)            0.95
+                                                                               RBF intersection height (slacks)         0.7
+  V̇ ≤ − α x̃˙⊤ H x̃˙ − εD ∥x̃∥
+                              ˙ 2 − εK ∥x̃∥2 + α x̃⊤ K x̃ (21)
+                                     2
+                                                                               RBF regularization                       1e−6
+                                                                               PI2 softmax sharpness β                  20
+       + α x̃⊤ D x̃˙ + x̃˙⊤ ures .                        (22)                 Covariance decay (EMA)                   0.98
+                                                                               Cost coefficient: λK                     15e−7
+Use x̃⊤ Kx̃ ≤ k̄ ∥x̃∥2 , x̃˙⊤ Hx̃˙ ≥ hmin ∥x̃∥
+                                             ˙ 2 , ∥D(t)∥ ≤ d, ¯               Cost coefficient: λacc                   1e−3
+                                                   2 ¯2                        Cost coefficient: w0                     0.2
+Young’s inequality α x̃ Dx̃˙ ≤ 2 ∥x̃∥
+                         ⊤           γ  ˙ +2     α  d     2
+                                                   2γ ∥x̃∥ , and               Cost coefficient: γ                      5e4
+˙x̃⊤ ures ≤ η∥x̃∥
+               ˙ 2 + 1 ∥ures ∥2 for any γ ∈ (0, εD ) and                       Trajectory noise σtraj                   8.0
+                      4η
+                                                                               Stiffness noise σK                       1.3
+η ∈ (0, εD − γ). Then                                                          Damping noise σD                         0.6
+                                       ˙ 2
+                                    
+      V̇ ≤ − αhmin + εD − γ − η ∥x̃∥
+                        2 ¯2
+                              
+         − ε2K − αk̄ − α2γd ∥x̃∥2 + 4η   1
+                                            ∥ures (t)∥2 .    (23)              [3] W. Li and E. Todorov, “Iterative linear quadratic regulator design
+                                                                                   for nonlinear biological movement systems,” in First International
+                                                 2 ¯2
+Choose margins so that εK > 2αk̄ + α γd , and fix any γ ∈                          Conference on Informatics in Control, Automation and Robotics,
+                                                                                   vol. 2, pp. 222–229, SciTePress, 2004.
+(0, εD ), η ∈ (0, εD − γ). Let                                                 [4] J. B. Rawlings, D. Q. Mayne, M. Diehl, et al., Model predictive
+            n                                  2 ¯2
+                                                    o                              control: theory, computation, and design, vol. 2. Nob Hill Publishing
+ c1 := min αhmin + εD − γ − η, ε2K − αk̄ − α2γd > 0,                               Madison, WI, 2020.
+                                                                               [5] H. J. Kappen, “Linear theory for control of nonlinear stochastic
+                                      1                                            systems,” Phys. Rev. Lett., vol. 95, p. 200201, Nov 2005.
+                               c2 := 4η > 0.                                   [6] E. Theodorou, J. Buchli, and S. Schaal, “A generalized path integral
+                                                                                   control approach to reinforcement learning,” The Journal of Machine
+Then (23) becomes                                                                  Learning Research, vol. 11, pp. 3137–3181, 2010.
+                                                                               [7] J. Buchli, E. Theodorou, F. Stulp, and S. Schaal, “Variable impedance
+                 V̇ ≤ − c1 ∥z∥2 + c2 ∥ures (t)∥2 .                   (24)          control a reinforcement learning approach,” Robotics: Science and
+                                                                                   Systems VI, vol. 153, 2011.
+Because K ≻ 0 and D ⪰ αH + εD I, V is positive definite                        [8] J. Rey, K. Kronander, F. Farshidian, J. Buchli, and A. Billard, “Learn-
+                                                                                   ing motions from demonstrations and rewards with time-invariant
+and quadratically bounded with respect to z. Explicitly,                           dynamical systems based policies,” Autonomous Robots, vol. 42, no. 1,
+                                                                                   pp. 45–64, 2018.
+                  m′1 ∥z∥2 ≤ V(t) ≤ m′2 ∥z∥2 ,                                 [9] J. Achiam, D. Held, A. Tamar, and P. Abbeel, “Constrained policy op-
+                  m′1 = 12 min{hmin , k + αεD }                                    timization,” in International conference on machine learning, pp. 22–
+                                                                                   31, PMLR, 2017.
+                                            ¯
+                  m′ = 1 max{hmax , k̄ + αd}.                        (25)     [10] A. D. Ames, S. Coogan, M. Egerstedt, G. Notomista, K. Sreenath,
+                     2     2
+                                                                                   and P. Tabuada, “Control barrier functions: Theory and applications,”
+By a comparison lemma applied to (24), for all t ≥ t0 ,                            in 2019 18th European Control Conference (ECC), pp. 3420–3431,
+                                                                                   2019.
+                                      m′2 c2
+                            
+                               V(t0 )                                         [11] K. Kronander and A. Billard, “Stability considerations for variable
+ ∥z(t)∥2 ≤ exp − mc1
+                    ′ (t−t0 )
+                                                  2
+                                m′ + m′ c1 ∥ures ∥∞ . (26)                         impedance control,” IEEE Transactions on Robotics, vol. 32, no. 5,
+                          2                1       1
+                                                                                   pp. 1298–1305, 2016.
+            ˙ is uniformly ultimately bounded (input-to-state
+Thus, (x̃, x̃)                                                                [12] B. Hannaford and J.-H. Ryu, “Time-domain passivity control of haptic
+                                                                                   interfaces,” IEEE Transactions on Robotics and Automation, vol. 18,
+practically stable), with ultimate radius O(∥ures ∥∞ ) that                        no. 1, pp. 1–10, 2002.
+shrinks as the strict margins (εD , εK ) grow.             □                  [13] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+                                                                                   impedance control with variable stiffness,” in 2013 IEEE International
+B. Hyperparameters and Reproducibility                                             Conference on Robotics and Automation, pp. 4948–4953, 2013.
+                                                                              [14] C. Schindlbeck and S. Haddadin, “Unified passivity-based cartesian
+  Table III lists all key hyperparameters used in the ex-                          force/impedance control for rigid and flexible joint robots via task-
+periments. All values were held constant across trials and                         energy tanks,” in 2015 IEEE International Conference on Robotics
+                                                                                   and Automation (ICRA), pp. 440–447, 2015.
+across all variants. No manual tuning was performed post-                     [15] C.-A. Cheng, M. Mukadam, J. Issac, S. Birchfield, D. Fox, B. Boots,
+deployment. Code and configuration files are available at:                         and N. Ratliff, “Rmpflow: A computational graph for automatic motion
+https://github.com/shr-eyas/safe-vic                                               policy generation,” 2019.
+                                                                              [16] A. S. Anand, J. T. Gravdahl, and F. J. Abu-Dakka, “Model-based vari-
+                                                                                   able impedance learning control for robotic manipulation,” Robotics
+                               R EFERENCES                                         and Autonomous Systems, vol. 170, p. 104531, 2023.
+ [1] M. Saveriano, F. J. Abu-Dakka, A. Kramberger, and L. Peternel,           [17] O. Khatib, “A unified approach for motion and force control of robot
+     “Dynamic movement primitives in robotics: A tutorial survey,” The             manipulators: The operational space formulation,” IEEE Journal on
+     International Journal of Robotics Research, vol. 42, no. 13, pp. 1133–        Robotics and Automation, vol. 3, no. 1, pp. 43–53, 2003.
+     1184, 2023.                                                              [18] S. Liu, Z. Zeng, T. Ren, F. Li, H. Zhang, J. Yang, C. Li,
+ [2] D. Q. Mayne, “Differential dynamic programming–a unified approach             J. Yang, H. Su, J. Zhu, et al., “Grounding dino: Marrying dino with
+     to the optimization of dynamic systems,” in Control and dynamic               grounded pre-training for open-set object detection,” arXiv preprint
+     systems, vol. 10, pp. 179–254, Elsevier, 1973.                                arXiv:2303.05499, 2023.
+

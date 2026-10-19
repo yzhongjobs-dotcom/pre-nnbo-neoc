@@ -1,0 +1,975 @@
+        IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025                                                                 6085
+
+
+
+
+                   Human-Inspired Adaptive Optimal Control
+                 Framework for Robot-Environment Interaction
+                         Haotian Liu , Yuchuang Tong , Member, IEEE, and Zhengtao Zhang , Member, IEEE
+
+
+
+           Abstract—Enabling robots with uncertain dynamics to per-                                                  I. I NTRODUCTION
+        form human-like adaptive operations in unknown environments
+                                                                                              N VARIOUS fields, such as medical [1], industrial [2],
+        remains a significant challenge in robotics research. Drawing
+        inspiration from the dynamic modification of human arm
+        muscles, we propose an innovative adaptive optimal control
+                                                                                          I   and service [3], robots are involved in interacting with the
+                                                                                          environment to achieve human-like operation or collaboration.
+        framework to address this issue. The framework integrates a                       However, how robots achieve human-like safe and friendly
+        variable optimal impedance adaptation (VOIA) method and                           operation under uncertain dynamic models, thereby optimizing
+        an adaptive bias broad fuzzy neural network (ABBFNN)
+                                                                                          behaviors to realize adaptive optimal interaction with unknown
+        controller, facilitating adaptive manipulation behaviors in robot-
+        environment interaction tasks. It can adaptively learn the                        environments, remains a challenge in robotics research.
+        impedance gain of unknown environment in the presence of                             By emulating human behaviors, an interaction model can
+        uncertain robot dynamic model based on different task proper-                     be constructed to minimize trajectory and force errors,
+        ties, simultaneously keeping the tracking error and interaction                   thereby enabling adaptive adjustment of robot motion [4]. For
+        force optimized and minimized. The ABBFNN controller com-                         example, in sphere target assembly task, success hinges on
+        bines adaptive node increments to approximate uncertain
+        dynamic model and introduces additional global bias and adap-
+                                                                                          maintaining minimal radial position errors while exerting the
+        tive gain adjustment to improve the approximation accuracy                        least possible contact force to avoid component damage [5].
+        and the rate of convergence significantly. VOIA seamlessly                        Moreover, when interacting with deformable objects, such
+        integrates a finely tuned proportional-integral-derivative (PID)                  as cable routing or sponge compression, it is imperative to
+        variable target stiffness and an impact compensator, ensuring                     minimize trajectory tracking errors while ensuring that the
+        accurate responses to varying environmental conditions and
+        improved disturbance rejection. Moreover, a momentum-based
+                                                                                          interaction force, which tends to increase with deformation,
+        force observer is utilized within the framework for interaction                   remains as low as possible, thereby safeguarding the object’s
+        force estimation, eliminating the need for force sensors and                      integrity. In these applications, achieving low tracking error in
+        simplifying the system. Simulations and experiments validate the                  conjunction with minimal force is critical for ensuring safe,
+        effectiveness and practicality of the proposed optimal interaction                stable interactions and facilitating rapid, responsive control [6].
+        control framework, demonstrating its potential to propel robots
+        toward interactions with unknown environments.                                       Over the past few decades, researchers have dedicated sub-
+                                                                                          stantial efforts to investigating the problem of robot interaction
+           Index Terms—Adaptive fuzzy-logic control, adaptive optimal
+                                                                                          control and learning [7]. In general, when robot performs
+        interaction, human-like muscle characteristic, impedance
+        adaptation, unknown environment.                                                  interaction tasks, its dynamic model often encounters inaccu-
+                                                                                          racies and deviations due to the lack of precise parameters
+                                                                                          and measurements of the interaction, negatively impacting the
+                                                                                          control performance and task accuracy [8]. Therefore, achiev-
+                                                                                          ing better model approximation is a core issue in dynamic
+                                                                                          control design. With the development of neural networks,
+           Received 19 November 2024; revised 10 March 2025; accepted 4                   many researchers have combined them with adaptive control
+        June 2025. Date of publication 24 June 2025; date of current version              methods to obtain uncertain models. Among various networks,
+        20 August 2025. This work was supported in part by the National Natural
+        Science Foundation of China under Grant 62303457 and Grant U21A20482,             radial basis function neural network (RBFNN) [9] is widely
+        and in part by the Beijing Municipal Natural Science Foundation under             applied. Yang et al. [10] and Peng et al. [11] employed it
+        Grant 4252053. This article was recommended by Associate Editor N. Sun.           to estimate uncertain dynamics and achieved torque control.
+        (Corresponding authors: Yuchuang Tong; Zhengtao Zhang.)
+           Haotian Liu and Yuchuang Tong are with the CAS Engineering Laboratory          Liu et al. [12] enhanced model approximation accuracy by
+        for Intelligent Industrial Vision, Institute of Automation, Chinese Academy       introducing global/local biases into RBFNN. Furthermore,
+        of Sciences, Beijing 100190, China, and also with the School of Artificial        leveraging the excellent approximation capability of fuzzy-
+        Intelligence, University of Chinese Academy of Sciences, Beijing 100049,
+        China (e-mail: liuhaotian2021@ia.ac.cn; yuchuang.tong@ia.ac.cn).                  logic [13], the adaptive fuzzy neural network (FNN) has
+           Zhengtao Zhang is with the CAS Engineering Laboratory for Intelligent          been widely studied [14], [15]. He and Dong [16] combined
+        Industrial Vision, Institute of Automation, Chinese Academy of Sciences,          adaptive FNN control with impedance learning to control
+        Beijing 100190, China, also with the School of Artificial Intelligence,
+        University of Chinese Academy of Sciences, Beijing 100049, China, and             constrained robots. Ma et al. [17] presented an adaptive
+        also with Beijing Zhongke Huiling Robot Technology Company Ltd., Beijing          fuzzy control strategy identifying unknown nonlinearity in
+        100192, China (e-mail: zhengtao.zhang@ia.ac.cn).                                  dynamics using fuzzy-logic systems. Li et al. [18] proposed
+           Color versions of one or more figures in this article are available at
+        https://doi.org/10.1109/TSMC.2025.3577296.                                        an adaptive FNN command filtered impedance control method
+           Digital Object Identifier 10.1109/TSMC.2025.3577296                            for estimating manipulator dynamics with constraints.
+                        2168-2216 
+                                  c 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence
+                               and similar technologies. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                               See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        6086                                             IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025
+
+
+
+
+        Fig. 1.   Block diagram of human-inspired adaptive optimal interaction control framework.
+
+
+
+           However, the above control methods inevitably require                          initial parameters and are challenging to avoid, resulting in
+        prior parameters based on expert experience in the controller                     interaction properties that may be affected by changes in the
+        design. To reduce the impact of nodes, Huang et al. [19], [20]                    operating environment.
+        proposed a novel broad FNN (BFNN), combining the broad                               In response to the above challenges, we propose an adaptive
+        learning system (BLS) [21] with a FNN. This network utilizes                      optimal impedance control framework for robot-environment
+        the characteristic of BLS to dynamically select the number                        interaction control inspired by muscle characteristics to
+        of nodes based on different tasks, reducing the need for                          achieve human-like behavior in robot-environment interaction
+        manual parameter design and achieving a good approximation.                       and realize versatility and adaptability for different interaction
+        However, while this method has improved significantly, expert                     objects, as shown in Fig. 1. In terms of unknown envi-
+        experiences still influence its effectiveness.                                    ronment model estimation, the variable optimal impedance
+           In addition, humans can naturally modify the impedance                         adaptation (VOIA) method is presented to handle various
+        and force to interact with environments. Biological studies                       unknown factors and achieve optimal interaction. Compared
+        suggest that humans can adjust the stiffness of muscles through                   to LQR [25], [26] and impedance adaptation [20], [28], this
+        the central nervous system, achieving smooth interaction [22].                    method can estimate the environment model in real-time to
+        This ability is a key to achieve safe, compliant, and adap-                       avoid a priori unknown impedance and generate a smooth
+        tive physical interactions. For robots, impedance control                         reference trajectory for interaction. Furthermore, VOIA effec-
+        dynamically adjusts the relationship between end-effector                         tively addresses unstructuredness caused by dynamic changes
+        motion and force without decoupling, making them exten-                           in the surface and physical properties of the object, and
+        sively applicable in complex interaction control tasks [23].                      effectively mitigates impacts, such as noises and shocks. In
+        The critical factor in impedance control is the accurate                          terms of uncertain robot dynamic model approximation, an
+        acquisition of impedance parameters [24]. Typically, construct-                   adaptive bias BFNN (ABBFNN) controller is designed to
+        ing an impedance model is vital for parameter acquisition.                        accomplish simultaneous learning and control. Compared to
+        In some early works [25], [26], [27], fixed and artificially                      RBFNN [11], [12] and FNN [17], [18] controllers, the con-
+        designed impedance models were employed and combined                              troller can adaptively adjust the control gains, eliminating the
+        with a linear quadratic regulator (LQR) for interaction                           need for subjective manual adjustments of network parameters
+        with a completely known environment. However, environ-                            and nodes during the network design process, thus facilitating
+        ment usually encompasses various unknown factors, such                            human-like adaptive and compliant operation.
+        as unknown interaction objects with unstructured surfaces,                           Moreover, to comprehensively evaluate the integrated
+        unknown environment impedance models, and external noises                         performance of the proposed framework compared with exist-
+        and shocks, limiting the effectiveness of interaction control                     ing methods, Table I analyzes the aspects of environment
+        based on fixed impedance models. Although LQR can achieve                         model, robot dynamics, control signal, the way of network
+        optimal control under a vital precondition of completely                          node design, parameter sensitivity, oscillation suppression
+        known environment model, its effectiveness is significantly                       capability, force sensor requirement, and real-world exper-
+        reduced in scenarios with high uncertainty, nonlinear dynam-                      iment, respectively. Overall, in terms of adaptability, the
+        ics, and unknown environment properties, which are typical                        proposed framework requires minimal manually designed
+        of challenges in real-world robot-environment interaction.                        parameters and exhibits low sensitivity to parameter vari-
+        To address this issue, Ge et al. [28] extended the adaptive                       ations, making it highly effective for robot-environment
+        optimal control method [29] to robots, eventually obtaining                       interaction tasks with unknown and uncertain factors. In terms
+        the optimal stiffness through policy iteration learning to                        of oscillation suppression capability, VOIA and ABBFNN
+        achieve optimal interaction in various unknown scenarios.                         controller can effectively handle impacts during interaction
+        Subsequently, Huang et al. [20] further improved it by                            and adaptively adjust robot behavior. In terms of hardware
+        incorporating a soft function to enhance control continuity.                      constraints, the presence of force observer simplifies the
+        Roveda et al. [30] proposed an extended Kalman filter to esti-                    control system, and the framework considers the possibility
+        mate the stiffness of the environment and realize the optimal                     that the robot system may not have joint torque or motor
+        interaction. However, these methods usually use assumed                           current interfaces, enhancing its compatibility with a wide
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        LIU et al.: HUMAN-INSPIRED ADAPTIVE OPTIMAL CONTROL FRAMEWORK                                                                                               6087
+
+
+                                                                               TABLE I
+                                                               C OMPARISONS A MONG D IFFERENT M ETHODS
+
+
+
+
+        range of robotic systems. Therefore, it can be concluded that                     where x ∈ Rm is the end-effector position, q ∈ Rn (m ≤ n)
+        the proposed framework demonstrates superior comprehensive                        is the joint angles of the manipulator, J(q) ∈ Rm×n is the
+        performance, making it more practical for various robot-                          Jacobin matrix of the manipulator, in which m and n are the
+        environment interaction tasks. The main contributions of this                     dimension of the task space and joint space, respectively.
+        article are as follows.                                                              When the manipulator interacts with the environment, the
+           1) Inspired by the characteristics of human arm muscles,                       dynamic model in joint space [38] can be expressed as
+               this article presents an adaptive optimal interaction con-
+                                                                                                       Mq (q)q̈ + Vq (q, q̇)q̇ + gq (q) + τ e = τ c                 (1)
+               trol framework for manipulator with uncertain dynamic
+               models, facilitating safe and friendly interaction between                 where Mq (q) ∈ Rn×n is the inertia matrix in joint space,
+               manipulator and environment with unstructured surface,                     Vq (q, q̇) ∈ Rn×n is the Coriolis and centrifugal matrix,
+               unknown impedance, and external noise and shocks.                          gq (q) ∈ Rn is the gravity vector, τ c ∈ Rn is the joint control
+           2) The ABBFNN controller combines global bias and                              torque of the manipulator, τ e = J(q)T f e ∈ Rn is the external
+               adaptive control gain adjustment, which enables accurate                   torque interacting with the environment, in which f e is the
+               approximation of uncertain dynamic model and drives                        interaction force. Furthermore, The dynamic model in task
+               the manipulator to interact with the environment.                          space can be written as
+           3) The VOIA method integrates variable target stiffness
+               and impact compensator, which can accurately respond                                  Mx (x)ẍ + Vx (x, ẋ)ẋ + gx (x) + f e = J−T τ c
+               to unknown environment, estimate impedance gain, and                       where Mx (x) ∈ Rm×m , Vx (x, ẋ) ∈ Rm×m and gx (x) ∈ Rm are
+               modify the trajectory.                                                     defined as
+           4) The sensorless momentum-based force observer
+                                                                                                      Mx (x) = J−T Mq (q)J−1
+               estimates interaction force while mitigating signal                                                                            
+               interference during data collection, simplifying the                                  Vx (x, ẋ) = J−T Vq (q, q̇) − Mq (q)J−1 J̇ J−1
+               control system.
+           The remainder of this article is organized as follows.                                       gx (x) = J−T gq (q).
+        Section II presents VOIA. Section III proposes the ABBFNN                         However, the assumption of precise dynamic parameters is
+        controller. Section IV devises the adaptive optimal control                       practically unrealistic due to the lack of precise parameters
+        framework. Section V verifies the effectiveness through sim-                      and measurements of the interaction between the robot and
+        ulations and real-world experiments. Section VI provides the                      environment. This uncertainty, stemming from discrepancies
+        conclusion.                                                                       between the ideal mathematical model and the actual physical
+                                                                                          system, can negatively affect control performance, such as
+             II. VARIABLE O PTIMAL I MPEDANCE A DAPTATION                                 tracking accuracy and repeatability.
+          In this section, we introduce the dynamic model of robot-                          Moreover, the target impedance function of interaction in
+        environment interaction and the variable optimal impedance                        the task space [28] can be expressed as
+        adaptive method to mimic human muscle characteristic.                                                      Be ėx + Ke ex = −f e                            (2)
+
+        A. Dynamic Model of Robot-Environment Interaction                                 where Be , Ke are the damping and stiffness matrices, respec-
+                                                                                          tively; ex = xr − xd ∈ Rm is the position error, in which xr
+          The forward kinematics model in velocity level of the
+                                                                                          is the reference trajectory and xd is the desired trajectory. In
+        manipulator is
+                                                                                          the absence of interaction, the end-effector tracks the desired
+                                       ẋ = J(q)q̇                                        trajectory exactly, i.e., x = xr = xd , such that f e = 0.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        6088                                             IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025
+
+
+
+
+        Fig. 2.   Variable impedance modeling method to mimic human arm muscle.
+
+
+
+        B. Variable Impedance Modeling                                                       Thus, the coefficient matrices of (3) can be transformed into
+           As shown in Fig. 2, humans can swiftly adapt to changing                       C = diag{−Bυ K−1                      −1
+                                                                                                             υ , A}, D = [−Bυ , 0] . Then, to achieve
+                                                                                                                                      T
+
+        environments, adjusting actions and interactions in real-                         better interaction performance by minimizing the combination
+        time. Inspired by this characteristic, we propose an variable                     of tracking error and force error, a variable impedance model
+        impedance modeling method to simulate the ability of the                          is defined as
+                                                                                                             ∞
+        human neuromuscular system to adjust stiffness and damping                                              
+                                                                                                       ℵ=        (xr − xd )T N(xr − xd )
+        based on task requirements and environmental conditions.                                                   0
+           First, we introduce a state variable y = [xT , sT ]T , where                                                              T 
+                                                                                                               +               f − f d H f − f d dt
+        s ∈ Rk serves as an intermediate state variable defined as                                              ∞
+                                                                                                                       T 
+                                   ṡ = As                                                                 =            y N y + f T Hf dt                           (6)
+                                   xd = Es                                                                         0
+                                                                                          where f is the interaction force, N ∈ Rm×m is the tracking
+        where A ∈ Rk×k and E ∈ Rm×k are two adjustable matrices.
+                                                                                          error weight, H ∈ Rm×m is the interaction force weight, and
+          Next, (2) can be rewritten as a linear state space system
+                                                                                          N is defined as
+                                     ẏ = Cy + Df e                               (3)                                N      −NE
+                                                                                                           N =                   .
+        where C = diag{−Be K−1             −1                                                                      −ET N ET NE
+                            e , A}, D = [−Be , 0] .
+                                                 T
+
+           To mimic the muscle stiffness modification process, a vari-                       Remark 1: The proposed variable impedance modeling
+        able target stiffness Kυ , updating Ke in (2) by force/position                   method reflects a similar natural adaptability of human mus-
+        feedback and extends the force error in a proportional-integral-                  cles to adjust impedance by a PID-based variable target
+        derivative (PID) manner [34], is defined as                                       stiffness, which dynamically adjusts stiffness based on feed-
+                                           t                                             back. Furthermore, the compensatory mechanism of impact
+                                 kp ef + ki tii+1 ef dt + kd ėf
+                      Kυ = −                                             (4)              compensator can respond to sudden impacts as humans do,
+                                               ex                                         which helps the robot optimize behaviors and significantly
+        where kp , ki , and kd are the proportional, integral, and                        reduce oscillations to ensure that the robot can maintain safe
+        differential gains, respectively; ef = f e − f d is the force error,              and friendly interactions even in unpredictable environments.
+        in which f d is the desired force.
+           In this article, f d is set to 0 to promote impedance learn-                   C. Adaptive Optimal Impedance Learning
+        ing [20], thereby fostering human-like behavior and optimal
+                                                                                              Next, adaptive optimal impedance learning is employed to
+        interaction performance. This setting enables the system to
+                                                                                          solve for the optimal feedback gain G∗ and reference trajectory
+        rapidly correct deviations from stability and prevent the
+                                                                                          xr , as shown in Algorithm 1.
+        excessive forces, ensuring safe and stable robot-environment
+                                                                                              For convenience, the following matrix is designed as
+        interaction.                                                                                                                                             T
+           Simultaneously, we incorporate a variable damping coeffi-                                y = y21 , y1 y2 , . . . , y1 ym , y22 , . . . , ym−1 ym , y2m
+        cient Bυ in place of Be in (2) as a simple impact compensator                                                                                    T
+        to avoid oscillations, defined as                                                         Δy = y(t1 ) − y(t0 ), . . . , y(tl ) − y(tl−1 )
+                                                                                                          t1                      tl                T
+                               Be ,                    δ Imp ≤ η1
+                     Bυ =                                                                         Iyy =        y ⊗ ydt, . . . ,            y ⊗ ydt
+                               B1 tanh(α) + B2 , δ Imp > η1                                                   t0                        tl−1
+                     α = δ Imp /η2                                   (5)                                     t1                        tl               T
+                         ti+1                                                                    Iyf =            y ⊗ f dt, . . . ,           y ⊗ f dt
+        where δ  Imp = ti |f e − f d |dt is an coefficient designed                                           t0                        tl−1
+        to determine whether the variable damping coefficient is                                        
+                                                                                                   P̂i = P1,1 , 2P1,2 , . . . , 2P1,m , P2,2 , 2P2,3 , . . .
+        activated, B1 and B2 are damping parameters, η1 and
+                                                                                                           2Pm,m−1 , Pm,m                                           (7)
+        η2 are obtained by the trial-and-error method, tanh(α) =
+        (eα − e−α /eα + e−α ) is for reducing the effects of noises and                   where “⊗” represents the Kronecker product, f = G0 y is the
+        shocks.                                                                           virtual interaction force, l is the length of time.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        LIU et al.: HUMAN-INSPIRED ADAPTIVE OPTIMAL CONTROL FRAMEWORK                                                                                               6089
+
+
+        Algorithm 1 VOIA
+        Input: Desired end-effector trajectory xd , running time T,
+          PID gains kp , ki , and kd , interaction force f e , exploration
+          noise ε, initial position y0 , adjustable matrices A, E, damp-
+          ing matrix Be , damping parameters B1 and B2 , impact
+          evaluation parameters η1 and η2 , iteration stopping thresh-
+          old , gain adjustment period T12 .
+        Output: Optimized gain G∗ and reference trajectory xr .
+          Step 1: 
+          while rank Iyy , Iyf e < (m+k)(m+k+1)
+                                           2       + m(m + k) do
+            Calculate the time-varying target stiffness coefficient Kυ                    Fig. 3.   Structure of bias BFNN.
+            and damping coefficient Bυ
+            Employ f 0 = G0 y + ε as the input interaction force
+            Compute the operators Δy , Iyy , Iyf e                                                   III. A DAPTIVE B IAS BFNN C ONTROLLER
+          end while                                                                         In this section, we propose an ABBFNN controller com-
+          Step 2:                                                                       bining bias BFNN with adaptive control gains for uncertain
+                            
+          while P̂i − P̂i−1  >  do                                                     dynamic model estimation and interaction control.
+            Solve Pi and Gi+1 from (8)
+          end while                                                                       A. Bias Broad Fuzzy Neural Network
+          Adjust the impedance gain G from G0 to G∗ during the                               In this article, we improve BFNN [20] by introduce a
+          adjustment period T12                                                           global bias term to accurately approximate uncertain robot
+          Step 3:                                                                         dynamics, thereby optimizing its performance in complex
+          while t ≤ T do                                                                  trajectory tracking control tasks. The structure of bias BFNN
+            Use f = G∗ y as the approximate optimal interaction force                     is shown in Fig. 3.
+            of the input                                                                     To make BLS more applicable for robot control, we select
+            Calculate the reference trajectory xr by (3)                                  the transformation function to be Gaussian function as
+          end while                                                                                                 T
+                                                                                                                                
+                                                                                                           − q − μi q − μi
+                                                                                             φi (q) = exp                         , i = 1, 2, . . . , nφ
+                                                                                                                    σ2
+           Then, (6) can be rewritten as a system of linear equation in                   where μi = [μi,1 , μi,2 , . . . , μi,n ]T ∈ Rn is the center of
+        the matrix form [29] as                                                           the Gaussian function, σ is the standard deviation, and nφ is
+                                                                                          number of membership nodes.
+                               P̂i           −1                                             In BFNN, the initial number of membership nodes nφ is
+                                      = Ti i Ti ϒi                             (8)
+                           vec(Gi+1 )                                                     initially set to 1. This value increases adaptively based on the
+                                                                                          Euclidean distance between the reference trajectory and the
+        where i = [Δy , −2Iyy (Im ⊗GTi H)−2Iyf e (Im ⊗H)], in which                      center of the Gaussian function. The distance is denoted as
+        Im is a m-dimensional unit matrix; ϒi = −Iyy vec(Ni ), in which
+                                                                                                           d(q, μ̄min ) = q − μ̄min                (10)
+        vec(·) is an operator used to stretch Ra×b to R1×ab ; Ni =
+                                                                                                          nmin
+        N + GTi HGTi .                                                                    where μ̄min = ( j=1 μ̄min,j )/nmin is the average of the first
+           To improve the smoothness of the reference trajectory, we                      nmin centers in μi closest to q. A new membership node is
+        utilize “sin” to introduce an auxiliary soft function defined as                  added when the distance d exceeds the threshold ι > 0, i.e.,
+                                                                                        d > ι. The center of the new node is defined as
+                     G∗ + G0   G∗ − G0      π     t
+                Gt =         +         sin − + π                                  (9)                        μi,nφ +1 = μ̄min + κ(q − μ̄min )                      (11)
+                        2         2         2    T12
+                                                                                          where κ is the center update step.
+        where T12 is the gain adjustment period.                                            Next, a first-order Takagi-Sugeno (TS) fuzzy rule [39] is
+           Remark 2: Unlike relevant and optimal baseline                                 applied. The fire strength of jth fuzzy rule is calculated as
+        LQR [25], [26] that require complete prior knowledge of                                                  
+                                                                                                                 
+        the environment, our method operates without priors and                                            j =         φk,j (q),   j = 1, 2, . . . , nψ
+        estimates the unknown environmental impedance model.                                                     k=1
+        Compared to impedance adaptation in [28] and [20] that
+                                                                                          where  is the dimension of each sample, nψ is the number
+        directly adopts the initial assumed environment model, our
+                                                                                          of enhancement nodes.
+        method introduces variable target stiffness to adjust stiffness
+                                                                                            The transformation function j corresponding to the
+        coefficient in real-time based on motion and force feedback,
+                                                                                          enhancement nodes utilize the trigonometric expansion
+        enhancing adaptability to unstructured environments with
+                                                                                          scheme, which reduces the computational burden, defined as
+        dynamic changes. Furthermore, the impact compensator                                                     
+        effectively prevents noises and shocks.                                                   j = cos j , sin j , j = 1, 2, . . . , nψ .
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        6090                                             IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025
+
+
+
+          As a result, the enhancement nodes matrix becomes                               Algorithm 2 ABBFNN Controller
+                                                                                         Input: Reference trajectory xr , running time T, the number
+          = 1 , . . . ,  n ψ                                                             of centers nmin , distance threshold ι, center point updated
+                                                   
+           = cos( 1 ), sin( 1 ), . . . , cos nψ , sin nψ ∈ Rnx ×2nψ                         rate κ, bias b, control parameters Kq,0 , Kq̇,0 , χ , ρ, learning
+                                                                                            rate ιM , ιV , ιg , ν M , ν V , ν g , weight update threshold η .
+        where nx is the dimension of the input X. Consequently, the
+                                                                                          Output: Joint space optimized trajectory q∗ .
+        output of the network is expanded as
+                                                                                           while t ≤ T do
+                Y = 1 , 2 , . . . , nψ | 1 , 2 , . . . , nψ W                               Calculate joint reference trajectory qr , q̇r , q̈r and virtual
+                   = [ | ]W                                                                  control term  by combining xr , ẋr , ẍr and qa , q̇a , q̈a
+                                                                                               Compute d(q, μ̄min ) and determine whether to add nodes
+                       = W
+                                                                                               Update transformation function matrix  and connection
+        where  ∈ Rnx ×3nψ is the outcome of extension through                                 weight W
+        enhancement nodes, W ∈ R3nψ ×ny is the weight matrix of the                                                                   ˙    ˙     ˙
+                                                                                               Generate weight updated law ŴM , ŴV , Ŵg
+        network, in which ny is the dimension of the output Y.                                 Calculate weight Ŵ and control torque τ c by ABBFNN
+          Remark 3: Unlike BFNN [20], which may fall into local                                Transform τ c to q, q̇, q̈
+        minima and lead to weakened control performance, our                                end while
+        method introduces a global bias term in  as
+                    = [ | ]
+                                                                                           Next, the interaction force is incorporated into the adaptive
+                     = 1, 2, . . . ,      nψ | 1 , 2 , . . . , nψ   +b        (12)
+                                                                                          optimal interaction controller to achieve optimal interaction
+        where b ∈ Rn×3nψ is the bias matrix of the transformation                         control between the robot and the unknown environment. The
+        functions. Including bias enables the BFNN to achieve higher                      robot control torque can be defined as
+        accuracy in dynamic model estimation, faster adaptability to
+                                                                                                     τ c = M̂q ˙ + V̂q  + ĝq + Kq̇ j + eq + JT f e              (13)
+        environmental changes, and an increased convergence speed,
+        thereby enhancing the tracking performance.                                       where j =  − q̇, Kq̇ = diag{kq̇,1 , . . . , kq̇,n } ∈ Rn is also a
+           After adding a new node, the updated node matrix becomes                       control gain similar to Kq̇ .
+        new = [| nψ+1 ] ∈ Rn×3(nψ +1) , the connection weight                             In the improved ABBFNN controller, the control gains Kq
+        matrix is expanded as Wnew = [WTold |0]T , where Wold is the                      and Kq̇ incorporate a soft function corresponding to the error
+        old weight matrix and 0 ∈ Rn×3 . Therefore, once a new node                       term eq , eq̇ , defined as
+        is added, the output of bias BFNN can be denoted as                                                                         
+                                                                                                                                    eq
+                                                                                                                Kq = Kq,0 + tanh         ρ
+                  Y = new Wnew                                                                                                     χ
+                                                                                                                                    
+                    = [ new |  new ]Wnew                                                                                          eq̇
+                                                                                                              Kq̇ = Kq̇,0 + tanh       ρ               (14)
+                                                         Wold                                                                     χ
+                    =  old , nψ +1 |  old , nψ +1 + b
+                                                          Wφψ                             where Kq,0 and Kq̇,0 are randomized initial gain matrices, χ ∈
+        where  old = [ 1 , . . . , nψ ] and  old = [1 , . . . , nψ ] are              Rn is the gain adjustment threshold based on the impact of
+        the fuzzy rules matrix and enhancement nodes matrix before                        each joint on end-effector position, ρ is the adjustment step.
+        extension, respectively; Wφψ = [WTφ+1 | WTψ+1 ]T is the new                          Furthermore, M̂q , V̂q , and ĝq in (13) are the estimation
+        weight matrix after node addition.                                                results of the uncertain robot dynamic model (1) by bias BFNN
+                                                                                          with the output
+                                                                                                                
+        B. ABBFNN Controller Construction                                                                  Y = M̂q , V̂q , ĝq = Ŵ + ζ             (15)
+          Further, an ABBFNN controller is constructed using bias
+        BFNN and adaptive gain adjustment. Each step of the                               where ζ = [ζ M , ζ V , ζ g ] is the approximation error matrix,
+        controller is detailed in Algorithm 2.                                             = [M , V , g ] and Ŵ = [ŴTM , ŴTV , ŴTg ]T are the
+          First, we define a virtual control term  as                                    transformation and weight matrices of M, V, g, respectively.
+                                                                                          The adaptive weight update laws are designed as
+                                      = q̇r + Kq E                                                                                     
+                                                                                                          ˙                  ˙ + ν M ŴM
+        where qr ∈ Rn is the reference trajectory in joint space, Kq =                                   ŴM = −ιM M j
+                                                                                                                                      
+        diag{kq,1 , . . . , kq,n } ∈ Rn is a control gain, E ∈ Rn is defined                               ˙
+                                                                                                         ŴV = −ιV υ j + ν V ŴV
+        by L’Hospital’s rule as                                                                                                     
+                                                                                                            ˙
+               E = [ς1 , . . . , ςn ]T                                                                    Ŵg = −ιg g j + ν g Ŵg                  (16)
+                    2                2                               T
+                       ηq,1            π eq,1        ηq,n
+                                                      2          π e2q,n                  where ιM , ιV , and ιg are the learning rate, ν M , ν V , and ν g are
+                 =               sin          ,...,         sin                           the discontinuous switching constant defined as
+                     2π eq,1            ηq,1
+                                         2          2π eq,n       ηq,n
+                                                                   2
+                                                                                                         
+        where eq = qr − q is the tracking error, ηq ∈ Rn is a constant                                     0 if Ŵ < η
+                                                                                                  ν =                          ,  = M, V, g              (17)
+        associated with trajectory tracking error.                                                         ν  if Ŵ ≥ η
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        LIU et al.: HUMAN-INSPIRED ADAPTIVE OPTIMAL CONTROL FRAMEWORK                                                                                               6091
+
+
+
+        where η is the weight updated threshold, and ν  is a                            where T = (1/2)(ν M W∗T    ∗           ∗T ∗             ∗T ∗
+                                                                                                                 M W M + ν V W V W V + ν g Wg W g ) +
+        manually designed positive constant. The term ν  Ŵ in (16)                                               −1          −1          −1
+                                                                                          (1/2)eq eq , = min{(ν M /ιM ), (ν V /ιV ), (ν g /ιg ), (λmin (Kq̇ )
+                                                                                                T
+        is commonly applied to enhance the robustness of adaptive                         −[1/2]/λmax (Mq ))}, in which λ(·) is the eigenvalue of (·).
+        neural network controllers for dynamics [12]. However, it                         Then, we multiply (21) by e t to get
+        introduces pure damping to the weights during the learning
+                                                                                                                 dVc e t
+        process, potentially compromising approximation accuracy.                                                        ≤ T e t.                                  (22)
+        To address this, (17) effectively mitigates this drawback by                                               dt
+        dynamically adjusting the weights based on the current value                         Next, we integrate (22) to obtain
+        of Ŵ . Although the robot dynamic model exhibits inherent                                                T                     T
+        uncertainties, our controller can enable the robot to maintain                          Vc ≤ Vc (0)e− t +       1 − e− t ≤ Vc (0) + .
+        adaptive and accurate control performance.                                           Since Mq is positive definite and bounded, the
+           In fact, most robots are equipped with position/velocity
+                                                                                          tracking error       eq    and weight error        W̃    are
+        control interfaces, and only a few come with joint torque                                                    √
+                                                                                          bounded by eq          ≤     2Vc (0) + [T / ] and W̃       ≤
+        or motor current interfaces. Therefore, based on the dynamic                       √
+                                                                                          [ 2Vc (0) + (T / )/ι−1 ],       =     M, V, g, respectively.
+        model (1), the joint angular acceleration can be derived as
+                                                                                          Therefore, it can be concluded that the tracking error eq
+                            
+                q̈ = M−1
+                       q (q) τ c − J f e − Vq (q, q̇)q̇ − gq (q) .
+                                    T
+                                                                   (18)                   satisfies the requirement of UUB and the desired performance
+                                                                                          can be ensured by designing suitable parameters.
+           Remark 4: The proposed ABBFNN controller incorporates
+        bias BFNN and adaptive control gain adjustment, facilitating                      IV. A DAPTIVE O PTIMAL C ONTROL F RAMEWORK D ESIGN
+        accurate estimation of the dynamic model. Furthermore, with
+        the switching constant (17), the update laws dynamically                             In this section, we introduce the momentum-based force
+        adjust in real-time to prevent the weight from falling into local                 observer and construct the proposed adaptive optimal
+        minima and to avoid oscillations.                                                 interaction control framework.
+
+                                                                                          A. Momentum-Based Force Observer
+        C. Stability Analysis
+                                                                                             Due to the potential interference and noise issues associated
+           Next, we perform Lyapunov stability analysis of the
+                                                                                          with existing sensors when measuring interaction force, as
+        ABBFNN controller.
+                                                                                          well as the increased hardware requirements, we introduced a
+           Theorem 1: For the dynamic system of the manipulator with
+                                                                                          sensorless momentum-based force observer used to accurately
+        control torque, the proposed ABBFNN controller can ensure
+                                                                                          estimate the interaction force f e . According to (1) and Ṁq =
+        that the tracking error is bounded and adaptively converge to
+                                                                                          Vq + VTq , the derivative of the momentum p = Mq (q)q̇ can be
+        guarantee uniformly ultimately bounded (UUB) stability.
+                                                             ˜ = (·)∗ −                   expressed as
+           Proof: Through (1), (13), and (15), and defining (·)
+         ˆ it can be derived as
+        (·),                                                                                         ṗ = Ṁq (q)q̇ − Vq (q, q̇)q̇ − gq (q) + τ c − τ e
+                  M∗q j˙ = M̃q ˙ + Ṽq  + g̃q − Kq̇ j − eq − Vq j.             (19)                  = VTq (q, q̇)q̇ − gq (q) + τ c − τ e .
+
+           Design a Lyapunov function candidate as                                           Furthermore, a residual term γ ∈ Rm is introduced to
+                                                                                          estimate the interaction torque τ e as
+                  1 T ∗                                              
+                                                                                                                t                                 
+           Vc =     j Mq j + W̃TM ι−1 W̃M + W̃TV ι−1 W̃V + W̃Tg ι−1
+                                                                 g W̃g . (20)
+                                                                                                                                          
+                  2                M              V
+                                                                                              γ = Go p̂(t) −         ˆ q (q, q̇) + τ c − γ dt − p(0)
+          Substituting (16) and (19) into (20) and combining it with                                                 0
+        the skew-symmetric matrix [Ṁq − 2Vq ], it can be derived as                      where Go = diag{go,1 , go,2 , . . . , go,n } > 0 ∈ Rn×n is the gain
+                                                                                          matrix, p̂ = M̂q (q)q̇, ˆ q (q, q̇) = V̂Tq (q, q̇)q̇ − ĝq (q), in which
+                  V̇c = −j T Kq̇ j − j T eq
+                                                                                           ˆ represents the estimation result.
+                                                                                          (·)
+                         − ν M W̃TM ŴM − ν V W̃TV ŴV − ν g W̃Tg Ŵg .                      Next, the dynamics of the momentum-based force observer
+                                                                                          is defined as
+          According to Young’s inequality −W̃T W∗ ≤ (1/2)W̃T W̃ +                                                  p̂˙ = ˆ q (q, q̇) + τ c − γ
+        (1/2)W∗T W∗ and −j T eq ≤ (1/2)j T j + (1/2)eTq eq , it can be                                                              
+        proved as                                                                                                 γ̇ = Go ṗ − p̂˙ .
+
+             V̇c = −j T Kq̇ j − j T eq                                                      Under the assumption that the robot dynamic models are
+                                                                                          optimal, γ̇ can be expressed as
+                    − ν M W̃TM ŴM − ν V W̃TV ŴV − ν g W̃Tg Ŵg
+                                1        1                                                                           γ̇ = Go (τ e − γ ).                           (23)
+                  ≤ −j T Kq̇ j + j T j + eTq eq
+                                2        2                                                   By applying the Laplace transform, (23) can be rewritten as
+                       1                                           
+                    −     ν M W̃M W̃M + ν V W̃TV W̃V + ν g W̃Tg W̃g
+                                T                                                                      γi      gi        1
+                       2                                                                                   =        =          ,           i = 1, . . . , n
+                       1                                                                            τe,i   s + gi   1 + s/gi
+                    +     ν M W∗T
+                                M W  ∗
+                                     M +  ν V W ∗T ∗
+                                                V W V  +  ν g W ∗T ∗
+                                                                g W  g                    where γi is the ith term of γ . It is obvious that as gi →
+                       2
+                  ≤ − Vc + T                                             (21)             +∞, γi → τe,i , which implies the virtual force sensor capable
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        6092                                             IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025
+
+
+
+
+        Fig. 4.   Structure of adaptive optimal interaction control framework.
+
+
+
+        of converting momentum observations into external joint                           and force errors. By adaptively optimizing reference trajecto-
+        torques. Further, torque can be transformed into force using                      ries through VOIA and leveraging the ABBFNN controller’s
+        the Jacobian matrix as f̂ e = (JT )† γ , where (·)† represents                    accurate tracking and parameter adaptation capability, this
+        the pseudo-inverse operation. Finally, to mitigate the effects                    framework contributes to realize safe and friendly interactions,
+        of noise, a Kalman filter [40] is employed for smoothing.                         facilitating human-like operations.
+           Remark 5: The interaction force f e between the robot and                         Remark 6: While the adaptive parameter adjustment in the
+        the environment is estimated in real-time by the momentum-                        framework can adapt to environment changes and accelerate
+        based force observer and fed back to the VOIA and ABBFNN                          error convergence, it may lead to an increase in computational
+        controller. This method enhances data accuracy and learning                       overhead. Therefore, hardware acceleration techniques can
+        efficiency through force estimation while mitigating signal                       be explored, and the algorithm can be further optimized by
+        interference. In contrast to directly attaching a force sensor to                 incremental dynamic adjustment of the update step.
+        the end effector, it effectively reduces the complexity of the
+        control system and hardware requirements.
+                                                                                              V. S IMULATIONS AND R EAL - WORLD E XPERIMENTS
+                                                                                            In this section, we validate the proposed method through
+        B. Overview of the Framework                                                      simulations, real-world experiments, and comparative analyses
+           The framework structure is illustrated in Fig. 4. In this                      and employ the UR5 manipulator as experimental platform.
+        framework, VOIA generates a reference trajectory xr by opti-
+        mizing the variable impedance model (6), aiming to achieve
+        optimal interaction with minimal position and force errors.                       A. Verification of Variable Optimal Impedance Adaptation
+        Throughout the learning process, the environment model (2)                           In this part, we use VOIA to obtain complex reference
+        integrates variable target stiffness Kυ (4) and impact compen-                    trajectories of the manipulator interacting with an unknown
+        sator Bυ (5) for real-time adjustments. First, VOIA combines                      plane whose z-axis is at 0.15 m. Without loss of generality, we
+        exploration noise ε to calculate the operators (7). Next, it                      focus on the force in z-direction while disregarding friction.
+        iteratively solves (8) to obtain the optimal impedance gain                          Furthermore, the parameter settings in VOIA are as fol-
+        G∗ . Then, a soft function (9) is introduced to dynamically                       lows: The initial position of the end-effector is set as
+        smooth G. Finally, it calculates the reference trajectory xr                      [−0.5, −0.1, 0.16] m. The running time T is set as 5 s. The
+        using the approximate optimal interaction force.                                  parameters of the intermediate state variable (3) are set as A =
+           Once xr is obtained, it is fed into the ABBFNN controller                      −1 and E = 0.1. The proportional, integral, and differential
+        without the need for training. With real-time feedback incorpo-                   gains are set as kp = 0.4, ki = 0.08, and kd = 0.01. The
+        rating motion and force information, the controller adaptively                    impact evaluation parameters are set as η1 = 0.1, η2 = 5.
+        adjusts the control gains (14). First, ABBFNN calculates                          The tracking error weight N is set as 100, and the interaction
+        the joint space reference trajectory qr , q̇r , q̈r and the virtual               forceweight H is set as 1. The exploration noise ε is set as
+        control term . Then, it determines whether to add network                        ε = 10  nε =1 (0.02/nε ) sin(nε t). The state of the environment is
+        nodes centered at (11) by (10). Next, it updates the network                      assumed as 0.01ẋ + (x − xd ) = −f e . The initial impedance
+        parameters (12) and approximates the uncertain robot dynamic                      gain is set as g0 = [−0.1, 0.1]. The desired trajectories are
+        model by (15). Finally, the joint control torque τ c (13) is                      two complex curves: butterfly curve and rose curve, defined as
+        yielded based on the approximation results, which is then                                      ⎡                                            ⎤
+        transformed into a more universally applicable joint motion                                    0.035 cos(2π t)(exp(cos(2π t)) − 2 cos(8π t)
+        control signal by (18).                                                                      ⎢ − sin (π t/12)5 − 0.5 − 0.035(exp(1) − 2) ⎥
+                                                                                                     ⎢                                              ⎥
+           In conclusion, the proposed adaptive optimal interaction                           xd,1 = ⎢                                              ⎥
+                                                                                                     ⎢ 0.035 sin(2π t)(exp(cos(2π t)) − 2 cos(8π t) ⎥
+        control framework emulates human arm muscle characteristics,                                 ⎣             − sin (π t/12)5 − 0.1            ⎦
+        achieving optimal interaction with minimal combined position                                                        0.125
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        LIU et al.: HUMAN-INSPIRED ADAPTIVE OPTIMAL CONTROL FRAMEWORK                                                                                               6093
+
+
+                                                                                                                      TABLE II
+                                                                                           Q UANTITATIVE C OMPARISON OF VOIA W ITH LQR, [20], [28] D URING
+                                                                                                                I MPEDANCE L EARNING
+
+
+
+
+                                                                                          target stiffness and impact compensator, the proposed method
+        Fig. 5. Interaction tracking results of VOIA. (a) Tracking results of rose
+        curve. (b) Cost function value.                                                   can achieve a closer effect to the optimal baseline LQR,
+                                                                                          which interacts with a priori known environment. As shown
+                                                                                          in Fig. 6(c) and (d), VOIA can achieve a lower cost function
+                                                                                          than [20], [28], effectively optimizing the interaction trajectory
+                                                                                          during the learning phase with sudden impact. Additionally,
+                                                                                          the trajectory becomes smoother when combined with the
+                                                                                          auxiliary soft function Gt . Hence, it is demonstrated that the
+                                                                                          proposed VOIA method can generate smooth and continuous
+                                                                                          reference trajectories when facing complex interaction tasks.
+                                                                                          Moreover, this method can achieve robust interactions in
+                                                                                          unknown environments, making its application scope broader
+                                                                                          than LQR. Furthermore, Table II provides a quantitative com-
+                                                                                          parison of the average position error eavg , average force
+                                                                                          error f avg , average cost function value costavg , and maximum
+                                                                                          cost function value costmax among the four methods. It is
+                                                                                          evident that our method more closely approximates LQR,
+                                                                                          which requires prior knowledge of the environment, com-
+                                                                                          pared to [28] and [20] for unknown environment models. The
+                                                                                          average cost function value of our method is only 19.19%
+                                                                                          higher than that of LQR, whereas the other two methods show
+        Fig. 6.    Comparison of VOIA with LQR, [20], [28]. (a) and (b) Z-axis
+                                                                                          increases of 72.44% and 51.70%, respectively. This demon-
+        interaction tracking results. (c) Cost function value. (d) Evolution of the       strates that VOIA achieves superior interaction performance
+        impedance gain G.                                                                 in unknown environments, enabling safe operation.
+
+                     ⎡                        ⎤
+                    0.1 cos(4π t) sin(10π t)                                              B. Verification of Adaptive Bias BFNN Controller
+            xd,2 = ⎣ 0.1 sin(4π t) sin(10π t) ⎦.                                             In this part, we utilize the ABBFNN controller to track the
+                              0.125                                                       complex trajectories mentioned above and interact with the
+           The generated reference trajectory from the rose curve and                     plane. Furthermore, we conduct an ablation study and compare
+        the variation of the cost function are depicted in Fig. 5. It                     with bias RBFNN [12] and BFNN [20]. The parameter settings
+        can be observed that the proposed method can yield a smooth                       in ABBFNN are as follows.
+        reference trajectory. In terms of the cost function, it progres-                     The number of closest centers nmin is chosen as 3.
+        sively converges with the learning of the optimization feedback                   The distance threshold is set as ι = [0.2, 0.3, 0.25]. The
+        gain G∗ . Subsequently, to demonstrate the benefits of VOIA,                      initial bias is set as b = [0.5, 0.5, 0.5, 0.5, 0.2, 0.2]T .
+        we consider complex surface objects as the interaction target                     The weight adjustment threshold is set as χ                   =
+        and conduct a comparative analysis with LQR, impedance                            [0.002, 0.002, 0.002, 0.002, 0.05, 0.05]. The gain adjustment
+        adaptation [28], and method in [20]. The two complex surfaces                     step ρ is set as 5. The learning rates are set as ιM = ιV =
+        are defined as                                                                    ιg = 1.5, ν M = ν V = ν g = 5. The weight updated thresholds
+                                                                                          are set as η = 1.
+           zo,1 = max{0.125, 0.075 sin(10π(y + 0.25)) + 0.075}                               Fig. 7 illustrates the motion of the manipulator tracking
+           zo,2 = max{−0.1y + 0.15                                                        these two complex trajectories. For a more in-depth analysis
+                                                                                          of its performance, Fig. 8 presents the control results for the
+                    0.075 sin(10π(y + 0.25))(−2y + 0.5) + 0.125}.
+                                                                                          rose curve. It is evident from the changes in joint angles and
+           Moreover, the desired trajectories to be tracked are defined                   end-effector position that the manipulator operates smoothly.
+        as xd,1 = [−0.5, 0.1t − 0.25, 0.125] and xd,2 = [−0.5, 0.1t −                     Furthermore, the tracking error gradually converges and stabi-
+        0.25, −0.1y + 0.15]. The initial position of the end-effector is                  lizes at the level of 10−5 m within 0.1 s. Additionally, Fig. 9
+        set as [−0.5, −0.25, 0.2] m.                                                      shows the approximate uncertain dynamics, and the deviations
+           Fig. 6 illustrates the interaction results of the above meth-                  between the approximate uncertain dynamics and the assumed
+        ods. It is evident that by incorporating the novel variable                       values of the actual uncertain dynamics, respectively. Table III
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        6094                                              IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025
+
+
+
+
+                           (a)                                      (b)
+
+        Fig. 7. Motion of the manipulator on different curves. (a) Butterfly curve.
+        (b) Rose curve.
+
+
+
+
+                                                                                          Fig. 9.    Approximate uncertain dynamics and the deviation from actual
+                                                                                          dynamics. (a) and (b) Inertia matrix Mq . (c) and (d) Coriolis and centrifugal
+                                                                                          matrix Vq . (e) and (f) Gravity vector gq .
+
+        Fig. 8. Control results of ABBFNN. (a) Joint angle of the manipulator.
+        (b) End-effector position of the manipulator. (c) Desired and actual trajectory
+        of the end-effector. (d) Trajectory tracking error.
+                                                                                          obtained in different ι, where ι1 = [0.175, 0.275, 0.225],
+                                      TABLE III
+               C ONVERGENCE T IME AND P OST-C ONVERGENCE E RROR OF THE                    ι2 = [0.2, 0.3, 0.25], ι3 = [0.24, 0.32, 0.28]. It can be seen
+                         A PPROXIMATE U NCERTAIN DYNAMICS                                 that the number of enhancement nodes adjusts adaptively
+                                                                                          with the change in the distance threshold, which effectively
+                                                                                          reduces the number of neural network parameters and design
+                                                                                          requirements.
+                                                                                             Next, to demonstrate the effectiveness of bias and adaptive
+                                                                                          gain adjustment, an ablation study is conducted, and the
+                                                                                          tracking errors for bias BFNN (BBFNN) and adaptive BFNN
+        presents the convergence time, average and maximum conver-                        (ABFNN) are shown in Fig. 11. The dashed line represents
+        gence error. It can be observed that the adaptive weight update                   the baseline results, i.e., the tracking error without improve-
+        laws (16) can actively adapt to uncertain dynamics, achieving                     ments. Clearly, compared to the baseline, the bias effectively
+        convergence within 0.25 s with an average approximation                           mitigates post-convergence oscillations, reducing the tracking
+        error stabilized at the level of 10−3 . This demonstrates that                    error. Meanwhile, adaptive gain adjustment reduces the overall
+        the ABBFNN controller can mitigate deviations in robot                            tracking error throughout the process, effectively accelerates
+        parameters arising from measurement errors, mechanical wear                       the rate of convergence, and minimizes the convergence time.
+        and interactions, thereby achieving an accurate approxima-                           Then, comparison experiments are conducted. The control
+        tion of uncertain dynamic model and improving control                             results of bias RBFNN [12] and BFNN [20] are shown
+        performance.                                                                      in Fig. 12. The dashed line represents the results of the
+           The changes in center points and enhancement nodes while                       proposed method. It can be observed that the tracking error of
+        estimating dynamic parameters are depicted in Fig. 10. As                         adaptive bias RBFNN is large, reaching 0.015 m in the initial
+        the manipulator moves, the centers gradually spread across                        interaction stage, making it ineffective to perform complex
+        the entire trajectory, and the number of enhancement nodes                        trajectory tracking tasks effectively. BFNN demonstrates good
+        increases correspondingly, facilitating the estimation of uncer-                  control performance but exhibits slow convergence and large
+        tain dynamic model. Fig. 10(d) shows the number of nodes                          error fluctuation with oscillation phenomena.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        LIU et al.: HUMAN-INSPIRED ADAPTIVE OPTIMAL CONTROL FRAMEWORK                                                                                               6095
+
+
+
+
+                             (a)                                  (b)
+
+
+
+
+                             (c)                                  (d)                     Fig. 13. Contact force in interaction control tasks. (a) and (b) Measured and
+                                                                                          estimated forces for interaction with complex surfaces. (c) and (d) Interaction
+        Fig. 10. Change of centers μ and enhancement nodes . (a) and (b) Centers         forces of the proposed method and [28].
+        of the end-effector. (c) and (d) Number of enhancement nodes.
+                                                                                                                      TABLE IV
+                                                                                             Q UANTITATIVE A BLATION S TUDY AND C OMPARISON OF ABBFNN
+                                                                                                                  W ITH [12] AND [20]
+
+
+
+
+                                                                                                                       TABLE V
+                                                                                            Q UANTITATIVE R ESULTS OF C ONTACT F ORCE IN I NTERACTION TASKS
+        Fig. 11. Ablation study. (a) Tracking error of BBFNN. (b) Tracking error
+        of ABFNN.
+
+
+
+
+                                                                                          performs modestly in terms of convergence time and error,
+                                                                                          with the longest convergence time of 0.489 s. While
+                                                                                          BFNN [20] improves these metrics to some extent, its high
+                             (a)                                  (b)                     post-convergence oscillations lead to an elevated average con-
+                                                                                          vergence error at 2.13×10−4 m. In contrast, our adaptive gain
+                                                                                          adjustment effectively reduces convergence time to 0.112 s,
+                                                                                          and the bias significantly enhances post-convergence stability,
+                                                                                          with a maximum error of only 1.09 × 10−4 m. Consequently,
+                                                                                          ABBFNN combines these advantages, achieving the fastest
+                                                                                          convergence at 0.091 s with the smallest convergence error of
+                                                                                          3.25 × 10−5 m and 7.01 × 10−5 m. On the whole, ABBFNN
+                                                                                          demonstrates excellent tracking control performance, in which
+                             (c)                                  (d)                     the incorporation of bias and adaptive parameters effectively
+                                                                                          reduces tracking errors and improves the rate of convergence.
+        Fig. 12. Comparison of ABBFNN with other methods. (a) and (b) Tracking
+        error of bias RBFNN [12] and BFNN [20]. (c) and (d) Desired and actual
+        trajectory obtained by [12] and [20].
+                                                                                          C. Verification of the Momentum-Based Force Observer
+          Finally, Table IV presents the convergence time, average                           In this part, we validate the estimation performance of
+        and maximum convergence error of the ablation study and                           the momentum-based force observer and demonstrate the
+        comparison experiments. It is obvious that bias RBFNN [12]                        effectiveness of the impact compensator.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        6096                                              IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025
+
+
+            (a)
+
+
+
+
+            (b)
+
+
+
+
+            (c)
+
+
+
+
+            (d)
+
+
+
+
+        Fig. 14.   Experiments of different manipulator interaction control tasks.
+
+
+
+                                                                                          reduced, and vibration during the operation is effectively
+                                                                                          suppressed. Hence, it validates the force estimation capability
+                                                                                          of the momentum-based force observer and demonstrates the
+                                                                                          impact damper’s ability to reduce instantaneous impact forces.
+
+
+                                                                                          D. Implementation and Verification
+                                                                                             In this part, we conduct real-world experiments, where the
+                                                                                          manipulator is equipped with a Robotiq FT300 Force/Torque
+                                                                                          Sensor. The computer communicates with the robot controller
+                                                                                          and the force/moment transducer via TCP/IP protocol. As to
+                                                                                          the parameters, the initial impedance gain is set as G0 =
+                                                                                          [−30, 1]. The tracking error weight N is set as 500, and
+                                                                                          the interaction force weight H is set as 0.01. The state of
+                                                                                          the environment is assumed as 0.4ẋ + 7(x − xd ) = −f e .
+                                                                                          The other parameters use the previous definitions. Fig. 14
+                                                                                          shows the interaction control process, in which the interaction
+        Fig. 15. Interaction results and comparison of the proposed framework.
+                                                                                          objects are composed of expandable polyethylene (EPE),
+        (a) Z-axis interaction tracking results. (b) Measured and estimated interaction   further validating the proposed framework’s practicality and
+        forces. (c) Value of cost function. (d) Evolution of the impedance gain G.        effectiveness.
+                                                                                             The complex surface interaction results of Fig. 14(b) are
+                                        TABLE VI
+               Q UANTITATIVE C OMPARISON OF THE P ROPOSED F RAMEWORK IN                   shown in Fig. 15, and compared with LQR and [28]. And
+                                R EAL -W ORLD E XPERIMENT                                 the corresponding quantized data is shown in Table VI. It is
+                                                                                          evident that the performance of LQR declines significantly due
+                                                                                          to the unknown model of EPE. In contrast, our framework still
+                                                                                          maintains good interaction capability. Furthermore, despite
+                                                                                          the presence of interaction and noninteraction stages due
+                                                                                          to changes in the interaction objects, the proposed frame-
+                                                                                          work demonstrates strong adaptability to such changes. It
+           Fig. 13 illustrates the momentum-based force observer’s                        can autonomously adjust parameters, mitigate impacts, and
+        evaluation during interaction, with the corresponding quan-                       quickly learn impedance gain to achieve optimal interaction
+        titative results shown in Table V. It can be seen that the                        performance during interaction. Moreover, the force observer
+        observer excels with minimal error, with an average force                         exhibits good estimation capability, thus effectively simplify-
+        estimation error of 0.003 N in both tasks and a maximum error                     ing the control system.
+        of less than 0.075 N, ensuring accurate tracking of external                         The trajectory tracking results of Fig. 14(c) are illustrated
+        force variations during tasks. Furthermore, with the addition                     in Fig. 16. It can be seen that the proposed control framework
+        of impact compensator, forces during sudden interactions are                      demonstrates effective tracking performance, consistent with
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        LIU et al.: HUMAN-INSPIRED ADAPTIVE OPTIMAL CONTROL FRAMEWORK                                                                                                6097
+
+
+
+                                                                                            where the material of the environment is altered. The process
+                                                                                            and results are shown in Figs. 17 and 18. It can be observed
+                                                                                            that despite the sudden changes in interaction forces due to
+                                                                                            material variations, the proposed framework effectively adapts
+                                                                                            to these changes by learning the impedance gain and adjusting
+                                                                                            the trajectory to achieve friendly interaction with different
+                                                                                            materials. The evolution of cost function further demonstrates
+                                                                                            the framework’s adaptability and robustness to changes.
+                             (a)                                     (b)
+                                                                                               Overall, employing our framework for robot interacting with
+                                                                                            unknown environment enables efficient, convenient, and accu-
+                                                                                            rate control, proving effective in minimizing the requirements
+                                                                                            of environment knowledge and parameter design.
+
+
+                                                                                                                      VI. C ONCLUSION
+                                                                                               This article proposes a novel adaptive optimization
+                             (c)                                     (d)                    interaction control framework, inspired by the characteris-
+                                                                                            tics of human arm muscles, for optimal interaction between
+        Fig. 16. Tracking results of the proposed framework. (a) Joint angle changes        uncertain dynamic robots and unknown environments. The
+        in tracking control. (b) End-effector position of the manipulator. (c) Trajectory   framework integrates VOIA and ABBFNN controller to ensure
+        tracking error. (d) Value of cost function.
+                                                                                            that the robot can achieve smooth operations and adapt to
+                                                                                            changes during interactions, demonstrating good adaptation,
+                                                                                            model approximation, optimal interaction, powerful tracking,
+                                                                                            and oscillation suppression capabilities. It is theoretically
+                                                                                            proved that the controller is UUB stable under the constraint
+                                                                                            Lyapunov function. Simulation, experimentation, and compar-
+                                                                                            isons validate the effectiveness of the framework in dealing
+        Fig. 17.   Experiment when the material of environment changes.                     with changing interaction tasks, showing its potential to
+                                                                                            improve safety, promote human-like operations, and facilitate
+                                                                                            the practical application of robots in various fields. It is of great
+                                                                                            practical significance for further addressing robot-environment
+                                                                                            interactions in complex scenarios. Future work will focus
+                                                                                            on exploring ways to improve the framework’s performance,
+                                                                                            particularly in complex environments with disturbances, by
+                                                                                            introducing more efficient optimization algorithms and lever-
+                                                                                            aging interactive behavior prediction models.
+
+                              (a)                                    (b)
+                                                                                                                          R EFERENCES
+                                                                                             [1] Y. Xie et al., “Robot-assisted transesophageal ultrasound and the virtual
+                                                                                                 admittance-based master-slave control method thereof,” IEEE/ASME
+                                                                                                 Trans. Mechatronics, vol. 28, no. 5, pp. 2505–2516, Oct. 2023.
+                                                                                             [2] D. Guo, R. Y. Zhong, Y. Rong, and G. G. Q. Huang, “Synchronization
+                                                                                                 of shop-floor logistics and manufacturing under IIoT and digital twin-
+                                                                                                 enabled graduation intelligent manufacturing system,” IEEE Trans.
+                                                                                                 Cybern., vol. 53, no. 3, pp. 2005–2016, Mar. 2023.
+                                                                                             [3] Z. Li, C. Xu, Q. Wei, C. Shi, and C.-Y. Su, “Human-inspired
+                              (c)                                    (d)                         control of dual-arm exoskeleton robots with force and impedance
+                                                                                                 adaptation,” IEEE Trans. Syst., Man, Cybern., Syst., vol. 50, no. 12,
+        Fig. 18. Interaction results when the material of the environment changes.               pp. 5296–5305, Dec. 2020.
+        (a) Z-axis interaction tracking results. (b) Measured and estimated interaction      [4] C. Yang, G. Peng, Y. Li, R. Cui, L. Cheng, and Z. Li, “Neural networks
+        forces. (c) Value of cost function. (d) Evolution of the impedance gain G.               enhanced adaptive admittance control of optimized robot-environment
+                                                                                                 interaction,” IEEE Trans. Cybern., vol. 49, no. 7, pp. 2568–2579,
+                                                                                                 Jul. 2019.
+                                                                                             [5] S. H. Yan, D. Xu, and X. Tao, “Hierarchical policy learning with demon-
+        the simulation results. The tracking error is able to converge                           stration learning for robotic multiple peg-in-hole assembly tasks,” IEEE
+                                                                                                 Trans. Ind. Informat., vol. 19, no. 10, pp. 10254–10264, Oct. 2023.
+        within 0.5 s. Due to the presence of interaction objects,
+                                                                                             [6] H. Huang et al., “Robust passivity-based dynamical systems for compli-
+        the error between za and zd stabilizes at 0.022 m, thereby                               ant motion adaptation,” IEEE/ASME Trans. Mechatronics, vol. 27, no. 6,
+        minimizing the cost function (6) composed of tracking error                              pp. 4819–4828, Dec. 2022.
+        and force error.                                                                     [7] G. Peng, C. L. P. Chen, and C. Yang, “Robust admittance control of opti-
+                                                                                                 mized robot-environment interaction using reference adaptation,” IEEE
+           Moreover, to further validate the framework’s adaptability                            Trans. Neural Netw. Learn. Syst., vol. 34, no. 9, pp. 5804–5815,
+        to changes in the environment, we conducted an experiment                                Sep. 2023.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+        6098                                              IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS: SYSTEMS, VOL. 55, NO. 9, SEPTEMBER 2025
+
+
+
+         [8] X. Li, Q. Lu, J. Chen, N. Jiang, and K. Li, “A robust region control         [31] Y. Zhang, X. Zhao, Y. Chen, B. Tao, and H. Ding, “Observer-based
+             approach for simultaneous trajectory tracking and compliant physical              variable impedance control using moving horizon estimation for robot
+             human-robot interaction,” IEEE Trans. Syst., Man, Cybern., Syst.,                 machining thin-walled workpieces,” IEEE Trans. Ind. Electron., vol. 71,
+             vol. 53, no. 10, pp. 6388–6400, Oct. 2023.                                        no. 6, pp. 5972–5982, Jun. 2024.
+         [9] T. Poggio and F. Girosi, “Networks for approximation and                     [32] X. Xing, E. Burdet, W. Si, C. Yang, and Y. Li, “Impedance learning
+             learning,” Proc. IEEE, vol. 78, no. 9, pp. 1481–1497, Sep. 1990.                  for human-guided robots in contact with unknown environments,” IEEE
+        [10] C. Yang, D. Huang, W. He, and L. Cheng, “Neural control of                        Trans. Robot., vol. 39, no. 5, pp. 3705–3721, Oct. 2023.
+             robot manipulators with trajectory tracking constraints and input sat-       [33] C. Yang, G. Peng, L. Cheng, J. Na, and Z. Li, “Force sensorless
+             uration,” IEEE Trans. Neural Netw. Learn. Syst., vol. 32, no. 9,                  admittance control for teleoperation of uncertain robot manipulator using
+             pp. 4231–4242, Sep. 2021.                                                         neural networks,” IEEE Trans. Syst., Man, Cybern., Syst., vol. 51, no. 5,
+        [11] G. Peng, C. L. P. Chen, and C. Yang, “Neural networks enhanced optimal            pp. 3282–3292, May 2021.
+             admittance control of robot-environment interaction using reinforcement      [34] X. Zhang, H. Zhou, J. Liu, Z. Ju, Y. Leng, and C. Yang, “A practical
+             learning,” IEEE Trans. Neural Netw. Learn. Syst., vol. 33, no. 9,                 PID variable stiffness control and its enhancement for compliant force-
+             pp. 4551–4561, Sep. 2022.                                                         tracking interactions with unknown environments,” Sci. China Technol.
+        [12] Q. Liu, D. Li, S. S. Ge, R. Ji, Z. Ouyang, and K. P. Tee, “Adaptive bias          Sci., vol. 66, pp. 2882–2896, Oct. 2023.
+             rbf neural network control for a robotic manipulator,” Neurocomput.,         [35] Y. Tong, J. Liu, H. Zhou, Z. Ju, and X. Zhang, “Adaptive tracking
+             vol. 447, pp. 213–223, Aug. 2021.                                                 control of robotic manipulators with unknown kinematics and uncertain
+        [13] H. O. Wang, K. Tanaka, and M. F. Griffin, “An approach to fuzzy control           dynamics,” IEEE Trans. Autom. Sci. Eng., vol. 21, no. 4, pp. 5252–5269,
+             of nonlinear systems: Stability and design issues,” IEEE Trans. Fuzzy             Oct. 2024.
+             Syst., vol. 4, no. 1, pp. 14–23, Feb. 1996.                                  [36] J. Fu, I. Burzo, E. Iovene, J. Zhao, G. Ferrigno, and E. De Momi,
+        [14] C. Wu, J. Liu, X. Jing, H. Li, and L. Wu, “Adaptive fuzzy control for             “Optimization-based variable impedance control of robotic manipulator
+             nonlinear networked control systems,” IEEE Trans. Syst., Man, Cybern.,            for medical contact tasks,” IEEE Trans. Instrum. Meas., vol. 73, pp. 1–8,
+             Syst., vol. 47, no. 8, pp. 2420–2430, Aug. 2017.                                  2024.
+        [15] Q. Wang, J. Cao, and H. Liu, “Adaptive fuzzy control of nonlinear            [37] X. Liu, Z. Liu, and P. Huang, “Stochastic optimal control for robot
+             systems with predefined time and accuracy,” IEEE Trans. Fuzzy Syst.,              manipulation skill learning under time-varying uncertain environ-
+             vol. 30, no. 12, pp. 5152–5165, Dec. 2022.                                        ment,” IEEE Trans. Cybern., vol. 54, no. 4, pp. 2015–2025, Apr. 2024.
+        [16] W. He and Y. Dong, “Adaptive fuzzy neural network control for a              [38] H. Chen and Y. Liu, “Robotic assembly automation using robust
+             constrained robot using impedance learning,” IEEE Trans. Neural Netw.             compliant control,” Robot. Comput. Integr. Manuf., vol. 29, no. 2,
+             Learn. Syst., vol. 29, no. 4, pp. 1174–1186, Apr. 2018.                           pp. 293–300, 2013.
+        [17] H. Ma, Q. Zhou, H. Li, and R. Lu, “Adaptive prescribed performance           [39] T. Takagi and M. Sugeno, “Fuzzy identification of systems and its
+             control of a flexible-joint robotic manipulator with dynamic uncertain-           applications to modeling and control,” IEEE Trans. Syst., Man, Cybern.,
+             ties,” IEEE Trans. Cybern., vol. 52, no. 12, pp. 12905–12915, Dec. 2022.          vol. 15, no. 1, pp. 116–132, Jan./Feb. 1985.
+        [18] G. Li, J. Yu, and X. Chen, “Adaptive fuzzy neural network command            [40] N. Wang, C. Chen, and A. D. Nuovo, “A framework of hybrid
+             filtered impedance control of constrained robotic manipulators with               force/motion skills learning for robots,” IEEE Trans. Cogn. Develop.
+             disturbance observer,” IEEE Trans. Neural Netw. Learn. Syst., vol. 34,            Syst., vol. 13, no. 1, pp. 162–170, Mar. 2021.
+             no. 8, pp. 5171–5180, Aug. 2023.
+        [19] H. Huang, C. Yang, Z. Ju, Y. Yuan, and Z. Li, “Broad fuzzy neural
+             control using impedance learning,” in Proc. IEEE 4th Int. Conf. Adv.                                  Haotian Liu received the B.E. degree from Central
+             Robot. Mechatronics (ICARM), Toyonaka, Japan, 2019, pp. 173–178.                                      South University, Changsha, China, in 2021. He
+        [20] H. Huang, C. Yang, and C. L. P. Chen, “Optimal robot-environment                                      is currently pursuing the Ph.D. degree in con-
+             interaction under broad fuzzy neural adaptive control,” IEEE Trans.                                   trol science and control engineering with the
+             Cybern., vol. 51, no. 7, pp. 3824–3835, Jul. 2021.                                                    CAS Engineering Laboratory for Industrial Vision
+        [21] C. L. P. Chen and Z. Liu, “Broad learning system: An effective                                        and Intelligent Equipment Technology, Institute
+             and efficient incremental learning system without the need for deep                                   of Automation, Chinese Academy of Sciences,
+             architecture,” IEEE Trans. Neural Netw. Learn. Syst., vol. 29, no. 1,                                 and University of Chinese Academy of Sciences,
+             pp. 10–24, Jan. 2018.                                                                                 Beijing, China.
+        [22] C. P. Cop, K. L. Jakubowski, A. C. Schouten, B. Koopman,                                                 His research interests include robotics, intelligent
+             E. J. Perreault, and M. Sartori, “The simultaneous model-based esti-                                  control, and human–robot interaction.
+             mation of joint, muscle, and tendon stiffness is highly sensitive to the
+             tendon force-strain relationship,” IEEE Trans. Bio-Med. Eng., vol. 71,                                Yuchuang Tong (Member, IEEE) received the Ph.D.
+             no. 3, pp. 987–997, Mar. 2024.                                                                        degree in mechatronic engineering from the State
+        [23] L. Yao, B. Zhao, X. Xu, Z. Wang, P. K. Wong, and Y. Hu, “Efficient                                    Key Laboratory of Robotics, Shenyang Institute
+             incremental offline reinforcement learning with sparse broad critic                                   of Automation, Chinese Academy of Sciences,
+             approximation,” IEEE Trans. Syst., Man, Cybern., Syst., vol. 54, no. 1,                               Shenyang, China, in 2022.
+             pp. 156–169, Jan. 2024.                                                                                  She is currently an Assistant Professor with
+        [24] E. Arefinia, H. A. Talebi, and A. Doustmohammadi, “A robust adaptive                                  the Institute of Automation, Chinese Academy of
+             model reference impedance control of a robotic manipulator with                                       Sciences. She has authored more than twenty publi-
+             actuator saturation,” IEEE Trans. Syst., Man, Cybern., Syst., vol. 50,                                cations in journals and conference proceedings in the
+             no. 2, pp. 409–420, Feb. 2020.                                                                        areas of her research interests. Her research interests
+        [25] R. Johansson and M. Spong, “Quadratic optimization of impedance                                       include embodied intelligence, intelligent control,
+             control,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), San Diego,          and robot learning.
+             CA, USA, 1994, pp. 616–621.                                                    Dr. Tong was the recipient of the Best Paper Award from 2020 International
+        [26] M. Matinfar and K. Hashtrudi-Zaad, “Optimization-based robot compli-         Conference on Robotics and Rehabilitation Intelligence, the Dean’s Award for
+             ance control: geometric and linear quadratic approaches,” Int. J. Robot.     Excellence of CAS and the CAS Outstanding Doctoral Dissertation.
+             Res., vol. 24, no. 8, pp. 645–656, 2005.                                                               Zhengtao Zhang (Member, IEEE) received
+        [27] S. Hussain, S. Q. Xie, and P. K. Jamwal, “Adaptive impedance control of                                the B.Sc. degree from the China University of
+             a robotic orthosis for gait rehabilitation,” IEEE Trans. Cybern., vol. 43,                             Petroleum, Dongying, China, in 2004, the M.Sc.
+             no. 3, pp. 1025–1034, Jun. 2013.                                                                       degree from the Beijing Institute of Technology,
+        [28] S. S. Ge, Y. Li, and C. Wang, “Impedance adaptation for optimal robot-                                 Beijing, China, in 2007, and the Ph.D. degree in
+             environment interaction,” Int. J. Control, vol. 87, no. 2, pp. 249–263,                                control science and engineering from the Institute of
+             2014.                                                                                                  Automation, Chinese Academy of Sciences, Beijing,
+        [29] Y. Jiang and Z.-P. Jiang, “Computational adaptive optimal control                                      China, in 2010.
+             for continuous-time linear systems with completely unknown dynam-                                         He is currently a Professor with the CAS
+             ics,” Automatica, vol. 48, no. 10, pp. 2699–2704, 2012.                                                Engineering Laboratory for Industrial Vision
+        [30] L. Roveda, A. A. Shahid, N. Iannacci, and D. Piga, “Sensorless optimal                                 and Intelligent Equipment Technology, Chinese
+             interaction control exploiting environment stiffness estimation,” IEEE       Academy of Sciences. His research interests include industrial vision
+             Trans. Control Syst. Technol., vol. 30, no. 1, pp. 218–233, Jan. 2022.       inspection, and intelligent robotics.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:01:04 UTC from IEEE Xplore. Restrictions apply.
+

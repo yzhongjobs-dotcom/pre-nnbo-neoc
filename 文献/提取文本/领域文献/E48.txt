@@ -1,0 +1,588 @@
+                                                                                                                                                                          2022 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)
+                                                                                                                                                                          October 23-27, 2022, Kyoto, Japan
+
+
+
+
+                                                                                                                                                                               Passivity-Based Skill Motion Learning in Stiffness-Adaptive Uniﬁed
+                                                                                                                                                                                                     Force-Impedance Control
+                                                                                                                                                                                                     Kübra Karacan, Hamid Sadeghian, Robin Kirschner and Sami Haddadin∗
+
+
+                                                                                                                                                                              Abstract— Tactile robots shall be deployed for dynamic task                     Task                            Tactile Skill Library
+                                                                                                                                                                          execution in production lines with small batch sizes. Therefore,                                fd         Contact Manipulation Contact
+                                                                                                                                                                          these robots should have the ability to respond to changing                                     xd         initiation           termination
+2022 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS) | 978-1-6654-7927-1/22/$31.00 ©2022 IEEE | DOI: 10.1109/IROS47612.2022.9981728
+
+
+
+
+                                                                                                                                                                          conditions and be easy to (re-)program. Operating under                                                           fd    fd              fd
+                                                                                                                                                                          uncertain environments requires unifying subsystems such as                                                       xd    xd              xd
+                                                                                                                                                                          robot motion and force policy into one framework, referred to
+                                                                                                                                                                          as tactile skills. In this paper, we propose the enhancement                        Interaction
+                                                                                                                                                                          of these skills for passivity-based skill motion learning in                                                            f
+                                                                                                                                                                                                                                                                                                        Controller
+                                                                                                                                                                          stiffness-adaptive uniﬁed force-impedance control. To achieve                                                           x
+                                                                                                                                                                          the increased level of adaptability, we represent all tactile                                                                                  fd
+                                                                                                                                                                          skills by three basic primitives: contact initiation, manipulation,                               fext                                         xd
+                                                                                                                                                                                                                                                                                                      Policy
+                                                                                                                                                                          and contact termination. To ensure passivity and stability, we                                                         fext adaptation
+                                                                                                                                                                          develop an energy-based approach for uniﬁed force-impedance
+                                                                                                                                                                          control that allows humans to teach the robot motion through                     Fig. 1: Adaptive tactile skills. The tactile skill library provides the
+                                                                                                                                                                          physical interaction during the execution of a tactile task. We                  basic primitives to perform tactile robot tasks. In reality, however,
+                                                                                                                                                                          incorporate our proposed framework into a tactile robot to                       actual situations differ from those deﬁned in the library. Therefore,
+                                                                                                                                                                          experimentally validate the motion adaptation by interaction                     methods are required to extend the library and allow robots to adapt
+                                                                                                                                                                          performance and stability of the control. While the polishing                    these well-deﬁned skills to a new environment.
+                                                                                                                                                                          task is presented as our use case through the paper, the
+                                                                                                                                                                          experiments can also be carried out with various tactile skills.
+                                                                                                                                                                                                                                                           the tactile task can be successfully performed [9]. This
+                                                                                                                                                                          Finally, the results show the novel controller’s stability and                   requires expert knowledge and inefﬁcient robot downtime
+                                                                                                                                                                          passivity to contact-loss and stiffness adaptation, leading to                   to (re-)program the robot action [10]. Therefore, to enable
+                                                                                                                                                                          successful programming by interaction.                                           ﬂexible adaptation of tactile robot capabilities, new concepts
+                                                                                                                                                                                                                                                           are required to simplify the (re-)programming of robot tasks.
+                                                                                                                                                                                                    I. I NTRODUCTION                                          In this paper, a tactile skill motion adaptation through
+                                                                                                                                                                             With the demand for customized production, ﬂexible                            uniﬁed force-impedance control is proposed, as schematically
+                                                                                                                                                                          production lines for small batch sizes are required [1].                         depicted by Fig. 1. Three tactile skill primitives are deﬁned,
+                                                                                                                                                                          These production lines ask for ﬂexible adaptation to varying                     which are valid for any tactile robot-environment interaction;
+                                                                                                                                                                          conditions [2]. Traditional position-controlled robots do not                    namely contact initiation, manipulation, and contact termi-
+                                                                                                                                                                          provide these capabilities. Compliant interaction for robots                     nation. To enable robot (re-)programming by interaction, we
+                                                                                                                                                                          only become feasible, e.g., when using admittance control                        consider the manipulation primitive and design an adaptive
+                                                                                                                                                                          [3], impedance control [4], or force control [5]. Depending                      uniﬁed force-impedance controller. This controller couples
+                                                                                                                                                                          on the type of the robot and the controller, the tactile                         a stiffness-adaptive impedance control with force control to
+                                                                                                                                                                          performance may vary signiﬁcantly [6].                                           passively adapt the manipulation primitive’s periodic motion
+                                                                                                                                                                             Highly tactile robots enable human-like intelligent recog-                    and direction of action. The result is a novel method ap-
+                                                                                                                                                                          nition of touch and can perform sensitive tasks such as                          plicable to any tactile robot skill, as it is illustrated in the
+                                                                                                                                                                          polishing, screwing, levering, or cutting [7]. Ideally, with                     accompanying video. For the sake of clarity in the paper
+                                                                                                                                                                          those robots, the programmer only needs to command the                           we focus our explanation on the polishing task which is
+                                                                                                                                                                          robot what task to perform and where to perform it to (re-                       demonstrated using a Franka Emika (FE) robot arm.
+                                                                                                                                                                          )program the robot task [8]. For example, when polishing                            The paper is structured as follows. In Sec. II, we summa-
+                                                                                                                                                                          cars, the human would tell the robot to polish in a certain                      rize the state of the art. Section III introduces our proposed
+                                                                                                                                                                          spot and then quickly show it the next soiled spot while                         framework for stiffness-adaptive tactile skills. The experi-
+                                                                                                                                                                          the robot is still in motion. Just as one human would show                       mental procedure as well as the results are presented in Sec.
+                                                                                                                                                                          another where the polishing task is most required.                               IV and Sec. V. Finally, Sec. VI concludes the paper.
+                                                                                                                                                                             However, with the current state of the art in tactile robot
+                                                                                                                                                                          programming, fairly accurate positioning is required before                                              II. S TATE OF THE A RT
+
+                                                                                                                                                                             The authors are with the Chair of Robotics and Systems Intelligence,             Robotic tactile skills such as polishing, screwing, un-
+                                                                                                                                                                          MIRMI - Munich Institute of Robotics and Machine Intelligence, Technical         screwing, and levering require precise control of interaction
+                                                                                                                                                                          University of Munich, Germany ∗ and also with the Centre for Tactile In-         at the end-effector. In other words, tactile skills should
+                                                                                                                                                                          ternet with Human-in-the-Loop (CeTI). H. Sadeghian also has an afﬁliation
+                                                                                                                                                                          with University of Isfahan, 8174673441 Isfahan.                                  contain a motion generation unit with force policy. There
+                                                                                                                                                                             Corresponding Author: K. Karacan kuebra.karacan@tum.de                        are different perspectives in the literature for combining
+
+                                                                                                                                                                          978-1-6654-7927-1/22/$31.00 ©2022 IEEE                                      9604
+                                                                                                                                                                 Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+         motion generation and force control in robotic manipulators.                     adaptation to enable programming by interaction and deﬁne
+         For instance, Zielenski et al. [11] studied a method that                        tactile skill primitives for motion learning.
+         classiﬁes the manipulator behavior under three different                            The taxonomy for tactile skills is ﬁrst applied at the
+         phases: free-motion where the force is of no signiﬁcance,                        primitive level, and all the tactile skills are deﬁned by three
+         exerting generalized forces, and lastly the transitions between                  basic primitives. Uniﬁed force-impedance control is then
+         the latter two behaviors. Robot manipulators need to develop                     extended to introduce the stiffness-adaptive dynamics to the
+         complex perceptuomotor skills, as they further challenge                         control shaping function. This allows humans to adapt each
+         real-world problems [12]. Therefore, deﬁning tactile skills                      tactile skill based on the energy transfer within the system.
+         with a position control strategy alone is an impractical solu-                   The proposed framework is illustrated in Fig 2 and explained
+         tion, and other control methods should be considered instead                     in detail in the following.
+         [4]. Furthermore, force control has been considered in many
+         works, where the proposed controllers are validated based                        A. Tactile primitives
+         on constant force values or as thresholds/constraints [13]–                        To ensure compatibility with high-level planning and low-
+         [17]. However, the robots need to be robust enough to                           level control algorithms, any tactile skill is decomposed into
+         autonomously operate in unstructured environments and per-                      three primitives. Each primitive Pi , contributed to the desired
+         form desired tasks in the presence of perception uncertainties                  skill, has its own policy (xd , fd ) and, therefore, force-motion
+         [18].                                                                           generation unit:
+            Impedance control is a well-known approach that imposes                      P1 – Contact initiation between tool and the work piece,
+         a dynamic behavior between the external interaction and the                     P2 – Manipulation deﬁned by a periodic motion and corre-
+         desired motion, rather than tracking motion or force trajec-                          sponding force policy,
+         tory independently [4]. These dynamics can be realized in the                   P3 – Contact termination to stop the interaction and decide
+         joint space, operational space, or even in the redundant space                        if the desired skill is achieved.
+         of a robot manipulator [19]. The impedance inertia, damping,
+                                                                                            The transition parameters between these primitives can
+         and stiffness parameters are usually selected constant in
+                                                                                         be derived automatically from the perception of the scene
+         each direction based on the assigned tasks. The impedance
+                                                                                         through exteroceptive sensing and external user interac-
+         dynamics represent a passive mapping between the external
+                                                                                         tion, or manually through predeﬁned scenarios. A blending
+         force input and the motion of the robot as an output.
+                                                                                         strategy is then exploited for seamless integration of the
+         This ensures that the system does not generate additional
+                                                                                         primitives to achieve the desired skills.
+         energy when interacting with the passive environment and
+                                                                                            In this framework, P2 is the core of any skill. It is
+         can therefore be considered stable [20]. However, adaptive
+                                                                                         deﬁned by a periodic Dynamic Movement Primitive (DMP)
+         change of the impedance parameters seems beneﬁcial as
+                                                                                         as motion generator. The DMP is composed of the frequency
+         well in many applications to impose a more wise and
+                                                                                         and shape of the motion, and the required force policy is
+         human-like behavior for the external interaction on the EEF
+                                                                                         designed to be constant in the direction of motion. For
+         [21]. Nevertheless, the variation of impedance parameters
+                                                                                         adaptation of the motion, appropriate shaping functions are
+         compromises the passivity of the control loop and therefore
+                                                                                         modelled to allow human interaction and safe loss-of-contact
+         leads to instability. To this end, the concept of the energy
+                                                                                         behavior, respectively, as described detailed in the following.
+         tank is exploited to alter the dynamics of the closed-loop
+         system and ensure passivity [22]. To include compliant force                     B. Stiffness-adaptive uniﬁed force-impedance control
+         tracking on the environment with unknown geometry, the
+         Wavelet Neural Network (WNN) has effectively been used in                           The proposed control law for adaptive tactile skills is
+         [23]. The variable admittance approaches can also be used to                     extended from the uniﬁed force-impedance controller intro-
+         coordinate the human and robot motion in applications with                       duced in [25] and comprises four main components:
+         shared autonomy [24]. However, still, with the state of the                        I) tracking the desired motion xd ,
+         art in tactile robot programming, rather accurate positioning                     II) initializing and controlling the desired force fd ,
+         needs to be ensured before the task is performed.                                III) deciding on the robot stiffness level ρimp , and
+            In this work, we demonstrate that the required skill motion                   IV) gravity compensation τg .
+         learning can be performed by adapting stiffness within uni-                         The robot dynamics equation in Cartesian space can be
+         ﬁed force-impedance control, leveraging the energy transfer                      expressed as
+         between robot and environment. We extend the uniﬁed force-
+         impedance control paradigm by featuring control shaping                              MC (q)ẍ + CC (q , q̇)ẋ + gC (q) = fin + fext ,                     (1)
+         function dynamics to allow humans to adapt any tactile skill                                                                τin = J (q)fin ,
+                                                                                                                                               T
+                                                                                                                                                                   (2)
+         by physical interaction.                                                                                                    τg = J T (q)gC (q) ,          (3)
+                                  III. M ETHODOLOGY                                       where the robot mass matrix, Coriolis/centrifugal matrix,
+           Our framework is based on adaptive force-impedance                             Jacobian matrix, and gravity vector in Cartesian space are
+         control that can be used for dynamic programming of tactile                      denoted as MC (q), CC (q, q̇), J (q) ∈ R6×6 and gC (q)
+         skill motions by interaction. To this end, we use stiffness                      respectively. Furthermore, τin ∈ Rn is the control input
+
+                                                                                     9605
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+                                                  Sequencing strategy                     three cases based on the deviation from the set-point
+                                                       Contact initiation                                               x̃ = xd − x.                               (8)
+                                   Polishing
+                Skill library                                                             The ﬁrst case resembles the condition before contact where
+                                                        Manipulation                      x̃z > 0 and, thus, the energetic potential fdT x̃ ≥ 0. The
+                                                                                          second condition is x̃z < 0 where the desired position is
+                                                      Contact termination                 violated and thus the energetic potential turns fdT x̃ < 0.
+                     Force shaping                                                        To ensure a transition between both situations and prevent
+                                                                                          errors due to a mismatch of force and motion direction, a
+                        fext                            xd           fd                   third case is included, which allows smooth reduction of
+                                                                                          the control torque within a certain position range up to a
+                     Interaction                                                          threshold δf rc > 0. This happens for example when the robot
+                                              ρf rc     Robot under
+                                                                                          loses the contact with a surface during polishing and falls in
+                                                        stiffness-adaptive                z-direction. Finally, ρfrc becomes
+                       fext                             uniﬁed force-                                ⎧
+                                                        impedance control                            ⎪
+                                                                                                     ⎪ 1,                        x̃z ≥ 0
+                  Energy-aware                                                                       ⎨
+                                                                                                                       |x̃z |
+                  impedance shaping ρimp                                                      ρfrc = 0.5(1 + cos(π( δfrc ))) , 0 < |x̃z | ≤ δfrc ,   (9)
+                                                                                                     ⎪
+                                                                                                     ⎪
+                           ρimp                         x                 xd                         ⎩
+                                                                                                       0                       else
+                Motion learning and adaptation                                              2) Energy-aware impedance controller: To introduce an
+                            Adaptive frequency oscillator                                 impedance behavior to the end-effector and allow human-
+                                                                                          based skill adaptation, the following control law is applied,
+                 Ω              Recursive least square                                    τimp = J T (q)(KC x̃ + DC x̃˙ + MC (q)ẍd + CC (q, q̇)ẋd ) .
+                                                                                                                                                (10)
+                                                                        ω
+                           Dynamic movement primitive                                        The stiffness and damping matrices are denoted by KC
+                                                                                          and DC ∈ R6×6 , respectively. The energy storage in the
+                                                                                          closed loop system is operated by
+         Fig. 2: Block diagram for stiffness-adaptive tactile skill architec-
+                                                                                                            1 ˙T               1
+         ture. Tactile skills are achieved by combining three basic primitives.                            S= x̃ MC (q)x̃˙ + x̃T KC x̃ .           (11)
+         The core of any skill is the manipulation primitive deﬁned by                                      2                  2
+         a periodic motion and a desired force in the direction of action.                Considering (1), (5), and (10), the time derivative of (11) is
+         The controller shaping functions passively regulate the interaction
+         with the environment, such that ρimp allows motion adaptation by                   Ṡ = x̃˙ T (−CC (q, q̇)x̃˙ − DC x̃˙ − KC x̃ − ffrc − fext )
+         interaction, and ρfrc is responsible for maintaining the contact force.
+                                                                                                 1                                1
+                                                                                               + x̃˙ T ṀC (q)x̃˙ + x̃˙ T KC x̃ + x̃T K̇C x̃ ,        (12)
+         torque and fext ∈ R6 is the external wrench acting on the                               2                                2
+         robot.                                                                           where the closed loop equation,
+            The input torque, τin , is:
+                                                                                                  ¨ = −CC (q, q̇)x̃˙ − DC x̃˙ − KC x̃ − ffrc − fext .
+                                                                                            MC (q)x̃
+                                τin = τimp + τfrc + τg ,                          (4)                                                            (13)
+         where τimp , τfrc , and τg ∈ Rn are the input torques for the                    has been used. Note that the skew-symmetry of the ma-
+         impedance, force, and gravity respectively.                                      trix (ṀC (q) − 2CC (q, q̇)) is also applied. Considering (12)
+            1) Force controller: To initiate and control a desired                        and the positive-deﬁniteness of the damping matrix DC , it
+         contact force fd at the end-effector according to the external                   can be deduced that
+         force, fext , the force control is deﬁned as                                               1
+                                                                                                Ṡ ≤ x̃T K̇C x̃ − x̃˙ T ffrc − ẋTd fext + ẋT fext . (14)
+                 τfrc = ρfrc J T (q)ffrc ,                                        (5)               2
+                                                  
+                                                                       ˙
+                 ffrc = fd + kp f˜ext + ki              f˜ext dt + kd f̃ext ,     (6)                            Pacv,imp = −ẋTd fext ,                         (15)
+                                                                                                                             1
+                 f˜ext = fd − fext ,                                              (7)                             Pacv,K = x̃T K̇C x̃ ,                          (16)
+                                                                                                                             2
+         where ffrc ∈ R6 is the feedback and feed forward force term,                                             Pacv,frc = −x̃˙ T ffrc ,                       (17)
+         and kp , ki , kd are PID gains. The force shaping function ρfrc                                               Pext = ẋ fext ,
+                                                                                                                                  T
+                                                                                                                                                                 (18)
+         in (5) deactivates the force controller, when the robot deviates
+         from the set-point of the end-effector. The idea behind the                      shows the passivity with respect to the summation of the
+         shaping function is to avoid undesired motions, especially                       non-passive (i.e., active) control power Pacv as well as the
+         when contact loss occurs. Therefore, ρfrc is designed with                       external power Pext .
+
+                                                                                     9606
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+                                   Smax                                                    is exceeded since the human inserts energy to the system. As
+                                                                                           the robot adapts its motion trajectory based on the human
+                                                                                           guidance, ρ̇imp increases in (20), resulting in progressive
+        −Pacv,imp                  S                                                       energy dissipation.
+                                                                     Pacv,K
+
+                                                                                           C. Force-motion policy
+         Pacv,frc
+                                                                                              As mentioned before, the primitive P2 is deﬁned as the
+                                                                    Dissipation            core of any tactile skill which is constituted by a periodic
+         Fig. 3: Energy transfer scheme between robot and the environ-                     motion and a matching force policy. A periodic motion
+         ment. The energy is bounded by Smax , such that the stability of
+         the system during adaptation by interaction is preserved.
+                                                                                           is comprised by its frequency Ω and shape ω. Moreover,
+                                                                                           the motion generator is coupled to the controller via a
+            Here, we propose applying the derived energy models to                         shaping function ρimp to allow autonomous adaptation and
+         bound the energy transferred from the robot to the human                          teaching of new skill motions by the human. However,
+         and to modulate the reaction of the robot to the human                            for sake of clarity, we assume the desired force to be
+         interruption (see Fig. 3). In other words, the stiffness of                       constant during contact, so we concentrate on the developed
+         the robot changes with the shaping function, ρimp ∈ [0, 1],                       energy-awareness within our system on motion and stiffness
+         where the stiffness adaptation rate, ρ̇imp , is formed based on                   adaptation level.
+         the energy storage function of the robot, S, and the power                           1) Adaptive frequency oscillators: In order to extract the
+         inputs to the system < −ẋd , fext > , < x̃,    ˙ KC > by the
+                                                                                           frequency from a motion shown by the human operator,
+         force-motion policy generator. Inspired by [26], the stiffness                    we employ the online learning and modulation method for
+         adaptation is deﬁned as                                                           periodic movements introduced in [27], which is shortly re-
+                                  KC = ρimp (t)Kmax ,                             (19)     viewed in the following. Generally, the core of the algorithm
+                                                                                           is formed by the dynamics [26]
+         and the adaptation parameter ρimp is obtained by
+                  ⎧                                                                                           θ̇ = (1 − ρimp )(φ − aE sin(θ)) ,                  (24)
+                  ⎪
+                  ⎪ min{ρ, 0} , ρimp = 1
+                  ⎨
+                                                                                                             φ̇ = −(1 − ρimp )(aE sin(θ)) ,                      (25)
+          ρ̇imp = ρ ,            0 < ρimp < 1, ρimp (0) = 0, (20)
+                  ⎪
+                  ⎪                                                                                          E = diag(x − x̂) ,                                  (26)
+                  ⎩
+                    max{ρ, 0} , ρimp = 0
+         where, ρ is given by                                                              where a ∈ R is the coupling constant and error matrix
+                                                                                           E ∈ Rm×m refers between the current position x and
+                                   ρ = hρimp + ρmin ,                             (21)     predicted motion x̂, (1 − ρimp ) introduces the progressive
+         and,                                                                              learning and adaptation behavior to the system, such that
+                                                                                           when the robot is fully autonomous ρimp = 1, the adaptation
+                                     Smax − S
+                                       h=      .                  (22)                     stops. The frequency vector φ and the corresponding phase
+                                       Smax                                                vector θ belong to Rm , where m is the number of task space
+         Note that, in order to have an initial increment for the case                     coordinates to be adapted. The predicted motion is computed
+         ρimp = 0, a small positive constant ρmin has been introduced                      by
+         into the shaping function dynamics.
+            The above dynamic ensures that ρimp acts as a decreasing                                  
+                                                                                                      M
+         or an increasing exponential function, for S > Smax and                              x̂i =         (αi,c cos(cθi ) + βi,c sin(cθi )), i = 1, 2, ..., m ,
+         S < Smax , respectively. Overall, this leads to a stiffness                                  c=0
+         behavior as follows.                                                                                                                                    (27)
+                    ⎧
+                    ⎪
+                    ⎪ fully autonomous , ρimp = 1 ∧ S < Smax                               where M denotes the number of Fourier components. The
+                    ⎨
+             KC = fully loose ,              S > Smax                                      amplitudes αi,c , βi,c are updated as follows.
+                    ⎪
+                    ⎪
+                    ⎩                                                                                                  
+                      shared autonomy , ρimp = 0 ∧ S < Smax                                                 α̇i,c           (1 − ρimp ) μ cos(cθi ) ei
+                                                                  (23)                                              =                                  .         (28)
+                                                                                                            β̇i,c           (1 − ρimp ) μ sin(cθi ) ei
+         After S reaches the maximum allowable energy threshold
+         Smax , energy shaping starts1 .                                                   The error ei is the ith diagonal element of E, and μ is the
+            When the robot operates without any human interruption,                        learning constant. Finally, the frequency Ω of the motion
+         i.e., ρimp = 1, the stiffness equals its maximum value Kmax .                     generator is set to the minimum element of φ [28].
+         During human intervention, i.e., Pacv,imp < 0, the threshold
+                                                                                              In this work, M , μ, and α are chosen to be 1, 1, and
+            1 For now, S
+                         max is set heuristically by the user. Its autonomous adaptation
+                                                                                           50, respectively. The initial value for the phase vector is
+         is left for future studies.                                                       θ0 = 2πIm×1 .
+
+                                                                                       9607
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+           a)                                   Experiment I and II: Stiffness-Adaptive Tactile Skill Motion Learning
+                robot polishing                            human                                   polishing clockwise at
+                counterclockwise                           interaction                             slower frequency
+                          z                               ρimp = 0
+                                                                                                         z
+
+
+
+
+          b)                           Experiment II and III: contact loss during autonomous polishing with fd = 5 N
+                ρfrc = 1                                    0 < ρfrc < 1                             ρf rc =0
+                ρimp = 1                                                                             ρimp = 1
+                                                            ρimp = 1
+                            fd=5 N
+                                                                                                                                          fd=5 N
+
+                       ff rc=0
+                                                                                                                                         ff rc=0
+
+
+         Fig. 4: Tactile robot polishing a surface. Image series for the experimental procedure a) Experiment I and II for passivity-based
+         stiffness-adaptation by human interaction: human adapts the speed and direction of the free and contact motion b) Experiment III shows
+         the performance of force and impedance shaping functions together: the robot autonomously and smoothly stops the force controller after
+         contact loss.
+
+            2) Motion generator: DMPs have been designed to repre-                        updated by the recursive least squares as follows [27]
+         sent a smooth robot motion [29]. A periodic DMP controlling
+         the motion of one degree of freedom m = 1, xd is given by                               ωi (t + 1) = ωi (t) + ψi diag(Pi (t + 1))eri (t) ,              (34)
+         a second order differential equation system                                                              1              Pj,i (t)      2
+                                                                                               Pj,i (t + 1) =       Pj,i (t) − λ                      ,          (35)
+                                                                                                                               ψ + Pj,i (t)
+                                                                                                                  λ
+                                                                                                                                     i
+                       ṡ = Ω ,                                                 (29)                  eri (t) = (1 − ρimp )(γd (t) − ωi ) ,                      (36)
+                       ż = Ω(αz (βz (xg − xd ) − z) + γ(s)) ,                  (30)                Pj,i (0) = 1 ,                                               (37)
+                       ẋ = Ωz ,                                                (31)
+                                                                                          where γd the desired trajectory shape demonstrated by the
+                                                                                          human [29]. The inverse covariance vector Pi ∈ Rm (i =
+         where xg the attractor point and s ∈ R is the phase
+                                                                                          1, 2, ..., N ; j = 1, 2, ..., m) corresponding to the weights ωi
+         variable which is used to make the system time independent.
+                                                                                          is computed by using the forgetting factor λ = 0.9995.
+         Furthermore, the constant parameters αz , βz > 0 are selected
+                                                                                             When the impedance shaping function ρimp , reaches 1, the
+         such that the system has a unique attractor xg . The nonlinear
+                                                                                          adaptation of the shape of the motion in (37) stops and is
+         forcing term γ(s) is deﬁned as
+                                                                                          accepted as successfully approximated to the desired shape.
+                                                                                             3) Force policy: the force policy is especially useful to
+                                           N
+                                           i=1 ωi ψi (s)                                  mitigate the chattering/jamming behavior of the robot while
+                             γ(s) =         N
+                                                         ,                      (32)
+                                            i=1 ψi (s)
+                                                                                          trying to maintain the contact force and the pose error is high
+                            ψi (s) = exp (h(cos(s − ci ))) .                    (33)      due to friction, etc. In this work, the force policy is chosen
+                                                                                          to be constant at the direction of action and coupled to the
+                                                                                          controller shaping function, ρf rc .
+         This allows us to freely design periodic trajectories from
+         an initial position x0 to the goal xg by linear combination                                      IV. E XPERIMENTAL P ROCEDURE
+         of N radial-basis functions ψi (s). ci is the center of the
+         functions and h determines their width. In this work, we                           To demonstrate the real-life performance of our frame-
+         choose N = 30 , αz = 20 , βz = 5 , h = 2.5, and ci =                             work, the experiments are conducted using a Franka Emika
+                                                                                          robot for a polishing use case (see Fig. 4). The experiments
+          N (i − 1). The frequency Ω is chosen based on adaptive
+         2π
+
+         frequency oscillators. The generated trajectory with xd , ẋd ,                  were conducted considering three different cases:
+         and ẍd is ﬁnally obtained by Euler integration of (31) with                        I) passivity-based learning by interaction during free mo-
+         the initial values s = 0 , x = x0 , and ẋ = Ωz = 0 . To                               tion in adaptive uniﬁed force-impedance control,
+         extract the shape of the motion namely the weight matrix                           II) adaptation by interaction during contact to validate the
+         ω ∈ Rm×N , each weight vector ωi ∈ Rm where m = 3 is                                   overall adaptive tactile skill deﬁnition,
+
+                                                                                     9608
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+                                                                                          a)                                      b)
+         III) performance of force and impedance shaping simulta-
+               neously.
+            To achieve robust and ﬂexible behavior and to avoid long
+         run times, the primitives are connected using a sequencing                       c)                                     d)
+         strategy [30], resulting in seamless and smooth integration
+         of the primitives into the desired skill. Additionally, the skill
+         deﬁnition enables straightforward and partly autonomous
+         programming of complex skills. Algorithm 1 illustrates the
+         procedure for an example scenario of polishing skill.
+                                                                                          Fig. 5: Experiment I: Evolution of S, Ω and ρimp in free motion
+                                                                                          during adaptation of xd a) and c) ρimp activates the adaptation
+         Algorithm 1 Skill deﬁnition for polishing                                        of the motion based on the energy transfer between robot and the
+           1: procedure P OLISHING                                                        environment bounded by Smax = 14 J. b) The adaptation of Ω d)
+                                                                                          The adaptation of motion and comparison between the current state
+           2:      parameter server ← x0 , xg , fd , ω, Ω, ρfrc , ρimp                    xd and x based on the energy transfer.
+           3:      contact initiation P1 ← xg
+           4:      manipulation P2 ← x0 , xg , Ω, ω, fd , ρfrc , ρimp                     are evaluated based on the energy transfer and impedance
+           5:      contact termination P3 ← xg                                            shaping.
+           6: P1 :
+                                                                                          B. Experiment II
+           7:      if xg = x then
+           8:          go to P2                                             x0 = x           In the second set of experiments, the robot polishes
+           9:      end if                                                                 a surface and autonomously performs the entire stiffness-
+          10: P2 :                                                                        adaptive tactile skill deﬁnition, starting with the contact
+          11:      if ρfrc < 1 then                                                       initiation primitive. Then, the manipulation primitive is acti-
+          12:          go to P1                               xg = x | fext = 0          vated to perform the polishing process by simultaneous force
+          13:      end if                                                                 application and motion. The robot applies the desired force
+          14:      if ρimp < 1 then                                                       fd = 5 N to the surface and executes the desired trajectory.
+          15:          adapt Ω, ω                                                         During the primitive manipulation of the polishing process,
+          16:      end if                                                                 the human operator interacts with the robot to adjust the
+          17:      if x = xg then                                                         speed and shape of the executed motion. To allow the human
+          18:          go to P3                                 x0 = x, ρfrc = 1          operator to interact with the robot during the contact skill,
+          19:      end if                                                                 the maximum energy bound is set to Smax =2 J.
+          20: P3 :                                                                        C. Experiment III
+          21:      if x = xg then
+          22:          return success                                                        In the last set of experiments, the performance of the force
+          23:      end if                                                                 shaping function ρfrc during the contact-loss is validated. The
+          24: end procedure
+                                                                                          robot autonomously executes the entire framework, robustly
+                                                                                          stopping and restoring contact via ρfrc . The applied force in
+                                                                                          the direction of action ff rc,z is expected to change uniformly
+            Any tactile skill such as polishing is deﬁned by combin-                      from 5 N to 0 N after contact loss.
+         ing the above primitives (contact initiation, manipulation,
+         and contact termination). Each of the primitives Pi (xd , fd )                                     V. R ESULTS AND D ISCUSSION
+         comprises a DMP and force policy. Furthermore, the DMP                              The results for Experiment I in Fig. 5.a) and Fig. 5.c)
+         equation in (31) has the initial position x0 and the goal xg ,                   show that the impedance shaping function ρimp is activated
+         which are varied between primitive skills and depends on                         whenever the energy transfer between humans and robots is
+         the sequencing strategy. To solve the dependency problems,                       above the predeﬁned maximum energy level (Smax = 14 J).
+         initial position x0 and goal xg are updated and combined                         More speciﬁcally, right after the interaction ρimp decreases
+         according to Algorithm 1. The idea behind this operation                         to 0 from 1 such that the stiffness is also zero KC = 0),
+         is that when one primitive executes, this primitive policy is                    allowing humans to easily interact. Finally, the frequency of
+         updated to generate the motion xd and force trajectory fd .                      the motion is adapted during the interaction with respect to
+                                                                                          the guided motion. Additionally, the comparison between the
+         A. Experiment I                                                                  desired trajectory xd computed by the motion generator and
+            In the ﬁrst experiment, the robot starts to perform a cir-                    the current state of the robot x is depicted in Fig. 5.b) and
+         cular motion autonomously ρimp = 1 and a human operator                          Fig. 5.d). Based on the results of the motion comparison,
+         interacts with the robot to vary the motion speed. Impedance                     the human operator is able to slow down the robot during
+         shaping ρimp activates the adaptation of the motion based on                     intervention and then speed it up again.
+         the energy transfer between the robot and its environment,                          In Experiment II, it can be seen that in Fig. 6.a) and
+         as bounded by the maximum allowable energy Smax = 14 J.                          Fig. 6.b), where the S is greater than Smax , the human
+         The adaptation of the motion frequency Ω and xd vs x                             operator could change the shape and the frequency of the
+
+                                                                                     9609
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+                                                                                                                                    c)
+         a)                                                                                                   a)
+
+
+
+
+                                                                                                              b)               d)
+
+
+
+         b)                                                                                                                         e)
+
+
+
+
+                                                                                          Fig. 7: Experiment III: Evolution of ρimp and ρfrc during
+                                                                                          polishing and adaptation of ffrc,z and motion x, y, z. a,b) The
+         c)                                                                               robot autonomously executes ρimp = 1, robustly stops and re-
+                                                                                          establishes contact via ρfrc . ff rc,z smoothly changes from 5 N
+                                                                                          to 0 N during contact loss, thereafter increases to 5 N with re-
+                                                                                          establishing contact c-e) set point for contact xd , yd , zd vs. current
+                                                                                          position of the robot x, y, z during contact, contact loss and re-
+                                                                                          establishing contact
+                                                                                          as well. In future work, we will investigate force learning
+                                                                                          through stiffness adaptation and the decision-making process
+                                                                                          for controlling the maximum allowable energy transfer be-
+                                                                                          tween the robot and its environment during free and contact
+         Fig. 6: Experiment II: Evolution of S and ρimp , adaptation of                   motions.
+         xd and yd in contact with the environment. Smax is set to 2 J
+         to enable the human to interact with the robot that polishes by                                           ACKNOWLEDGEMENT
+         applying fd =5 N on the surface.
+                                                                                             We gratefully acknowledge the funding by the European
+         motion. As expected, after interacting with the human, the                       Union’s Horizon 2020 research and innovation program as
+         robot autonomously performs the rest of the adapted skill                        part of the project ReconCycle under grant no. 871352
+         using the contact initiation and termination primitives.                         and project I.AM under Grant agreement ID: 871899. This
+            Finally, in Experiment III, the robot robustly and safely                     work was supported by LongLeif GaPa gGmbH (Geriatronics
+         stops the force controller by smoothly changing ρfrc from                        Project Y). The authors would like to thank the Bavarian
+         one to zero as shown in Fig. 7.a). Consequently, the applied                     State Ministry for Economic Affairs, Regional Develop-
+         force to the surface, fz , decrease to zero from 5 N as depicted                 ment and Energy (StMWi) for supporting the Lighthouse
+         in Fig. 7.b) and Fig. 7.d). Note that the robot is fully                         Initiative KI.FABRIK, (Phase 1: Infrastructure as well as
+         autonomous during the force regulation, as can be seen from                      the research and development program under, grant no.
+         the fact that ρimp = 1. Additionally, once contact with                          DIK0249), and the German Research Foundation (DFG,
+         the surface is restored, ρf rc is equal to 1 again and the                       Deutsche Forschungsgemeinschaft) as part of Germanys Ex-
+         manipulation primitive continues to apply force and executes                     cellence Strategy EXC 2050/1 Project ID 390696704 Cluster
+         the motion trajectory in parallel until another contact loss                     of Excellence Centre for Tactile Internet with Human-in-the-
+         occurs.                                                                          Loop (CeTI) of Technische Universität Dresden.
+                                                                                             The authors acknowledge the ﬁnancial support by the
+                                   VI. C ONCLUSION
+                                                                                          Federal Ministry of Education and Research of Germany
+            In this study, we developed a framework for skill motion                      (BMBF) in the programme of ”Souverän. Digital. Ver-
+         learning in stiffness-adaptive uniﬁed force-impedance control                    netzt.” Joint project 6G-life, project identiﬁcation number
+         based on energy transfer between robot and environment.                          16KISK002.
+         The tactile capabilities are partitioned into three basic prim-                     Please note that S. Haddadin has a potential conﬂict of
+         itives, contact initiation, manipulation, and contact termina-                   interest as a shareholder of Franka Emika GmbH
+         tion. The passivity-based dynamics of impedance shaping
+         function is then introduced into uniﬁed force-impedance                                                        R EFERENCES
+         control, which results in motion adaptation capabilities by
+                                                                                            [1] E. Garcia, M. A. Jimenez, P. G. De Santos, and M. Armada, “The evo-
+         human interaction. We demonstrated the performance and                                 lution of robotics research,” IEEE Robotics & Automation Magazine,
+         stability of our system in real-world experiments, such as                             vol. 14, no. 1, pp. 90–103, 2007.
+         polishing a surface, unscrewing a knob, and levering a lid.                        [2] K.-D. Thoben, S. Wiesner, and T. Wuest, “”industrie 4.0” and smart
+                                                                                                manufacturing – a review of research issues and application examples,”
+         In this paper, the polishing task is presented, while in the                           International Journal of Automation Technology, vol. 11, pp. 4–19, 01
+         attached video the transition to other tasks is demonstrated                           2017.
+
+
+                                                                                     9610
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+          [3] E. Shahriari, A. Kramberger, A. Gams, A. Ude, and S. Haddadin,              [17] C. Ott, A. Dietrich, and A. Albu-Schäffer, “Prioritized multi-task
+              “Adapting to contacts: Energy tanks and task energy for passivity-               compliance control of redundant manipulators,” Automatica, vol. 53,
+              based dynamic movement primitives,” in 2017 IEEE-RAS 17th Inter-                 pp. 416–423, 2015. [Online]. Available: https://www.sciencedirect.
+              national Conference on Humanoid Robotics (Humanoids). IEEE,                      com/science/article/pii/S0005109815000163
+              2017, pp. 136–142.                                                          [18] P. Pastor, M. Kalakrishnan, L. Righetti, and S. Schaal, “Towards
+          [4] N. Hogan, “Impedance control: An approach to manipulation,” in 1984              associative skill memories,” in 2012 12th IEEE-RAS International
+              American Control Conference, 1984, pp. 304–313.                                  Conference on Humanoid Robots (Humanoids 2012), Nov 2012, pp.
+          [5] O. Khatib, “A uniﬁed approach for motion and force control of robot              309–315.
+              manipulators: The operational space formulation,” IEEE J. Robotics
+                                                                                          [19] H. Sadeghian, L. Villani, M. Keshmiri, and B. Siciliano, “Task-space
+              Autom., vol. 3, pp. 43–53, 1987.
+                                                                                               control of robot manipulators with null-space compliance,” IEEE
+          [6] R. J. Kirschner, A. Kurdas, K. Karacan, P. Junge, S. Birjandi,
+                                                                                               Transactions on Robotics, vol. 30, no. 2, pp. 493–506, 2013.
+              N. Mansfeld, S. Abdolshah, and S. Haddadin, “Towards a reference
+              framework for tactile robot performance and safety benchmarking,”           [20] C. Ott, Cartesian impedance control of redundant and ﬂexible-joint
+              in 2021 IEEE/RSJ International Conference on Intelligent Robots and              robots. Springer, 2008.
+              Systems (IROS). IEEE, pp. 4290–4297.                                        [21] C. Yang, G. Ganesh, S. Haddadin, S. Parusel, A. Albu-Schaeffer, and
+          [7] S. Haddadin, L. Johannsmeier, and F. Dı́az Ledezma, “Tactile robots              E. Burdet, “Human-like adaptation of force and impedance in stable
+              as a central embodiment of the tactile internet,” in Proceedings of the          and unstable interactions,” IEEE transactions on robotics, vol. 27,
+              IEEE, vol. 107, no. 2, Feb. 2019, pp. 471–487.                                   no. 5, pp. 918–930, 2011.
+          [8] Y. Koren, U. Heisel, F. Jovane, T. Moriwaki, G. Pritschow, G. Ulsoy,        [22] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+              and H. V. Brussel, “Reconﬁgurable Manufacturing Systems,” CIRP                   impedance control with variable stiffness,” in 2013 IEEE International
+              Annals, vol. 48, no. 2, pp. 527–540, 1999. [Online]. Available: https:           Conference on Robotics and Automation, 2013, pp. 4948–4953.
+              //www.sciencedirect.com/science/article/pii/S0007850607632326               [23] M. H. Hamedani, H. Sadeghian, M. Zekri, F. Sheikholeslam,
+          [9] G. Hirzinger, A. O. Albu-Schäffer, M. Hähnle, I. Schäfer, and                 and M. Keshmiri, “Intelligent Impedance Control using Wavelet
+              N. Sporer, “On a new generation of torque controlled light-weight                Neural Network for dynamic contact force tracking in unknown
+              robots,” Proceedings 2001 ICRA. IEEE International Conference on                 varying environments,” Control Engineering Practice, vol. 113, p.
+              Robotics and Automation (Cat. No.01CH37164), vol. 4, pp. 3356–3363               104840, 2021. [Online]. Available: https://www.sciencedirect.com/
+              vol.4, 2001.                                                                     science/article/pii/S0967066121001179
+         [10] A. Kramberger, A. Gams, B. Nemec, C. Schou, D. Chrysostomou,
+                                                                                          [24] F. Ferraguti, C. T. Landi, L. Sabattini, M. Bonfè, C. Fantuzzi, and
+              O. Madsen, and A. Ude, “Transfer of contact skills to new environ-
+                                                                                               C. Secchi, “A variable admittance control strategy for stable physical
+              mental conditions,” in 2016 IEEE-RAS 16th International Conference
+                                                                                               human-robot interaction,” The International Journal of Robotics
+              on Humanoid Robots (Humanoids), 2016, pp. 668–675.
+                                                                                               Research, vol. 38, no. 6, pp. 747–765, 2019. [Online]. Available:
+         [11] C. Zieliñski and T. Winiarski, “Motion Generation in the MRROC++
+                                                                                               https://doi.org/10.1177/0278364919840415
+              Robot Programming Framework,” The International Journal of
+              Robotics Research, vol. 29, no. 4, pp. 386–413, 2010, eprint:               [25] C. Schindlbeck and S. Haddadin, “Uniﬁed Passivity-Based Cartesian
+              https://doi.org/10.1177/0278364909348761. [Online]. Available: https:            Force / Impedance Control for Rigid and Flexible Joint Robots via
+              //doi.org/10.1177/0278364909348761                                               Task-Energy Tanks,” 2015 IEEE International Conference on Robotics
+         [12] P. Pastor, M. Kalakrishnan, S. Chitta, E. Theodorou, and S. Schaal,              and Automation (ICRA), pp. 440–447, 2015.
+              “Skill learning and task outcome prediction for manipulation,” in 2011      [26] F. Dimeas, T. Kastritsi, D. Papageorgiou, and Z. Doulgeri, “Progressive
+              IEEE International Conference on Robotics and Automation, May                    Automation of Periodic Movements,” in Human-Friendly Robotics
+              2011, pp. 3828–3834.                                                             2019, F. Ferraguti, V. Villani, L. Sabattini, and M. Bonfè, Eds. Cham:
+         [13] A. Cherubini, R. Passama, A. Crosnier, A. Lasnier, and P. Fraisse,               Springer International Publishing, 2020, pp. 58–72.
+              “Collaborative manufacturing with physical human–robot interaction,”        [27] A. Gams, A. Ijspeert, S. Schaal, and J. Lenarcic, “On-line learning and
+              Robotics and Computer-Integrated Manufacturing, vol. 40, pp. 1–                  modulation of periodic movements with nonlinear dynamical systems,”
+              13, 2016. [Online]. Available: https://www.sciencedirect.com/science/            Autonomous Robots, vol. 27, pp. 3–23, 07 2009.
+              article/pii/S0736584515301769
+                                                                                          [28] T. Petrič, A. Gams, A. J. Ijspeert, and L. Žlajpah, “On-
+         [14] F. Ficuciello, L. Villani, and B. Siciliano, “Variable impedance control
+                                                                                               line frequency adaptation and movement imitation for rhythmic
+              of redundant manipulators for intuitive human–robot physical interac-
+                                                                                               robotic tasks,” The International Journal of Robotics Research,
+              tion,” IEEE Transactions on Robotics, vol. 31, no. 4, pp. 850–863,
+                                                                                               vol. 30, no. 14, pp. 1775–1788, 2011. [Online]. Available:
+              Aug 2015.
+                                                                                               https://doi.org/10.1177/0278364911421511
+         [15] W. He, Y. Chen, and Z. Yin, “Adaptive neural network control of
+              an uncertain robot with full-state constraints,” IEEE Transactions on       [29] A. J. Ijspeert, J. Nakanishi, H. Hoffmann, P. Pastor, and S. Schaal,
+              Cybernetics, vol. 46, no. 3, pp. 620–629, March 2016.                            “Dynamical movement primitives: Learning attractor models formotor
+         [16] F. Kulakov, G. V. Alferov, P. Eﬁmova, S. Chernakova, and D. Shy-                 behaviors,” Neural Computation, vol. 25, no. 2, pp. 328–373, 2013.
+              manchuk, “Modeling and control of robot manipulators with the               [30] L. Johannsmeier, M. Gerchow, and S. Haddadin, “A framework
+              constraints at the moving objects,” in 2015 International Conference             for robot manipulation: Skill formalism, meta learning and adaptive
+              ”Stability and Control Processes” in Memory of V.I. Zubov (SCP),                 control,” Proceedings - IEEE International Conference on Robotics
+              Oct 2015, pp. 102–105.                                                           and Automation, vol. 2019-May, pp. 5844–5850, 2019.
+
+
+
+
+                                                                                     9611
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 14,2026 at 13:09:37 UTC from IEEE Xplore. Restrictions apply.
+

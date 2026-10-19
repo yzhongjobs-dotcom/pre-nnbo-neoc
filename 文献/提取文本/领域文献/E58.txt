@@ -1,0 +1,520 @@
+                      Variable Impedance Control:
+                   A Reinforcement Learning Approach
+                             Jonas Buchli, Evangelos Theodorou, Freek Stulp, Stefan Schaal
+                                    Computational Learning and Motor Control Lab
+                               University of Southern California, Los Angeles, CA 90089
+                                {buchli,etheodor,stulp,sschaal}@usc.edu
+
+   Abstract— One of the hallmarks of the performance, versatility,   the environment. However, so far, RL does not scale well to
+and robustness of biological motor control is the ability to adapt   high-dimensional continuous state-action control problems.
+the impedance of the overall biomechanical system to different          Closely related to RL is optimal control theory, where
+task requirements and stochastic disturbances. A transfer of this
+principle to robotics is desirable, for instance to enable robots    gain scheduling is a natural part of many optimal control
+to work robustly and safely in everyday human environments. It       algorithms. However, optimal control requires model-based
+is, however, not trivial to derive variable impedance controllers    derivations, such that it is frequently not applicable to com-
+for practical high DOF robotic tasks. In this contribution, we ac-   plex robotic systems and environments, where models are
+complish such gain scheduling with a reinforcement learning ap-      unknown.
+proach algorithm, PI2 (Policy Improvement with Path Integrals).
+PI2 is a model-free, sampling based learning method derived from        In this paper, we present a novel RL algorithm that does
+first principles of optimal control. The PI2 algorithm requires no   scale to complex robotic systems, and that accomplishes gain
+tuning of algorithmic parameters besides the exploration noise.      scheduling in combination with optimizing other performance
+The designer can thus fully focus on cost function design to         criteria. Evaluations on two simulated robotic systems demon-
+specify the task. From the viewpoint of robotics, a particular       strate the effectiveness of our approach. In the following
+useful property of PI2 is that it can scale to problems of many
+DOFs, so that RL on real robotic systems becomes feasible. We        section, we will first motivate variable impedance control.
+sketch the PI2 algorithm and its theoretical properties, and how     Then, we sketch our novel RL algorithms, called PI2 , and
+it is applied to gain scheduling. We evaluate our approach by        its applicability to learning gain scheduling. In the fourth
+presenting results on two different simulated robotic systems, a     section, we will present evaluation results on a 3 DOF and a
+3-DOF Phantom Premium Robot and a 6-DOF Kuka Lightweight             6 DOF robotic arm, where the task requires the robot to learn
+Robot. We investigate tasks where the optimal strategy requires
+both tuning of the impedance of the end-effector, and tuning         both a reference trajectory and the appropriate time varying
+of a reference trajectory. The results show that we can use          impedance. We conclude with a review of related work and
+path integral based RL not only for planning but also to derive      discussions of future directions.
+variable gain feedback controllers in realistic scenarios. Thus,
+the power of variable impedance control is made available to a                   II. VARIABLE IMPEDANCE CONTROL
+wide variety of robotic systems and practical applications.
+                                                                        The classical approach to robot control is negative feedback
+                                                                     control with high proportional-derivative (PD) gains. This type
+                      I. I NTRODUCTION
+                                                                     of control is straightforward to implement, robust towards
+   Biological motor systems excel in terms of versatility,           modeling uncertainties, and computationally cheap. Unfortu-
+performance, and robustness in environments that are highly          nately, high gain control is not ideal for many tasks involving
+dynamic, often unpredictable, and partially stochastic. In con-      interaction with the environment, e.g. force control tasks or
+trast to classical robotics, mostly characterized by high gain       locomotion. In contrast, impedance control [5] seeks to realize
+negative error feedback control, biological systems derive           a specific impedance of the robot, either in end-effector or joint
+some of their superiority from low gain compliant control            space. The issue of specifying the target impedance, however,
+with variable and task dependent impedance. If we adapt              is not completely addressed as of yet. While for simple
+this concept of adaptive impedance for PD negative feedback          factory tasks, where the properties of the task and environment
+control, this translates into time varying proportional and          are know a priori, suitable impedance characteristics may be
+derivative gains, also known as gain scheduling. Finding the         derivable, it is usually not easy to understand how impedance
+appropriate gain schedule for a given task is, however, a hard       control is applied to more complex tasks such as a walking
+problem.                                                             robot over difficult terrain or the manipulation of objects in
+   One possibility to overcome such problems is Reinforce-           daily life (e.g. pillows, hammers, cans, etc.). An additional
+ment Learning (RL). The idea of RL is that, given only a             benefit of variable impedance behavior in a robot comes from
+reward function, the learning algorithm finds strategies that        the added active safety due to soft “giving in”, both for the
+yield high reward through trial and error. As a special and          robot and its environment.
+important feature, RL accomplishes such optimal performance             In the following we consider robots with torque controlled
+without knowledge of the models of the motor system and/or           joints. The motor commands u are calculated via a PD control
+law with feedforward control term uf f :                             horizon problem ti : tN , we want to find control inputs uti :tN
+                                                                     which minimize the value function
+          u = −KP (q − qd ) − KD (q̇ − q̇d ) + uf f            (1)
+                                                                                   V (xti ) = Vti = min Eτ i [R(τ i )]                (4)
+where KP , KD are the positive definite position and velocity                                         uti :tN
+gain matrices, q, q̇ are the joint positions and velocities, and     where R is the finite horizon cost over a trajectory starting at
+qd , q̇d are the desired joint positions and velocities. The         time ti in state xti and ending at time tN
+feedforward control term may come, for instance, from an                                              Z tN
+inverse dynamics control component, or a computed torque
+                                                                                      R(τ i ) = φtN +      rt dt                  (5)
+control component [15]. Thus, the impedance of a joint is                                                  ti
+parameterized by the choice of the gains KP (“stiffness”) and
+                                                                     and where φtN = φ(xtN ) is a terminal reward at time tN .
+KD (“damping”).
+                                                                     rt denotes the immediate reward at time t. τ i are trajectory
+   For many applications, the joint space impedance is, how-
+                                                                     pieces starting at xti and ending at time tN .
+ever, of secondary interest. Most often, regulating impedance
+                                                                        As immediate reward we consider
+matters the most at certain points that contact with the envi-
+                                                                                                              1
+ronment, e.g., the end-effectors of the robot. We therefore need                    rt = r(xt , ut , t) = qt + uTt Rut          (6)
+to assess the impedance at these points of contacts rather than                                               2
+the joints. Joint space impedance is computed from the desired       where qt = q(xt , t) is an arbitrary state-dependent reward
+task space impedance KP,x , KD,x by help of the Jacobian J           function, and R is the positive semi-definite weight matrix
+of the forward kinematics of the robot as follows [15]:              of the quadratic control cost. From stochastic optimal control
+                                                                     [16], it is known that the associated Hamilton Jacobi Bellman
+       KP,q = JT KP,x J and KD,q = JT KD,x J                   (2)   (HJB) equation is
+Here we assume that the geometric stiffness due to the                                          1
+                                                                     ∂t Vt = qt + (∇x Vt )T ft − (∇x Vt )T Gt R−1 GTt (∇x Vt ) (7)
+change of the Jacobian is negligible in comparison to the                                       2
+terms in Eq.(2). Regulating the task space impedance thus                                         1
+                                                                                                + trace (∇xx Vt )Gt Σǫ GTt
+                                                                                                                            
+implies regulating the joint space impedance. Furthermore,                                        2
+this fundamental mathematical relationship between joint and         The corresponding optimal control is a function of the state
+task space also implies that a constant task stiffness in general    and it is given by the equation:
+means varying gains at the joint level.
+   In the next section we will sketch a reinforcement learning                    u(xti ) = uti = −R−1 GTti (∇xti Vti )               (8)
+algorithm that is applied to learning the time dependent gain           We are leaving the standard development of this optimal
+matrices.                                                            control problem by transforming the HJB equations with the
+ III. R EINFORCEMENT LEARNING IN HIGH DIMENSIONS –                   substitution Vt = −λ log Ψt and by introducing a simplifica-
+                 THE PI 2 ALGORITHM                                  tion λR−1 = Σǫ . In this way, the transformed HJB equation
+                                                                     becomes a linear 2nd order partial differential equation. Due
+   Reinforcement learning algorithms can be derived from
+                                                                     to the Feynman-Kac theorem [13, 25], the solution for the
+different frameworks, e.g., dynamic programming, optimal
+                                                                     exponentially transformed value function becomes
+control, policy gradients, or probabilistic approaches. Recently,                                                         
+an interesting connection between stochastic optimal control                      Z
+                                                                                                        1
+                                                                                                                NX −1
+and Monte Carlo evaluations of path integrals was made [9].           Ψti = lim      p (τ i |xi ) exp − φtN +       qtj dtdτ i
+                                                                             dt→0                       λ
+In [18] this approach is generalized, and used in the context                                                    j=0
+of model-free reinforcement learning with parameterized poli-                                                                          (9)
+cies, which resulted in the PI2 algorithm. In the following, we      Thus, we have transformed our stochastic optimal control
+provide a short outline of the prerequisites and the develop-        problem into an approximation problem of a path integral.
+ment of the PI2 algorithm as needed in this paper. For more          As detailed in [18], it is not necessary to compute the value
+details refer to [18].                                               function explicitly, but rather it is possible to derive the optimal
+   The foundation of PI2 comes from (model-based) stochastic         controls directly:
+optimal control for continuous time and continuous state-
+                                                                                     Z
+action systems. We assume that the dynamics of the control                uti =         P (τ i ) u (τ i ) dτ i                       (10)
+system is of the form                                                                                              −1
+                                                                       u(τ i ) = R−1 Gti T Gti R−1 Gti T                (Gti ǫti − bti )
+   ẋt = f (xt , t) + G(xt ) (ut + ǫt ) = ft + Gt (ut + ǫt )   (3)
+                                                                     where P (τ i ) is the probability of a trajectory τ i , and bti is
+with xt ∈ ℜn×1 denoting the state of the system, Gt =                a more complex expression, beyond the space constraints of
+G(xt ) ∈ ℜn×p the control matrix, ft = f (xt ) ∈ ℜn×1                this paper. The important conclusion is that it is possible to
+the passive dynamics, ut ∈ ℜp×1 the control vector and               evaluate Eq. (10) from Monte Carlo roll-outs of the control
+ǫt ∈ ℜp×1 Gaussian noise with variance Σǫ . Many robotic             system, i.e., our optimal control problem can be solved as an
+systems fall into this class of control systems. For the finite      estimation problem.
+                                                                                                                  TABLE I
+A. The PI2 Algorithm
+                                                                            P SEUDOCODE OF THE PI2 ALGORITHM FOR A 1D PARAMETERIZED
+  The PI2 algorithm is just a special case of the optimal                                                         P OLICY.
+control solution in Eq. (10), applied to control systems with
+parameterized control policy:
+                                                                            •   Given:
+                         at = gtT (θ + ǫt )                       (11)            – An immediate cost function rt = qt + θT   t Rθt (cf. Eq. (5))
+                                                                                  – A terminal cost term φtN (cf. 5)
+i.e., the control command is generated from the inner product                     – A stochastic parameterized policy at = gtT (θ + ǫt ) (cf. Eqs. (11)
+of a parameter vector θ with a vector of basis function gt –                        and (12))
+the noise ǫt is interpreted as user controlled exploration noise.                 – The basis function gti from the system dynamics (cf. 14)
+                                                                                  – The variance Σǫ of the mean-zero noise ǫt
+   A particular case of a control system with parameterized                       – The initial parameter vector θ
+policy is the Dynamic Movement Primitives (DMP) approach                    •   Repeat until convergence of the trajectory cost R:
+introduced by [6]:                                                                – Create K roll-outs of the system from the same start state x0
+                                                                                    using stochastic parameters θ + ǫt at every time step
+                                                                                  – For all K roll-outs, compute:
+                1
+                  v̇t   = ft + gtT (θ + ǫt )                      (12)                                   − 1 S(τ i,k )
+                                                                                    ∗ P τ i,k = PKe λ − 1 S(τ )
+                τ                                                                                           [e λ       i,k ]
+              1                                                                                              k=1         PN−1              PN−1
+                q̇d,t   = vt                                                         ∗ S(τ i,k ) = φtN ,k +                qtj ,k + 12               (θ +
+              τ                                                                                                     j=i                      j=i+1
+                                                                                       Mtj ,k ǫtj ,k )T R(θ + Mtj ,k ǫtj ,k )
+                  ft    = α(β(g − qd,t ) − vt )                                                    R−1 gt ,k gtT ,k
+                                                                                                              j
+                1                                                                    ∗ Mtj ,k =
+                                                                                                    gT
+                                                                                                                     j
+
+                  ṡt   = −αst                                    (13)                               tj ,k
+                                                                                                             R−1 gt ,k
+                                                                                                                     j
+                τ                                                                 – For all i time steps, compute:
+                            wj st
+              [gt ]j    = Pp       (g − q0 )
+                                                                                              PK 
+                                                                  (14)
+                                                                                                                          
+                                                                                     ∗ δθti =        P τ i,k Mti ,k ǫti ,k
+                            k=1 wk
+                                                                                                 k=1
+                                                                                                     PN −1
+                                                                                                           (N−i) wj,ti [δ θti ]j
+                        = exp −0.5hj (st − cj )2
+                                                 
+                 wj                                               (15)            – Compute [δθ]j =   i=0
+                                                                                                       PN −1
+                                                                                                                             wj,ti (N−i)
+                                                                                                                     i=0
+The intuition of this approach is to create desired trajectories                  – Update θ ← θ + δθ
+                                                                                  – Create one   noiseless roll-out to check the trajectory cost R =
+qd,t , q̇d,t , q̈d,t = τ v̇t for a motor task out of the time evolution             φt N +
+                                                                                            PN−1
+                                                                                                     rti . In case the noise cannot be turned off, i.e., a
+                                                                                               i=0
+of a nonlinear attractor system, where the goal g is a point                        stochastic system, multiple roll-outs need to be averaged.
+attractor and q0 the start state. The parameters θ determine
+the shape of the attractor landscape, which allows to represent
+almost arbitrary smooth trajectories, e.g., a tennis swing, a
+reaching movement, or a complex dance movement. While                         is no need to calculate a gradient that is usually sensitive
+leaving the details of the DMP approach to [6], for this paper                to noise and large derivatives in the value function.
+the important ingredients of DMPs are that i) the attractor                 • Paths with higher cost have lower probability. A clear in-
+system Eq. (12) has the same form as Eq. (3), and that ii) the                tuition that has also rigorous mathematical representation
+p-dimensional parameter vector can be interpreted as motor                    through the exponentiation of the value function. This
+commands as used in the path integral approach to optimal                     transformation is necessary for the linearization of HJB
+control. Learning the optimal values for θ will thus create a                 into the Chapman-Kolmogorov PDE.
+                                                                                       2
+optimal reference trajectory for a given motor task. The PI2                • With PI the optimal control problem is solved with
+learning algorithm applied to this scenario is summarized in                  the forward propagation of dynamics. Thus no backward
+Table I. As illustrated in [18, 19], PI2 outperforms previous                 propagation of approximations of the value function is
+RL algorithms for parameterized policy learning by at least                   required. This is a very important characteristic of PI2
+one order of magnitude in learning speed and also lower                       that allows for sampling (i.e. roll-out) based estimation
+final cost performance. As an additional benefit, PI2 has no                  of the path-integral.
+open algorithmic parameters, except for the magnitude of the                • For high dimensional problems, it is not possible to
+exploration noise ǫt (the parameter λ is set automatically,                   sample the whole state space and that is the reason for
+cf. [18]). We would like to emphasize one more time that                      applying path integral control in an iterative fashion to
+PI2 does not require knowledge of the model of the control                    update the parameters of the DMPs.
+system or the environment.                                                  • The derivation of an RL algorithm from first principles
+       Key Innovations in PI2 : In summary we list the key inno-              largely eliminates the need for open parameters in the
+vations in PI2 that we believe lead to its superior performance.              final algorithm.
+These innovations make applications like the the learning of
+gain schedules for high dimensional tasks possible.                              IV. VARIABLE I MPEDANCE C ONTROL WITH PI2
+                                                    2
+   • The basis of the derivation of the PI algorithm is the                 The PI2 algorithm as introduced above seems to be solely
+       transformation of the optimal control problem from a               suited for optimizing a trajectory plan, and not directly the
+       constrained minimization to a maximum likelihood for-              controller. Here we will demonstrate that this is not the
+       mulation. This transformation is very critical since there         case, and how PI2 can be used to optimize a gain schedule
+simultaneously to optimizing the reference trajectory. For this
+purpose, it is important to realize how Eq. (3) relates to a
+complete robotics system. We assume a d DOF robot that
+obeys rigid body dynamics. qv denotes the joint velocities,
+and qp the joint angle positions. Every DOF has its own
+reference trajectory from a DMP, which means that Eqs. (12)
+are duplicated for every DOF, while Eqs. (13), (14), and (15)
+are shared across all DOFs – see [6] for explanations on
+how to create multi-dimensional DMPs. Thus, Eq. (3) applied
+to this context, i.e. using rigid body dynamics equations,
+with M, C, G the Inertia matrix, Coriolis/centripedal and and
+gravity forces respectively, becomes:                                                 Fig. 1.   3-DOF Phantom simulation in SL.
+
+        q̇v   =   M(qp )−1 (−C(qp , qv ) − G(qp ) + u)
+                                                                        time constant α1K is so small, that for all practical purposes we
+      q̇ = qv
+         p
+                                                       (16)                                        i,T
+     1                                                                  can assume that KP,i = gt,K    (θ iK + ǫiK,t ) holds at all times.
+       ṡt = −αst                                                          Essentially equations 16,17,18 and 20 are incorporated in
+     τ
+                                                                        one stochastic dynamical system of the form of Eq. (3). In
+where each element ui of the control vector u:
+                                                                      conclusion, we achieved a novel formulation of learning both
+    ui = −KP,i qip − qd,i  p
+                                − ξi KP,i qiv − qd,i
+                                                 v                      the reference trajectory and the gain schedule for a multi-
+                                    p                
+                                                                        dimensional robotic system with model-free reinforcement
+          +    uf f,i                                           (17)    learning, using the PI2 algorithm and its theoretical properties
+            v
+The terms qd,i    p
+               , qd,i are the reference joint angle position and        as foundation of our derivations.
+velocity of the ith DOF and they are given by the set of                                            V. R ESULTS
+equations:
+                                                                           We will now present results of applying the outlined al-
+      1 v                     p                                         gorithms to two simulated robot arms with 3 and 6 DOFs,
+       q̇      = α(β(gi − qd,i         v
+                                 ) − qd,i + gti,T (θiref + ǫit )
+      τ d,i                                                             respectively. For both robots, the immediate reward at time
+      1 p           v                                                   step t is given as:
+       q̇      = qd,i                                            (18)
+      τ d,i
+Note that in the control law in (17), we used Eq. (1) applied                            X
+                                                                                                 i
+                                                                            rt = Wgain          KP,t + Wacc ||ẍ|| + Wsubgoal C(t)   (21)
+to every DOF individually using a time varying gain, and
+                                                                   i                       i
+we inserted the common practice that the damping gain KD                          P i
+is written as the square root of the proportional gain KPi                 Here, i KP,t     is the sum over the proportional gains over
+with a user determined multiplier ξ i . A critically important          all joints. The reasoning behind penalizing the gains is that low
+result of [18] is that for the application of PI2 only those            gains lead to several desirable properties of the system such
+differential equations in Eq. (16) matter that have learnable           as compliant behavior (safety and/or robustness [2]), lowered
+parameter θi . Moreover, the optimization of these parameters           energy consumption, and less wear and tear. The term ||ẍ||
+is accomplished by optimizing the parameter vector of each              is the magnitude of the accelerations of the end-effector. This
+differential equation independently (as shown in Table I),              quantity is penalized to avoid high-jerk end-effector motion.
+despite that the DOFs are coupled through the cost function.            This penalty is low in comparison to the gain penalty.
+For this reason, PI2 operates in a model free mode, as only                The robot’s primary task is to pass through an intermedi-
+one of the DMP differential equation per DOF is required, and           ate goal, either in joint space or end-effector space – such
+all other equations, including the rigid body dynamics model,           scenarios occur in tasks like playing tennis or table tennis.
+drop out.                                                               The component of the cost function C(t) that represents this
+   For variable stiffness control, we exploit these insights and        primary task will be described individually for each robot in
+add one more differential equation per DOF in Eq. (16):                 the next sections. Gains and accelerations are penalized at each
+                                                                      time step, but C(t) only leads to a cost at specific time steps
+                              i,T
+            K̇P,i = αK gt,K       (θ iK + ǫiK,t ) − KP,i         (19)   along the trajectory.
+                           wj                                              For both robots, the cost weights are Wsubgoal = 2000,
+          [gt,K ]j = Pp                                          (20)   Wgain = 1/N , Wacc = 1/N . Dividing the weights by the
+                          k=1 wk
+                                                                        number of time steps N is convenient, as it makes the weights
+This equation models the time course of the position gains,             independent of the duration of a movement.
+coupled to Eq. (15) of the DMP. Thus, KP,i is represented
+by a basis function representation linear with respect to the           A. Robot 1: 3-DOF Phantom
+learning parameter θiK , and these parameter are learned with              The Phantom Premium 1.5 Robot is a 3 DOF, two link arm.
+the PI2 algorithm following Table I. We will assume that the            It has two rotational degrees of freedom at the base and one in
+Fig. 2. Joint trajectories and gain schedules of the Phantom robot before learning (thin) and after 100 updates (thick). Round markers indicate intermediate
+subgoals.
+
+
+
+the arm. We use a physically realistic simulation of this robot
+generated in SL [14], as depicted in Fig. 1.
+   The task for this robot is intentionally simple and aimed at
+demonstrating the ability to tune task relevant gains in joint
+space with straightforward and easy to interpret data.
+   The duration of the movement is 2.0s, which corresponds
+to 1000 time steps at 500Hz servo rate. The intermediate goals
+for this robot are set as follows:
+
+
+          C(t) = δ(t − 0.4) ·           | qSR (t) + 0.2 | +            (22)                   Fig. 3.   Learning curve for the phantom robot.
+                      δ(t − 0.8) ·      | qSF E (t) − 0.4 | +
+                      δ(t − 1.2) ·      | qEB (t) − 1.5 |
+                                                                                  From these graphs, we draw the following conclusions:
+   This penalizes joint SR for not having an angle qSR = −0.2                          2
+                                                                                  • PI has adapted the initial minimum jerk trajectories such
+at time t = 0.4s. Joints SFE and EB are also required to go                         that they fulfill the task and pass through the desired joint
+through (different) intermediate angles at times 0.8s and 1.2s                      angles at the specified times with only small error. These
+respectively.                                                                       intermediate goals are represented by the circles on the
+   The initial parameters θi for the reference trajectory are                       graphs. The remaining error is a result of the trade-off
+determined by training the DMPs with a minimum jerk                                 between the different factors of the cost function (i.e.
+trajectory [26] in joint space from qt=0.0 = [0.0 0.3 2.0]T                         penalty for distance to goal vs. penalty for high gains).
+to qt=2.0 = [−0.6 0.8 1.4]T . The function approximator for                       • Because the magnitude of gains is penalized in general,
+the proportional gains of the 3 joints is initialized to return                     they are low when the task allows it. After t = 1.6s,
+a constant gain of 6.0N m/rad. The initial trajectories are                         all gains drop to the minimum value1 , because accurate
+depicted as thin lines in Fig. 2, where the angles and gains                        tracking is no longer required to fulfill the goal. Once
+of the three joints are plotted against time. Since the task of                     the task is completed, the robot becomes maximally
+PI2 is to optimize both trajectories and gains with respect to                      compliant, as one would wish it to be.
+the cost function, this leads to a 6-D RL problem. The robot                      • When the robot is required to pass through the inter-
+executes 100 parameter updates, with 4 noisy exploration trials                     mediate targets, it needs better tracking, and therefore
+per update. After each update, we perform one noise-less test                       higher gains. Therefore, the peaks of the gains correspond
+trial for evaluation purposes.                                                      roughly to the times where the joint is required to pass
+   Fig. 3 depicts the learning curve for the phantom robot                          through an intermediate point.
+(left), which is the overall cost of the noise-less test trial after
+                                                                                 1 We bound the gains between pre-specified maximum and minimum values.
+each parameter update. The joint space trajectory and gain
+                                                                               Too high gains would generate oscillations and can lead to instabilities of the
+scheduling after 100 updates are depicted as thick solid lines                 robot, and too low gains lead to poor tracking such that the robot frequently
+in Fig. 2.                                                                     runs into the joint limits.
+               Fig. 4.    End-effector trajectories of the Kuka robot before learning (thin), and after 30 (dashed) and 100 updates (thick).
+
+
+
+                                                                                at t = 0.5 is visualized by circles. Finally, Fig. 6 shows the
+                                                                                gain schedules before learning and after 30 and 100 updates
+                                                                                for the 6 joints of the Kuka robot.
+                                                                                   From these graphs, we draw the following conclusions:
+                                                                                   • PI2 has adapted joint trajectories such that the end-
+                                                                                     effector passes through the intermediate subgoal at the
+                                                                                     right time. It learns to do so after only 30 updates
+                                                                                     (Figure 5).
+                                                                                   • After 100 updates the peaks of most gains occur just
+
+             Fig. 5.     Learning curve for the Kuka robot.                          before the end-effector passes through the intermediate
+                                                                                     goal (Figure 6), and in many cases decrease to the
+                                                                                     minimum gain directly afterwards. As with the phantom
+  •  Due to nonlinear effects, e.g., Coriolis and centripedal                        robot we observe high impedance when the task requires
+     forces, the gain schedule shows more complex temporal                           accuracy, and more compliance when the task is relatively
+     behavior as one would initially assume from specifying                          unconstrained.
+     three different joint space targets at three different times.                 • The second joint (GA2) has the most work to perform, as
+
+  In summary, we achieved the objective of variable                                  it must support the weight of all the more distal links. Its
+impedance control: the robot is compliant when possible, but                         gains are by far the highest, especially at the intermediate
+has a higher impedance when the task demands it.                                     goal, as any error in this DOF will lead to a large end-
+                                                                                     effector error.
+B. Robot 2: 6-DOF Kuka robot                                                       • The learning has two phases. In the first phase (plotted
+
+   Next we show a similar task on a 6 DOF arm, a Kuka Light-                         as dashed), the robot is learning to make the end-effector
+Weight Arm. This example illustrates that our approach scales                        pass through the intermediate goal. At this point, the basic
+well to higher-dimensional systems, and also that appropriate                        shape of the gain scheduling has been determined. In the
+gains schedules are learned when intermediate targets are                            second phase, PI2 fine tunes the gains, and lowers them
+chosen in end-effector space instead of joint space.                                 as much as the task permits.
+   The duration of the movement is 1.0s, which corresponds
+to 500 time steps. This time, the intermediate goal is for the                                           VI. R ELATED WORK
+end-effector x to pass through [ 0.7 0.3 0.1]T at time t = 0.5s:                   In optimal control and model based RL, Differential Dy-
+         C(t) =     δ(t − 0.5)| x − [ 0.7 0.3 0.1] |      T
+                                                                       (23)     namic Programming (DDP) [7] has been one of the most estab-
+                                                                                lished and used frameworks for finite horizon optimal control
+   The six joint trajectories are again initialized as minimum                  problems. In DDP, both state space dynamics and cost function
+jerk trajectories. As before, the resulting initial trajectory                  are approximated up to the second order. The assumption of
+is plotted as a thin line in Fig. 4. The initial gains are                      stabilizability and detectability for the local approximation of
+set to a constant [60, 60, 60, 60, 25, 6]T . Given these initial                the dynamics are necessary for the convergence of DDP. The
+conditions, finding the parameter vectors for DMPs and gains                    resulting state space trajectory is locally optimal while the cor-
+that minimizes the cost function leads to a 12-D RL problem.                    responding control policy consists of open loop feedforward
+We again perform 100 parameter updates, with 4 exploration                      command and closed loop gains relative to a nominal and
+trials per update.                                                              optimal final trajectory. This characteristic allows the use of
+   The learning curve for this problem is depicted in Fig. 5.                   DDP for both planning and control gain scheduling problems.
+The trajectory of the end-effector before learning and after 30                 In [4, 24] DDP was extended to incorporate constrains in
+and 100 updates is depicted in Fig. 4. The intermediate goal                    state and controls. In [10] the authors suggest computational
+                                                                             alternative and rather efficient way of computing local op-
+                                                                             timal feedback controls. Nevertheless, all the computations
+                                                                             of optimal trajectories and control take place off-line and
+                                                                             the model predictive component is only due to the fact that
+                                                                             the final target state of the optimal control problem varies.
+                                                                             Recent work on LQR-trees uses a simpler variation of DDP,
+                                                                             the iterative Linear Quadratic Regulator (iLQR) [11], which is
+                                                                             based on linear approximations of the state space dynamics,
+                                                                             in combination with tools from Nonlinear Robust Control
+                                                                             theory for region of attraction analysis. Given the local optimal
+                                                                             feedback control policies, the sums of squares optimization
+                                                                             scheme is used to quantify the size of of the basin of attraction,
+                                                                             and provides so-called control funnels. These funnels improve
+                                                                             sampling since they quantize the state space into attractor
+                                                                             regions placed along the trajectories towards the target state.
+                                                                             This is a model based approach and inherits all the problems of
+                                                                             model based approaches to optimal control. In addition, even
+                                                                             though sampling is improved, it is still an issue how LQR
+                                                                             trees scale in high dimensional dynamical systems.
+                                                                                The path integral formalism for optimal control was intro-
+                                                                             duced in [8, 9]. In this work, the role of noise in symme-
+                                                                             try breaking phenomena was investigated in the context of
+                                                                             stochastic optimal control. In [22], the path integral formal-
+                                                                             ism is extended for stochastic optimal control of multi-agent
+                                                                             systems, which is not unlike our multi DOF control systems.
+                                                                                Recent work on stochastic optimal control by [21, 20, 3]
+                                                                             shows that for a class of discrete stochastic optimal control
+                                                                             problems, the Bellman equation can be written as the KL di-
+                                                                             vergence between the probability distribution of the controlled
+                                                                             and uncontrolled dynamics. Furthermore, it is shown that the
+                                                                             class of discrete KL divergence control problem is equivalent
+                                                                             to the continuous stochastic optimal control formalism with
+                                                                             quadratic cost control function and under the presence of
+                                                                             Gaussian noise. In all this aforementioned work, both in the
+Fig. 6. Gain schedules of the six joints of the Kuka robot before learning   path integral formalism as well as in KL divergence control,
+(thin) and after 30 (dashed) and 100 updates (thick).                        the class of stochastic dynamical systems under consideration
+                                                                             is rather restrictive since the control transition matrix is
+                                                                             state independent. Moreover, the connection to direct policy
+improvements to constrained DDP and apply the proposed                       learning in RL and model-free learning was not made in any
+algorithm to a low dimensional planning problem.                             of the previous projects. In [3], the stochastic optimal control
+   An example of a DDP application to robotics is in [12]. In                problem is investigated for discrete state-action spaces, and
+this work, a min-max or Differential Game Theory approach to                 therefore it is treated as Markov Decision Process (MDP).
+optimal control is proposed. There is a strong link between ro-              To apply our PI2 algorithm, we do not discretize the state
+bust control frequency design analysis such as H∞ control and                space and we do not treat the problem as an MDP. Instead
+the framework of Differential Game Theory [1]. Essentially                   we work in continuous state-action spaces which are suitable
+the min-max DDP results in robust feedback control policies                  for performing RL in high dimensional robotic systems. To
+with respect to model uncertainty and unknown dynamics.                      the best of our knowledge, our results present RL in one
+Although, in theory, min-max DDP should resolve the issue                    of the most high dimensional continuous state action spaces.
+of model uncertainty, it can lead to overly conservative control             In our derivations, the probabilistic interpretation of control
+policies. The conservatism results from the need to guarantee                comes directly from the Feynman-Kac Lemma. Thus we do
+that the game theoretic approach will be always stabilizable,                not have to impose any artificial pseudo-probability treatment
+i.e. making sure that the stabilizing controller wins. For linear            of the cost as in [3]. In addition, for continuous state-action
+and time invariant systems, such guarantee is feasible through               spaces, we do not have to learn the value function as it is
+γ-iteration [23]. However, for nonlinear systems providing this              suggested in [3] via Z-learning. Instead we directly obtain the
+guarantee is not trivial.                                                    controls based on our generalization of optimal controls. In the
+   The work on Receding Horizon DDP [17] provided an                         previous work, the problem of how to sample trajectories is not
+addressed. Sampling is performed with the hope to cover all          researcher fellowship from the Swiss National Science Foundation.
+the relevant state space. We follow a rather different approach      E.T. was supported by a Myronis Fellowship. F.S. was supported by a
+by incremental updating, which allows us to address robotic          Research Fellowship from the German Research Foundation (DFG).
+learning problems of the complexity and dimensionality of                                         R EFERENCES
+complete humanoid robots.
+                                                                      [1] T. Basar and P. Bernhard. H-Infinity Optimal Control and Related
+                                                                          Minimax Design Problems: A Dynamic Game Approach. Birkhäuser,
+                       VII. D ISCUSSION                                   Boston, 1995.
+   We presented a model-free reinforcement learning approach          [2] J. Buchli, M. Kalakrishnan, M. Mistry, P. Pastor, and S. Schaal. Compli-
+                                                                          ant quadruped locomotion over rough terrain. In IEEE/RSJ International
+that can learn variable impedance control for robotic systems.            Conference on Intelligent Robots and Systems, pages 814–820, 2009.
+Our approach is derived from stochastic optimal control with          [3] Todorov E. Efficient computation of optimal actions. Proc Natl Acad
+path integrals, a relatively new development that transforms              Sci USA, 106(28):11478–83, 2009.
+                                                                      [4] R. Fletcher. Practical Methods of Optimization, volume 2. Wiley, 1981.
+optimal control problems into estimation problems. In partic-         [5] N. Hogan. Impedance control - an approach to manipulation. ASME,
+ular, PI2 goes beyond the original ideas of optimal control with          Transactions, Journal of Dynamic Systems, Measurement, and Control,
+path integrals by realizing the applicability to optimal control          107:1–24, 1985.
+                                                                      [6] A.J. Ijspeert. Vertebrate locomotion. In M.A. Arbib, editor, The
+with parameterized policies and model-free scenarios.                     handbook of brain theory and neural networks, pages 649–654. MIT
+   The mathematical structure of the PI2 algorithm makes it               Press, 2003.
+                                                                      [7] D. H. Jacobson and D. Q. Mayne. Differential Dynamic Programming.
+suitable to optimize simultaneously both reference trajectories           Optimal Control. Elsevier Publishing Company, New York, 1970.
+and gain schedules. This is similar to classical differential dy-     [8] H. J. Kappen. Linear theory for control of nonlinear stochastic systems.
+namic programming (DDP) methods, but completely removes                   Phys Rev Lett, 95(20):200201, 2005.
+                                                                      [9] H.J. Kappen. Path integrals and symmetry breaking for optimal control
+the requirements of DDP that the model of the controlled                  theory. Journal of Statistical Mechanics: Theory and Experiment,
+system must be known, that the cost function has to be twice              2005(11):P11011, 2005.
+differentiable in both state and command cost, and that the          [10] G. Lantoine and R.P. Russell. A hybrid differential dynamic pro-
+                                                                          gramming algorithm for robust low-thrust optimization. In AAS/AIAA
+dynamics of the control system have to be twice differentiable.           Astrodynamics Specialist Conference and Exhibit, 2008.
+The latter constraints make it hard to apply DDP to tasks with       [11] W. Li and E. Todorov. Iterative linear quadratic regulator design for
+discrete events, as is typical in force control and locomotion.           nonlinear biological movement systems. In Proceedings of the 1st
+                                                                          International Conference on Informatics in Control, Automation and
+   We evaluated our approach on two simulated robot systems,              Robotics, pages 222–229, 2004.
+which posed up to 12 dimensional learning problems in con-           [12] J. Morimoto and C. Atkeson. Minimax differential dynamic program-
+tinuous state-action spaces. The goal was to learn compliant              ming: An application to robust biped walking. In In Advances in
+                                                                          Neural Information Processing Systems 15, pages 1563–1570. MIT
+control while fulfilling kinematic task constraints, like passing         Press, Cambridge, MA, 2002.
+through an intermediate target. The evaluations demonstrated         [13] B. K. Oksendal. Stochastic differential equations: an introduction with
+that the algorithm behaves as expected: it increases gains when           applications. Springer, Berlin, New York, 6th edition, 2003.
+                                                                     [14] S. Schaal. The SL simulation and real-time control software package.
+needed, but tries to maintain low gain control otherwise. The             Technical report, University of Southern California, 2007.
+optimal reference trajectory always fulfilled the task goal.         [15] L. Sciavicco and B. Siciliano. Modelling and Control of Robot
+Learning speed was rather fast, i.e., within at most a few                Manipulators. Springer, London, New York, 2000.
+                                                                     [16] R.F. Stengel. Optimal Control and Estimation. Dover Publications, New
+hundred trials, the task objective was accomplished. From                 York, 1994.
+a machine learning point of view, this performance of a              [17] Y. Tassa, T. Erez, and W. Smart. Receding horizon differential dynamic
+reinforcement learning algorithm is very fast.                            programming. In Advances in Neural Information Processing Systems
+                                                                          20, pages 1465–1472. MIT Press, Cambridge, MA, 2008.
+   The PI2 algorithms inherits the properties of all trajectory-     [18] E. Theodorou, J. Buchli, and S. Schaal. Reinforcement learning in high
+based learning algorithms in that it only finds locally optimal           dimensional state spaces: A path integral approach. Journal of Machine
+                                                                          Learning Research, 2010. Accepted for publication.
+solutions. For high dimensional robotic system, this is unfortu-     [19] E. Theodorou, J. Buchli, and S. Schaal. Reinforcement learning of motor
+nately all one can hope for, as exploring the entire state-action         skills in high dimensions: A path integral approach. In Proceedings of
+space in search for a globally optimal solution is impossible.            the IEEE International Conference on Robotics and Automation, 2010.
+                                                                     [20] E. Todorov. Linearly-solvable markov decision problems. In Advances
+   Future work aims at applying these methods to actual                   in Neural Information Processing Systems 19, pages 1369–1376. MIT
+robots for mobile manipulation and locomotion controllers.                Press, Cambridge, MA, 2007.
+We believe that our methods are a major step towards realizing       [21] E. Todorov. General duality between optimal control and estimation. In
+                                                                          Proc. of the 47th IEEE Conference on Decision and Control, 2008.
+compliant autonomous robots that operate robustly in dynamic,        [22] B. van den Broek, W. Wiegerinck, and B. Kappen. Graphical model
+stochastic environments, without harming other beings or                  inference in optimal control of stochastic multi-agent systems. Journal
+themselves.                                                               of Artificial Intelligence Research, 32:95–122, 2008.
+                                                                     [23] T. Vincent and W. Grantham. Non Linear And Optimal Control Systems.
+                                                                          John Wiley & Sons Inc., 1997.
+                VIII. ACKNOWLEDGEMENTS                               [24] S. Yakowitz. The stagewise Kuhn-Tucker condition and differential
+   This research was supported in part by National Science Founda-        dynamic programming. IEEE Transactions on Automatic Control,
+                                                                          31(1):25–30, 1986.
+tion grants ECS-0325383, IIS-0312802, IIS-0082995, IIS-9988642,      [25] J. Yong. Relations among ODEs, PDEs, FSDEs, BSDEs, and FBSDEs.
+ECS-0326095, ANI-0224419, the DARPA program on Learning Lo-               In Proceedings of the 36th IEEE Conference on Decision and Control,
+comotion, the Multidisciplinary Research Program of the Department        1997, volume 3, pages 2779–2784, Dec 1997.
+                                                                     [26] M. Zefran, V. Kumar, and C.B. Croke. On the generation of smooth
+of Defense (MURI N00014-00-1-0637), and the ATR Computational             three-dimensional rigid body motions. IEEE Transactions on Robotics
+Neuroscience Laboratories. J.B. was supported by a prospective            and Automation, 14(4):576–589, 1998.
+

@@ -1,0 +1,1402 @@
+                                                                                                        19
+                                                        Impedance and
+                                                   Interaction Control
+
+                                        19.1   Introduction: Controlling Mechanical Interaction . . . . 19-1
+                                               The Effect of Interaction on Performance and Stability •
+                                               Interaction as Disturbance Rejection • Interaction as Modeling
+                                               Uncertainty
+                                        19.2   Regulating Dynamic Behavior . . . . . . . . . . . . . . . . . . . . . . . 19-5
+                                               Mechanical Impedance and Admittance • Port Behavior and
+                                               Transfer Functions
+                                        19.3   Analyzing Coupled Systems . . . . . . . . . . . . . . . . . . . . . . . . . 19-8
+                                               Causal Analysis of Interaction Port Connection • Impedance
+                                               vs. Admittance Regulation • Coupled System Stability Analysis
+                                               • Passivity and Coupled Stability
+
+                                        19.4   Implementing Interaction Control . . . . . . . . . . . . . . . . . . . 19-14
+                                               Virtual Trajectory and Nodic Impedance • “Simple”
+                                               Impedance Control • Direct Impedance Modulation
+                                        19.5   Improving Low-Impedance Performance . . . . . . . . . . . . 19-18
+                                               Force Feedback • Natural Admittance Control • Series
+Neville Hogan                                  Dynamics
+Massachusetts Institute of Technology
+                                        19.6   More Advanced Methods . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19-22
+Stephen P. Buerger                      19.7   Conclusion: Interaction Control, Force Control,
+Massachusetts Institute of Technology          and Motion Control. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19-23
+
+
+
+
+19.1         Introduction: Controlling Mechanical Interaction
+Mechanical interaction with objects is arguably one of the fundamentally important robot behaviors. Many
+current robot applications require it; for example, mechanical interaction is essential for manipulation, the
+core task of assembly systems. Future robot applications, such as versatile use of tools or close cooperation
+with humans, may be enabled by improved control of mechanical interaction.
+   Interaction with the environment may serve sensory or motor functions (or both), and the most
+appropriate mechanical interaction is different for sensory or motor tasks. Mechanical interaction dynamics
+may be characterized by mechanical impedance, which may loosely be considered a dynamic extension
+of stiffness.1 Lower mechanical impedance reduces interaction forces due to encountering an unpredicted
+object, thereby protecting both the robot and any object it manipulates (interaction forces on each being
+
+
+   1
+     Conversely, mechanical admittance may be considered a dynamic generalization of compliance. A more rigorous
+definition is provided below.
+
+
+0-8493-1804-1/05$0.00+$1.50
+© 2005 by CRC Press, LLC                                                                                                        19-1
+19-2                                                               Robotics and Automation Handbook
+
+
+opposite but equal). Using a human analogy, by this reasoning, tactile exploration and manipulation
+of fragile objects should evoke the use of our lowest-impedance limb segments, and while we can (and
+routinely do) interact with objects using other body parts (the elbow, the knee, the foot, etc.), we naturally
+tend to use our fingers for gentle, delicate tasks.
+   Conversely, wielding an object as a tool often requires it to be stabilized and that requires higher
+mechanical impedance. This is especially important if the interaction between the manipulator and the
+object is destabilizing, as is the case for many common tools. Again using a human analogy, consider,
+for example, the simple task of pushing on a surface with a rigid stick. If force is exerted on the stick
+normal to the surface, then the stick is statically unstable; small displacements from the configuration in
+which stick axis and force vector co-align result in torques that act to drive the stick further from that
+configuration. Success at this task requires a stabilizing mechanical impedance, and because pushing harder
+exacerbates the problem (the magnitude of the destabilizing torque is proportional to the applied force),
+the minimum required impedance grows with the force applied; see Rancourt and Hogan (2001) for a
+detailed analysis. Simple though this task may be, it is an essential element of the function of many tools
+(e.g., screwdrivers, power drills) and any manipulator — human or robotic — must provide a stabilizing
+mechanical impedance to operate them.
+   In other applications the robot’s interactive behavior may be the main objective of control. For example,
+to use a robot to serve as a force-reflecting haptic display (Miller et al., 2000) or to deliver physiotherapy
+(Volpe et al., 2000) requires intimate physical interaction with humans. In these applications the “feel” of
+the robot becomes an important performance measure, and “feel” is determined by mechanical interaction
+dynamics. Versatile interaction with objects (whether tools or humans or other robots), therefore, requires
+an ability to modulate and control the dynamics of interaction.
+
+
+19.1.1 The Effect of Interaction on Performance and Stability
+When interaction occurs, the dynamic properties of the environment are important. If we attempt to control
+motion or force, interaction affects the controlled variable, introducing error upon which the controller
+must act. Errors clearly mar performance but even more importantly, though perhaps less obvious, stability
+may also be compromised. That is, a system that is stable in isolation can become unstable when coupled
+to an environment that is itself stable. Such instabilities, known as coupled or contact instabilities, appear
+even in simple systems with basic controllers contacting simple environments. To illustrate this key point
+consider the following examples.
+
+Example 19.1
+The first example is based on a common design for a robot motion controller. One of the simplest models
+of a robot is depicted in Figure 19.1. A single mass m represents the robot’s inertial properties. It is subject
+
+
+
+                                                             x
+
+
+
+
+                                   Fa                                     Fe
+                                                      m
+
+
+
+
+                                                                      b
+
+
+                FIGURE 19.1 Model with inertial, frictional, actuator, and environmental forces.
+Impedance and Interaction Control                                                                        19-3
+
+
+to actuator forces F a and environmental forces F e . A single damper b connected to ground represents
+frictional losses. The Laplace-transformed equation of motion for this simple model is as follows:
+
+                                          (ms 2 + bs )X = F a + F e                                     (19.1)
+
+where X is the Laplace transform of the mass position x. A proportional-integral motion controller is
+applied
+
+                                                            KI
+                                     F a = K p (R − X) +       (R − X)                                  (19.2)
+                                                            s
+
+where R is the Laplace transform of the reference position and K p and K I are proportional and integral
+gains, respectively. In isolation, F e = 0 and the closed-loop transfer function is
+
+                                       X        K ps + K I
+                                         =                                                              (19.3)
+                                       R   ms + bs 2 + K P s + K I
+                                             3
+
+
+From the Routh-Hurwitz stability criterion, a condition for isolated stability is the following upper bound
+on the integral gain:
+
+                                                        bK P
+                                                 KI <                                                   (19.4)
+                                                         m
+
+However, this condition is not sufficient to ensure that the robot will remain stable when it interacts with
+objects in its environment. Even the simple act of grasping an object may be destabilizing. If the system
+is not isolated, and instead is coupled to a mass me , this is equivalent to increasing the mass from m to
+(m + me ). Hence a condition for stability of the coupled system is
+
+                                                       bK P
+                                              KI <                                                      (19.5)
+                                                     (m + me )
+
+Any controller that satisfies Equation (19.4) results in a stable isolated system. Prudent controller design
+would use a lower integral gain than the marginal value, providing robustness to uncertainty about system
+parameters and perhaps improved performance. However, for any fixed controller gains, coupling the
+robot to a sufficiently large me will violate the condition for stability. Interaction with a large enough mass
+can always destabilize a system that includes integral-action motion control, even if that system is stable
+in isolation.
+   This difficulty may be obscured by the facts that, at present, most robots have inertia far exceeding that
+of the payloads they may carry, the total mass m + me is not much greater than the mass m of the robot
+alone, and the bounds of Equation (19.4) and Equation (19.5) are similar. However, in some applications,
+e.g., in space or under water, a robot need support little or none of a payload’s weight, and objects of
+extremely large mass may be manipulated. In these situations the vulnerability of integral-action motion
+control to coupled instability may become an important consideration.
+
+Example 19.2
+The second example illustrates one of the common difficulties of force control. A robot with a single
+structural vibration mode is represented by the model shown in Figure 19.2. Two masses m1 and m2 are
+connected by a spring of stiffness k. Frictional losses are represented by dampers b1 and b2 connected from
+the masses to ground and damper b3 in parallel with the spring. One mass is driven by the actuator force
+F a and the other is subject to F e , an interaction force with the environment.
+   A proportional-derivative (PD) controller acting on the error between the position of the mass at the
+actuator x1 and a reference r is applied to control motion. A proportional controller acting on force fed
+back from the environment is applied to control force and improve interactive behavior. The control law
+19-4                                                                    Robotics and Automation Handbook
+
+
+                                                      x1                             x2
+
+
+                                                           k
+
+                            Fa                                                            Fe
+                                           m1                            m2
+
+
+                                                           b3
+                                 b1                                                  b2
+
+
+
+                             FIGURE 19.2 Model including a single structural resonance.
+
+
+
+is as follows:
+
+                       F a = K (r − x1 ) + B(ṙ − ẋ1 ) + K f (F e + K (r − x1 ) + B(ṙ − ẋ1 ))        (19.6)
+
+where K and B are related to the proportional and derivative motion feedback gains, respectively, and K f
+is the proportional force feedback gain.2 When the system is isolated from any environment, F e = 0 and
+Equation (19.6) reduces to PD motion control. Using the Routh-Hurwitz criterion, the isolated system’s
+closed-loop characteristic polynomial can be shown to have all its poles in the open left half plane, providing
+at worst marginal stability for arbitrary nonnegative real parameters and controller gains.
+    If the system is not isolated but instead is connected to a spring to ground, such that F e = −ke x2 , the
+closed loop characteristic polynomial is changed. It is now easy to find parameters such that this polynomial
+has right-half-plane roots. For example, if m1 = m2 = 10, b1 = b2 = b3 = 1, k = 100, K = 10, B = 1,
+K f = 10, and ke = 100, the closed loop poles are at −2.78 ± 5.51i and 2.03 ± 5.53i , where the latter
+pair are unstable. Once again, a system that is stable when isolated (corresponding to ke = 0) is driven to
+instability when coupled to an object in its environment, in this case, a sufficiently stiff spring (ke = 100).
+
+   Structural vibrations are a common feature of robot dynamics and present a substantial challenge to
+controller design. Though simple, the PD motion controller in this example has the merit that it is not
+destabilized by structural vibration because the actuator and assumed motion sensor are co-located.3
+However, the addition of a force feedback loop renders the robot control system vulnerable to coupled
+instability. In part this is because the actuator and force sensor are not co-located. Given the difficulty of
+designing a robot with no significant dynamics interposed between its actuators and the points at which
+it contacts its environment (see Tilley and Cannon, 1986, Sharon et al., 1988), the simple model in this
+example represents a common situation in robot interaction control, and we will return to this model
+several times in this chapter.
+   These two examples show that to ensure stability when interacting even with simple environments, it
+is not sufficient to design for stability of the manipulator in isolation. The environment’s dynamics must
+also be considered — dynamics that are generally not known exactly. Furthermore, in many applications a
+robot must be capable of stable interaction with a variety of environments. For example, an assembly robot
+might pick up a component, move it across free space, bring it into contact with a kinematic constraint
+used to guide placement of the component, move it along the constraint, release the component, and
+return to get another. In this case, at different times in the process, the robot must remain stable when
+moving unloaded in free space, moving to transport the component, and moving to comply with the
+kinematic constraint. Each of these three contexts poses a different stability challenge which illustrates one
+
+
+  2
+      This controller is discussed further below in the section on force feedback.
+  3
+      An alternative interpretation is presented below in the section on simple impedance control.
+Impedance and Interaction Control                                                                           19-5
+
+
+key reason why, even if the environment can be closely modeled, there are strong benefits to designing a
+controller that is insensitive to ignorance of its properties. If, for example, a different controller is required
+for each of the three contexts, the system must decide which controller to use at each instant and manage
+the transition between them. Usually the easiest way to identify the environment is to interact with it; thus,
+interaction might be required before the appropriate controller is in place. Stable interaction is needed to
+identify the environment, but stability cannot be guaranteed without a well-characterized environment.
+A single controller that can perform satisfactorily within all expected contexts without compromising
+stability would have significant advantages.
+
+19.1.2 Interaction as Disturbance Rejection
+Control theory offers several tools to endow controllers with the ability to deal with unknown or poorly
+characterized interference (Levine, 1996). Using a disturbance rejection approach, the environment’s
+dynamics could be included as disturbance forces. The success of this approach depends on bounding the
+disturbance forces, but for many interactive applications the environmental forces may equal or exceed
+the robot’s nominal capacity; for example, a kinematic constraint can introduce arbitrarily large forces
+depending on the robot’s own behavior. Furthermore, environmental forces generally depend on the robot’s
+state, and traditionally disturbances are assumed to be state-independent. Thus, treating interaction as a
+disturbance rejection problem does not seem promising.
+
+19.1.3 Interaction as Modeling Uncertainty
+Modeling the environment as an uncertain part of the robot and using robust control tools (Levine, 1996) to
+guarantee stability is another reasonable approach. Interacting with an environment effectively changes the
+robot plant by adding some combination of elastic, dissipative, and inertial properties, perhaps including
+kinematic constraints. If the effect of interaction is only to alter the parameters of the robot model (e.g., by
+adding to the endpoint mass) a robust control approach may succeed, though robustifying the system to a
+large range of environment parameters might require an unacceptable sacrifice of performance. However,
+interaction may change the structure of the model. For example, it may reduce the order of the system (e.g.,
+moving from free motion to contact with a kinematic constraint reduces the degrees of freedom of the parts
+contacting the constraint) or increase it (e.g., contact with an elastic object adds a new mode of behavior
+due to interaction between the robot inertia and the object elasticity). If interaction changes the model
+structure, the applicability of a robust control approach is unclear. For example, the environment forces and
+motions may be of the same magnitude and in the same frequency range as the known robot dynamics.4
+As robust control methods commonly assume that uncertain dynamics lie outside the frequency range of
+interest, treating interaction as a robustness problem does not seem promising.
+   As mentioned above, in some applications the robot’s dynamic behavior (colloquially termed its “feel”)
+may be a key performance measure and hence a legitimate objective of control system design. Rather than
+attempt to overwhelm the consequences of interaction by building in robustness, the approach described
+herein aims to regulate the interaction itself by controlling the robot’s dynamic behavior at the places
+where it interacts with its environment.
+
+
+19.2       Regulating Dynamic Behavior
+The general approach here termed “interaction control” refers to regulation of the robot’s dynamic behavior
+at its ports of interaction with the environment. An interaction port is a place at which energy may be
+exchanged with the environment. It is therefore defined by a set of motion and force variables such that
+
+
+  4
+    To use a human example, consider two people shaking hands: each has a similar response speed or bandwidth
+and produces comparable force and motion; each individual control system is coupled to a system with approximately
+double the large number of degrees of freedom that it controls when isolated.
+19-6                                                                  Robotics and Automation Handbook
+
+
+                              TABLE 19.1 Laplace-Transformed Impedance and
+                              Admittance Functions for Common Mechanical
+                              Elements
+
+                                                  Impedance F/x      Admittance x/F
+                                     x
+                               F                         k                  s
+                                                         s                  k
+                                         k
+
+                                 F                                         1
+                                         m              ms                 ms
+                                     x
+
+                                   F x                                      1
+                                             b           b
+                                                                            b
+
+
+
+
+P = F t v, where v is a vector of velocities (or angular velocities) along different degrees of freedom at the
+contact point, F is a corresponding vector of forces (or torques), and P is the power that flows between
+robot and environment.5 Interaction control involves specifying a dynamic relationship between motion
+and force at the port, and implementing a control law that attempts to minimize deviation from this
+relationship.
+
+
+19.2.1 Mechanical Impedance and Admittance
+The most common forms of interaction control regulate the manipulator’s impedance or admittance.
+Assuming force is analogous to voltage and velocity is analogous to current, mechanical impedance is
+analogous to electrical impedance, characterized by conjugate variables that define power flow, and defined
+as follows.
+
+Definition 19.1 Mechanical impedance at a port (denoted Z) is a dynamic operator that determines
+an output force (torque) time function from an input velocity (angular velocity) time function at the
+same port. Mechanical admittance at a port (denoted Y ) is a dynamic operator that determines an output
+velocity (angular velocity) time function from a force (torque) time function at the same port.
+
+   The terms “driving point impedance” or “driving point admittance” are also commonly used. Because
+they are defined with reference to an interaction port, impedance and admittance are generically referred
+to as “port functions.”
+   If the system is linear, admittance is the inverse of impedance, and both can be represented in the Laplace
+domain by transfer functions, Z(s ) or Y (s ). Table 19.1 gives example admittances and impedances for
+common mechanical elements. For a linear system impedance can be derived from the Laplace-transformed
+dynamic equations by solving for the appropriate variables.
+   While most often introduced for linear systems, impedance and admittance generalize to nonlinear
+systems. In the nonlinear case, using a state-determined representation of system dynamics, mechanical
+impedance may be described by state and output equations relating input velocity (angular velocity) to
+output force (torque) as follows.
+
+
+   5
+     Equivalently, an interaction port may be defined in terms of “virtual work,” such that dW = F t dx where dx is
+a vector of infinitesimal displacements (or angular displacements) along different degrees of freedom at the contact
+point, F is a corresponding vector of forces (or torques), and dW is the infinitesimal virtual work done on or by the
+robot.
+Impedance and Interaction Control                                                                                   19-7
+
+
+                                                     ż = Z s (z, v)
+                                                     F = Z o (z, v)                                               (19.7)
+                                                     P = F tv
+
+where z is a finite-dimensional vector of state variables and Z s ( ) and Z o ( ) are algebraic (or memoryless)
+functions. The only difference from a general state-determined system model is that the input velocity and
+output force must have the same dimension and define by their inner product the power flow into (or out
+of) the system.
+   In the nonlinear case, mechanical admittance is the causal6 dual of impedance in that the roles of input
+and output are exchanged; mechanical admittance may be described by state and output equations relating
+input force (torque) to output velocity (angular velocity). However, mechanical admittance may not be
+the inverse of mechanical impedance (and vice versa) as the required inverse may not be definable. Some
+examples of nonlinear impedances and admittances with no defined inverse forms are presented by Hogan
+(1985).
+   A key point to note is that, unlike motion or force, the dynamic port behavior is exclusively a property
+of the robot system, independent of the environment at that port. This is what gives regulating impedance
+or admittance its appeal. Motion and force depend on both robot and environment as they meet at an
+interaction port and cannot be described or predicted in the absence of a complete characterization of both
+systems. Indeed, this is the principal difficulty, as illustrated above, in regulating either of these quantities.
+Impedance, on the other hand, can (in theory) be held constant regardless of the environment; impedance
+defines the relationship between the power variables and does not by itself determine either.
+   Impedance serves to completely describe how the manipulator will interact with a variety of environ-
+ments. In principle, if arbitrary impedance can be achieved, arbitrary behavior can be achieved; it remains
+only to sculpt the impedance to yield the desired behavior. Of course, as with all controller designs, the
+goal of achieving a desired impedance is an ideal; in practice, it can be difficult. The problem of achieving
+a desired impedance (or admittance) is central to the study of interaction control and is discussed in
+Section 19.4 and Section 19.5.
+
+
+19.2.2 Port Behavior and Transfer Functions
+Port impedance and admittance are just two of the possible representations of a linear system’s response,
+and it is important to highlight the distinction between these expressions and general input/output transfer
+functions. By way of example, consider again the system in Figure 19.2. This system is an example of a
+“2-port” because it has two power interfaces, one characterized by F a and ẋ1 , the other by F e and ẋ2 . If such
+an element is part of a robot, one side is generally connected to an actuator and the other to a downstream
+portion of the robot or directly to the environment. Any mechanical 2-port has four transfer functions
+relating motion to force. Two of them, ẊFa (s ) and ẊF e (s ) (or their inverses), are input/output transfer
+                                                   2          1
+functions and define the force produced by motion at the opposite port, assuming certain boundary
+conditions to determine the other power variables. This type of transfer function is used in traditional
+block-diagram analysis; if the left port is driven by a controllable force and the right uncoupled, then ẊFa2 (s )
+describes the motion of the right port as a result of actuator force, as shown in Figure 19.3. The other
+two transfer functions, ẊFa (s ) and ẊF e (s ), each represent the impedance at a port (and their inverses the
+                           1              2
+corresponding admittance), depending on the boundary conditions at the other port.
+   The principal distinction between these two types of transfer functions is in their connection. If we
+have two systems like that shown in Figure 19.2, their input/output transfer functions cannot be properly
+
+
+
+   6
+     The causal form (or causality) of a system’s interaction behavior refers to the choice of input and output variables.
+By convention, input variables are referred to as “causing” output variables, though the physical system equations need
+not describe a causal relation in the usual sense of a temporal order; changes of input and output variables may occur
+simultaneously.
+19-8                                                                      Robotics and Automation Handbook
+
+
+
+                                     Fa      x2              x2       1      x2
+                                             Fa                       s
+
+
+               FIGURE 19.3 Block diagram of a forward-path or transmission transfer function.
+
+
+connected in cascade because the dynamics of the second system affect the input-output relationship of the
+first. At best, cascade combination of input/output transfer functions may be used as an approximation if
+the two systems satisfy certain conditions, specifically that the impedance (or admittance) at the common
+interaction port are maximally mismatched to ensure no significant loading of one system by the other.
+
+
+19.3      Analyzing Coupled Systems
+To analyze systems that are coupled by interaction ports, it is helpful to consider the causality of their
+interaction behavior, that is, the choice of input and output for each of the systems. The appropriate
+causality for each system is constrained by the nature of the connection between systems, and in turn
+affects the mathematical representation of the function that describes the system. Power-based network
+modeling approaches (such as bond graphs [Brown, 2001]) are useful, though not essential, to understand
+this important topic.
+
+
+19.3.1 Causal Analysis of Interaction Port Connection
+Figure 19.4 uses bond graph notation to depict direct connection of two mechanical systems, S1 and
+S2 , such that their interaction ports have the same velocity (the most common connection in robotic
+systems), denoted by the 1 in the figure. If we choose to describe the interaction dynamics of one system
+as an impedance, causal analysis dictates that the other system must have admittance causality. The causal
+stroke indicates that S1 is in impedance causality; in other words, S1 takes motion as an input and
+produces force output, and S2 takes force as an input and produces motion output. If we use the common
+sign convention that power flow is positive into each system (denoted by the half arrows in the figure) this
+is equivalent to a negative feedback connection of the two power ports, as shown in Figure 19.5.
+    More complicated connections are also possible. Consider three mechanical systems connected such
+that their common interaction ports have the same velocity (e.g., consider two robots S3 and S4 pushing
+
+
+                                  S1                    1                     S2
+                                                       . .
+                                                        .
+                                                        x
+
+
+           FIGURE 19.4 Bond graph representation of two systems connected with common velocity.
+
+
+
+
+                                                  S1              F
+
+
+
+
+                                 x
+                                                  S2                  –1
+
+
+
+
+            FIGURE 19.5 Feedback representation of two systems connected with common velocity.
+Impedance and Interaction Control                                                                    19-9
+
+
+                                            S3
+
+
+
+
+                                            1                  S5
+
+
+
+
+                                            S4
+
+
+          FIGURE 19.6 Bond graph representation of three systems connected with common velocity.
+
+
+on the same workpiece S5 ). Figure 19.6 shows a bond graph representation. If we choose to describe
+the workpiece dynamics as an admittance (and this may be the only option if the workpiece includes a
+kinematic constraint) then causal analysis dictates that the interaction dynamics of the two robots must
+be represented as impedances. Once again, this connection may be represented by feedback network. S3
+and S4 are connected in parallel with each other and with the workpiece S5 in a negative feedback loop,
+as shown in Figure 19.7. Note that S3 and S4 can be represented by a single equivalent impedance, and
+the system looks like that in Figure 19.4 and Figure 19.5. S3 and S4 need not represent distinct pieces of
+hardware and, in fact, might represent superimposed control algorithms acting on a single robot (Andrews
+and Hogan, 1983; Hogan, 1985).
+
+
+19.3.2 Impedance vs. Admittance Regulation
+Causal analysis provides insight into the important question whether it is better to regulate impedance
+or admittance. For most robotics applications, the environment consists primarily of movable objects,
+most simply represented by their inertia and surfaces or other mechanical structures that kinematically
+constrain their motion. The interaction dynamics in both cases may be represented as an admittance. An
+unrestrained inertia determines acceleration in response to applied force, yielding a proper admittance
+transfer function (see Table 19.1). A kinematic constraint imposes zero motion in one or more directions
+regardless of applied force; it does not admit representation as an impedance. Inertias prefer admittance
+causality; kinematic constraints require it. Because the environment has the properties best represented
+
+
+
+
+                                  S3
+
+
+
+                                                 +        –1              S5
+
+
+
+                                  S4
+
+
+
+
+           FIGURE 19.7 Feedback representation of three systems connected with common velocity.
+19-10                                                                 Robotics and Automation Handbook
+
+
+as an admittance, the ideal robot behavior is an impedance, which can be thought of as a dynamic
+generalization of a spring, returning force in response to applied displacement. Initially assuming that
+arbitrary port impedance could be achieved, Hogan argued for this approach (Hogan, 1985).
+   However, most robots consist of links of relatively large mass driven by actuators. If the actuators
+are geared to amplify motor torque (a common design), the total inertia apparent at the end effector is
+increased by the reflected inertia of the motor; indeed for high gear ratios this can dwarf the mass of the
+links. These inertial properties are difficult to overcome (see Section 19.5.2), and tend to dominate the
+robot’s response. Thus it is difficult to make a robot behave as a spring (or impedance), and it is usually
+more feasible to make it behave as primarily a mass (or admittance), an argument for admittance control
+(Newman, 1992). In other words, impedance behavior is usually ideal, but admittance behavior is often
+more easily implemented in real hardware, which itself prefers admittance causality because of its inertial
+nature. The choice of particular controller structure for an application must be based on the anticipated
+structure of environment and manipulator, as well as the way that they are coupled.
+
+
+19.3.3 Coupled System Stability Analysis
+If S1 and S2 are a linear time-invariant impedance and admittance, respectively, Figure 19.4 and Figure 19.5
+depict the junction of the two systems via a power-continuous coupling. In other words the coupling is
+lossless and does not require power input to be implemented; all power out of one system goes into the
+other. Colgate has demonstrated the use of classical feedback analysis tools to evaluate the stability of
+this coupled system, using only the impedance and admittance transfer functions (Colgate, 1988; Colgate
+and Hogan, 1988). By interpreting the interaction as a unity negative feedback as shown in Figure 19.5,
+Bode and/or Nyquist frequency response analysis can be applied. The “open-loop” transfer function in
+this case is the product of admittance and impedance S1 S2 . Note that unlike the typical cascade of transfer
+functions, this product is exact, independent of whether or how the two systems exchange power or “load”
+each other. The Nyquist stability criterion ensures stability of the coupled (closed-loop) system if the net
+number of clockwise encirclements of the −1 point (where magnitude = 1 and phase angle = ±180◦ ) by
+the Nyquist contour of S1 ( j ω)S2 ( j ω) plus the number of poles of S1 ( j ω)S2 ( j ω) in the right half-plane
+is zero. The slightly weaker Bode condition ensures stability if the magnitude |S1 ( j ω)S2 ( j ω)| < 1 at any
+point where (S1 ( j ω)S2 ( j ω) = S1 ( j ω) + S2 ( j ω) = ±180◦ .
+
+
+19.3.4 Passivity and Coupled Stability
+This stability analysis requires an accurate representation of the environment as well as the manipulator,
+something that we have argued is difficult to obtain and undesirable to rely upon. The principles of this
+analysis, however, suggest an approach to guarantee stability if the environment has certain properties —
+particularly if the environment is passive.
+   There are a number of definitions of a system with passive port impedance, all of which quantify the
+notion that the system cannot, for any time period, output more energy at its port of interaction than has
+in total been put into the same port for all time. Linear and nonlinear systems can have passive interaction
+ports; here we restrict ourselves to the linear time-invariant case and use the same definition as Colgate
+(1988). For nonlinear extensions, see Wyatt et al. (1981) and Willems (1972).
+
+Definition 19.2         A system defined by the linear 1-port7 impedance function Z(s ) is passive iff:
+
+      1. Z(s ) has no poles in the right half-plane.
+      2. Any imaginary poles of Z(s ) are simple, and have positive real residues.
+      3. Re{Z(jω)} ≥ 0.
+
+
+  7
+      An extension to multi-port impedances and admittances is presented in Colgate (1988).
+Impedance and Interaction Control                                                                          19-11
+
+
+These requirements ensure that Z(s ) is a positive real function and lead to the following interesting and
+useful extensions:
+    1. If Z(s )is positive real, so is its inverse, the admittance function Y (s ) = Z −1 (s ), and Y (s ) has the
+       same properties.
+    2. If equality is restricted from condition 3, the system is dissipative and is called strictly passive.
+       a. The Nyquist contours of Z(s ) and Y (s ) each lie wholly within the closed right half-plane.
+       b. Z(s ) and Y (s ) each have phase in the closed interval between −90◦ and +90◦ .
+    3. If condition 3 is met in equality, the system is passive (but not strictly passive).
+       a. The Nyquist contours of Z(s ) and Y (s ) each lie wholly within the open right half-plane.
+       b. Z(s ) and Y (s ) each have phase in the open interval between −90◦ and +90◦ .
+   Note that pure masses and springs, as shown in Table 19.1, are passive but not strictly passive. Pure
+dampers are strictly passive, as they have zero phase. Furthermore, any collection of passive elements
+(springs, masses, dampers, constraints) assembled with any combination of power-continuous connections
+is also passive. Passive systems comprise a broad and useful set, including all combinations of mechanical
+elements that either store or dissipate energy without generating any — even when they are nonlinear.
+Passivity and related concepts have proven useful for other control system applications, including robust
+and adaptive control (Levine, 1996).
+   Colgate has shown that the requirement for a manipulator to interact stably with any passive envi-
+ronment is that the manipulator itself be passive (Colgate, 1988; Colgate and Hogan, 1988). The proof
+is described here intuitively and informally. If two passive systems are coupled in the power-continuous
+way described above and illustrated in Figure 19.4, the phase property of passive systems constrains the
+total phase of the “open-loop” transfer function to between −180◦ and +180◦ (the phase of each of
+the two port functions is between −90◦ and +90◦ , and the two are summed). Because the phase never
+crosses these bounds, the coupled system is never unstable and is at worst marginally stable. This holds
+true regardless of the magnitudes of the port functions of both systems. In the Nyquist plane, as shown
+in Figure 19.8, since the total phase never exceeds 180◦ , the contour cannot cross the negative real axis,
+and therefore can never encircle −1, regardless of its magnitude. This result shows that if a manipulator
+can be made to behave with passive driving point impedance, coupled stability is ensured with all passive
+environments, provided the coupling obeys the constraints applied above. The magnitude of the port
+functions is irrelevant; if passivity (and therefore the phase constraint) is satisfied, the coupled system
+is stable. The indifference to magnitude also means that requiring a robot to exhibit passive interaction
+behavior need not compromise performance; in principle the system may be infinitely stiff or infinitely
+compliant.
+   It is worthy of mention that if either of the two systems is strictly passive, the total phase is strictly
+less than ±180◦ , and the coupled system is asymptotically stable. Different types of coupling can produce
+slightly different results. If the act of coupling requires energy to be stored or if contact is through a
+mechanism such as sliding friction, local asymptotic stability may not be guaranteed. However, the cou-
+pled system energy remains bounded. This result follows from the fact that neither system can generate
+energy or supply it continuously; the two can only pass it back and forth and the total energy can never
+grow.
+
+Example 19.3
+Because both examples presented at the start of this paper were unstable when interacting with passive
+elements, both systems must be nonpassive. This is in fact true; for the second case, for example, Figure 19.9
+shows the real part of the port admittance, evaluated as a function of frequency, and it is clearly negative
+between 2 and 10 rad/sec, hence violates the third condition for passivity.
+
+   Colgate has proven another useful result via this argument, particularly helpful in testing for coupled
+stability of systems. As can easily be determined from Table 19.1, an ideal spring in admittance causality
+produces +90◦ of phase, and an ideal mass produces −90◦ , both for all frequencies, making each passive
+19-12                                                                       Robotics and Automation Handbook
+
+
+                                                            Im
+
+
+
+
+         Region of
+         possible
+         contours
+         for two
+         coupled
+         passive                                                                                Re
+         systems                                  –1
+
+
+
+
+                                                                                                  Limits of
+                                                                                                  contours for
+                                                                                                  passive systems
+
+
+
+
+FIGURE 19.8 Region of the Nyquist plane that contains contours for passive systems (dashed), and region that can
+contain coupled passive systems (dotted). The coupled Nyquist contour may lie on the negative real axis but cannot
+encircle the −1 point. If a system is strictly passive, its Nyquist plot cannot lie on the imaginary axis. If at least one of
+two coupled passive systems is strictly passive, then its shared Nyquist contour cannot intersect or lie on the negative
+real axis.
+
+                     1.4
+
+
+                     1.2
+
+
+                       1
+
+
+                     0.8
+
+
+                     0.6
+       Re (Y(jw))
+
+
+
+
+                     0.4
+
+
+                     0.2
+
+
+                       0
+
+
+                    –0.2
+
+
+                    –0.4
+                       10 –5                                      10 0                                            105
+                                                            frequency, rad/sec
+
+
+                      FIGURE 19.9 Real part of the interaction port admittance of the system from Example 2.
+Impedance and Interaction Control                                                                     19-13
+
+
+but not strictly passive. If the manipulator is nonpassive, its phase must necessarily exceed either −90◦
+or +90◦ at some frequency, so that coupling it to a pure spring or a pure mass results in phase that
+exceeds −180◦ or +180◦ at that frequency. The value of the environmental stiffness or mass acts as a
+gain and can be selected such that the magnitude exceeds 1 at a frequency where the phase crosses the
+boundary, proving instability by the Bode criterion. Alternatively by the Nyquist criterion, the gain expands
+or contracts the contour, and can be selected so as to produce an encirclement of the −1 point. Conversely,
+it is impossible for the manipulator to be unstable when in contact with any passive environment if it does
+not become unstable when coupled to any possible spring or mass. Thus the passivity of a manipulator can
+theoretically be evaluated by testing stability when coupled to all possible springs and masses. If no spring
+or mass destabilizes the manipulator, it is passive. Much can be learned about a system by understanding
+which environments destabilize it (Colgate, 1988; Colgate and Hogan, 1988).
+
+
+Example 19.4
+The destabilizing effect of springs or masses can be observed by examining the locus of a coupled system’s
+poles as an environmental spring or mass is changed. Figure 19.10 shows the poles of a single-resonance
+system (as in Example 19.2) coupled to a mass at the interaction port, as the magnitude of the mass is
+varied from 0.1 to 10 kg. The system remains stable. Figure 19.11 shows the coupled system poles as a
+stiffness connected to the interaction port is varied from 1 to 150 N/m. When the stiffness is large, the
+system is destabilized.
+
+
+
+
+                15
+
+
+
+
+                10                                  Bigger
+                                                    Masses
+
+
+
+                 5
+   Imag Axis
+
+
+
+
+                 0
+
+
+
+
+                –5
+
+
+
+
+               –10
+
+
+
+
+               –15
+                 –2     –1.5            –1            –0.5               0             0.5              1
+                                                     Real Axis
+
+ FIGURE 19.10 Locus of coupled system poles for the system from Example 19.2 as environment mass increases.
+19-14                                                              Robotics and Automation Handbook
+
+
+              15
+
+
+
+
+              10
+
+                                                                    Increasing
+                                                                    Stiffness
+
+               5
+  Imag Axis
+
+
+
+
+               0
+
+
+
+
+              –5
+
+
+
+
+              –10
+
+
+
+
+              –15
+                –4       –3     –2          –1            0           1           2            3           4
+                                                      Real Axis
+
+FIGURE 19.11 Locus of coupled system poles for the system from Example 19.2 as environment stiffness increases.
+
+
+
+
+19.4                Implementing Interaction Control
+Like any control system, a successful interactive system must satisfy the twin goals of stability and perfor-
+mance. The preceding sections have shown that stability analysis must necessarily include a consideration
+of the environments with which the system will interact. It has further been shown that stability can in
+principle be assured by sculpting the port behavior of the system. Performance for interactive systems is
+also measured by dynamic port behavior, so both objectives can be satisfied in tandem by a controller that
+minimizes error in the implementation of some target interactive behavior. For this approach to work for
+manipulation, any controller must also include a way to provide a motion trajectory. The objectives of
+dynamic behavior and motion can, to some degree, be considered separately.
+
+
+19.4.1 Virtual Trajectory and Nodic Impedance
+Motion is typically accomplished using a virtual trajectory, a reference trajectory that specifies the desired
+movement of the manipulator. A virtual trajectory is much like a motion controller’s nominal trajectory,
+except there is no assumption that the controlled machine’s dynamics are fast in comparison with the
+motion, which is usually required to ensure good tracking performance. The virtual trajectory specifies
+which way the manipulator will “push” or “pull” to go, but actual motion depends on its impedance
+properties and those of the environment. It is called “virtual” because it does not have to be a physically
+realizable trajectory.
+Impedance and Interaction Control                                                                              19-15
+
+
+                                       manipulator
+
+
+
+
+                                                                       Interaction
+                                                                       Force
+
+
+
+
+                                           vo                    v
+
+
+           FIGURE 19.12 Virtual trajectory v o and nodic impedance. v is the interaction port velocity.
+
+
+
+   Deviation in the manipulator’s trajectory from its virtual trajectory produces a force response that
+depends on the interactive properties of the manipulator, its nodic8 impedance/admittance. If the robot
+is represented as a mass subjected to actuator and environmental forces (similar to the simple model
+of Example 19.1 above) and the nodic impedance of the controller is a parallel spring and damper, the
+resulting behavior is as pictured in Figure 19.12 in which v o represents the virtual trajectory and v the
+actual manipulator motion. In many applications, the controller will be required to specify manipulator
+position x and to be consistent, the virtual trajectory must also be specified as a position xo . In that case,
+the noninertial (nodic) behavior is strictly described as a dynamic operator that produces output force in
+response to input displacement (the difference between virtual and actual positions, x = xo − x), which
+might be termed a “dynamic stiffness.” However, the term “impedance” is loosely applied to describe either
+velocity or displacement input. To the interaction port, the system behaves as a mass with a spring and
+damper, connecting the port to some potentially moving virtual trajectory. The dynamics of the spring,
+mass, and dashpot are as much a part of the prescribed behavior as is the virtual trajectory, distinguishing
+this strategy from motion control.
+
+
+19.4.2 ‘‘Simple’’ Impedance Control
+One primitive approach to implementing impedance control, proposed by Hogan (1985), has been used
+with considerable success. Termed “simple” impedance control, it consists of driving an intrinsically low-
+friction mechanism with force- or torque-controlled actuators, and using motion feedback to increase
+output impedance. This approach makes no attempt to compensate for any physical impedance (mass,
+friction) in the mechanism, so the actual output impedance consists of that due to the controller plus that
+due to the mechanism.
+   If a robot is modeled as a multi-degree-of-freedom inertia retarded by damping and subject to actuator
+and environmental torques (a multi-degree-of-freedom version of the model used in example 1 above),
+the robot with the simple impedance controller is as follows:
+
+                                     I ()
+                                          ¨ + C (, )
+                                                    ˙ + D()
+                                                          ˙ = Ta + Te                                          (19.8)
+
+where  is a vector of robot joint variables (here assumed to be angles, though that is not essential), I
+is the robot inertia matrix (which depends on the robot’s pose), C denotes nonlinear inertial coupling
+torques (due to Coriolis and/or centrifugal accelerations), D is a vector of dissipative velocity-dependent
+torques (e.g., due to friction), Ta is a vector of actuator torques, and Te a vector of environmental torques.
+The target behavior is impedance; if the behavior of a spring with stiffness matrix K j and a damper with
+
+
+  8
+    The term nodic refers to “transportable” behavior that may be defined relative to a nonstationary (or even acceler-
+ating) reference frame. Nodicity is discussed by Hogan (1985) and Won and Hogan (1996).
+19-16                                                                  Robotics and Automation Handbook
+
+
+damping matrix B j is chosen, the control law is simply
+
+                                   Ta (, )
+                                          ˙ = K j (o − ) + B j (
+                                                                  ˙ o − )
+                                                                        ˙                                     (19.9)
+
+where o is a virtual trajectory in robot joint space. Combining the controller impedance (Equation 19.9)
+with the robot dynamics (Equation 19.8), the result is as follows:
+
+                    I ()
+                         ¨ + C (, )    ˙ + BJ 
+                                   ˙ + D()     ˙ + K j  = BJ 
+                                                               ˙ o + K j o + Te                             (19.10)
+
+This controller implements in robot joint space a dynamic behavior analogous to that depicted in
+Figure 19.12; the controller spring and damper serve to push or pull the robot pose toward that spec-
+ified by the virtual trajectory.
+    Due to the nonlinear kinematics of a typical robot, constant stiffness and damping matrices in the
+control law of Equation (19.9) result in stiffness and damping apparent at the robot’s end-effector (the usual
+interaction port) that vary with the robot’s pose. However, a straightforward extension of Equation (19.9)
+may be defined to control end-effector impedance, using the robot’s kinematic transformations to express
+a desired end-effector impedance in robot joint space. The required transformations are the forward
+kinematic equations, denoted X = L (), relating robot pose to end-effector position (and orientation),
+X; the pose-dependent Jacobian of this transformation, denoted Ẋ = J (),    ˙ relating robot velocity (e.g.,
+joint rates) to end-effector velocity (and angular velocity); and the transformation relating end-effector
+forces (and torques), F e , to actuator torques. For the common arrangement in which each robot actuator
+acts independently on a robot joint variable, the required transformation is the transpose of the Jacobian:
+Ta = J t ()F e . To achieve a target impedance with constant end-effector stiffness K and damping B, the
+control law is as follows:
+
+                          Ta (xo , ẋo , , )
+                                            ˙ = J t (K (xo − L ()) + B(ẋo − J ()))
+                                                                                   ˙                         (19.11)
+
+This is a nonlinear counterpart of the control law in Equation (19.9). An important point is that all of the
+required nonlinear transformations are guaranteed to be well-defined throughout the robot workspace —
+even where the Jacobian loses rank.9 Thus the simple impedance controller can operate near or at the
+robot’s kinematic singularities.
+    Note that the simple impedance controller does not rely on force feedback and does not require a force
+sensor. If the forces due to the robot’s inertia and friction are sufficiently small, the robot’s interaction port
+behavior will be close to the desired impedance. Inertial forces decline for slower movements and vanish
+if the robot is at a fixed pose. As a result a simple impedance controller can be quite effective in some
+applications. Frictional forces may also decline for slower movements but, especially due to dry friction,
+need not vanish when the robot stops moving. This is one reason why, for applications requiring low
+impedance, low inertia and friction are desirable in the design of interactive robots.
+    From a controller design viewpoint, the simple impedance control law of Equation (19.9) closely
+resembles a PD motion controller acting on the error between actual and virtual trajectory in joint space.
+Given the assumptions outlined above (a robot modeled as a mass driven by controllable forces) the
+impedance controller stiffness K and damping B correspond, respectively, to proportional and derivative
+gains. The nonlinear simple impedance controller of Equation (19.11) resembles a gain-scheduled PD
+motion controller in which the nonlinear transformations adjust the proportional and derivative gains to
+achieve constant end-effector behavior.
+
+
+   9
+     The term joint space refers to a set of generalized coordinates of the robot mechanism, which uniquely define the
+configuration of the robot and hence the position and orientation of any interaction port. Similarly any force and
+torque applied to the interaction port can be projected to determine the corresponding forces and torques on the
+actuators.
+Impedance and Interaction Control                                                                       19-17
+
+
+   The simple impedance controller has another important feature. Insofar as the controller exactly mimics
+the behavior of a spring and damper, the robot behaves exactly as it would with a real spring and damper
+connecting it to the virtual trajectory. If the virtual trajectory specifies a constant pose, the entire system
+(robot plus controller) is passive and, therefore, guarantees stable interaction with all passive environments.
+Regardless of the actual robot mass, damping, and controller gains, coupled instability is completely
+eliminated. In fact, this is true even if the interaction occurs at points other than the end-effector, whether
+inadvertently or deliberately (e.g., consider using an elbow or other body part to manipulate) (Hogan,
+1988). In addition, because the simple impedance controller does not rely on force feedback control to
+shape impedance, it is not vulnerable to the loss of passivity that can occur when structural modes interact
+with a force feedback loop (as illustrated in Example 19.2).
+   Thus, although it is primitive, a simple impedance controller goes a long way toward solving the
+stability problem, and its performance gets better as the inherent robot impedance is reduced. In practice,
+though this implementation performs well in some applications, it has limitations. Several factors make
+the controller impedance nonpassive, including discrete-time controller implementation and unmodeled
+dynamics between actuator and sensor. Under these conditions stability cannot be guaranteed with all
+environments. At the same time, the creation of low-impedance hardware can be difficult, particularly for
+complex geometries. Still, the approach has been quite successful, particularly when used in conjunction
+with highly back-drivable designs (for example, using robots for physiotherapy (Volpe et al., 2000)).
+Feedback methods to reduce intrinsic robot impedance are discussed below.
+
+
+19.4.3 Direct Impedance Modulation
+A complementary approach to implementing interaction control without relying on feedback is to modu-
+late impedance directly. For example, as discussed below, feedback control of interaction-port inertia can
+be especially challenging. However, apparent inertia is readily modulated by taking advantage of kinematic
+redundancies in the robot mechanism. Using the human musculo-skeletal system as an example, all as-
+pects of mechanical impedance, including inertia, may be varied by using different body segments as the
+interaction port (e.g., the hand vs. the foot) and/or by varying the pose of the rest of the musculo-skeletal
+system. For example, with the phalanges partially flexed the fingertips present extremely low mechanical
+impedance to their environment, while with the elbow fully extended, the arm presents a high impedance
+along the line joining hand to shoulder.
+   An alternative way to modulate mechanical impedance is by taking advantage of actuator redundancies.
+Because muscles pull and don’t push they are generally arranged in opposition about the joints so that
+both positive and negative torques may be generated. Consequently, the number of muscles substantially
+exceeds the number of skeletal degrees of freedom. Interestingly, the force developed by mammalian muscle
+varies with muscle length and its rate of change, giving it mechanical impedance similar to a damped
+spring, and this mechanical impedance increases with muscle activation. While the torque contributions
+of different muscles may counteract each other, impedance contributions of muscles always add to the joint
+impedance (Hogan, 1990). As a result, mechanical impedance about a joint may be directly modulated
+without adjusting pose by simultaneous contraction of opposing muscles. For example, a “firm grip” on a
+tool handle may be achieved by squeezing it. That requires simultaneous activation of opposing muscles
+(at least in the hand and forearm but likely throughout the upper arm) which can be done without altering
+the net force and/or torque on the tool, changing only the mechanical impedance of the hand where it
+interacts with the tool and, in turn, stabilizing the pose of the tool relative to the hand.
+   The human ability to modulate neuromuscular mechanical impedance at will by co-contracting muscles
+is readily observed, and human control of mechanical impedance appears to be quite sophisticated and
+selective. For example, recent experimental results (Burdet et al., 2001) have shown that human subjects
+making point-to-point movements holding the handle of a planar robot that presented a stabilizing
+impedance along the direction of motion and a destabilizing impedance in the normal direction increased
+their arm impedance preferentially along the normal but not the tangent.
+19-18                                                                  Robotics and Automation Handbook
+
+
+   A similar approach to direct modulation of actuator impedance may be implemented in robotic systems.
+There are many ways this may be accomplished. For example, a closed volume of air in a pneumatic actuator
+acts as a spring; because of the nonlinear relation between air pressure and volume or due to a change
+of shape, increasing pressure increases the apparent stiffness. Fluid flowing through a passage (e.g., in a
+hydraulic actuator) dissipates energy, and varying the geometry of the passage changes the apparent damp-
+ing (Kleidon, 1983). Alternatively, field-responsive fluids (e.g., electro-rheologic or magneto-rheologic)
+permit variation of viscous damping without changing geometry and have been used in automotive ap-
+plications (Carlson et al., 1999). Changing excitation current and hence magnetic field strength in an
+electromagnetic actuator (e.g., a rotary or linear solenoid) may be used to change both apparent stiffness
+and damping, and electromechanical actuator designs that provide for direct modulation of impedance
+have been proposed (Fasse et al., 1994).
+   To the best of our knowledge, actuators with directly-modulated impedance have yet to see widespread
+applications in robotics. However, the development of new actuator technologies to serve as “artificial
+muscles” is presently a topic of active research, and new applications may emerge from this work.
+
+
+19.5       Improving Low-Impedance Performance
+A large class of applications, including robots that interact with humans, demands interactive robots with
+low mechanical impedance. The most direct approach is to design low-impedance hardware and use a
+simple impedance control algorithm; in fact, this is the recommended approach. However, intrinsically
+low-impedance hardware can be difficult to create, particularly with complex geometries and large force
+or power outputs. Most robotic devices have intrinsically high friction and/or inertia, and the simple
+impedance control technique described above does nothing to compensate for intrinsic robot impedance.
+Considerable effort has been devoted to designing controllers to reduce the apparent endpoint impedance
+of interactive robots.
+
+
+19.5.1 Force Feedback
+Force feedback is probably the most appealing approach for reducing apparent impedance. If a simple
+impedance controller is applied to a one-dimensional inertial mass as in Figure 19.1, that is also subject to
+some nonlinear friction force F n (x, ẋ), and is augmented with a proportional force feedback controller,
+the control law is given by Equation (19.6), repeated here for convenience.
+
+                       F a = K (r − x) + B(ṙ − ẋ) + K f [F e + K (r − x) + B(ṙ − ẋ)]                      (19.12)
+
+K and B are the scalar desired stiffness and damping, respectively, and r now represents the virtual
+position.10 The force feedback term serves to minimize the deviation of the actual endpoint force from
+the desired endpoint force, which looks like a damped spring characterized by K and B connected to the
+virtual trajectory. The equation of motion for the uncontrolled system with nonlinear friction is
+
+                                         mẍ + b ẋ + F n (x, ẋ) = F a + F e                                 (19.13)
+
+Combining Equation (19.12) and Equation (19.13), the controlled equation of motion is as follows:
+
+                        m            b        F n (x, ẋ)
+                             ẍ +        ẋ +             + K (x − r ) + B(ẋ − ṙ ) = F e                    (19.14)
+                      1 + Kf      1 + Kf      1 + Kf
+
+
+
+   10
+      As outlined above, given the assumed robot model, a simple impedance controller closely resembles a PD motion
+controller. In Equation (19.6) and Equation (19.14) the corresponding proportional and derivative gains are K (1+ K f )
+and B(1 + K f ), respectively. This form is chosen so that force feedback does not change the stiffness and damping
+introduced by the controller.
+Impedance and Interaction Control                                                                               19-19
+
+
+                                                        (1 – K f)k
+
+                                   Fa       (1 – Kf)m                 m        Fe
+                                            2(1 + Kf)                 2
+                                                        (1 – K f)b
+
+
+FIGURE 19.13 Equivalent physical system for a single-resonance model under force feedback control. (Modified
+from Colgate, J.E., The control of dynamically interacting systems, Ph.D. thesis, Massachusetts Institute of Technology,
+1988, with permission.)
+
+
+
+Equation (19.14) shows that the introduction of proportional force feedback reduces the apparent mass
+and friction by a factor of the force feedback gain plus one, so that (in principle) arbitrarily large force
+gains drive the actual impedance to the desired impedance specified by the controller. Friction, inertia, or
+any other behavior, whether linear or nonlinear, is minimized.
+   This one-degree-of-freedom combination of force and motion feedback is readily extended to multiple
+degrees of freedom. Assuming the robot may be modeled as a multi-degree-of-freedom inertial mechanism,
+retarded by friction and subject to actuator and environmental forces (as in Equation (19.8) above), a
+controller based on feedback of endpoint position, velocity, and force can be formulated to replace the
+manipulator’s inherent dynamics with arbitrary inertia, stiffness, and damping (Hogan, 1985).
+   Despite its appeal, this approach has fundamental limitations. Clearly, the largest possible force feedback
+gain is desirable to minimize unwanted components of intrinsic robot behavior, e.g., due to nonlinear
+friction. However, experienced control system designers intuit that increasing gains toward infinity almost
+always leads to instability, and the following observation shows why this holds true in the case of force
+feedback. Colgate has derived a physical equivalent representation of force feedback. A physical equivalent
+representation is a model of a mechanical system that exactly replicates the behavior of a system under
+feedback control. Figure 19.13 shows a physical equivalent representation for a model of a robot with a
+single structural vibration mode (as shown in Figure 19.2 but with b1 = b2 = 0, m1 = m2 = m/2) under
+force feedback control (Equation (19.12) with K = B = 0). It also exhibits a single structural mode
+but with parameters that depend on the force feedback gain. The result has negative stiffness, mass, and
+damping parameters for any force feedback gain greater than 1 (Colgate, 1988). Because endpoint force
+feedback is not state feedback, isolated stability is unaffected; this system remains neutrally stable as long as
+the interaction force F e is zero. However, for K f > 1, it is not passive; it can exhibit negative visco-elastic
+behavior upon contact, resulting in coupled instability. Note that this gain limit is independent of the
+value of the structural stiffness and damping. As any real robot almost inevitably exhibits resonance, this
+analysis shows that any system under force feedback becomes nonpassive for a force feedback loop gain
+greater than unity and is, therefore, vulnerable to coupled instability.
+
+
+19.5.2 Natural Admittance Control
+One effective solution to the loss of passivity due to force feedback is natural admittance control (NAC)
+developed by Newman (1992). In essence, this approach is based on the observation that a system under
+force feedback becomes nonpassive when the controller reduces the apparent inertia (to less than about
+half its physical value), but passivity is not compromised by the elimination of friction. Natural admittance
+control specifies a desired inertia that is close to that of the physical system (the “natural admittance”) and
+focuses on reducing friction as much as possible, preserving passivity.
+   A method for the design of natural admittance controllers is detailed in Newman (1992). Here the
+procedure is sketched for the simple robot model shown in Figure 19.1 consisting of a single mass retarded
+by friction and driven by actuator and environmental forces. The system might also have nonlinear friction
+that the NAC seeks to eliminate, that need not be modeled at all in the design of the compensator; the
+controller treats such friction as a disturbance from desired port behavior and rejects it. To ease notation,
+19-20                                                                     Robotics and Automation Handbook
+
+
+the substitutions v = v a = ẋ = v e are made. The equation of motion for the system velocity neglecting
+nonlinear friction is
+
+                                                mv̇ + bv = F a + F e                                         (19.15)
+
+In the Laplace domain:
+                                                       1
+                                               v=           (F a + F e )                                     (19.16)
+                                                     ms + b
+A generic form for the controller is assumed, that incorporates some velocity feedback with compensator
+G v (s) and endpoint force feedback with some compensator G f (s):
+
+                                                 Fa = G v v + G f Fe                                         (19.17)
+
+Using Equation (19.16) and Equation (19.17) the actual endpoint admittance Y (s ) = v/F e is determined:
+                                                             Gf + 1
+                                                Y (s ) =                                                     (19.18)
+                                                           ms + b − G v
+This is equated to the target port admittance. The target stiffness K and damping B are chosen at will but
+the target mass is equal to the physical mass m of the system:
+                                                                      1
+                                         Y (s ) = Ydes (s ) =                                                (19.19)
+                                                                ms + B + K /s
+
+Equation (19.18) and Equation (19.19) can be solved for G f in terms of G v :
+
+                                                    (b − G v − B)s − K
+                                             Gf =                                                            (19.20)
+                                                       ms 2 + Bs + K
+A simple form for G v can be assumed, such as a constant, and the compensator design is complete.
+Equation (19.20) may be thought of as a force feedback “filter” that yields the desired admittance of
+Equation (19.19). Although the mass is not reduced, the “disturbance” to the desired behavior due to
+friction, b, is rejected with the feedback gain of the compensator, and its effect is smaller as the velocity
+loop gain, G v , is increased. The approach serves equally well to minimize disturbances due to nonlinear
+frictional forces, e.g., dry friction.11
+   In principle, the controlled system is passive even if the velocity gain is increased to arbitrary size,
+minimizing the unwanted frictional effects. In practice unmodeled dynamic effects limit the gain that may
+be used without compromising passivity, but the technique affords significant practical improvement over
+simple proportional force feedback. A more general formulation and discussion of the method can be
+found in Newman (1992) and Newman and Zhang (1994).
+
+
+19.5.3 Series Dynamics
+An alternative approach to stabilizing interaction under force feedback is to place compliant and/or viscous
+elements in series between a manipulator and its environment. Variants of this approach have been used
+since the earliest attempts at robot force control (Whitney, 1977), e.g., in the form of compliant pads on
+the robot end-effector. A drawback is that this may compromise fine motion control. More recently a series
+spring has been incorporated within force control actuators to facilitate force feedback and absorb impacts
+(Pratt and Williamson, 1995). The following example illustrates the beneficial effect of series dynamic
+elements.
+
+
+
+  11
+       The Laplace domain representation above was used to simplify the presentation and is not essential.
+Impedance and Interaction Control                                                                                            19-21
+
+
+                                         10
+
+                                              9
+
+                                              8
+
+                  Environment mass, kg                              Stable
+                                              7                     Region
+
+                                              6
+
+                                              5
+
+                                              4
+                                                                                               Unstable
+                                                                                               Region
+                                              3
+
+                                              2
+
+                                              1
+                                                   10      20        30      40   50    60      70        80     90    100
+                                                                      Environment stiffness, N/m
+
+
+FIGURE 19.14 Stable and unstable parameter values for spring-and-mass environment coupled to the system of
+Example 19.2. The coupled system is stable when parameters fall in the region above the line and unstable when they
+fall in the region below the line.
+
+
+                                                          x1                      x2
+
+                                                                k
+                                                                                          ks
+                     Fa                                                           Fe
+                                                  m1                         m2                      ms          Ze
+
+                                         b1                    b3                 b2
+
+
+
+                                                        System plant                   Series dynamics         Environment
+
+
+FIGURE 19.15 The single-resonance model of Figure 19.2 with a spring and mass interposed in series between
+interaction port and environment.
+
+
+
+Example 19.5
+A series spring’s stabilizing effect on a force-controlled system can be illustrated by considering again
+the simple model of a robot with a single structural vibration mode shown in Figure 19.2. Under the
+control law of Equation (19.6) or Equation (19.12), this system may have a nonpassive impedance and be
+destabilized by interaction with some environments. However, it remains stable when interacting with a
+broad range of spring and mass environments,12 as depicted by the stability boundary in Figure 19.14. In
+this particular example, high-stiffness springs are destabilizing while masses are stabilizing. If a spring and
+mass are placed in series between the interaction port and the environment, as depicted by ks and ms in
+Figure 19.15, the apparent stiffness that the controlled system experiences cannot exceed ks . By appropriate
+
+
+
+  12
+    Recall that the set of all positive springs and masses includes the most destabilizing passive environments a robot
+may encounter.
+19-22                                                                      Robotics and Automation Handbook
+
+
+                                    x1                        x2
+
+                                         k                                      ks
+                 Fa                                            Fe
+                           m1                        m2                                  Ze
+
+                      b1                 b3                   b2            bs
+
+
+
+                                System plant                        Series dynamics   Environment
+
+
+FIGURE 19.16 The single-resonance model of Figure 19.2 with a parallel spring and damper interposed in series
+between interaction port and environment.
+
+
+choice of ks the resulting interaction port impedance is made passive, stabilizing the interaction. In effect, a
+piece of the controller’s “environment” is carried around with the robot, acting to “filter” the environment
+dynamics to ensure that the controller cannot encounter any environment capable of destabilizing it.
+   The implementation of “series elastic actuators” (Pratt and Williamson, 1995) also includes an inertia
+ms between ks and the environment, endowing the controller’s environment with not only a maximum
+stiffness but also a minimum inertia, further stabilizing the system. Considering Figure 19.15, the stiffness
+ks and inertia ms may be chosen so that the uncoupled robot behavior corresponds to a point in the
+stable region. Assuming interaction with passive environments, the interaction port is then guaranteed
+to encounter only environments that reside above and to the left of this point, thereby ensuring coupled
+stability.
+
+    Although the method described above can guarantee stability for certain types of nonpassive systems,
+it lacks the generality to be applicable to all nonpassive systems. Dohring and Newman have provided
+a formalization that includes damping to drain the energy introduced by nonpassive behavior of the
+controller or the environment (Dohring and Newman, 2002). The recommended approach includes a
+parallel spring and damper in series with the environment, as shown in Figure 19.16. Analysis of passivity
+of the admittance function at the interaction port dictates the selection of the spring and damper values. By
+modeling the parallel spring and damper as a two-port, the admittance at the outboard side of the spring
+and damper, Y (s ), is computed in terms of the original robot admittance, Yo (s ), and the series elements:
+                                                                         s
+                                              Y (s ) = Yo (s ) +                                       (19.21)
+                                                                   b s s + ks
+A small series damper bs contributes a large positive-real term to the net admittance at high frequencies,
+compensating for negative-real, nonpassive behavior in Yo (s ). The spring determines the frequency range
+at which the damping dominates. Together they can be selected to make Y (s ) passive.
+   Intentional series dynamics can be thought of as “mechanical filters,” perhaps loosely analogous to
+anti-aliasing filters used with analog-to-digital converters, that attenuate undesirable effects in peripheral
+frequency ranges that make the system vulnerable to coupled instability, while preserving desired dynamic
+behavior in the frequency range of interest. As with signal filters, something is lost; here, it might be
+bandwidth or positioning accuracy, a tradeoff that may be acceptable for interactive robots.
+
+
+19.6      More Advanced Methods
+The foregoing considered some of the basic approaches to interaction control. Alternative and more
+advanced techniques and applications have been developed. The following is a small sample of this extensive
+work.
+  Nonlinear approaches to impedance control have been pursued with success, including adaptive (Singh
+and Popa, 1995), learning (Cheah and Wang, 1998), robust sliding-mode (Ha et al., 2000), and decentralized
+Impedance and Interaction Control                                                                       19-23
+
+
+control (Kosuge et al., 1997) methods. Stability properties of different implementations of impedance
+control have been investigated by Lawrence (1988). An alternative approach to design for coupled stability
+based on the small-gain theorem has been pursued by Kazerooni et al. (1990). More powerful methods to
+guarantee stable interaction have been studied in depth by Miller et al. (2000).
+  For spatial rotations and translations, the specification of task-relevant impedance (and especially stiff-
+ness) is particularly challenging. By characterizing impedance using a “spatially affine” family of compliance
+and damping, Fasse and Broenink (1997) develop a method that substantially simplifies specification and
+implementation of spatial impedance. A quaternion representation of rotational impedance is presented
+by Caccavale et al. (1999).
+
+
+19.7      Conclusion: Interaction Control, Force Control,
+          and Motion Control
+The fundamental goal of the interaction controllers described in this chapter is to minimize deviations
+from some specified ideal of a system’s dynamic response to inputs at its ports of interaction. In a sense,
+both motion and force controllers attempt the same task, though each focuses on only one port variable
+in particular. A system with zero admittance, or infinite impedance, gives zero motion in response to any
+applied force. In other words, it imposes motion and its motion is unaffected by any applied force. This
+ideal is the goal of a purely motion-controlled manipulator. Conversely, the force applied by a system with
+zero impedance, or infinite admittance, has zero dependence on motion at its interaction port. In other
+words, it is the ideal of a pure force controller. Those designing motion or force controllers in effect decide
+to forego a guarantee of interaction stability in favor of maximizing or minimizing port impedance. This
+may be appropriate for applications in which the work exchanged between the robot and its environment
+is negligible. For applications where power exchange cannot be ignored, interaction control provides
+techniques to accommodate its effects.
+
+
+References
+Andrews, J.R. and Hogan, N. (1983). Impedance control as a framework for implementing obstacle avoid-
+       ance in a manipulator. In: D. Hardt and W.J. Book (eds.), Control of Manufacturing Processes and
+       Robotic Systems, ASME, New York, pp. 243–251.
+Brown, F.T. (2001). Engineering System Dynamics. Marcel Dekker, New York.
+Burdet, E., Osu, R., Franklin, D.W., Milner, T.E., and Kawato, M. (2001). The central nervous system
+       stabilizes unstable dynamics by learning optimal impedance. Nature, 414:446–449.
+Caccavale, F., Natale, C., Siciliano, B., and Villani, L. (1999). Six-DOF impedance control based on an-
+       gle/axis representations. IEEE Trans. Robotics and Automation, 15(2):289–300.
+Carlson, J.D., St. Clair, K.A., Chrzan, M.J., and Prindle, D.R. (1999). Controllable vibration apparatus.
+       U.S. Patent No. 5,878,851.
+Cheah, C.C. and Wang, D. (1998). Learning impedance control for robotic manipulators. IEEE Trans.
+       Robotics and Automation, 14(3):452–465.
+Colgate, J. E. (1988). The control of dynamically interacting systems. Ph.D. thesis, Deptartment of Me-
+       chanical Engineering, Massachusetts Institute of Technology.
+Colgate, J.E. and Hogan, N. (1988). Robust control of dynamically interacting systems, Int. J. Control,
+       48(1):65–88.
+Dohring, M. and Newman, W.S. (2002). Admittance enhancement in force feedback of dynamic systems.
+       Proc. IEEE Int. Conf. Robotics and Automation, pp. 638–643.
+Fasse, E.D., Hogan, N., Gomez, S.R., and Mehta, N.R. (1994). A novel variable mechanical-impedance,
+       electromechanical actuator. In: Radcliffe, C. (ed.), Dynamic Systems and Control 1994, vol. 1, ASME,
+       New York, pp. 311–318.
+Fasse, E.D. and Broenink, J.F. (1997). A spatial impedance controller for robotic manipulation. IEEE Trans.
+       Robotics and Automation, 13(4):546–556.
+19-24                                                            Robotics and Automation Handbook
+
+
+Ha, Q.P., Nguyen, Q.H., Rye, D.C., and Durrant-Whyte, H.F. (2000). Impedance control of a hydraulically
+       actuated robotic excavator. Automation in Construction, 9:421–435.
+Hogan, N. (1985). Impedance control: an approach to manipulation. ASME J. Dynamic Syst. Meas. Control,
+       107:1–24.
+Hogan, N. (1988). On the stability of manipulators performing contact tasks. IEEE J. Robotics and Au-
+       tomation, 4:677–686.
+Hogan, N. (1990). Mechanical impedance of single- and multi-articular systems. In: J. Winters and S. Woo
+       (eds.), Multiple Muscle Systems: Biomechanics and Movement Organization, Springer-Verlag, New
+       York, pp. 149–164.
+Kazerooni, H., Waibel, B., and Kim, S. (1990). On the stability of compliant motion control: theory and
+       experiments. ASME J. Dynamic Syst. Meas. Control, 112:417–426.
+Kleidon, M. (1983). Modeling and performance of a pneumatic/hydraulic hybrid actuator with tunable
+       mechanical impedance. S.M. Thesis, Department of Mechanical Engineering, Massachusetts Insti-
+       tute of Technology, September.
+Kosuge, K., Oosumi, T., and Seki, H. (1997). Decentralized control of multiple manipulators handling an
+       object in coordination based on impedance control of each arm. Proc. IEEE/RSJ Int. Conf. Intelligent
+       Robots and Systems, pp. 17–22.
+Lawrence, D.A. (1988). Impedance control stability properties in common implementations. Proc. IEEE
+       Int. Conf. Robotics and Automation, 2:1185–1190.
+Levine, W.S. (1996). The Control Handbook. CRC Press and IEEE Press.
+Miller, B.E., Colgate, J.E., and Freeman, R.A. (2000). Guaranteed stability of haptic systems with nonlinear
+       virtual environments. IEEE Trans. Robotics and Automation, 16(6):712–719.
+Newman, W.S. (1992). Stability and performance limits of interaction controllers. ASME J. Dynamic Syst.
+       Meas. Control, 114(4):563–570.
+Newman, W.S. and Zhang, Y. (1994). Stable interaction control and coulomb friction compensation using
+       natural admittance control. J. Robotic Systems, 11(1):3–11.
+Pratt, G.A. and Williamson, M.M. (1995). Series elastic actuators. Intelligent Robots and Systems, Proc.
+       Human Robot Interaction and Cooperative Robots, pp. 399–406.
+Rancourt, D. and Hogan, N. (2001). Stability in force-production tasks. J. Motor Behavior, 33(2):193–204.
+Sharon, A., Hogan, N., and Hardt, D.E. (1988). High-bandwidth force regulation and inertia reduction
+       using a macro/micro manipulator system. Proc. IEEE Int. Conf. Robotics and Automation, 1:126–132.
+Singh, S.K. and Popa, D.O. (1995). An analysis of some fundamental problems in adaptive control of force
+       and impedance behavior: theory and experiments. IEEE Trans. Robotics and Automation, 11(6):912–
+       921.
+Tilley, S.W. and Cannon, R.H., Jr. (1986). End point position and force control of a flexible manipulator
+       with a quick wrist. Proc. AIAA Guidance, Navigation and Control Conference, pp. 41–49.
+Volpe, B.T., Krebs, H.I., Hogan, N., Edelstein, O.L., Diels, C., and Aisen, M. (2000). A novel approach to
+       stroke rehabilitation: robot-aided sensorimotor stimulation, Neurology, 54:1938–1944.
+Whitney, D. (1977). Force feedback control of manipulator fine motions. ASME J. Dynamic Syst. Meas.
+       Control, 99:91–97.
+Willems, J.C. (1972). Dissipative dynamical systems part I: general theory. Arch. Ration. Mech. Anal.,
+       45(5):321–351.
+Won J. and Hogan N. (1996). Nodicity and nonlinear interacting dynamic systems. Proc. ASME Int. Mech.
+       Eng. Conf. Exposition, DSC-58:615–621.
+Wyatt, J.L., Chua, L.O., Gannett, J.W., Göknar, I.C., and Green, D.N. (1981). Energy concepts in the
+       state-space theory of nonlinear n-ports: part I — passivity. IEEE Trans. on Circuits and Systems,
+       CAS-28(1):48–61.
+

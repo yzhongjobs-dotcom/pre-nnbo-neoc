@@ -1,0 +1,825 @@
+                                              IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 6, DECEMBER 2025                                               7693
+
+
+
+
+         AuSoScan: Automatic Scoliosis Assessment by
+         Ultrasound Scanning With Soft Contact Control
+                       Anqing Duan , Member, IEEE, Wanli Liuchen, Peng Zhou , Member, IEEE,
+                        Dezhen Song , Senior Member, IEEE, Chenguang Yang , Fellow, IEEE,
+               Yongping Zheng , Senior Member, IEEE, and David Navarro-Alarcon , Senior Member, IEEE
+
+
+          Abstract—In this article, we present AuSoScan, a novel                         is evaluated by real-world experiments of assessing the
+       robotic platform that enables automatic scoliosis assess-                         scoliosis on a phantom.
+       ment through ultrasound scanning. Ultrasound imaging
+       has been widely adopted in physical examinations due                                Index Terms—Force control, healthcare robotics, image
+       to its many benefits, such as being radiation-free, cost-                         processing, medical robots and systems, robotic ultra-
+       effective, and highly portable. However, the scanning pro-                        sound imaging.
+       cedure is often tedious and labor-intensive, requiring sono-
+       graphers to perform repetitive manual scanning tasks. With
+       the fast development of robotic technologies in medical                                                      I. INTRODUCTION
+       and healthcare applications, robotic ultrasound imaging
+                                                                                              COLIOSIS refers to an abnormal lateral curvature of the
+       presents a promising solution by combining the strengths
+       of both robotic systems and ultrasonic devices. This has
+       driven the development of AuSoScan, a platform specif-
+                                                                                         S    spine [1]. Common patterns of scoliosis include thoracic,
+                                                                                         lumbar, thoracolumbar, or combined thoracic and lumbar sco-
+       ically aimed at diagnosing scoliosis, a condition charac-                         liosis, as illustrated in Fig. 1. It is the most common spinal
+       terized by an abnormal lateral curvature of the spine. The
+       hardware of the research platform consists of an ultrasound                       deformity with a prevalence of approximately 470–5200 per
+       probe, a robotic arm, a depth camera, a force/torque sensor,                      100 000 individuals worldwide [2]. Scoliosis brings several
+       and a workstation. The software architecture of the system                        negative effects to the patients, such as psychosocial disability,
+       comprises an ultrasonic perception model, a control sys-                          mechanical pulmonary restriction, and even back pain. The scol-
+       tem, and a 3-D spinal image reconstruction program. The                           iosis progression requires close and frequent monitoring because
+       control system of AuSoScan is implemented using model
+       predictive control, explicitly accounting for the soft contact                    timely intervention usually ensures the best therapeutic effect.
+       between the ultrasound probe and the patient’s back to en-                           As a gold standard for scoliosis assessment, the Cobb’s angle
+       able precise force control. The effectiveness of AuSoScan                         method has been widely used to quantify the severity of spinal
+                                                                                         deformities since its invention [3]. The Cobb angle is defined as
+          Received 9 December 2024; revised 2 May 2025; accepted 17 June                 the angle between the upper border of the uppermost vertebra
+       2025. Date of publication 16 July 2025; date of current version 30                and the lower border of the lowermost vertebra in the coronal
+       December 2025. Recommended by Technical Editor L. Bascetta and
+       Senior Editor C. Clevy. This work was supported in part by the Research           plane, representing the lateral deviation of the spine. Despite
+       Impact Fund of the HK Research Grants Council under Grant R5017-                  its popularity, the Cobb angle approach to scoliosis assessment
+       18F, in part by PolyU through the Intra-Faculty Interdisciplinary Project         has certain risks and drawbacks. One significant deficiency is
+       under Grant ZVVR, and in part by the Multi-Institutional Faculty Inter-
+       disciplinary Research Project (MFIRP) between IIT Delhi and MBZUAI.               the exposure to radioactive X-rays, as it is measured based on
+       (Corresponding author: David Navarro-Alarcon.)                                    a posterior–anterior radiograph. Since the monitoring of the
+          This work involved human subjects or animals in its research. Ap-              scoliosis progression of a child has to be performed every four to
+       proval of all ethical and experimental procedures and protocols was
+       granted by the PolyU Institutional Review Board under Application No.             six months throughout adolescence [4], it is always worrisome
+       HSEARS20210417002, and performed in line with the ethical and ex-                 that repeated exposure to radiographs would increase the risk of
+       perimental procedures and protocols.                                              future iatrogenic cancer risks for children [5]. Recent studies
+          Anqing Duan and Dezhen Song are with the Mohamed bin
+       Zayed University of Artificial Intelligence (MBZUAI), Abu Dhabi                   show that the cancer rate developed in a cohort of adoles-
+       SE45 05, United Arab Emirates (e-mail: anqing.duan@mbzuai.ac.ae;                  cent idiopathic scoliosis patients is five times higher than the
+       dezhen.song@mbzuai.ac.ae).                                                        age-matched population, which calls for the reduction of the
+          Wanli Liuchen, Yongping Zheng, and David Navarro-Alarcon are
+       with The Hong Kong Polytechnic University (PolyU), KLN Hong                       radiation dose [6].
+       Kong (e-mail: cwanli.liu@polyu.edu.hk; yongping.zheng@polyu.edu.hk;                  Considering the dangerous ionizing radiation caused by X-
+       dnavar@polyu.edu.hk).                                                             rays, the development of a radiation-free alternative is imper-
+          Peng Zhou is with the School of Advanced Engineering, The Great
+       Bay University, Dongguan 523000, China (e-mail: pzhou@gbu.edu.cn).                ative. In particular, sonography serves as a popular technique
+          Chenguang Yang is with the Department of Computer Science, Uni-                in medical health diagnosis because it is radiation free, low
+       versity of Liverpool, L69 3BX Liverpool, U.K. (e-mail: cyang@ieee.org).           cost, and widely accessible [7]. Although long thought to be
+          Color versions of one or more figures in this article are available at
+       https://doi.org/10.1109/TMECH.2025.3583041.                                       effective only for imaging soft tissues of the body, the feasibil-
+          Digital Object Identifier 10.1109/TMECH.2025.3583041                           ity of ultrasound imaging bones, such as spines, has recently
+
+
+       1083-4435 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and similar technologies.
+          Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html
+                                                                        for more information.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+        7694                                                                      IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 6, DECEMBER 2025
+
+
+
+                                                                                             The rest of the article is organized as follows. First, related
+                                                                                          work is reviewed in Section II. The hardware set-up is intro-
+                                                                                          duced in Section III. The software development is presented
+                                                                                          in Section IV. The effectiveness of AuSoScan is evaluated in
+                                                                                          Section V. Finally, Section VI concludes this article.
+
+
+                                                                                                                    II. RELATED WORK
+                                                                                             Robot-assisted sonography: Robotic ultrasound imaging, an
+                                                                                          interdisciplinary field that merges robotics and ultrasonogra-
+                                                                                          phy, has garnered significant interest. The development of au-
+        Fig. 1. Illustration of different patterns of scoliosis. (a) Thoracic curve.
+        (b) Thoracolumbar curve. (c) Lumbar curve. (d) Double major curve as              tonomous imaging is at the forefront of this field, promising
+        well as the imaging of spines. (e) Radiography for scoliosis assessment.          to minimize human involvement. To achieve autonomous scan-
+        (f) Sonography for scoliosis assessment.                                          ning, a multimodal deep reinforcement learning model that
+                                                                                          integrates visual and tactile information is utilized to determine
+        been demonstrated, thus providing a new method for assessing                      the ultrasound probe’s pose [12]. In addition, deep reinforcement
+        scoliosis [8]. A comparison between radiography and sonogra-                      learning is applied to identify high-quality standard planes from
+        phy is shown in Fig. 1(e) and (f).                                                volumetric ultrasound data [13]. Besides, Bayesian optimization
+           Building upon the promising advancements in diagnosing                         is employed to adjust the scanning angle during thyroid imag-
+        scoliosis using ultrasonography, this article focuses on automat-                 ing [14]. Our approach is distinguished from the previous studies
+        ing the scanning procedure. Currently, in manual spinal scan-                     in terms of its focus on the modeling of the soft contact between
+        ning, a sonographer applies pressure to an ultrasound probe and                   the human skin and the ultrasound probe. Thanks to an explicit
+        slides it in a posterior–anterior direction to track the center of the            deformation model, our method enables reliable and effective
+        vertebrae, specifically the spinous process [9]. Our objective is                 control of the soft interaction with the ultrasound probe.
+        to perform ultrasonic spine scanning using a robotic manipulator                     Ultrasonic perception: Compared to the traditional visual
+        instead of relying on a human sonographer. We believe that                        servoing strategy, which aims to synthesize a robot’s motion
+        the autonomous acquisition of ultrasound images has many                          based on visual features [15], the processing of spinal ultra-
+        benefits. First, it relieves sonographers from the tedious and                    sound images for real-time robot control is more complex.
+        repetitive task of manual scanning [10]. Second, patients can                     Challenges primarily arise from two sources: inherent speckle
+        receive a more standardized treatment at a more affordable cost                   noise and image quality evaluation. The presence of inherent
+        for examination. In addition, robotic-assisted medical checks                     speckle noises prevents us from straightforward identification
+        offer a promising solution to address the problem of medical                      of desired anatomical attributes [16]. In conventional ultrasound
+        personnel shortage.                                                               image processing techniques, a preprocessing step is typically
+           Formally, we present AuSoScan, a novel robotic platform                        employed to denoise raw images. For instance, in the case of
+        that enables automatic scoliosis assessment by ultrasound scan-                   determining a needle insertion site, support vector machines
+        ning. AuSoScan automates the coronal spine image acquisition                      with Gaussian kernels are applied to denoised ultrasound im-
+        process. AuSoScan employs a robotic manipulator to replace                        ages to classify spinous process images and interspinous im-
+        the human sonographer. The end-effector of the robot arm                          ages [17]. By contrast, in our work, the objective is for the
+        is equipped with an ultrasound probe that is used for ultra-                      ultrasonic perception module to localize the region of interest,
+        sound imaging as in the manual case. The control system                           specifically the spinous process, rather than classifying it. It is
+        design of AuSoScan employs a model-predictive approach.                           worth mentioning that a random walk-based confidence map is
+        This predictive controller takes the signals from the ultrasonic                  commonly used [18] in ultrasound image evaluation. Although
+        transducer as input and generates the optimal control com-                        this approach achieves promising results when evaluating the
+        mands. Moreover, the proposed controller explicitly accounts                      quality of ultrasound images of soft tissues, the same principle
+        for the soft contact between the ultrasound probe and human                       may not be suitable for evaluating ultrasound images of bones.
+        back tissue and skin. The 3-D spinal image is then recon-                         Our residual network (ResNet)-based ultrasonic module can
+        structed from the ultrasound images captured by the robotic                       effectively overcome these limitations [19].
+        scanning [11].                                                                       Soft Contact Mechanics: The contact established between the
+           To summarize, the original contributions of this article are                   probe and the large posterior area of the human body constitutes
+        outlined as follows.                                                              a soft interaction [20], which represents a unique challenge
+            1) Development of an innovative robotic scanning system,                      compared with noncontact applications [21], [22]. While rigid
+                which integrates a robot arm with an ultrasound probe, to                 contact has been extensively studied in various grasping and
+                realize automatic ultrasonic spine scanning.                              manipulation applications [23], soft interaction has also received
+            2) Implementation of a novel control system, which                            significant attention in areas, such as needle insertion [24],
+                generates control signals by perceiving ultrasound images                 suturing [25], and cutting [26]. In our application, we specif-
+                whilst taking soft probe-tissue contact into account.                     ically focus on hybrid motion/force control on a soft substrate.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+       DUAN et al.: AUSOSCAN: AUTOMATIC SCOLIOSIS ASSESSMENT BY ULTRASOUND SCANNING WITH SOFT CONTACT CONTROL                                                     7695
+
+
+
+       Typically, a second-order mass-damping-spring model is em-                        B. Robotic Hardware
+       ployed to describe the contact dynamics behavior [27]. However,
+                                                                                            In this section, we present the specifications of the hardware
+       in this article, we propose building the soft contact dynamics
+                                                                                         system of AuSoScan. Being an automated version of Scolioscan,
+       model using the Hertzian theory, as suggested by Duchemin
+                                                                                         AuSoScan aims to achieve the scanning task automatically
+       et al.[28] in the context of soft spherical interactions. Compared
+                                                                                         using a robotic manipulator, thus eliminating the need for a
+       to the work by Duchemin et al.[28], we instead investigate the
+                                                                                         sonographer. The hardware components and their respective
+       cylinder-plane interaction, as the shape of the cylinder better
+                                                                                         responsibilities are described in detail below.
+       represents the geometry of the probe than a sphere. Moreover, we
+                                                                                            The key component of AuSoScan is the UFACTORY xArm
+       explicitly consider the resistance force caused by deformation
+                                                                                         6, a collaborative robotic arm. The xArm is a serial robot ma-
+       in our model.
+                                                                                         nipulator equipped with 6 degrees of freedom (DoFs). The base
+                                                                                         of the robot arm is mounted on a wheeled supporting platform.
+                              III. HARDWARE DESIGN                                       During the preparation phase of a scanning task, the supporting
+          In this section, we will introduce the overall hardware system                 platform is positioned in a way that ensures the entire back of the
+       of AuSoScan, which is built on top of the Scolioscan system,                      patient falls within the robot arm’s working space. To maintain
+       a 3-D ultrasound imaging platform for manual scoliosis assess-                    stability, the wheels of the supporting platform are locked before
+       ment [29]. We first briefly introduce the Scolioscan system in                    activating the control box of the robot arm. For communication,
+       Section III-A. Subsequently, we introduce the hardware compo-                     the xArm robot manipulator is connected to a workstation using
+       nents of AuSoScan in Section III-B.                                               the transmission control protocol/internet protocol (TCP/IP),
+                                                                                         operating at a rate of 125 Hz.
+                                                                                            AuSoScan is designed to be able to sense and perceive
+       A. Scolioscan Platform                                                            the environment and manipulate the ultrasound probe as the
+          The Scolioscan system (Model SCN801, Telefield Medical                         end-effector in response to the sensory feedback in real time,
+       Imaging Ltd., Hong Kong), endowed with commercial and er-                         such as a human sonographer. To achieve such advanced and
+       gonomic designs, was previously developed for 3-D ultrasound                      sophisticated sensorimotor control, the sensing and perception
+       imaging of spines to enable scoliosis assessment [29]. The usage                  system of AuSoScan incorporates multiple sensors, including an
+       of Scolioscan can be characterized by the following three phases,                 ultrasonic transducer, an force/torque (F/T) sensor, and a depth
+       namely, prescanning, intrascanning, and postscanning.                             camera.
+          Before starting a scan, the patient is instructed to stand on                     The ultrasound probe used in AuSoScan is Scolioscan
+       the podium equipped with an antifatigue mat. The patient’s                        SCN201, which is a palm-sized portable ultrasonic transducer.
+       anterior concave border of the clavicle and anterior superior                     Scolioscan SCN201 is crafted to be ultra-light with a net weight
+       iliac spine is supported by the chest and hip supporting boards,                  of 500 g and has a suitcase dimension of 182 mm × 97 mm ×
+       respectively. Two supporting pillars are installed on each sup-                   150 mm. The probe is mounted on the last link of the robot
+       porting board to compensate for the potential body displacement                   arm by being clamped by a customized 3D-printed fixture. The
+       caused by the probe’s pressure. Both the supporting boards and                    probe captures the spinal ultrasound images at a frequency of
+       the supporting pillars are adjustable according to the patient’s                  7.5 MHz and sends raw ultrasonic data at a frame rate of 10 fps
+       height. The scanning range is then determined by recording the                    to the workstation. The relatively low frame rate necessitates
+       lower and upper boundaries using the ultrasound probe. The cus-                   the robot moving slowly along the subject’s back to ensure
+       tomized probe runs at a frequency of 4–10 MHz with a width of                     reliable control. The aperture of the probe has a rectangular
+       10 cm.                                                                            shape with an acoustic transducer length of 80 mm and width
+          During the scanning procedure, a sonographer performs                          15 mm. The transmitted ultrasound images are organized with
+       steady freehand scanning from the fifth lumbar vertebra to the                    a size of 640 × 480 pixels.
+       first thoracic vertebra. The scanning process is facilitated by two                  To monitor the contact forces between the human back and
+       liquid crystal display (LCD) screens, providing information to                    the ultrasound probe for reliable physical interactions, a six-axis
+       both the patient and the sonographer. The front touch screen                      Force/Torque sensor Robotiq FT300 is installed between the
+       guides the sonographer’s scanning movements, while the other                      ultrasound probe and the robot arm end-effector. The F/T sensor
+       screen provides an evaluation procedure for the patient. To                       works at a sampling frequency of 1 kHz. With the measured
+       ensure a stable posture for the head and neck during scanning,                    force value by the F/T sensor, it becomes feasible to implement
+       the patient is instructed to focus on a green eye spot. The                       a direct force control strategy, as presented in the next section.
+       location of the eye spot is adjusted based on the patient’s height.                  To ensure stable acoustic coupling during the scanning proce-
+       The electromagnetic spatial sensor measures the position and                      dure, it is important to handle the ultrasound probe, guaranteeing
+       orientation of the probe, and it communicates with an onboard                     its tip consistently points toward the human back and maintains
+       electromagnetic transmitter located inside the transmitter box.                   contact. This requires knowledge of the normal vectors of the
+          After the completion of scanning, the recorded B-mode ultra-                   human back. To fulfill the requirement, we integrate a RealSense
+       sound images, along with the corresponding spatial information                    depth camera into AuSoScan. The depth camera is positioned at
+       collected from the probe, are utilized for the 3-D reconstruction                 the base of the robot manipulator. Before automatic scanning,
+       of the patient’s spine. Finally, the sonographer performs the anal-               the depth camera is used to sense the human back and retrieve
+       ysis of the coronal view of the image for scoliosis examination.                  the normal vectors.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+        7696                                                                      IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 6, DECEMBER 2025
+
+
+
+           In addition, we include a scoliosis phantom in the AuSoScan                    have mild scoliosis, namely, spinal deformity angle ranging
+        platform. The phantom contains a scoliotic spine sealed inside its                from 10◦ to 24◦ . The input ultrasound images are collected
+        upper body. The skin surface of the phantom is made from agar,                    by manually scanning the test subjects. There are a total of
+        which is a common material for mimicking human skin. The                          13 674 spinous process images in the dataset, containing 425
+        stiffness of the phantom has been previously identified, which                    spinous processes with 17 spinous processes for each subject.
+        is similar to that of human skin [30]. The realistic phantom                      The corresponding output heatmap images are generated from
+        facilitates in vitro studies of the robotic scanning, and the results             each ultrasound image by labeling its spinous process location
+        will also be informative and applicable to scenarios involving                    and forming a 2-D Gaussian distribution in accordance with the
+        the human body. The overall scanning procedure operates as                        label’s center.
+        follows. Before the formal scanning starts, the RealSense camera                     The loss function for training the ultrasonic perception net-
+        first captures the subject’s back to obtain normal vectors. Next,                 work is defined with the mean squared error. Given an ultrasound
+        the probe is extended to make contact with the human back.                        image In and its corresponding heatmap output Hn∗ , the loss
+        Once contact is established, the robot arm moves upward to                        function is expressed by
+        track the spinous processes, guided by the position provided by
+                                                                                                                        1 
+                                                                                                                            N
+        the ultrasound perception network.
+                                                                                                            L(θ) =            Hθ (In ) − Hn∗ 2                    (1)
+                                                                                                                        N n=1
+                           IV. SOFTWARE DEVELOPMENT
+                                                                                          where θ denotes the parameters to be learned for the neural net-
+          In this section, we describe the individual software compo-
+                                                                                          work and N represents the total number of training data points.
+        nents of AuSoScan, which include the ultrasonic perception
+                                                                                          In addition, the fivefold cross-validation for human subjects is
+        module (Section IV-A), the robot control system (Section IV-B),
+                                                                                          employed so that the images from the same subject do not appear
+        and the spinal reconstruction program (Section IV-C).
+                                                                                          in the training and testing datasets at the same time. To increase
+                                                                                          the robustness of the dataset, several data augmentation methods
+        A. Ultrasonic Perception Module                                                   are randomly selected for each image, including image rotation,
+           The ultrasonic perception module is responsible for the real-                  translation, and flipping.
+        time processing of raw ultrasound images, with the objective of
+        extracting and transmitting the position of the spinous process                   B. Control System
+        to the subsequent robot control system. The accurate detection
+                                                                                             The primary objective of the control system of AuSoScan is
+        of the spinous process is crucial for the success of spinal recon-
+                                                                                          to drive the robotic arm in tracking the spinous processes, en-
+        struction. To enhance the detection of the spinous process, we
+                                                                                          suring that their position remains centered within the ultrasonic
+        propose the utilization of the widely adopted heatmap approach.
+                                                                                          window. Our control system is built using an MPC approach,
+        This approach involves generating a heatmap image that reflects
+                                                                                          which provides a general and flexible framework for controller
+        the probability of each pixel in the original ultrasound image
+                                                                                          design [31]. The overall illustration of the control system is
+        belonging to the spinous process. In essence, the heatmap pro-
+                                                                                          shown in Fig. 2.
+        vides a visual representation of the spinous process position,
+                                                                                             In brief, MPC iteratively solves an online optimization prob-
+        with the pixel exhibiting the highest intensity indicating its
+                                                                                          lem in search of the optimal control action that drives the system
+        location.Fig. 3 shows the ultrasonic perception module.
+                                                                                          states based on a predefined cost function. Formally, the template
+           To transform an ultrasound image into a heatmap image, we
+                                                                                          of MPC is formulated as follows:
+        build our ultrasonic perception network based on the ResNet,
+        since it is widely used for image processing tasks, such as key                                                  
+                                                                                                                         l−1
+        feature identification. As a backbone of our perception network,                                      min               φ(xk , uk ) + ψ(xl )               (2a)
+                                                                                                             {uk }l−1
+                                                                                                                  k=0
+        ResNet extracts the image features from input ultrasound images                                                  k=0
+        through five convolutional stages. Then, a decoder is designed                                            s.t. xk+1 = F(xk , uk )                          (2b)
+        to map the image features to heatmaps. To this end, the last fully
+        connected layer of the original ResNet structure is modified by                                                  x0 = xcurrent                             (2c)
+        three deconvolutional layers that have batch normalization and                                                   xk ∈ X                                    (2d)
+        rectified linear unit (ReLU) activation. There are 256 filters for
+        each deconvolutional layer. Furthermore, the size of the kernel is                                               uk ∈ U
+        4 × 4 and the stride step is 2. Finally, to output a heatmap, which                                              ∀k = 0, . . . , l − 1.                    (2e)
+        is organized in a size of 56 × 56, the deconvolutional layers are
+        augmented by a 1 × 1 convolutional layer.                                            The control objective is expressed in (2a) where φ denotes the
+           The dataset for training the ultrasonic perception network                     tracking cost and ψ denotes the terminal cost. The constraints
+        consists of a set of paired ultrasound images as input and                        of MPC need to be satisfied over the horizon length l, which
+        heatmap images as output. To collect ultrasound images, a total                   encompass system dynamics (2b), and feasible regions of states
+        of 25 test subjects with scoliosis are involved. Among them,                      (2d) and controls (2e). Each iteration of MPC is initialized
+        7 subjects have moderate scoliosis, namely, spinal deformity                      with the current measured states (2c). By iteratively solving the
+        angle ranging from 25◦ to 37◦ , and the remaining 18 subjects                     optimization problem at every control step, the optimal control
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+       DUAN et al.: AUSOSCAN: AUTOMATIC SCOLIOSIS ASSESSMENT BY ULTRASOUND SCANNING WITH SOFT CONTACT CONTROL                                                     7697
+
+
+
+
+       Fig. 2. Illustration of the developed control system for AuSoScan, which is devised based on the MPC with the incorporation of the proposed soft
+       contact model. The model predictive controller minimizes the tracking cost over a sequence of control signals while satisfying a set of constraints,
+       including manipulator dynamics, soft contact mechanics, as well as state and control bounds. In addition, the tracking objective is provided by the
+       reference generator, which is responsible for localizing the spinous process and providing back surface normal vectors.
+
+
+
+
+       Fig. 3. Illustration of the pipeline for spinous process localization. The raw ultrasound image is first downsampled and then fed into the ultrasound
+       perception neural network, whose output is a heatmap image with the maximum intensity indicating the detected spinous process.
+
+
+
+       sequence can be derived, with the first one u0 being actually                     where M (q) is the mass matrix, C(q, q̇) is the Coriolis matrix,
+       executed.                                                                         G(q) is the gravity term, and J(q) is the Jacobian matrix.
+          In what follows, we elaborate on the instantiation of the MPC                     In addition to the manipulator dynamics, it is necessary to
+       template provided in (2) toward our application scenario. First                   account for the contact dynamics, as the interaction force is
+       of all, we consider the determination of the set of states of Au-                 considered part of the system states. Typically, there are two
+       SoScan’s control system. For robot arm control, the generalized                   primary types of robot-environment interaction: rigid contact
+       position vector q and velocity vector q̇ are chosen as the system                 and soft contact [32]. The former is featured by the constraints
+       states. In addition, we would like to achieve direct force control                of robot motion due to the establishment of contact with the
+       to regulate the interaction between the ultrasound probe and                      rigid environment, leading to the degeneration of the robot’s
+       the human body, which is usually enabled by the closure of a                      DOF. The latter deals with the interaction dynamics prescribed
+       force feedback loop. To this end, the interaction force F is also                 by the fundamental physical effects, such as inertia, elasticity,
+       incorporated as a controlled variable. Consequently, the system                   and dissipation.
+       states x are compactly expressed as                                                  Since the human body consists of soft tissues, the interaction
+                                                T                                      dynamics are thus categorized as soft contact. Traditionally,
+                             x = q T q̇ T F T .                       (3)                contact models for soft tissues are constructed using linear
+                                                                                         rheological elements, such as parallel and/or serial combinations
+         The control signals of the MPC controller u are chosen as the                   of linear springs and linear dampers [33]. These viscoelastic
+       robot joint torques τ , namely                                                    models are particularly appropriate for studying system behavior
+                                                                                         in the direction of penetration. However, in our scenario, the
+                                          u = τ.                                 (4)     robot end-effector is intended to slide on the surface of the soft
+          Subsequently, we consider the modeling of the system dy-                       tissues rather than penetrate them. Consequently, it is crucial
+       namics. The full system dynamics are composed of two parts:                       to explicitly model the deformation of the contact surface to
+       manipulator dynamics and soft interaction dynamics. The model                     facilitate the derivation of the soft contact dynamics.
+       for manipulator dynamics is given by                                                 We propose to model the soft contact dynamics by resorting
+                                                                                       to the Hertzian contact theory, a popular tool in the field of
+              q̈ = M (q)−1 τ − C(q, q̇)q̇ − G(q) − J(q)T F       (5)                     tribology and contact mechanics [34]. Compared to the simpler
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+        7698                                                                      IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 6, DECEMBER 2025
+
+
+
+        spring–damper system for soft contact modeling, our approach,
+        based on Hertzian contact theory, offers several advantages.
+        First, our specific application, which involves sliding over a soft
+        surface, requires understanding the geometric properties of the
+        local deformation region. These properties are readily derived
+        from Hertzian theory, unlike spring–damper modeling. Second,
+        Hertzian theory allows for the incorporation of material prop-
+        erties, such as Young’s modulus and Poisson’s ratio, offering a
+        more precise characterization of deformable contacts.
+           Our objective is to establish a relationship between the contact
+        forces and the kinematic motion of the robot arm. In particular,
+        we focus on modeling the forces along the normal and moving
+        directions, as these force components play a significant role in                  Fig. 4. Illustration of surface deformation. (a) Static case. (b) Relative
+        determining the contact dynamics.                                                 sliding. (c) Static stress distribution. (d) Sliding stress distribution.
+           We first review the contact surface deformation under static
+        contact, i.e., the relative speed between two contact objects is                  static case. As a result, we propose to modify the static pressure
+        zero. We assume that the geometric shape of the probe is a                        distribution as follows:
+        cylinder, and the human back surface is flat. For static contact,                                    ⎧             1/2
+                                                                                                             ⎪
+                                                                                                             ⎨pm 1 − r22
+        the Hertzian pressure distribution as a function of distance from                                                a1
+                                                                                                                                   −a1 ≤ r ≤ 0
+        the center of the pressed circle is given by                                                p(r) =                 1/2                        (11)
+                                                                                                             ⎪
+                                                                                                             ⎩ pm 1 − r 2 2
+
+                                                   1/2                                                                 a
+                                                                                                                                   0 <  r ≤  a 2
+                                                                                                                               2
+                                                 r2
+                              p(r) = ps 1 − 2                           (6)               where we still assume a similar shape of stress distribution
+                                                 a
+                                                                                          while the front radius and the rear radius become a1 and a2 ,
+        where ps denotes the maximum pressure and a denotes the radius                    respectively, and pm denotes the maximum pressure. Here, we
+        of the contact circle. The expression for the maximum pressure                    focus on the radius change with respect to the static contact
+        value with respect to the indentation d and the equivalent radius                 under the same normal strength F . Assuming that the change of
+        R is given by                                                                     the deformation radius locally remains a linear relationship with
+                                      E∗                                                  respect to the moving velocity v, we then have the front radius
+                                    ps =    d/R.                                  (7)     and the rear radius to be
+                                       2
+        The elastic property E ∗ is defined by                                                       a1 =      Rd0 − k1 v and a2 =              Rd0 + k2 v         (12)
+                                1        1 − ν12       1 − ν22                            where k1 and k2 denote the linear coefficients and d0 represents
+                                   =               +                              (8)
+                                E∗         E1            E2                               the static penetration depth given by
+        where E1 and E2 are Young’s moduli of elasticity, and ν1                                                      d0 = 4F/(πE ∗ L)                             (13)
+        and ν2 are the Poisson’s ratios of the human back and the
+        ultrasound probe, respectively. As the ultrasound probe is made                   where L is the width of the ultrasound probe.
+        from rigid materials, we approximate its modulus of elasticity                       Our goal is to express the normal force F with respect to the
+        E2 as infinity. As a result, it leads to                                          dynamic penetration d. To this end, we first have the normal
+                                                                                          force by integrating the stress distribution
+                                   E ∗ = E1 /(1 − ν12 ).                          (9)                       L  a2
+                                                                                                                                   πLpm
+        The equivalent radius R is defined by                                                       F =               p(r) drdl =         (a1 + a2 )
+                                                                                                            0    −a1                 4
+                                     1
+                                       =
+                                         1
+                                            +
+                                              1
+                                                                                 (10)                      πLpm                     
+                                     R   R1   R2                                                        =            2 Rd0 + Δkv                           (14)
+                                                                                                              4
+        where R1 and R2 represent the radius of the human back and                        where we define Δk = k2 − k1 . Provided that the maximum
+        the ultrasound probe, respectively. Here, we treat the human and                  pressure is determined only by the indentation depth, by substi-
+        phantom back as a flat surface, which is a common strategy in                     tuting (7) into (14), we finally obtain the relationship between
+        deformation modeling [28]. As a result, the radius R1 goes to                     the normal force and the penetration depth as
+        infinity, which leads to R = R2 .
+           During the scanning procedure, the deformation of the contact                                      πLE ∗                   
+                                                                                                       F =             2 Rd0 + Δkv          d/R.           (15)
+        surface is not static. Specifically, due to the relative motion                                         8
+        between the human back surface and the ultrasound probe, the                         Regarding the friction along the probe’s moving direction, we
+        deformation shape of the surface is distorted by the probe’s                      identify that there are two factors that contribute to the frictional
+        motion, as shown in Fig. 4. Due to the relative motion, the contact               effects: dry friction fd between the moving surfaces and internal
+        region at the front of the probe will be increased, and the contact               friction fb caused by surface deformation. The overall friction is
+        point at the rear of the probe will be decreased compared with the                obtained by the superposition of these two effects, namely, f =
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+       DUAN et al.: AUSOSCAN: AUTOMATIC SCOLIOSIS ASSESSMENT BY ULTRASOUND SCANNING WITH SOFT CONTACT CONTROL                                                     7699
+
+
+
+       fd + fb , where fd = μF with μ representing the kinetic friction
+       coefficient. Furthermore, the internal friction fb is obtained by
+       calculating the following integral:
+                           L  a2
+                                      rP (r)
+                    fb =            √          drdl
+                            0   −a1   R2 − r 2
+                                          
+                           L 0
+                                    Pm r a21 − r2
+                       =                              drdl
+                            0   −a1 a1      R2 − r 2
+                                           
+                             L  a2
+                                     Pm r a22 − r2                                       Fig. 5. Schematic illustration of volume projection imaging for the
+                         +                             drdl         (16)                 acquisition of the ultrasound image of a spine.
+                              0  0     a2    R2 − r 2
+       where we insert the pressure distribution in (11).
+                                                                                         points. For a compromise between computation speed and image
+         The interaction dynamics model can be obtained by calculat-
+                                                                                         quality, the rule of squared inverse weighted interpolation is
+       ing the derivatives of (15) and (16). The dynamics model for the
+                                                                                         employed, which assigns the relative weight for the kth pixel as
+       normal force is given by
+                                                                                      Wk = 1/(dk + α)2 , where dk denotes the distance of the kth
+                           πLE ∗ Δk          d     v d˙                                  pixel to the concerned voxel and α > 0 is a hyperparameter that
+                    Ḟ =                v̇     + √        .       (17)                   controls the effect range of the interpolation. More precisely,
+                               8            R 2 Rd
+                                                                                         when α is chosen to be large, the speckles will be restrained and
+         The model for friction dynamics is directly obtained by cal-                    the image will be blurred. On the other hand, when α is chosen
+       culating the derivative of f                                                      to be small, the texture pattern will be distinguishable, and the
+                                                                                         image tends to be noisy.
+                                     f˙ = μḞ + f˙b .                           (18)
+                                                                                            Once the interpolation is performed, the volume data will be
+          The control objective of MPC is designed by specifying the                     subject to slicing for coronal view visualization. Although a 2-D
+       cost function, whose minimization ensures that the trajectory of                  projection image is conventionally generated by planar volume
+       the states can be steered toward the desired system behavior.                     rendering, the same slicing strategy is not feasible in our case
+       The overall cost function is formulated by a weighted linear                      of spinal rendering, as human spines have a specific nonplanar
+       combination as                                                                    curve shape. A planar slice of the volume data will result in
+                                                                                         information loss, i.e., some spinal features will be absent from
+           φ = w1 φconfig + w2 φpose + w3 φforce + w4 φenergy                   (19)
+                                                                                         the 2-D projection image. To convey the spinal information on
+       where φconfig denotes the joints configuration tracking cost;                     the rendered 2-D image as much as possible, a more thoughtful
+       φpose denotes the end-effector pose tracking cost; φforce denotes                 slice strategy than a planar slide is necessary.
+       the interaction force tracking cost, and φenergy denotes the con-                    To take the natural pattern of the spine into account while
+       trol efforts cost, with w1 , w2 , w3 , and w4 being the corresponding             making the slice, a nonplanar developable surface is determined.
+       weights.                                                                          The developable surface is used for volume rendering with
+          Moreover, the hardware-related constraints can be read-                        consideration of the natural curve of the spine. To this end, a
+       ily prescribed in the MPC controller. The robot joint posi-                       profile surface, which refers to the shape of spine volume data,
+       tion constraints and velocity constraints are written as q ∈                      is automatically identified from the volume data by discerning
+       [qmin qmax ] and q̇ ∈ [q̇min q̇max ], respectively. The sys-                      the first nonvoid voxels from a skin-to-spine direction. Then,
+       tem’s control constraints as a result of joint torque limitation                  the developable surface is determined by shifting the profile
+       are expressed as u ∈ [τmin τmax ].                                                surface with a relative disposition. Finally, a number of adjacent
+                                                                                         surfaces of the developable surface are selected to include the
+       C. Spinal Reconstruction Program                                                  hidden information about the spine by fusing different layers.
+                                                                                         The final rendering image is generated by a blending function
+          Once the scanning is finished, the acquired ultrasound image
+                                                                                         of average intensity compounding.
+       frames are then used for 3-D reconstruction of the spine. Here,
+                                                                                            A schematic diagram of the overall working flow of AuSoScan
+       we employ the volume projection imaging method for spinal
+                                                                                         is illustrated in Fig. 6.
+       reconstruction [35]. The procedure of volume projection imag-
+       ing mainly consists of the following two main steps. 1) Build
+       volume data. 2) Slice for coronal view.                                                                      V. EXPERIMENTS
+          To build volume data, the collected ultrasound image frames                       In this section, we evaluate the effectiveness of AuSoScan
+       are first concatenated layer by layer in reference to the associ-                 with real experimental studies. The experimental studies are
+       ated corresponding spatial information obtained by the spatial                    conducted module by module. We first showcase the effec-
+       sensors, as shown in Fig. 5. Due to the inconsistency of the                      tiveness of the ultrasonic module. Subsequently, we test the
+       scanning intensity, the obtained raw 3-D data need to be further                  control strategy of position and force control in the presence
+       processed to generate volume data. Specifically, each voxel of                    of soft interaction. Lastly, we perform ultrasonic scanning for
+       the 3-D image is obtained by interpolation of the 3-D data                        real scoliosis assessment.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+        7700                                                                      IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 6, DECEMBER 2025
+
+
+
+
+        Fig. 6. Working flowchart of the overall automatic scanning. The pro-
+        cedure begins by training the ultrasonic perception network and iden-
+        tifying the model for soft contact. Then, the robotic system detects the
+        geometry of the subject’s back and generates the scanning motions.
+        Finally, the spine is reconstructed, and the deformity angle is measured.
+
+
+        A. Ultrasonic Perception
+           The role of the ultrasonic module is to perceive the ultrasound                Fig. 7. Different confidence probabilities of identifying the spinous
+                                                                                          process in the lumbar region.
+        images of the spines. In particular, the region of interest is the
+        spinous processes. The robot arm tracks the position of the
+        spinous process such that it is maintained in the center of the
+        ultrasound image window. The ultrasonic perception network
+        is devised by taking ultrasound images as input and output the
+        confidence on the position of the spinous process. The ultrasonic
+        perception network is trained with the Adam optimizer at a
+        learning rate of 0.0001.
+           We evaluate the effectiveness of the trained ultrasonic percep-
+        tion network on the phantom’s back. We first establish a static
+        contact between the lumbar region of the phantom back and
+        the ultrasound probe, and then the interaction force is steadily
+        increased. Our purpose is to examine the confidence probability
+        change in the localization of the spinous process during the
+        procedure. The result of the trained ultrasonic network is per-
+        formance in Fig. 7. The confidence probability in the spinous
+        process position is only 0.06, when the ultrasound probe initially
+        touches the phantom’s back. When the static contact between the
+                                                                                          Fig. 8.   Contact model identification for parameters k1 and k2 .
+        phantom’s back and the ultrasound probe is well established, the
+        confidence in the spinous process position increases to 0.75. It
+        can be seen that the neural network’s confidence in the location
+        of the spinous process increases when the shadow area becomes                     skin at a very low speed, making the resistance force arising
+        lighter.                                                                          from deformation negligible. To identify k1 and k2 , we specify
+                                                                                          the different interaction strengths between the ultrasound probe
+                                                                                          and the deformable skin surface under different sliding speeds,
+        B. Soft Interaction Control                                                       ranging from 0.2 to 1 m/s. The speed range here is utilized
+           To evaluate the effectiveness of the proposed control strategy                 exclusively for identifying contact model parameters and is not
+        with soft interaction contact, we first identify the parameters                   applied to the scanning speed.
+        in the proposed contact model. To this end, we collect experi-                       The plot of the data for model identification of soft contact
+        mental data from force sensors and the corresponding motion                       model parameters is shown in Fig. 8, where the x-axis represents
+        values when sliding the robot over the back of the phantom.                       different sliding speeds and the y-axis represents the resistance
+        In particular, we set different speeds ranging from low to high                   force fb due to deformation, which is obtained by subtracting
+        for the robot end-effector to track. For the determination of                     the dry friction values from the F/T sensor readings along the
+        the friction coefficient μ, we make the probe slide over the                      movement direction. Moreover, we collect data with different
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+       DUAN et al.: AUSOSCAN: AUTOMATIC SCOLIOSIS ASSESSMENT BY ULTRASOUND SCANNING WITH SOFT CONTACT CONTROL                                                     7701
+
+
+
+                                       TABLE I
+                              CONTACT MODEL PARAMETERS
+
+
+
+
+                                       TABLE II
+                                TRACKING PERFORMANCE
+
+
+
+
+       interaction forces, namely, 3, 6, 9, and 12 N, respectively. With
+       the collected data, we subsequently employ the least squares
+       technique for model identification to obtain the numerical values
+       for the parameters k1 and k2 to best fit the contact model. The
+       relevant values obtained upon model identification are summa-
+       rized in Table I.
+          With the identified contact model parameters available, we
+       use these values to set up the MPC controller. The nonlinear                      Fig. 9. Comparison of tracking different force profiles where dashed
+       optimization problem in our implemented MPC controller is                         lines denote the reference, green lines represent the proposed method,
+       addressed with the help of CasADi [36]. The horizon of the                        and red lines denote the baseline controller. (a) Step. (b) Slope.
+                                                                                         (c) Wave.
+       MPC controller is set to predict over five steps. Our goal is to
+       show the effectiveness of the developed contact models in terms
+       of force-tracking tasks, which are the key factors in the quality
+       of the spinal reconstruction results [37]. We make the robot track
+       several given paths while each one is associated with a specified
+       force profile over the same deformable surface, namely, the step,
+       slope, and wave forces.
+          For the purpose of comparison, we also implement a baseline
+       controller that operates without incorporating a soft contact
+       model, taking the dry friction into account only when tracking
+                                                                                         Fig. 10. Procedure of ultrasonic scanning of (a) phantom and
+       the specified references. The plot of the tracking performance for                (b) human.
+       both approaches in terms of step, slope, and wave force tracking
+       is shown in Fig. 9. It can be seen that our proposed method
+       admits a better performance, as evidenced by the lower track-
+       ing errors compared to the baseline approach. The numerical
+       tracking results are provided in Table II. It can be seen that our
+       proposed controller attains better performance than the baseline
+       controller in terms of tracking precision for both position and
+       force tracking, thanks to the awareness of the developed soft
+       contact model.
+
+       C. Spinal Reconstruction
+                                                                                         Fig. 11. Plot of the evolution of the probe movement during ultrasound
+          Finally, we evaluate the AuSoScan platform by integrating                      scanning of the phantom.
+       the perception module and the control system. The acquired
+       ultrasound images, along with their spatial information, are
+       collectively recorded for the subsequent reconstruction program                   lateral motion of the probe is adjusted in real time based on the
+       to reveal the spine. The condition of the spine, i.e., the curvature              immediate feedback from the ultrasound images. The displace-
+       angle, is then assessed with the reconstructed spinal image.                      ment data of the probe when scanning the phantom is shown in
+          During the real experiments, we scanned a realistic phantom                    Fig. 11.
+       and a human subject from the waist to the neck. The snapshots                        The acquired 3-D spinal image is shown in Fig. 12. It can
+       of the real experimental procedure are shown in Fig. 10. The                      be observed that the acquired spinal image is clear enough
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+        7702                                                                      IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 6, DECEMBER 2025
+
+
+
+                                                                                                                         REFERENCES
+                                                                                           [1] C. J. Goldberg, D. P. Moore, E. E. Fogarty, and F. E. Dowling, “Scoliosis:
+                                                                                               A review,” Pediatr. Surg. Int., vol. 24, no. 2, pp. 129–144, 2008.
+                                                                                           [2] M. R. Konieczny, H. Senyurt, and R. Krauspe, “Epidemiology of adoles-
+                                                                                               cent idiopathic scoliosis,” J. Child.’s Orthopaedics, vol. 7, no. 1, pp. 3–9,
+                                                                                               2013.
+                                                                                           [3] J. Cobb, “Outline for the study of scoliosis,” Instructional Course Lectures,
+                                                                                               vol. 5, pp. 261–275, 1948.
+                                                                                           [4] J. Z. J. Lee, D. J. L. Lam, and K. B. L. Lim, “Late presentation in adolescent
+                                                                                               idiopathic scoliosis: Who, why, and how often?,” J. Pediatr. Orthopaedics
+                                                                                               B, vol. 23, no. 1, pp. 6–14, 2014.
+                                                                                           [5] M. S. Linet et al., “Children’s exposure to diagnostic medical radiation
+                                                                                               and cancer risk: Epidemiologic and dosimetric considerations,” Pediatr.
+                                                                                               Radiol., vol. 39, no. 1, pp. 4–26, 2009.
+                                                                                           [6] A. Simony, E. J. Hansen, S. B. Christensen, L. Y. Carreon, and M. O.
+        Fig. 12. Spinal reconstruction results for the phantom, where the                      Andersen, “Incidence of cancer in adolescent idiopathic scoliosis patients
+        spinal image is obtained by stacking the acquired ultrasound images                    treated 25 years previously,” Eur. Spine J., vol. 25, pp. 3366–3370, 2016.
+        layer by layer. The obtained spine is evaluated to have a curvature angle          [7] P. R. Hoskins, K. Martin, and A. Thrush, Diagnostic Ultrasound: Physics
+        of 33◦ .                                                                               and Equipment. Boca Raton, FL, USA: CRC Press, 2019.
+                                                                                           [8] Y. P. Zheng and T. T. Y. Lee, “3D ultrasound imaging of the spine,” in Bone
+                                                                                               Quantitative Ultrasound. Berlin, Germany: Springer, 2022, pp. 349–372.
+        to measure the curvature for a professional sonographer. By                        [9] A. Duan, M. Victorova, J. Zhao, Y. Sun, Y. Zheng, and D. Navarro-
+        picking the most tilted vertebrae in the lower spine and the                           Alarcon, “Ultrasound-guided assistive robots for scoliosis assessment with
+        upper spine, respectively, the curvature of the spine can be                           optimization-based control and variable impedance,” IEEE Robot. Autom.
+                                                                                               Lett., vol. 7, no. 3, pp. 8106–8113, Jul. 2022.
+        measured to be 33◦ , which validates the effectiveness of Au-                     [10] H. Chen et al., “Ultrasound standard plane detection using a compos-
+        SoScan in terms of measuring spinal curvature angle for scoliosis                      ite neural network framework,” IEEE Trans. Cybern., vol. 47, no. 6,
+        assessment.                                                                            pp. 1576–1586, Jun. 2017.
+                                                                                          [11] Q.-H. Huang, Z. Yang, W. Hu, L.-W. Jin, G. Wei, and X. Li, “Linear
+                                                                                               tracking for 3-D medical ultrasound imaging,” IEEE Trans. Cybern.,
+                                    VI. CONCLUSION                                             vol. 43, no. 6, pp. 1747–1754, Dec. 2013.
+                                                                                          [12] C. Luo, Y. Chen, H. Cao, M. A. A. Sibahee, W. Xu, and J. Zhang, “Multi-
+           In this article, we presented AuSoScan, a dedicated robotic                         modal autonomous ultrasound scanning for efficient human–machine fu-
+        platform enabling the automatic acquisition of ultrasound im-                          sion interaction,” IEEE Trans. Autom. Sci. Eng., vol. 22, pp. 4712–4723,
+                                                                                               2025.
+        ages to facilitate scoliosis assessment. Mainly, AuSoScan con-                    [13] C. Shen, Z. Deng, J. Wang, S. Wang, and C. Chen, “Towards autonomous
+        sists of three modules: the control framework, the ultrasound                          robotic ultrasound scanning using the reinforcement learning-based volu-
+        image perception block, and the spinal reconstruction program.                         metric data navigation method,” in Proc. WRC Symp. Adv. Robot. Autom.,
+                                                                                               2023, pp. 335–340.
+        The experimental results show that AuSoScan is effective in                       [14] K. Su et al., “A fully autonomous robotic ultrasound system for thyroid
+        autonomously performing ultrasound scanning.                                           scanning,” Nature Commun., vol. 15, no. 1, 2024, Art. no. 4004.
+           In the current setup, there are still a few limitations. For                   [15] D. Navarro-Alarcon, J. Qi, J. Zhu, and A. Cherubini, “A Lyapunov-stable
+                                                                                               adaptive method to approximate sensorimotor models for sensor-based
+        example, there is a lack of illustrating the effectiveness of our                      control,” Front. Neurorobotics, vol. 14, 2020, Art. no. 59.
+        robotic sonographer when it comes to operating under complex                      [16] D. Huang, C. Yang, M. Zhou, A. Karlas, N. Navab, and Z. Jiang,
+        situations, such as severe scoliosis patients with uneven shoul-                       “Robot-assisted deep venous thrombosis ultrasound examination us-
+                                                                                               ing virtual fixture,” IEEE Trans. Autom. Sci. Eng., vol. 22, 2025,
+        ders. Therefore, it will be desirable to use our robotic platform                      pp. 381–392.
+        for imaging subjects with severe scoliosis symptoms.                              [17] S. Yu, K. K. Tan, B. L. Sng, S. Li, and A. T. H. Sia, “Feature extraction and
+           For future work, we would like to make the robot system                             classification for ultrasound images of lumbar spine with support vector
+                                                                                               machine,” in Proc. 36th Annu. Int. Conf. IEEE Eng. Med. Biol. Soc., 2014,
+        more compliant and reactive in terms of unexpected external                            pp. 4659–4662.
+        disturbances [38], [39]. Moreover, the proposed approach could                    [18] P. Chatelain, A. Krupa, and N. Navab, “Confidence-driven control of an
+        potentially be extended to ultrasound imaging of various or-                           ultrasound probe,” IEEE Trans. Robot., vol. 33, no. 6, pp. 1410–1424,
+                                                                                               Dec. 2017.
+        gans, such as the heart, liver, kidneys, and limbs. Each organ                    [19] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image
+        presents unique challenges that must be addressed to optimize                          recognition,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2016,
+        the imaging process. For instance, effective motion compensa-                          pp. 770–778.
+                                                                                          [20] H. Huang, C. Yang, and C. L. P. Chen, “Optimal robot–environment inter-
+        tion is crucial for cardiac ultrasound to counteract the impacts                       action under broad fuzzy neural adaptive control,” IEEE Trans. Cybern.,
+        of respiratory movements and heartbeat. The effectiveness of                           vol. 51, no. 7, pp. 3824–3835, Jul. 2021.
+        our soft contact-aware scanning strategy could be enhanced by                     [21] L. Hu, A. Duan, M. Li, A. Cherubini, L. Li, and D. Navarro-Alarcon,
+                                                                                               “Paint with the sun: A thermal-vision guided robot to harness solar energy
+        adapting it to meet the specific requirements of different organs,                     for heliography,” IEEE Sensors J., vol. 22, no. 18, pp. 18130–18142,
+        thereby broadening its applicability and improving overall imag-                       Sep. 2022.
+        ing performance.                                                                  [22] M. Muddassir, G. Limbert, B. Zhang, A. Duan, J.-J. Tan, and D. Navarro-
+                                                                                               Alarcon, “Model predictive thermal dose control of a robotic laser system
+                                                                                               to automate skin photorejuvenation,” IEEE/ASME Trans. Mechatron.,
+                                 CONFLICT OF INTEREST                                          vol. 28, no. 2, pp. 737–747, Apr. 2023.
+                                                                                          [23] A. Duan et al., “Robust grasping by bimanual robots with stable
+           Yongping Zheng is the inventor of patents related to the 3-D                        parameterization-based contact servoing,” IEEE/ASME Trans. Mecha-
+        ultrasound imaging for scoliosis assessment, and the founder,                          tron., vol. 29, no. 5, pp. 3924–3935, Oct. 2024.
+                                                                                          [24] D. Navarro-Alarcon et al., “Developing a compact robotic needle driver
+        director, and shareholder of a startup company, Telefield Medical                      for MRI-guided breast biopsy in tight environments,” IEEE Robot. Autom.
+        Imaging Limited, which manufactures Scolioscan.                                        Lett., vol. 2, no. 3, pp. 1648–1655, Jul. 2017.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+       DUAN et al.: AUSOSCAN: AUTOMATIC SCOLIOSIS ASSESSMENT BY ULTRASOUND SCANNING WITH SOFT CONTACT CONTROL                                                     7703
+
+
+
+       [25] F. Zhong, Y. Wang, Z. Wang, and Y.-H. Liu, “Dual-arm robotic needle                                    Peng Zhou (Member, IEEE) received the Ph.D.
+            insertion with active tissue deformation for autonomous suturing,” IEEE                                degree in robotics from The Hong Kong Poly-
+            Robot. Autom. Lett., vol. 4, no. 3, pp. 2669–2676, Jul. 2019.                                          technic University, Hong Kong, in 2022.
+       [26] L. Han, H. Wang, Z. Liu, W. Chen, and X. Zhang, “Vision-based cutting                                     In 2021, he was a Visiting Researcher with
+            control of deformable objects with surface tracking,” IEEE/ASME Trans.                                 the Robotics, Perception, and Learning Lab,
+            Mechatron., vol. 26, no. 4, pp. 2016–2026, Aug. 2021.                                                  KTH Royal Institute of Technology, Stockholm,
+       [27] Q. Sheng, Z. Geng, L. Hua, and X. Sheng, “Hybrid vision-force robot                                    Sweden. From 2022 to 2024, he was a Post-
+            force control for tasks on soft tissues,” in Proc. 27th Int. Conf. Mechatron.                          doctoral Research Fellow with the Department
+            Mach. Vis. Pract., 2021, pp. 705–710.                                                                  of Computer Science, The University of Hong
+       [28] L. Wijayarathne, Q. Sima, Z. Zhou, Y. Zhao, and F. L. Hammond, “Si-                                    Kong. He is currently an Assistant Professor
+            multaneous trajectory optimization and force control with soft contact                                 with the School of Advanced Engineering, Great
+            mechanics,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2020,            Bay University, Portsmouth, NH, USA. His research interests include
+            pp. 3164–3171.                                                                  deformable object manipulation, robotic perception and learning, and
+       [29] Y.-P. Zheng . et al., “A reliability and validity study for scolioscan: A       task and motion planning.
+            radiation-free scoliosis assessment system using 3D ultrasound imaging,”
+            Scoliosis Spinal Disord., vol. 11, no. 1, pp. 1–15, 2016.
+       [30] M. Victorova, D. Navarro-Alarcon, and Y.-P. Zheng, “3D ultrasound
+            imaging of scoliosis with force-sensitive robotic scanning,” in Proc. 3rd
+            IEEE Int. Conf. Robotic Comput., 2019, pp. 262–265.
+       [31] Y. Yuan, L. Guo, and H. Liu, “Model predictive cooperative control with
+            ISM for multiagent systems under stochastic communication protocol,”
+            IEEE Trans. Cybern., vol. 51, no. 12, pp. 6004–6016, Dec. 2021.                                         Dezhen Song (Senior Member, IEEE) received
+       [32] T. Gold, A. Völz, and K. Graichen, “Model predictive position and force                                 the B.S. degree in process control and the M.S.
+            trajectory tracking control for robot-environment interaction,” in Proc.                                degree in industry automation from Zhejiang
+            IEEE/RSJ Int. Conf. Intell. Robots Syst., 2020, pp. 7397–7402.                                          University, Hangzhou, China, in 1995 and 1998,
+       [33] G. Duchemin, P. Maillet, P. Poignet, E. Dombre, and F. Pierrot, “A hybrid                               respectively, and the Ph.D. degree in opera-
+            position/force control approach for identification of deformation models                                tions research from the University of Califor-
+            of skin and underlying tissues,” IEEE Trans. Biomed. Eng., vol. 52, no. 2,                              nia at Berkeley, Berkeley, CA, USA, in 2004.
+            pp. 160–170, Feb. 2005.                                                                                 From 2004 to 2023, he was a Professor with
+       [34] V. L. Popov et al. Contact Mechanics and Friction. Berlin, Germany:                                     the Department of Computer Science and Engi-
+            Springer, 2010.                                                                                         neering, Texas A&M University, College Station,
+       [35] C.-W. J. Cheung, G.-Q. Zhou, S.-Y. Law, T.-M. Mak, K.-L. Lai, and Y.-P.                                 TX, USA. He is currently a Professor and a
+            Zheng, “Ultrasound volume projection imaging for assessment of scolio-          Deputy Department Head with the Department of Robotics, Mohamed
+            sis,” IEEE Trans. Med. Imag., vol. 34, no. 8, pp. 1760–1768, Aug. 2015.         Bin Zayed University, Abu Dhabi, UAE. His primary research interests
+       [36] J. A. Andersson, J. Gillis, G. Horn, J. B. Rawlings, and M. Diehl, “CasADi:     include robot perception, networked robotics, visual navigation, agricul-
+            A software framework for nonlinear optimization and optimal control,”           tural robotics, and automation.
+            Math. Program. Comput., vol. 11, pp. 1–36, 2019.                                   Dr. Song was the recipient the Kayamori Best Paper Award of the
+       [37] A. Duan et al., “Safe learning by constraint-aware policy optimization          2005 IEEE International Conference on Robotics and Automation (with
+            for robotic ultrasound imaging,” IEEE Trans. Autom. Sci. Eng., vol. 22,         J. Yi and S. Ding), the Faculty Early Career Development (CAREER)
+            pp. 2349–2360„ 2025.                                                            Award from US NSF in 2007, and Amazon Research Award in 2020.
+       [38] P. Zhou et al., “Neural reactive path planning with Riemannian motion           From 2008 to 2012, he was an Associate Editor for IEEE TRANSACTIONS
+            policies for robotic silicone sealing,” Robot. Comput.- Integr. Manuf.,         ON ROBOTICS, and from 2010 to 2014, he was an Associate Editor for
+            vol. 81, 2023, Art. no. 102518.                                                 IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING (T-ASE).
+       [39] W. Ma, A. Duan, H.-Y. Lee, P. Zheng, and D. Navarro-Alarcon, “Human-            From 2017 to 2020, he was a Senior Editor for IEEE ROBOTICS AND
+            aware reactive task planning of sequential robotic manipulation tasks,”         AUTOMATION LETTERS. He is currently a Senior Editor for T-ASE.
+            IEEE Trans. Ind. Informat., vol. 21, no. 4, pp. 2898–2907, Apr. 2025.
+
+
+                               Anqing Duan (Member, IEEE) received the
+                               joint Ph.D. degree in robotics from the Italian
+                               Institute of Technology, Naples, Italy, and the
+                                                                                                                    Chenguang Yang (Fellow, IEEE) received the
+                               University of Genoa, Genoa, Italy, in 2021. He
+                                                                                                                    B.Eng. degree in measurement and control from
+                               was a Research Associate with The Hong Kong
+                                                                                                                    Northwestern Polytechnical University, Xian,
+                               Polytechnic University, Hong Kong. He is cur-
+                                                                                                                    China, in 2005, and the Ph.D. degree in con-
+                               rently a Visiting Assistant Professor with the
+                                                                                                                    trol engineering from the National University of
+                               Robotics Department, Mohamed Bin Zayed Uni-
+                                                                                                                    Singapore, Singapore, in 2010. From 2009 to
+                               versity of Artificial Intelligence, Abu Dhabi, UAE.
+                                                                                                                    2010, he performed postdoctoral studies in hu-
+                               His research interests include robot learning
+                                                                                                                    man robotics with the Imperial College London,
+                               and control with a focus on human-centered and
+                                                                                                                    London, U.K. He is leading the Robotics and
+       healthcare robotic applications.
+                                                                                                                    Autonomous Systems Group. He was leading
+                                                                                                                    Robot Teleoperation Group with Bristol Robotics
+                                                                                            Laboratory. His research interests include robot control and learning,
+                               Wanli Liuchen received the B.Eng. in mechan-                 human-robot interaction, and intelligent system design.
+                               ical engineering and automation from the China                  Prof. Yang holds the Chair in robotics with Department of Computer
+                               University of Petroleum, Beijing, China, in 2022,            Science, University of Liverpool, UK. He is a Member of European
+                               and the M.Sc. degree in mechanical engineer-                 Academy of Sciences and Arts (EASA). He was the recipient of the
+                               ing from The Hong Kong Polytechnic University,               UK EPSRC UKRI Innovation Fellowship and individual EU Marie Curie
+                               Hong Kong, in 2024. He is currently a Research               International Incoming Fellowship, and as the Lead Author, IEEE TRANS-
+                               Assistant with the ROMI Lab, The Hong Kong                   ACTIONS ON ROBOTICS Best Paper Award (2012) and IEEE TRANSAC-
+                               Polytechnic University, where his work focuses               TIONS ON NEURAL NETWORKS AND LEARNING SYSTEMS Outstanding Pa-
+                               on robotic systems, particularly in the field of             per Award (2022). He was the President of Chinese Automation and
+                               medical robotics. His research interests include             Computing Society in the UK. He is the Corresponding Co-Chair of
+                               robot navigation, machine learning, and health-              IEEE Technical Committee on Collaborative Automation for Flexible
+       care robotics applications.                                                          Manufacturing.
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+        7704                                                                      IEEE/ASME TRANSACTIONS ON MECHATRONICS, VOL. 30, NO. 6, DECEMBER 2025
+
+
+
+                                 Yongping Zheng (Senior Member, IEEE) re-                                         David Navarro-Alarcon (Senior Member,
+                                 ceived the B.Sc. and M.Eng. degrees in elec-                                     IEEE) received the Ph.D. degree in mechanical
+                                 tronics and information engineering from the                                     and automation engineering from The Chinese
+                                 University of Science and Technology of China,                                   University of Hong Kong (CUHK), Hong Kong,
+                                 Hefei, China, and the Ph.D. degree in biomedi-                                   in 2014.
+                                 cal engineering from The Hong Kong Polytech-                                        From 2015 to 2017, he was a Research
+                                 nic University (PolyU), Hong Kong, in 1997.                                      Assistant Professor with the CUHK T Stone
+                                    After a Postdoctoral Fellowship with the Uni-                                 Robotics Institute. Since 2017, he has been
+                                 versity of Windsor, Windsor, ON, Canada, he                                      with The Hong Kong Polytechnic University
+                                 joined PolyU as an Assistant Professor and was                                   (PolyU), Hong Kong, where he is currently
+                                 promoted to Professor, in 2008, and Chair Pro-                                   an Associate Professor of Robotics in the
+        fessor, in 2019. In 2017, he was appointed as the Henry G. Leong                  Department of Mechanical Engineering. He leads the Robotics and
+        Professor in biomedical engineering. He is currently the Director of the          Machine Intelligence Laboratory (ROMI Lab), whose research work
+        Jockey Club Smart Ageing Hub, and the Research Institute for Smart                focuses on fundamental problems in robot motion, including learning,
+        Ageing, PolyU. His main research interests include biomedical ultra-              planning, and control. At PolyU, he is a Fellow of the Institute for
+        sound instrumentation, soft tissue elasticity measurement and imaging,            Higher Education Research and Development and an Investigator at
+        3-D ultrasound imaging, ultrasound assessment of musculoskeletal tis-             the Research Institute for Smart Ageing.
+        sues, ultrasound image and signal processing, and smart aging tech-                 Dr. Navarro-Alarcon currently serves as an Associate Editor for IEEE
+        nologies.                                                                         TRANSACTIONS ON ROBOTICS and an Associate Editor for IEEE Robotics
+           Prof. Zheng is a Fellow of The Hong Kong Institution of Engineers, a           and Automation Magazine.
+        Secretary of the World Association of Chinese Biomedical Engineers,
+        from 2017 to 2019, the Past Chair of the Biomedical Engineering Divi-
+        sion, HKIE, and an Honorary Advisor of the Hong Kong Medical and
+        Healthcare Device Industry Association. He is the President for the
+        Guangdong Hong Kong Macau Chapter of the International Society of
+        Gerontechnology.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:23:19 UTC from IEEE Xplore. Restrictions apply.
+

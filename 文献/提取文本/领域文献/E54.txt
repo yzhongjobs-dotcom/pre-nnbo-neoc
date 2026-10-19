@@ -1,0 +1,896 @@
+        2218                                                                           IEEE/CAA JOURNAL OF AUTOMATICA SINICA, VOL. 12, NO. 11, NOVEMBER 2025
+
+
+
+
+                        Robot Impedance Iterative Learning With
+                            Sparse Online Gaussian Process
+                                 Yongping Pan , Senior Member, IEEE, Tian Shi , Member, IEEE, Wei Li                                          ,
+                                           Bin Xu , and Choon Ki Ahn , Senior Member, IEEE
+
+
+
+
+          Abstract—Robot interaction control with variable impedance                      Compliance control can be grouped into force control-based
+        parameters may conform to task requirements during continu-                       impedance control and position control-based impedance con-
+        ous interaction with dynamic environments. Iterative learning
+        (IL) is effective to learn desired impedance parameters for robots                trol [3]. While the former is called impedance control directly,
+        under unknown environments, and Gaussian process (GP) is a                        the latter is usually called admittance control. In many situa-
+        nonparametric Bayesian approach that models complicated func-                     tions, compliance control with fixed impedance parameters
+        tions with provable confidence using limited data. In this paper,                 does not meet task requirements [4], and robots must change
+        we propose an impedance IL method enhanced by a sparse online                     impedance during continuous interaction with environments.
+        Gaussian process (SOGP) to speed up learning convergence and
+        improve generalization. The SOGP for variable impedance mod-                      Yet, efficiently learning and adjusting robot impedance to
+        eling is updated in the same iteration by removing similar data                   adapt to dynamic environments is still challenging.
+        points from previous iterations while learning impedance param-                      Iterative learning (IL) was first developed for the accurate
+        eters in multiple iterations. The proposed IL-SOGP method is                      tracking of repetitive control processes with a wide range of
+        verified by high-fidelity simulations of a collaborative robot with 7             applications [5]. It is also effective in impedance learning for
+        degrees of freedom based on the admittance control framework.
+        It is shown that the proposed method accelerates iterative con-                   robots under unknown environments, where desired impe-
+        vergence and improves generalization compared to the classical                    dance parameters are iterated during robot-environment inter-
+        IL-based impedance learning method.                                               action to minimize an objective function so as to achieve the
+           Index Terms—Gaussian process (GP), impedance variation, itera-                 desired robot behavior [6]. Nevertheless, IL has two major
+        tive learning (IL), physical robot interaction, robot learning.                   drawbacks: First, it needs to be re-iterated if the initial posi-
+                                                                                          tion or desired trajectory is changed [7]; second, there is no
+                                   I.   Introduction                                      suitable way to guide the learning rate setting for some meth-
+               HILE robots are in direct contact with environments,                       ods, making it difficult to ensure the convergence rate [6].
+        W      compliance is required during interaction to avoid risky
+        situations [1]. Compliance control is a major interaction con-
+                                                                                          Therefore, impedance IL has weak generalization since the
+                                                                                          learned variable impedance knowledge is not applicable to
+        trol approach that allows robots to perform ideal characteris-                    different tasks or environments, which significantly restricts
+        tics similar to a mass-spring-damping model [2]. This can be                      its practicality. Although IL can be combined with neural net-
+        achieved by shaping robot impedance, which introduces vir-                        works (NNs) to make it suitable for multiple tasks, it requires
+        tual robot compliance to ensure safe and natural interaction.                     rich training data [8]. Gaussian process (GP) is a nonparamet-
+           Manuscript received July 3, 2024; revised November 8, 2024; accepted           ric Bayesian approach with modeling flexibility [9] and uncer-
+        January 13, 2025. This work was supported in part by the National Research        tainty estimation [10] and has the ability to model compli-
+        Foundation of Korea (NRF) Grant Funded by the Korea Government (MSIT)
+        (RS-2025-00555064). Recommended by Associate Editor Zengguang Hou.
+                                                                                          cated functions using only a limited number of data [11]. Fur-
+        (Corresponding author: Yongping Pan.)                                             thermore, sparse online GP (SOGP) has the online learning
+           Citation: Y. Pan, T. Shi, W. Li, B. Xu, and C. K. Ahn, “Robot impedance        ability to update the GP model with arriving time-series data
+        iterative learning with sparse online Gaussian process,” IEEE/CAA J. Autom.       [12]−[14], so it is promising in robotic applications.
+        Sinica, vol. 12, no. 11, pp. 2218–2227, Nov. 2025.
+           Y. Pan is with the School of Automation, Southeast University, Nanjing            This study applies a GP model to better exploit the knowl-
+        210096, China, and also with the School of Electrical and Electronic              edge during impedance IL for adapting to new tasks. More
+        Engineering, Nanyang Technological University, Singapore 639798,                  specifically, we propose an IL-SOGP method to accelerate
+        Singapore (e-mail: eee-yppan@ntu.edu.sg).
+           T. Shi is with the School of Computer Science and Engineering, Sun Yat-
+                                                                                          impedance learning convergence and improve generalization.
+        sen University, Guangzhou 510006, China (e-mail: shit23@alumni.sysu.              The SOGP for variable impedance modeling is updated in the
+        edu.cn).                                                                          same iteration by removing similar data points from previous
+           W. Li is with the School of Software Engineering, Sun Yat-sen University,
+        Guangzhou 510006, China (e-mail: liwei363@mail2.sysu.edu.cn).
+                                                                                          iterations while learning impedance parameters in multiple
+           B. Xu is with the School of Automation, Northwestern Polytechnical             iterations. During the same iteration, impedance parameters
+        University, Xi’an 710072, China (e-mail: binxu@nwpu.edu.cn).                      learned at the current instant can immediately affect the next
+           C. K. Ahn is with the School of Electrical Engineering, Korea University,      prediction, speeding up learning convergence. Besides, the
+        Seoul 02841, South Korea (e-mail: hironaka@korea.ac.kr).
+                                                                                          variable impedance strategy from the proposed method is not
+           Color versions of one or more of the figures in this paper are available
+        online at http://ieeexplore.ieee.org.                                             task-dependent, such that it can effectively exploit the origi-
+           Digital Object Identifier 10.1109/JAS.2025.125195                              nal knowledge when the initial robot position or task trajec-
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        PAN et al.: ROBOT IMPEDANCE IL WITH SOGP                                                                                                                     2219
+
+
+
+        tory is changed, and thus, the number of iterations can be                        for robots interacting with changing environments, where
+        shortened to accommodate new tasks. Our main contribution                         DMPs are updated by IL to generate the desired admittance
+        is proposing a learning-based variable impedance method that                      profile. Li et al. [27] proposed an IL impedance control
+        accelerates learning convergence while efficiently exploiting                     method for compliant rehabilitation robots. One major disad-
+        the learned knowledge, where a variable impedance strategy                        vantage of impedance IL is the high sensitivity to the changes
+        can be learned quickly by incorporating SOGP into IL.                             of the initial position and desired trajectory, which results in
+           Notations: R , R+ , Rn , and Rm×n denote the spaces of real                    weak generalization. Inspired by these works, this study aims
+        numbers, positive real numbers, real n -vectors, and real                         to integrate a machine learning model (specifically, an SOGP
+        m × n -matrices, respectively, ∥x∥2 and ∥x∥∞ are the 2-norm                       model) into impedance IL to enhance its generalization.
+        and ∞ -norm of x , respectively, GP(m(x), κ(x, x′ )) is a GP
+                                                                                                               III.   The Proposed Method
+        model with a mean m : Rn 7→ R and a kernel κ : Rn × Rn 7→ R ,
+        diag{ x1 , x2 , . . . , xn } is a diagonal matrix with diagonal ele-              A. Iterative Impedance Learning Framework
+        ments x1 to xn , Ai j is the i j th element of A, I is an identity                  Consider a robot-environment interaction problem, where
+        matrix with a proper dimension, where A ∈ Rn×n , x, x′ ∈ Rn ,                     the robot kinematics is described by
+        xi ∈ R , i = 1 to n, and n and m are positive integers.
+                                                                                                                      x = f (q), ẋ = J(q) q̇                          (1)
+                                  II.   Related Work
+                                                                                          in which x(t) ∈ R6 is the pose in the Cartesian space, whose
+           Machine learning models are usually employed as function
+                                                                                          orientation is represented by Euler angles, q(t) ∈ Rn is the
+        approximations to design control laws [15]−[17], but they are
+                                                                                          position in the joint space, f : Rn 7→ R6 maps from the joint to
+        also frequently applied to learn impedance profiles online for
+                                                                                          Cartesian spaces, J(q) ∈ R6×n is the Jacobian matrix, and n is
+        robot interaction control [18]−[23]. In [18], a fuzzy inference
+                                                                                          the number of degrees of freedom (DoFs). The robot dynam-
+        system with the robot joint velocity and contact force as inputs
+                                                                                          ics is described as follows:
+        was designed to adjust damping parameters, in which online
+        training is done by a model reference learning mechanism                                   M(q) q̈ + C(q, q̇) q̇ + G(q) + F(q, q̇) = τ − J T (q) fe            (2)
+        based on the minimum jerk trajectory model. In [19], a feed-
+        forward NN was applied to learn damping parameters, where                         where M(q) ∈ Rn×n is an inertia matrix, C(q, q̇) ∈ Rn×n is a
+        NN weights are updated via a Cartesian velocity tracking error                    centripetal-Coriolis matrix, F(q, q̇) ∈ Rn denotes a friction
+        based on the minimum jerk trajectory model. The method of                         torque, G(q) ∈ Rn is a gravitational torque, τ ∈ Rn is a control
+        [19] was also utilized to learn inertia parameters in [20]. Yu                    torque, and fe (t) ∈ R6 is an interaction force at the robot end-
+        et al. [21] applied a GP model to learn the human stiffness and                   effector that can be measured by a force/torque sensor.
+        desired trajectory under the assumption that the robot motion                       An unknown environment is represented by a mass-damp-
+        is slow and the human model contains only stiffness informa-                      ing-spring model in the Cartesian space as follows:
+        tion. Li et al. [22] applied an GP model to represent the target                                       Me (t) ẍ + Be (t) ẋ + Ke (t)x = fe                    (3)
+        impedance profile and employed reinforcement learning to get
+        an optimal impedance regulation strategy, where stiffness and                     in which x(t) ∈ R6 denotes the pose of the environment, and
+        damping parameters are adjusted based on the contact force.                       Me (t) ∈ R6×6 , Be (t) ∈ R6×6 , and Ke (t) ∈ R6×6 are diagonal
+        Deng et al. [23] combined a SOGP model with gradient des-                         inertia, damping and stiffness matrices of the environment,
+        cent to enhance the learning efficiency of stiffness and damp-                    respectively. Note that (3) is a classical and effective model to
+        ing parameters. The above methods are either limited by the                       describe an unknown environment and is suitable for differ-
+        forms of objective functions, resulting in restricted interaction                 ent environments as Me (t) , Be (t) , and Ke (t) can be changed in
+        effects, or have degraded generalization ability.                                 real-time [28]. Then, (3) is rewritten into a state-space form
+                                                                                                                         
+           Iterative learning has also been applied to learn the desired                                                 
+                                                                                                                         χ̇ = A(t)χ + B(t) fe
+                                                                                                                         
+        impedance parameters for robots under unknown environ-                                                           
+                                                                                                                         
+                                                                                                                         v = Cχ
+                                                                                                                                                                        (4)
+        ments [6], [24]−[27], where an interaction task is executed
+        repeatedly, and impedance parameters are updated at each                                                                                     rt
+                                                                                          with v(t) ∈ R6 and χ(t) = [xT (t), ẋT (t), ( 0 fe (ς)dς)T ]T ∈ R18 ,
+        iteration of the task execution. Li and Ge [6] proposed an
+                                                                                          where A(t) ∈ R18×18 and B(t) ∈ R18×6 are given by
+        impedance IL method with gradient-following and betterment
+                                                                                                                                            
+        schemes to obtain the target admittance model, where the                                                    0           I      0
+                                                                                                                                                              
+                                                                                                                                                     0 
+        desired interaction performance is achieved by minimizing an                                                −1          −1                       
+        objective function relevant to robot joint position, joint veloc-                           A = −Me Ke −Me Be 0 , B = −Me−1 
+                                                                                                                                                           
+        ity, and contact force. Based on [6], Wang et al. [24] further                                              0           0      0                  I
+        considered reference adaptation integrating trajectory parame-
+        terization. Yamawaki et al. [25] designed an impedance IL                         and C ∈ R6×18 is determined based on the desired interaction
+        scheme to update damping parameters based on the minimiza-                        effect. For (4), the contact force fe (t) is iterated by
+        tion of the contact force. Kramberger et al. [26] introduced
+        admittance-coupled dynamic movement primitives (DMPs)                                                 fek (t) = fek−1 (t) + α′ [v̇d (t) − v̇k (t)]             (5)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        2220                                                                             IEEE/CAA JOURNAL OF AUTOMATICA SINICA, VOL. 12, NO. 11, NOVEMBER 2025
+
+
+
+        with vk (0) = vd (0) , where k is the iteration number, vd (t) ∈ R6                     updated in this study since arbitrarily setting Md may cause
+        is the desired output, and α′ ∈ R+ satisfies ∥I − α′CB∥∞ < 1                            instability [29]. Actually, if Md is reduced below its physical
+        with CB being a nonsingular matrix. Then, it follows from the                           value, the passivity of the closed-loop system cannot be guar-
+        generic betterment scheme [6] that vk (t) → vd (t) uniformly in                         anteed due to the presence of unavoidable structural compli-
+        t ∈ [0, t f ] as k → ∞ , where t f ∈ R+ is the iteration period.                        ance between joint actuators and the interaction force, where
+           The target impedance model is described by                                           passivity is a sufficient condition that guarantees coupled sta-
+                                                                                                bility of robots interacting with passive environments [30].
+                     Md (t)( ẍr − ẍd ) + Bd (t)( ẋr − ẋd ) + Kd (t)(xr − xd ) = fe    (6)
+                                                                                                B. Impedance Learning With Gaussian Process
+        where xd (t) ∈ R6 and xr (t) ∈ R6 denote desired and reference                             The basic principle of the proposed IL-SOGP impedance
+        poses of the end-effector, respectively, and Md (t) ∈ R6×6 ,                            learning method is shown in Fig. 1. In this study, the position
+        Bd (t) ∈ R6×6 and Kd (t) ∈ R6×6 denote diagonal matrices of                             x , velocity ẋ , and interaction force fe at the robot end-effec-
+        desired inertia, damping, and stiffness, respectively. Consider                         tor, as well as the desired position xd and velocity ẋd , are
+        an objective function as follows:                                                       applied to estimate the impedance parameters B and K [22],
+                                                                                                where x and fe can be measured by an inertial measuring unit
+                                       L(t) = ∥v(t) − vd (t)∥2 .                          (7)
+                                                                                                and a force sensor, respectively. To enhance the generaliza-
+          Note that L is task-dependent and not limited to the form in                          tion of impedance learning and reduce the space complexity
+        (7). Then, Bd and Kd can be iterated by                                                 of data storage, define a variable impedance strategy
+                                                         (            )                                 
+                 
+                                         ∂ fek (t) T ∂Lk (t) T                                      
+                 
+                 
+                 
+                  Bk (t) = Bk−1 (t) − β                                                              Bd (t) = πBd (x(t), ẋ(t), xd (t), ẋd (t), fe (t))
+                                                                                                           
+                 
+                 
+                  d         d
+                                                ∂Bk (t)        ∂ f k (t)                                   
+                                                                                                           
+                                                                                                           Kd (t) = πK (x(t), ẋ(t), xd (t), ẋd (t), fe (t))
+                                                                                                                                                                 (10)
+                 
+                                             d T ( e                   ) (8)                                              d
+                 
+                 
+                                             ∂ fek (t)  ∂Lk (t) T
+                 
+                                                                                             where πBd and πKd are represented by iterative GPs [31]
+                 Kd (t) = Kd (t) − β  ∂K k (t)  ∂ f k (t)
+                     k        k−1
+                 
+                                                     d             e
+                                                                                                             πBd ∼ GPk (0, κ(z, z′ )), πKd ∼ GPk (0, κ(z, z′ ))                 (11)
+        in which β ∈ R+ denotes a learning rate. It is easy to obtain
+         ∂ f k (t)                          ∂ f k (t)
+                                                                                                with      z, z′ ∈ Z
+                                                                                                                 = {(x(t), ẋ(t), xd (t), ẋd (t), fe (t))|t ≥ 0} , in which
+        ( ∂Kek (t) )T = ek (t) and ( ∂Bek (t) )T = ėk (t) , in which ek (t) = xk (t)−          GPk denotes the GP at the k-th iteration, and κ(z, z′ ) : R18 ×
+             d                                 d
+        xd (t) is a position tracking error at the k-th iteration. Accord-                      R18 → R is a Gaussian kernel function that represents a mea-
+        ing to (5), one gets vk (t) → vd (t) to minimize L . Thus, Bkd and                      sure of the correlation of two points (z, z′ ) . Online learning is
+        Kdk can be iterated by                                                                  required for continuous updates in (11). Online GPs can be
+                                                                                                divided into sparse approximation GPs and local GPs [11], in
+                     k
+                    
+                     Bd (t) = Bd (t) − αė (t)(v̇ (t) − v̇d (t))
+                               k−1          k      k               T                           which the former is more applicable to massive data, and the
+                    
+                    
+                    K k (t) = K k−1 (t) − αek (t)(v̇k (t) − v̇d (t))T
+                                                                        (9)                     latter requires considering smoothness among multiple mod-
+                              d         d                                                       els. We employ an SOGP because it can provide stable predic-
+                                                                                                tion while keeping a small size of the representative dataset.
+        in which α ∈ R+ is a learning rate that absorbs β and α′ . In
+                                                                                                Later, this set will be called a basis vector ( BV ) set.
+        summary, the impedance parameters Bd and Kd can be iter-
+        ated by (9) to minimize L , but the impedance IL needs to
+                                                                                                                                                       e, e· and others
+        store the learned Bd and Kd at every instant of the previous                                                                  0                              0
+        iteration and is applicable only for a single task [7].                                                                               t                  1          t
+                                                                                                                                 1
+           Remark 1: Different interaction effects can be achieved by
+        setting a proper matrix C in (4) to change the expected output
+        v . When the elements corresponding to the position x in C are                                                   k                               k
+                                                                                                                                     Update
+        set larger, robots are in pursuit of position tracking, and the                                           k+1                              k+1
+        force tracking performance may be degraded. In scenarios
+        focusing on compliant interaction,
+                                         rt     the elements correspond-
+        ing to the integrated force 0 e(    f (ς)dς)  in C can be chosen
+                                                                                                Fig. 1.    The basic principle of the proposed IL-SOGP impedance learning
+        larger and the position tracking error may increase. Note that                          method. Note that the proposed method models a variable impedance strategy
+        we can set C = [Cx , 0,Cf ] to avoid the usage of the accelera-                         with an iterative update of the SOGP, where the update part includes the task
+        tion ẍ(t) in (9) and guarantee the non-singularity of CB ,                             level (k-iteration) and the time level (t-axis).
+        where Cx , Cd ∈ R6×6 are some positive-definite matrices.
+           Remark 2: It is reasonable that the unknown environment is                             SOGP keeps the BV set based on the metric of data points
+        described by a mass-damping-spring model in the Cartesian                               in the reproducing kernel Hilbert space (RKHS) by adding
+        space as in (3), where the inertia matrix Me (t) , damping                              and deleting data schemes. In the update of a SOGP, for a new
+        matrix Be (t) , and stiffness matrix Ke (t) can be adjusted to rep-                     arrival point z∗ ∈ Z , the residual error γz∗ is given by [12]
+        resent different environments, such as the human limb dynam-                                                                          −1 T
+        ics in physical human-robot interaction and the viscoelastic                                                    γz∗ = Kz∗ z∗ − Kz∗ Z KZZ K z∗ Z                         (12)
+        object dynamics in robotic manipulation [6].                                            where Z collects all points in the BV set, and KZZ denotes a
+           Remark 3: The desired inertia matrix Md in (6) is not                                covariance matrix. Note that γz∗ can be seen as the “novelty”
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        PAN et al.: ROBOT IMPEDANCE IL WITH SOGP                                                                                                                   2221
+
+
+
+        measure of z∗ for the BV set. If γz∗ is greater than a thresh-                    previous k − 1 iterations, the proposed IL-SOGP is expected to
+        old ϵ ∈ R+ , z∗ is added to the BV set. Then, if the size of the                  have better convergence than the original IL method.
+        BV set is excessive, a data point is selected for deletion based
+        on an RKHS-based similar metric. Compared to the classical                        C. Impedance Convergence Analysis
+        GP that requires inverting the covariance matrix of the order                        This section analyzes the convergence of the impedance
+        O(N 3 ) , the complexity of the proposed SOGP-IL can be                           parameters Bd and Kd in (10) iterated by (9).
+        reduced to the order O(N M 2 ) , where N is the number of train-                     Theorem 1: Consider the convex and differentiable objec-
+        ing data, M ≪ N is the number of support points [32]. Thus,                       tive function L in (7), where it is gradient Lipschitz continu-
+        the proposed SOGP-IL has lower complexity.                                        ous with a constant L ∈ R+ . If the impedance parameters Bkd
+          It is not feasible to use SOGPs directly for modeling the                       and Kdk are iterated by (9), i.e., zk = zk−1 − β∇L(zk−1 ) with
+        variable impedance strategy in (10). With the continuous iter-                    zk = [Bkd,11 , . . . , Bkd,66 , Kd,11
+                                                                                                                           k , . . . , K k ]T
+                                                                                                                                        d,66  ∈ R12 , there exists an
+        ations of the task, the SOGP will not be updated for similar                      optimal solution z such that one has limk→∞ L(zk ) = L(z∗ ) ,
+                                                                                                                    ∗
+        inputs. Hence, a pre-deletion operation can be added at the
+                                                                                          and the gradient ∇L(z∗ ) satisfies ∥∇L(z∗ )∥22 = 0 , where L(z∗ )
+        beginning of the update process to delete the points that are
+                                                                                          denotes the optimal value of L .
+        similar to the previous iterations. We introduce a hyperparam-
+                                                                                             Proof: Applying a quadratic expansion to the objective
+        eter w ∈ [0, 1] as the threshold of similarity and delete the
+                                                                                          function L(zk ) around L(zk−1 ) , one obtains
+        points whose similarity exceeds the threshold w in the BV
+        set. Let zk−1
+                   i   be a data point in the BV set before the previ-                               L(zk ) ≤ L(zk−1 ) + ∇L(zk−1 )T (zk − zk−1 )
+        ous ( k− 1)-th iteration and zk ∈ Z be a new arrival point at the                                       1
+        current k-th iteration, where i = 1 to N, and N denotes the size                                       + (zk − zk−1 )T ∇2 L(zk−1 )(zk − zk−1 ).
+                                                                                                                2
+        of the BV set. Then, the similarity between the two data
+        points is measured as follows:                                                     Since ∇L is Lipschitz continuous with the constant L, i.e.,
+                                                                                          ∇2 L(x) − LI < 0 , ∀x ∈ R12 , one obtains
+                             di = κ(zk−1
+                                     i , z ), i = 1, . . . , N
+                                          k
+                                                                                 (13)
+                                                                                                        L(zk ) ≤ L(zk−1 ) + ∇L(zk−1 )T (zk − zk−1 )
+        where the data points zk−1
+                               i   with the similarity di > w on the
+        new arrival point zk is deleted before each update of the                                                   1
+                                                                                                                   + L∥zk − zk−1 ∥22 .
+        SOGP. The detailed algorithm is shown in Algorithm 1.                                                       2
+
+          Algorithm 1 Updating IL-SOGP in the k-th Iteration                                Applying zk = zk−1 − β∇L(zk−1 ) to the above result yields
+
+          Require: zk , BV set, ϵ                                                                                                   1
+                                                                                                L(zk ) ≤ L(zk−1 ) − β∥∇L(zk−1 )∥22 + Lβ2 ∥∇L(zk−1 )∥22
+            Compute di = κ(zk−1                                                                                                     2
+                              i ,z )
+                                   k by (13)
+
+            Delete the corresponding point in BV set with di > w                                                        1
+                                                                                                       = L(zk−1 ) − (1 − βL)β∥∇L(zk−1 )∥22 .
+            Compute the residual error γ zk by (12)                                                                     2
+            if γ zk > ϵ then
+                                                                                            Choosing β < 1/L , one obtains
+               Add the new arrival point zk to BV set
+            else                                                                                                             1
+                                                                                                          L(zk ) ≤ L(zk−1 ) − β∥∇L(zk−1 )∥22
+               Only update the corresponding variables of SOGP                                                               2
+            end if                                                                        which implies that L(zk ) strictly decreases with each iteration
+            if size( BV ) > N then
+                                                                                          of gradient descent until ∥∇L(z∗ )∥22 = 0 and limk→∞ L(zk ) =
+               Delete a point based on RKHS-based scheme [12]
+                                                                                          L(z∗ ) , where L(z∗ ) is the optimal value of L .             ■
+            end if
+
+           Let t denote the “current” instant at any iteration cycle. If w                D. Discussions on Pros and Cons
+        is set too small, it causes the deletion of many data points in                      Compared to parameterized machine-learning models such
+        the BV set from the ( k − 1 )-th iteration. Although this allows                  as NNs, SOGP only needs to set a small number of hyperpa-
+        learning new knowledge rapidly, it leads to a lack of data                        rameters (rather than to training a large number of weight
+        points in the BV set beyond the instant t of the ( k − 1 )-th iter-               parameters), and the size of parameters does not increase with
+        ation, resulting in possibly less accurate prediction. If w is set                the increase of the number of training data. Using the existing
+        too large, few data points will be deleted, which leads to a                      data, SOGP can give the predicted value of the new data with
+        lack of data points from the current k-th iteration. It means                     its uncertainty through Bayesian inference, which can be
+        that the SOGP has difficulty in learning new knowledge, so                        explained by probability theory. SOGP pays more attention to
+        the predicted values of the SOGP converge to those in the                         interpretation and explores the underlying pattern of data
+        ( k − 1 )-th iteration. The setting of w is related to the hyperpa-               through kernel functions, whereas NN pays more attention to
+        rameters of the kernel function κ, which can be set to a value                    generalization and discovers the underlying patterns of data at
+        where some newly arriving data points can be inserted into the                    the expense of interpretability and training efficiency. There-
+        BV set. With the exploitation of both the new knowledge of                        fore, compared to SOGP, NN requires a long training time
+        the current k-th iteration and the knowledge learned from the                     with a larger amount of training data and cannot respond to
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        2222                                                                         IEEE/CAA JOURNAL OF AUTOMATICA SINICA, VOL. 12, NO. 11, NOVEMBER 2025
+
+
+
+                   Impedance learning outer-loop                       Position tracking inner-loop
+
+                   xd, x· d, ··
+                             xd     Variable impedance    Md, Bd, Kd
+                                        strategy (9)
+                                                                       xr, x·r, ··
+                                                                                xr       qr, q· r, q··r        τ            · q··
+                                                                                                                         q, q,                      · ··
+                                                                                                                                                 x, x, x
+                                                         Impedance            Inverse               Position                         Forward         Environment
+                                                                                                                   Robot (2)        kinematics           (3)
+                                                          model (6)         kinematics              tracking
+                                                                                                                                                           fe
+
+
+        Fig. 2. A variable impedance control framework based on robot admittance control. Note that the variable impedance strategy provides the proper impedance
+        parameters, and then the impedance model generates a reference trajectory for robot tracking.
+
+        real-time changes quickly.                                                                more details on the robot kinematics can be seen in [23].
+           The proposed IL-SOGP method for varying target impedan-                                  The environment (3) is to be an uneven object with a height
+        ce follows the impedance IL framework in [6] that does not                                h = 0.5 + 0.003 sin (80 xz (t) + 1.2) + εn , where xz (t) ∈ R is
+        consider the stability of impedance learning as in most opti-                             the z-direction of x(t) , εn ∼ N(0, 0.00152 ) is Gaussian noise
+        mization-based (or learning-based) variable impedance meth-                               with a mean 0 and a variance 0.00152 , Me = 0.01Φ(t)I , Be =
+        ods [4]. This is in contrast to adaptive variable impedance                               0.1Φ(t)I , and Ke = 300Φ(t)I with Φ(t) = (0.5 sin(2πt ) + 0.5) 2
+        methods that can usually guarantee stable impedance adapta-                               [6]. The initial position of the end-effector is x0 = [0.555, 0,
+        tion based on the Lyapunov synthesis [33], [34]. Stability in                             0.515] T m, the desired interaction force is fd = 0 N, and the
+        impedance variation is always important when robots physi-                                desired motion is the end-effector moving downward the
+        cally interact with environments. The proposed method mini-                               object and sliding a distance after contact with its surface.
+        mizes both the tracking error e and the interaction force fe in                             The damping parameter Bd and stiffness parameter Kd in
+        the objective function L such that the impedance parameters                               the z-axis direction are modeled by two GPs as in (11), and
+        Bd and Kd in (9) tend to achieve stable and compliant interac-                            are initialized as 100 and 20, respectively. Choose a squared
+        tion, but this does not have a theoretical guarantee, and the                             exponential kernel κ(z, z′ ) = σ2s exp(−(z − z′ )T Λ(z − z′ )/2) and
+        stability problem is still open. One possible solution is to                              set w = 0.8, ϵ = 0.001, N = 15, σ s = 1, σn = 0.001, and Λ =
+        impose a strict relationship between Bd and Kd to always                                  diag{3, 3, 3, 3, 4} for both GPs, where σ2s ∈ R+ is a signal
+        have a critically-damped response of robot control. Another                               variance, and Λ = diag{ λ1 , λ2 , . . . , λ5 } with λi ∈ R+ ( i = 1 to
+        possible solution is to impose a Lyapunov stability guarantee                             5) is a length-scale matrix of the input vector [31]. Note that
+        on the robot’s final behavior, but analyzing interaction stabil-                          in the following figures, red curves are generated by the clas-
+        ity with Lyapunov-based tools becomes difficult when the                                  sical IL, blue curves are generated by the proposed IL-SOGP,
+        environmental dynamics is unknown [35].                                                   orange curves denote the desired trajectories, deeper color
+           Other limitations of the proposed IL-SOGP method include:                              denotes higher iterative times, and green arrows indicate the
+        1) In the inner control loop, it is assumed that an accurate                              evolving direction of iterations from k = 1 to 5 or 10.
+        robot model is known such that the reference trajectory xr can
+        be tracked accurately, which may be alleviated by the combi-                              B. Comparison of Convergence Performance
+        nation of model-free GP control methods such as [36]; 2) The                                The convergence performance of the classical IL method in
+        objective functionr L in (7) considers tracking the integrated                            [6] and the proposed IL-SOGP method are explored under two
+                            t
+        interaction force 0 fe (ς)dς instead of the interaction force fe ,                        cases: Case 1 for accurate tracking with α = 10 and C = [25,
+        which limits its application scope; 3) Hardware experiments                               0, 1] and Case 2 for compliant interaction with α = 20 and
+        are challenging due to the high computational cost of SOGP                                C = [100, 0, 0.1]. From Figs. 3 and 4, it is clear that in Case 1,
+        [32], where the complexity of SOGP increases as the increase                              the damping parameter Bd and the stiffness parameter Kd
+        of the number of training data such that the real-time perfor-                            become larger for better position tracking, and in Case 2, Bd
+        mance is difficult to guarantee in practice.                                              and Kd become smaller, resulting in a smaller interaction
+                                                                                                  force fe for compliant interaction. However, the convergence
+                                  IV.   Numerical Verification                                    rate of the IL-SOGP is higher than for both Bd and Kd
+                                                                                                  because it exploits the new iteration values learned from the
+        A. Simulation Environment Setup                                                           previous instants in the same iteration, which provides a trend
+           This section validates the convergence and generalization of                           for the subsequent prediction and thus accelerates conver-
+        the proposed IL-SOGP method based on a simulated 7-DoF                                    gence. Also, the IL-SOGP exhibits more sharp changes of Bd
+        collaborative robot called Franka Emika Panda in the MAT-                                 and Kd , which is caused by the low frequency of the admit-
+        LAB software, where the dynamic parameters of the Panda                                   tance control part and results in a sharp acceleration when data
+        robot are from the high-fidelity identification result in [37].                           points are added to the BV set. But for the variable
+        The inner loop implements a computed torque position con-                                 impedance control, these low-frequency changes are subtle,
+        troller with a sampling delay of 1 ms, and the outer-loop sam-                            and no sudden changes in the interaction force fe or the robot
+        pling delay for admittance control is 10 ms. For clear illustra-                          position x will be introduced during the interaction. The aver-
+        tions, we only consider variable impedance for the z-axis                                 age of the objective function L in (7) by the IL-SOGP con-
+        translation. The control framework is depicted in Fig. 2, and                             verges much faster, as exhibited in Figs. 3(a) and 3(b). The
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        PAN et al.: ROBOT IMPEDANCE IL WITH SOGP                                                                                                                                                                             2223
+
+
+                                 130                                                               24                                                  0.79
+                                 120                                                                                                                   0.78
+                                                                                                   22
+                                 110                                                                                                                   0.77
+
+                           Bd                                                                      20                                                  0.76
+
+
+
+
+                                                                                              Kd
+
+
+
+
+                                                                                                                                                   
+                                 100
+                                                                                                                                                       0.75
+                                                                                                   18
+                                  90
+                                                                                                                                                       0.74
+                                  80                                                               16                                                  0.73
+                                       0   0.2      0.4    0.6     0.8                  1.0             0   0.2      0.4    0.6     0.8         1.0           0   2              4       6    8               10
+                                                     Time (s)                                                         Time (s)                                                 Iteration (k)
+                                                 (a) Case 1: Bd(t)                                                (b) Case 1: Kd(t)                                          (c) Case 1: (t)
+
+                                 110                                                               21                                                  1.01
+                                                                                                                                                       1.00
+                                 100                                                               20
+                                                                                                                                                       0.99
+                                  90                                                               19
+
+                                                                                              Kd
+                                                                                                                                                       0.98
+                           Bd
+
+
+
+
+                                                                                                                                                   
+                                                                                                                                                       0.97
+                                  80                                                               18
+                                                                                                                                                       0.96
+                                  70                                                               17                                                  0.95
+                                       0   0.2      0.4    0.6     0.8                  1.0             0   0.2      0.4    0.6     0.8         1.0           0   2               4       6    8              10
+                                                     Time (s)                                                         Time (s)                                                  Iteration (k)
+                                                 (d) Case 2: Bd(t)                                                (e) Case 2: Kd(t)                                           (f) Case 2: (t)
+
+        Fig. 3. Convergence results by the two learning methods in the disturbance-free scenario of Section IV-B ( k = 10). Note that red curves are by the classical
+        IL, blue curves are by the proposed IL-SOGP, and arrows indicate the evolving direction of the iterations from k = 1 to 10.
+
+                 5                                                         0.52                                                5                                                        0.52
+                 4                                                                                                             4
+                                                                           0.51                                                                                                         0.51
+                                                         x at z-axis (m)
+
+
+
+
+                                                                                                                                                                      x at z-axis (m)
+                 3                                                                                                             3
+        fe (N)
+
+
+
+
+                                                                                                                      fe (N)
+
+
+
+
+                                                                           0.50                                                                                                         0.50
+                 2                                                                                                             2
+
+                 1                                                         0.49                                                1                                                        0.49
+
+                 0                                                         0.48                                                0                                                        0.48
+                     0   0.2      0.4 0.6 0.8         1.0                         0   0.2   0.4 0.6 0.8            1.0             0   0.2      0.4 0.6 0.8       1.0                          0   0.2   0.4 0.6 0.8         1.0
+                                   Time (s)                                                 Time (s)                                             Time (s)                                                Time (s)
+                               (a) Case 1: fe(t)                                      (b) Case 1: x at z-axis                                (c) Case 2: fe(t)                                     (d) Case 2: x at z-axis
+
+        Fig. 4. Interaction processes by the two learning methods in the disturbance-free scenario of Section IV-B ( k = 10). Note that red curves are by the classical
+        IL, blue curves are by the proposed IL-SOGP, orange curves are the desired trajectories, and arrows indicate the evolving direction of the iterations from k = 1
+        to 10.
+
+        predicted values of L by the two methods are exhibited in                                                        tory xd is designed as in Fig. 6(a) for Tasks 2 and 3 (orange
+        Tables I and II, respectively, where L can also represent a                                                      curves). For Task 2, set Φ(t) = (0.7 sin (2πt) + 0.3)2 such that
+        prediction error to reflect the estimation accuracy of Bkd and                                                   the parameter variation is more obvious. For Task 3, set h =
+        Kdk in (10). It is shown that the IL-SOGP provides smaller                                                       0.5 + 0.006 sin(80xz (t) + 1.2) + εn such that the environ-
+                                                                                                                         ment is more undulating. It is worth noting that the change of
+        mean values and variances, and after 3 iterations, it performs
+                                                                                                                         x0 makes the robot contact the environment earlier.
+        better than the classical IL after 10 iterations. In summary,
+                                                                                                                            It is observed from Fig. 5 that the proposed IL-SOGP keeps
+        compared to the classical IL, the proposed IL-SOGP has bet-
+                                                                                                                         small changes for the five iterations of the damping parameter
+        ter position tracking and faster iterations in Case 1 and has a                                                  Bd and the stiffness parameter Kd , while the changes of Bd
+        smaller interaction force fe , resulting in more compliant inter-                                                and Kd by the classical IL are large because of restarting itera-
+        action in Case 2.                                                                                                tions. From Figs. 5(a) and 5(b), one knows that the iterative
+                                                                                                                         changes of the averaged L by the IL-SOGP are small, indicat-
+        C. Comparison of Generalization Performance
+                                                                                                                         ing that it is close to the final convergence. The above results
+           The classical IL method requires re-iteration when the task                                                   validate that the IL-SOGP can exploit the learned knowledge
+        or environment is changed, which restricts its applications to                                                   reasonably well in the case of switching tasks, resulting in fast
+        scenarios interacting with unknown environments. To verify                                                       convergence to provide a new variable impedance strategy
+        the generalization of the proposed IL-SOGP method, we de-                                                        suitable for the new task. The interaction process in Fig. 6 also
+        note Case 1 in Section IV-B as Task 1, and introduce extra                                                       shows that the IL-SOGP has better position tracking and is
+        Tasks 2 and 3 with modified initial positions and desired                                                        close to the final convergence. In summary, the proposed IL-
+        trajectories (As shown in Figs. 5 and 6), where the initial posi-                                                SOGP is able to predict proper impedance parameters for the
+        tion x0 in the z-axis is tuned to 0.503 m and the desired trajec-                                                new task based on the learned variable impedance strategy.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        2224                                                                                                    IEEE/CAA JOURNAL OF AUTOMATICA SINICA, VOL. 12, NO. 11, NOVEMBER 2025
+
+
+                                                                                            TABLE I
+                                                                    Mean Values of the Objective Function L at Each Iteration
+                         Iteration                   1                               2            3             4                     5             6             7                              8             9          10
+            Case 1 (Classical IL)                   0.780                       0.776            0.772         0.768              0.764           0.760       0.756                         0.753          0.749         0.749
+                 Case 1 (IL-SOGP)                   0.773                       0.760            0.753         0.747              0.743           0.740       0.737                         0.735          0.733         0.731
+            Case 2 (Classical IL)                   1.003                       1.001            0.999         0.998              0.996           0.994       0.992                         0.991          0.989         0.987
+                 Case 2 (IL-SOGP)                   0.997                       0.989            0.984         0.980              0.975           0.971       0.967                         0.964          0.961         0.958
+
+
+                                                                                                     TABLE II
+                                                                              Variances of the Objective Function L at Each Iteration
+                         Iteration                   1                               2            3             4                     5             6             7                              8             9          10
+            Case 1 (Classical IL)                   0.256                       0.254            0.251         0.249              0.247           0.244       0.242                         0.240          0.238         0.236
+                 Case 1 (IL-SOGP)                   0.251                       0.241            0.236         0.232              0.229           0.226       0.224                         0.222          0.221         0.220
+            Case 2 (Classical IL)                   0.315                       0.313            0.312         0.310              0.308           0.306       0.305                         0.303          0.301         0.300
+                 Case 2 (IL-SOGP)                   0.301                       0.301            0.296         0.292              0.288           0.284       0.281                         0.278          0.275         0.272
+
+
+                                   160                                                                28                                                   1.16
+                                                                                                      26
+                                   140                                                                                                                     1.14
+                                                                                                      24
+                                                                                                                                                           1.12
+                                   120                                                                22
+                             Bd
+
+
+
+
+                                                                                                 Kd
+
+
+
+
+                                                                                                                                                          
+                                                                                                                                                           1.10
+                                                                                                      20
+                                   100                                                                                                                     1.08
+                                                                                                      18
+                                     80                                                               16                                                   1.06
+                                          0   0.2      0.4    0.6     0.8                  1.0             0   0.2      0.4    0.6     0.8          1.0           1              2                3        4       5
+                                                        Time (s)                                                         Time (s)                                                           Iteration (k)
+                                                    (a) Task 1: Bd(t)                                                (b) Task 1: Kd(t)                                                    (c) Task 1: (t)
+                                   160
+                                                                                                      30                                                   1.30
+
+                                   140                                                                                                                     1.28
+                                                                                                      25                                                   1.26
+                                   120
+                             Bd
+
+
+
+
+                                                                                                 Kd
+
+
+
+
+                                                                                                                                                          
+
+
+
+
+                                                                                                                                                           1.24
+                                                                                                      20                                                   1.22
+                                   100
+                                                                                                                                                           1.20
+                                     80                                                               15
+                                          0   0.2      0.4    0.6     0.8                  1.0             0   0.2      0.4    0.6     0.8         1.0            1              2                3        4       5
+                                                        Time (s)                                                         Time (s)                                                           Iteration (k)
+                                                    (d) Task 2: Bd(t)                                                (e) Task 2: Kd(t)                                                    (f) Task 2: (t)
+
+        Fig. 5. Generalization results by the two learning methods in Tasks 1 and 2 of Section IV-C ( k = 5). Note that red curves are by the classical IL, blue curves
+        are by the proposed IL-SOGP, green curves are from the 10th iteration in Task 1, and arrows indicate the evolving direction of the iterations from k = 1 to 5.
+
+                 8                                                            0.52                                                8                                                       0.52
+
+                                                                              0.51                                                                                                        0.51
+                 6                                                                                                                6
+                                                            x at z-axis (m)
+
+
+
+
+                                                                                                                                                                        x at z-axis (m)
+
+
+
+
+                                                                              0.50                                                                                                        0.50
+        fe (N)
+
+
+
+
+                                                                                                                         fe (N)
+
+
+
+
+                 4                                                                                                                4
+                                                                              0.49                                                                                                        0.49
+                 2                                                            0.48                                                2                                                       0.48
+
+                 0                                                            0.47                                                0                                                       0.47
+                     0     0.2      0.4 0.6 0.8          1.0                         0   0.2   0.4 0.6 0.8             1.0            0   0.2      0.4 0.6 0.8        1.0                        0   0.2    0.4 0.6 0.8          1.0
+                                     Time (s)                                                   Time (s)                                            Time (s)                                                 Time (s)
+                                 (a) Task 2: fe(t)                                       (b) Task 2: x at z-axis                                (c) Task 3: fe(t)                                     (d) Task 3: x at z-axis
+
+        Fig. 6. Interaction processes by the two learning methods in Tasks 2 and 3 of Section IV-C ( k = 5). Note that red curves are by the classical IL, blue curves
+        are by the proposed IL-SOGP, green curves are from the 10th iteration in Task 1, orange curves are the desired trajectories, and arrows indicate the evolving
+        direction of the iterations from k = 1 to 5.
+
+        D. Comparison of Robustness Performance
+                                                                                                                             we choose the same cases and parameters as those in Section
+                                                                                                                             IV-B, except that the centripetal-Coriolis and friction com-
+            To demonstrate the robustness of the proposed IL-SOGP,                                                           pensation terms in the inner loop torque controller are igno-
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        PAN et al.: ROBOT IMPEDANCE IL WITH SOGP                                                                                                                                                                                          2225
+
+
+                                    250                                                                   30                                                         0.90
+                                                                                                          28                                                         0.85
+                                    200
+                                                                                                          26
+                                                                                                                                                                     0.80
+                          Bd
+
+
+
+
+                                                                                                     Kd
+
+
+
+
+                                                                                                                                                                 
+                                                                                                          24
+                                    150                                                                                                                              0.75
+                                                                                                          22
+                                                                                                                                                                     0.70
+                                    100                                                                   20
+                                                                                                                                                                     0.65
+                                          0   0.2      0.4    0.6                       0.8    1.0             0   0.2      0.4   0.6             0.8      1.0              0    2                    4       6        8    10
+                                                        Time (s)                                                            Time (s)                                                                 Iteration (k)
+                                                    (a) Case 1: Bd(t)                                                    (b) Case 1: Kd(t)                                                      (c) Case 1: (t)
+                                    110                                                                   22
+                                                                                                                                                                     0.88
+                                    100                                                                   21                                                         0.87
+
+                                     90                                                                   20                                                         0.86
+
+
+
+                                                                                                     Kd
+                                                                                                                                                                     0.85
+                          Bd
+
+
+
+
+                                                                                                                                                                 
+                                     80                                                                   19
+                                                                                                                                                                     0.84
+                                     70                                                                   18                                                         0.83
+                                     60                                                                   17                                                         0.82
+                                          0   0.2      0.4    0.6                       0.8    1.0             0   0.2      0.4    0.6            0.8      1.0              0    2                    4       6        8    10
+                                                        Time (s)                                                              Time (s)                                                               Iteration (k)
+                                                    (d) Case 2: Bd(t)                                                     (e) Case 2: Kd(t)                                                         (f) Case 2: (t)
+
+        Fig. 7. Convergence results by the two learning methods in the disturbed scenario of Section IV-D ( k = 10). Note that red curves are by the classical IL, blue
+        curves are by the proposed IL-SOGP, and arrows indicate the evolving direction of the iterations from k = 1 to 10.
+
+                 5                                                               0.52                                                    4                                                           0.52
+                 4                                                                                                                       3
+                                                               x at z-axis (m)
+
+
+
+
+                                                                                 0.51                                                                                                                0.51
+
+
+
+
+                                                                                                                                                                                  x at z-axis (m)
+                 3
+        fe (N)
+
+
+
+
+                                                                                                                                fe (N)
+
+
+
+
+                                                                                 0.50                                                    2                                                           0.50
+                 2
+                 1                                                               0.49                                                    1                                                           0.49
+
+                 0                                                               0.48                                                    0                                                           0.48
+                     0   0.2      0.4 0.6 0.8            1.0                            0     0.2   0.4 0.6 0.8           1.0                0   0.2      0.4 0.6 0.8           1.0                         0   0.2   0.4 0.6 0.8         1.0
+                                   Time (s)                                                         Time (s)                                               Time (s)                                                   Time (s)
+                               (a) Case 1: fe(t)                                              (b) Case 1: x at z-axis                                  (c) Case 2: fe(t)                                        (d) Case 2: x at z-axis
+
+        Fig. 8. Interaction processes by the two learning methods in the disturbed scenario of Section IV-D ( k = 10). Note that red curves are by the classical IL, blue
+        curves are by the proposed IL-SOGP, and arrows indicate the evolving direction of the iterations from k = 1 to 10.
+
+        red. An external disturbance d(t) = [0.4, 0.4, 0.4, 0.4, 0.2, 0.2,                                                        eralization during robot-environment interaction. Numerical
+        0.2]T sin(π/2t) is added to the right side of the robot dynam-                                                            verification has shown that compared with the classical impe-
+        ics (2). In this scenario, the parameter uncertainties from cen-                                                          dance IL method, the proposed method provides better con-
+        tripetal-Coriolis and friction forces, external disturbance d ,                                                           vergence and generalization in modeling the variable impe-
+        and measurement noise affect robot interaction. Simulation                                                                dance strategy for a 7-DoF robot arm. In future work, we
+        results are shown in Figs. 7 and 8. Compared to the distur-                                                               would consider novel objective functions, adaptive similarity,
+        bance-free scenario in Section IV-B, the changes of the damp-                                                             advanced inner-loop control [38]−[40], interaction stability
+        ing parameter Bd and stiffness parameter Kd by the proposed                                                               analysis under unknown environments, interaction with more
+        IL-SOGP are larger owing to the parameter uncertainties and                                                               complex environments, and physical experiments based on
+        the external disturbance d . In Case 1, Bd and Kd by the IL-                                                              more efficient GP models.
+        SOGP become larger for better position tracking, and in Case
+        2, Bd and Kd become smaller for compliant interaction. The                                                                                                          References
+        IL-SOGP owns a higher convergence rate for both Bd and Kd
+                                                                                                                                     [1] E. Matheson, R. Minto, E. G. Zampieri, M. Faccio, and G. Rosati,
+        because it exploits the new iteration values learned from the                                                                    “Human-robot collaboration in manufacturing applications: A review,”
+        previous instants in the same iteration, which provides a trend                                                                  Robot., vol. 8, no. 4, p. 100, Dec. 2019.
+        for the subsequent prediction and thus accelerates conver-                                                                   [2] G. Kang, H. S. Oh, J. K. Seo, U. Kim, and H. R. Choi, “Variable
+        gence. The averaged L by the IL-SOGP shows faster conver-                                                                        admittance control of robot manipulators based on human intention,”
+                                                                                                                                         IEEE/ASME Trans. Mechatronics, vol. 24, no. 3, pp. 1023–1032, Jun.
+        gence, which implies that it is robust against parameter uncer-
+                                                                                                                                         2019.
+        tainties and external disturbances.
+                                                                                                                                     [3] C. Ott, R. Mukherjee, and Y. Nakamura, “A hybrid system framework
+                                                                                                                                         for unified impedance and admittance control,” J. Intell. Robot. Syst.,
+                               V.     Conclusions and Future Work                                                                        vol. 78, no. 3–4, pp. 359–375, Jul. 2015.
+          In this paper, an IL-SOGP impedance learning framework                                                                     [4] M. Sharifi, A. Zakerimanesh, J. K. Mehr, A. Torabi, V. K. Mushahwar,
+        has been proposed to improve learning convergence and gen-                                                                       and M. Tavakoli, “Impedance variation and learning strategies in
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        2226                                                                        IEEE/CAA JOURNAL OF AUTOMATICA SINICA, VOL. 12, NO. 11, NOVEMBER 2025
+
+
+               human-robot interaction,” IEEE Trans. Cybern., vol. 52, no. 7,                     Trans. Cybern., vol. 47, no. 11, pp. 3504–3515, Nov. 2017.
+               pp. 6462–6475, Jul. 2022.                                                     [25] T. Yamawaki, H. Ishikawa, and M. Yashima, “Iterative learning of
+         [5] N. Nikooienejad, M. Maroufi, and S. O. Reza Moheimani, “A survey of                  variable impedance control for human-robot cooperation,” in Proc.
+             iterative learning control: A learning-based method for high-                        IEEE/RSJ Int. Conf. Intell. Robot. Syst., Daejeon, South Korea, 2016,
+             performance tracking control,” IEEE Control Syst. Mag., vol. 26, no. 3,              pp. 839–844.
+             pp. 96–114, Jun. 2006.                                                          [26] A. Kramberger, E. Shahriari, A. Gams, B. Nemec, A. Ude, and S.
+         [6] Y. Li and S. S. Ge, “Impedance learning for robots interacting with                  Haddadin, “Passivity based iterative learning of admittance-coupled
+             unknown environments,” IEEE Trans. Control Syst. Technol., vol. 22,                  dynamic movement primitives for interaction with changing
+             no. 4, pp. 1422–1432, Jul. 2014.                                                     environments,” in Proc. IEEE/RSJ Int. Conf. Intell. Robot. Syst.,
+         [7] S. Riaz, L. Hui, M. S. Aldemir, and F. Afzal, “A future concern of                   Madrid, Spain, 2018, pp. 6023–6028.
+             iterative learning control: A survey,” J. Stat. Manag. Syst., vol. 24, no. 6,   [27] X. Li, Y.-H. Liu, and H. Yu, “Iterative learning impedance control for
+             pp. 1301–1322, Apr. 2021.                                                            rehabilitation robots driven by series elastic actuators,” Automatica,
+         [8] D. Zhang, Z. Wang, and T. Masayoshi, “Neural-network-based iterative                 vol. 90, pp. 1–7, Apr. 2018.
+             learning control for multiple tasks,” IEEE Trans. Neural Netw. Learn.           [28] K. Dupree, C.-H. Liang, G. Hu, and W. E. Dixon, “Adaptive lyapunov-
+             Syst., vol. 32, no. 9, pp. 4178–4190, Sept. 2020.                                    based control of a robot and mass-spring system undergoing an impact
+         [9] L. Rath, A. R. Geist, and S. Trimpe, “Using physics knowledge for                    collision,” IEEE Trans. Syst. Man Cybern. B, vol. 38, no. 4, pp. 1050–
+             learning rigid-body forward dynamics with Gaussian process force                     1061, Aug. 2008.
+             priors,” in Proc. Conf. Robot Learn., London, UK, 2021, pp. 101–111.            [29] J. E. Colgate and N. Hogan, “Robust control of dynamically interacting
+        [10] J. Lee, J. Feng, M. Humt, M. G. Müller, and R. Triebel, “Trust your                  systems,” Int. J. Control, vol. 48, no. 1, pp. 65–88, Oct. 1988.
+             robots! predictive uncertainty estimation of neural networks with sparse        [30] F. Ficuciello, L. Villani, and B. Siciliano, “Variable impedance control
+             Gaussian processes,” in Proc. Conf. Robot Learn., London, UK, 2021,                  of redundant manipulators for intuitive human-robot physical
+             pp. 1168–1179.                                                                       interaction,” IEEE Trans. Robot., vol. 31, no. 4, pp. 850–863, Aug. 2015.
+        [11] H. Liu, Y.-S. Ong, X. Shen, and J. Cai, “When Gaussian process meets            [31] C. E. Rasmussen and C. K. I. Williams, Gaussian Processes for
+             big data: A review of scalable GPs,” IEEE Trans. Neural Netw. Learn.                 Machine Learning. Cambridge, MA, USA: MIT press, 2006.
+             Syst., vol. 31, no. 11, pp. 4405–4423, Nov. 2020.                               [32] B. Wilcox and M. C. Yip, “SOLAR-GP: Sparse online locally adaptive
+        [12] L. Csato and M. Opper, “Sparse on-line Gaussian processes,” Neural                   regression using Gaussian processes for Bayesian robot model learning
+             Comput., vol. 14, no. 3, pp. 641–668, Mar. 2002.                                     and control,” IEEE Robot. Autom. Lett., vol. 5, no. 2, pp. 2832–2839,
+        [13] J. S. De La Cruz, W. Owen, and D. Kulic, “Online learning of inverse                 Apr. 2020.
+             dynamics via Gaussian process regression,” in Proc. IEEE/RSJ Int.               [33] X. Li, Y. Pan, G. Chen, and H. Yu, “Adaptive human-robot interaction
+             Conf. Intell. Robot. Syst., Vilamoura, Algarve, Portugal, 2012, pp. 3583–            control for robots driven by series elastic actuators,” IEEE Trans.
+             3590.                                                                                Robot., vol. 33, no. 1, pp. 169–182, Feb. 2017.
+        [14] L. Deng, W. Li, and Y. Pan, “Data-efficient Gaussian process online             [34] T. Sun, L. Peng, L. Cheng, Z.-G. Hou, and Y. Pan, “Stability-
+             learning for adaptive control of multi-DoF robotic arms,” IFAC-                      guaranteed variable impedance control of robots based on approximate
+             PapersOnLine, vol. 55, no. 2, pp. 84–89, 2022.                                       dynamic inversion,” IEEE Trans. Syst. Man, Cybern. Syst., vol. 51,
+        [15] R.-E. Precup, S. Preitl, J. K. Tar, M. L. Tomescu, M. Takacs, P.                     no. 7, pp. 4193–4200, Jul. 2019.
+             Korondi, and P. Baranyi, “Fuzzy control system performance                      [35] F. J. Abu-Dakka and M. Saveriano, “Variable impedance control and
+             enhancement by iterative learning control,” IEEE Trans. Ind. Electron.,              learning—A review,” Front. Robot. AI, vol. 7, p. 177, Dec. 2020.
+             vol. 55, no. 9, pp. 3461–3475, Sept. 2008.                                      [36] W. Li, Z. Li, Y. Liu, and Y. Pan, “Learning inverse robot dynamics
+        [16] J. Wang, Y. Gao, Y. Gao, J. Liu, G. Sun, and L. Wu, “Intelligent                     using sparse online Gaussian process with forgetting mechanism,” in
+             dynamic practical-sliding-mode control for singular Markovian jump                   Proc. IEEE Int. Conf. Adv. Intell. Mechatronics, Sapporo, Japan, 2022,
+             systems,” Inf. Sci., vol. 607, pp. 153–172, Aug. 2022.                               pp. 638–643.
+        [17] I. A. Zamfirache, R.-E. Precup, R.-C. Roman, and E. M. Petriu, “Neural          [37] C. Gaz, M. Cognetti, A. Oliva, P. R. Giordano, and A. De Luca,
+             network-based control using actor-critic reinforcement learning and                  “Dynamic identification of the Franka Emika Panda robot with retrieval
+             grey wolf optimizer with experimental servo system validation,” Expert               of feasible parameters using penalty-based optimization,” IEEE Robot.
+             Syst. Appl., vol. 225, Art. no. 120112, Sept. 2023.                                  Autom. Lett., vol. 4, no. 4, pp. 4147–4154, Oct. 2019.
+        [18] F. Dimeas and N. Aspragathos, “Fuzzy learning variable admittance               [38] Y. Xie, X. Zhang, S. Zheng, C. K. Ahn, and S. Wang, “Asynchronous
+             control for human-robot cooperation,” in Proc. IEEE/RSJ Int. Conf.                   H∞ continuous stabilization of mode-dependent switched mobile robot,”
+             Intell. Robot. Syst., Chicago, IL, USA, 2014, pp. 4770–4775.                         IEEE Trans. Syst. Man, Cybern. Syst., vol. 52, pp. 6906–6920, Nov.
+        [19] A.-N. Sharkawy, P. N. Koustournpardis, and N. Aspragathos, “Variable                 2022.
+             admittance control for human-robot collaboration based on online                [39] S.-K. Kim, C. K. Ahn, and R. K. Agarwal, “Position-tracking controller
+             neural network training,” in Proc. IEEE/RSJ Int. Conf. Intell. Robot.                for two-wheeled balancing robot applications using invariant dynamic
+             Syst., Madrid, Spain, 2018, pp. 1334–1339.                                           surface,” IEEE Trans. Syst. Man, Cybern. Syst., vol. 51, no. 2, pp. 705–
+        [20] A.-N. Sharkawy, P. Koustoumpardis, and N. Aspragathos, “A neural                     711, Feb. 2021.
+             network-based approach for variable admittance control in human-robot           [40] M.-G. Unguritu and T.-C. Nichiţelea, “Design and assessment of an
+             cooperation: Online adjustment of the virtual inertia,” Intel. Serv.                 anti-lock braking system controller,” Roman. J. Inf. Sci. Technol.,
+             Robotics, vol. 13, pp. 495–519, Aug. 2020.                                           vol. 26, no. 1, pp. 21–32, 2023.
+        [21] X. Yu, W. He, Y. Li, C. Xue, J. Li, J. Zou, and C. Yang, “Bayesian
+             estimation of human impedance and motion intention for human-robot                                       Yongping Pan (Senior Member, IEEE) received the
+             collaboration,” IEEE Trans. Cybern., vol. 51, no. 4, pp. 1822–1834, Apr.                                 Ph.D. degree in control theory and control engineer-
+             2021.                                                                                                    ing from South China University of Technology in
+        [22] C. Li, Z. Zhang, G. Xia, X. Xie, and Q. Zhu, “Efficient learning variable                                2011.
+             impedance control for industrial robots,” Bull. Pol. Acad. Sci. Tech. Sci.,                                 He spent one year as a control systems engineer in
+             vol. 67, p. 2, Apr. 2019.                                                                                the industry in Shenzhen and Guangzhou and has
+                                                                                                                      over ten years of research experience with the
+        [23] L. Deng, Z. Li, and Y. Pan, “Sparse online Gaussian process impedance
+                                                                                                                      Nanyang Technological University, Singapore, the
+             learning for multi-DoF robotic arms,” in Proc. IEEE Int. Conf. Adv.                                      National University of Singapore, Singapore, and the
+             Robot. Mechatron., Chongqing, China, 2021, pp. 199–206.                                                  University of Tokyo, Japan. In 2019, he joined the
+        [24] C. Wang, Y. Li, S. S. Ge, and T. H. Lee, “Reference adaptation for              Sun Yat-sen University in Guangzhou and Shenzhen as a Professor who led
+             robots in physical interactions with unknown environments,” IEEE                the Intelligent Robotics Lab. He is currently a Professor with Southeast Uni-
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+        PAN et al.: ROBOT IMPEDANCE IL WITH SOGP                                                                                                                   2227
+
+
+        versity. His research interests include automatic control and machine learning                             Bin Xu received the B.S. degree in measurement and
+        for robotics, such as compliant actuation, interaction control, visual servoing,                           control from Northwestern Polytechnical University
+        motion planning, and dexterous manipulation. He has authored or co-authored                                in 2006, and the Ph.D. degree in computer science
+        over 200 peer-reviewed academic papers, including more than 140 papers in                                  from Tsinghua University in 2012.
+        refereed journals.                                                                                             He is currently a Professor with the School of
+           Dr. Pan serves as the Chair of the IEEE Robotics and Automation Society                                 Automation, Northwestern Polytechnical University.
+        Guangzhou Chapter, as a Specialty Chief Editor of Frontiers in Robotics and                                His research interests include intelligent control and
+        AI, and as an Associate Editor of several top-tier journals, such as IEEE                                  adaptive control with applications.
+        Transactions Series. He has held various organizing roles in over 10 interna-
+        tional conferences and served as Lead Guest Editor for four special issues in
+        reputable refereed journals. Moreover, he received several best paper awards
+        from major conferences in robotics and automation.
+                                                                                                                    Choon Ki Ahn (Senior Member, IEEE) received the
+                                                                                                                    Ph.D. degree at the School of Electrical Engineering
+                                                                                                                    and Computer Science from Seoul National Univer-
+                                 Tian Shi (Member, IEEE) received the M.S. degree                                   sity, South Korea, in 2006.
+                                 in control engineering from Jilin University in 2021,                                  He is currently a Distinguished Chair Professor
+                                 and the Ph.D. degree in computer science and tech-                                 with the School of Electrical Engineering, Korea
+                                 nology from Sun Yat-sen University in 2025.                                        University, South Korea. In 2017, he received the
+                                     His research interests include adaptive and inter-                             Presidential Young Scientist Award from the Presi-
+                                 action control for compliant actuation robots.                                     dent of South Korea. In 2020, 2021, and 2023, he
+                                                                                                                    received the Best (Outstanding) Associate Editor
+                                                                                           Award for IEEE Transactions on Neural Networks and Learning Systems;
+                                                                                           IEEE Transactions on Systems, Man, and Cybernetics: Systems; and IEEE
+                                                                                           Transactions on Circuits and Systems I: Regular Papers, respectively. In
+                                                                                           2019−2025, he received the Korea University Research Excellence Award. In
+                                                                                           2023, he was inducted into the Korea University Hall of Fame as the world’s
+                                 Wei Li received the B.S. degree in electronic infor-      top researcher.
+                                 mation engineering from Guangdong University of               He has been a Senior Editor of IEEE Transactions on Neural Networks
+                                 Technology in 2017, and the M.S. degree in com-           and Learning Systems; IEEE Transactions on Systems, Man, and Cybernet-
+                                 puter technology from Sun Yat-sen University in           ics: Systems; IEEE Systems Journal. He has also been an Associate Editor of
+                                 2022.                                                     IEEE Transactions on Fuzzy Systems; IEEE Transactions on Automation Sci-
+                                    His research interests include Gaussian process        ence and Engineering; IEEE Transactions on Intelligent Transportation Sys-
+                                 and physical robot interaction.                           tems; IEEE Transactions on Circuits and Systems I: Regular Papers; IEEE
+                                                                                           Systems, Man, and Cybernetics Magazine; and other flagship journals. He is
+                                                                                           the recipient of the 2019−2024 Highly Cited Researcher Award in Engineer-
+                                                                                           ing by Clarivate Analytics (formerly, Thomson Reuters).
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 03,2026 at 08:19:01 UTC from IEEE Xplore. Restrictions apply.
+

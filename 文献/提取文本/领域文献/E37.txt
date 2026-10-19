@@ -1,0 +1,1659 @@
+Journal of Intelligent & Robotic Systems (2020) 100:417–433
+https://doi.org/10.1007/s10846-020-01183-3
+
+
+
+
+Model-Based Reinforcement Learning Variable Impedance Control
+for Human-Robot Collaboration
+Loris Roveda1,2 · Jeyhoon Maskani3 · Paolo Franceschi1 · Arash Abdi1 · Francesco Braghin3 ·
+Lorenzo Molinari Tosatti1 · Nicola Pedrocchi1
+
+Received: 22 November 2019 / Accepted: 19 February 2020 / Published online: 10 March 2020
+© Springer Nature B.V. 2020
+
+Abstract
+Industry 4.0 is taking human-robot collaboration at the center of the production environment. Collaborative robots
+enhance productivity and flexibility while reducing human’s fatigue and the risk of injuries, exploiting advanced control
+methodologies. However, there is a lack of real-time model-based controllers accounting for the complex human-robot
+interaction dynamics. With this aim, this paper proposes a Model-Based Reinforcement Learning (MBRL) variable
+impedance controller to assist human operators in collaborative tasks. More in details, an ensemble of Artificial Neural
+Networks (ANNs) is used to learn a human-robot interaction dynamic model, capturing uncertainties. Such a learned
+model is kept updated during collaborative tasks execution. In addition, the learned model is used by a Model Predictive
+Controller (MPC) with Cross-Entropy Method (CEM). The aim of the MPC+CEM is to online optimize the stiffness and
+damping impedance control parameters minimizing the human effort (i.e, minimizing the human-robot interaction forces).
+The proposed approach has been validated through an experimental procedure. A lifting task has been considered as the
+reference validation application (weight of the manipulated part: 10 kg unknown to the robot controller). A KUKA LBR
+iiwa 14 R820 has been used as a test platform. Qualitative performance (i.e, questionnaire on perceived collaboration) have
+been evaluated. Achieved results have been compared with previous developed offline model-free optimized controllers and
+with the robot manual guidance controller. The proposed MBRL variable impedance controller shows improved human-
+robot collaboration. The proposed controller is capable to actively assist the human in the target task, compensating for
+the unknown part weight. The human-robot interaction dynamic model has been trained with a few initial experiments (30
+initial experiments). In addition, the possibility to keep the learning of the human-robot interaction dynamics active allows
+accounting for the adaptation of human motor system.
+
+Keywords Human-robot collaboration · Machine learning · Industry 4.0 · Model-based reinforcement learning control ·
+Variable impedance control
+
+
+1 Introduction                                                            ambitious result, human-robot collaboration is a funda-
+                                                                          mental topic to be investigated [3]. Physical human-robot
+1.1 Human-Robot Collaboration in Industry 4.0                             interaction control is widely investigated to empower the
+                                                                          operator [4–6]. Impedance control [7] is commonly adopted
+Within the Industry 4.0 paradigm [1], a new concept of                    as a low-level control layer [8, 9], implementing a (tun-
+smart worker [2] is proposed. In such a scenario, the human               able) mass-spring-damper compliant system. Inspired by
+operator is in charge of added-value tasks, management                    bio-mechanical systems, researchers have been exploring
+of the production process and supervision of the opera-                   the advantages of adapting the impedance behavior of the
+tions, being relieved from onerous tasks. To achieve such an              controlled robot during the task execution [10], i.e, adjust-
+                                                                          ing its stiffness and damping matrices according to a force
+ Loris Roveda                                                            feedback. In such a way, the controlled manipulator is capa-
+    loris.roveda@idsia.ch
+                                                                          ble to achieve human-like adaptability skills [11, 12]. In the
+                                                                          following, the developed methods in this research field are
+Extended author information available on the last page of the article.    analyzed.
+418                                                                                            J Intell Robot Syst (2020) 100:417–433
+
+
+1.2 Variable Impedance Control for Human-Robot                   1.2.2 Learning-Based Control Methodologies
+Collaboration: State of the Art
+                                                                 In [21] a variable impedance control with reinforcement
+Two families of controllers can be identified from the state     learning algorithm P I 2 is proposed. Such approach is
+of the art related to variable impedance control for human-      defined by a model-free sampling-based learning method
+robot collaboration purposes: non-learning-based control         derived from optimal control theory. In [22] a variable
+methodologies and learning-based control methodologies.          admittance control (using the Reinforcement Learning-
+While the first family of controllers exploits predefined        based Fuzzy Q-Learning FQL algorithm) is proposed.
+control laws and sensory-data to adapt the robot impedance       The robot end-effector rotational motion is not considered
+behavior to collaboration state, the second family exploits      within the proposed methodology. In [23] an approach
+sensory-data in order to learn from the human-robot              that applies probabilistic learning for robot stiffness
+interaction the optimal impedance model based on desired         adaptation is proposed. In such a way, the robot behavior
+performance. In the following, these two main families of        is mapped w.r.t. the task execution. In [24] a model
+controllers are analyzed.                                        reference adaptive control is proposed. An inner neuro-
+                                                                 adaptive controller learns online the robot dynamics to
+1.2.1 Non-Learning-Based Control Methodologies                   shape a superimposed impedance behavior without the use
+                                                                 of the task information. An outer task-specific controller
+In [13] a variable admittance control method is pre-             (exploiting a simple pre-defined human operator dynamics)
+sented. The method adapts the admittance damping in              adapts such inner impedance behavior to achieve a target
+real-time. Such an adaptation is performed monitoring            human-robot interaction performance. In [25] an LQR
+the co-activation of the antagonist muscles by means of          impedance controller is proposed to reduce the human
+electromyography sensors. In the case that a predefined          effort. The impedance controller optimization exploits an
+muscular activation threshold is achieved, the adaptation        integral reinforcement learning method to avoid the use
+of the damping parameters is performed. Two assistance           of a human dynamics model. In [26] a barrier-Lyapunov-
+modalities are proposed: high-accuracy positioning assis-        function-based adaptive impedance control is proposed.
+tance and low-effort assistance. In [14] an adaptive inverse     Such methodology incorporates physical limits, transient
+control approach is developed for the tuning of the admit-       perturbations, and time-varying dynamics in the learning
+tance model. The aim of the proposed methodology is to           procedure. In [27] neural networks to adapt impedance
+achieve a prescribed (known) human-robot dynamics given          parameters online are proposed. The developed method
+by an available task model. In [15] a variable admittance        minimizes the defined cost function, taking into account
+controller is proposed. It infers human intentions by mon-       the trajectory-tracking errors and the measured interaction
+itoring the variation of the interaction force magnitude,        forces. In [28] a data-efficient learning method for variable
+accordingly tuning the admittance controller damping. The        impedance control is presented using Gaussian process (GP)
+proposed methodology allows to achieve fine robot posi-          model.
+tioning (using high damping values) or fast robot motion
+(using low damping values). In [16] a methodology adapt-         1.2.3 Considerations
+ing the admittance parameters to reduce the human effort
+in the collaboration task is developed. Such methodology         Even in the case of adaptive controllers, the main limita-
+exploits energy tanks theory [17] to ensure the passiv-          tions of the above mentioned non-learning-based method-
+ity of the controller. In [18], the proposed method argued       ologies consist in a limited variation of task conditions
+that human may benefit from robot leadership in human-           that can be faced by the proposed controllers, limiting
+robot co-manipulation tasks. A variable admittance con-          their applicability. Therefore, such approaches require a
+troller is proposed, where stiffness is continuously varied      good knowledge of the target task dynamics in order to
+based on a scalar and smooth function that assigns a degree      tune the control parameters. In fact, without having the
+of leadership to the robot. In [19] human morphology is          possibility to learn the task dynamics, a complete re-
+considered, presenting a human arm manipulability-based          tuning of the controller is not feasible. Learning-based con-
+stiffness adaptation. In [20] an admittance control is pro-      trollers are indeed powerful tools. It is, in fact, possible to
+posed. Such methodology generates a reference trajectory         exploit such methodologies to automatically tune the task-
+for the controlled robot exploiting the interaction force mea-   specific controller through trial-and-error procedures. How-
+surements. In addition, the robot dynamics uncertainties are     ever, most of the learning-based methods mentioned above
+included in the control design by means of an adaptive           are based on a model-free reinforcement learning approach,
+controller.                                                      requiring a too high number of trials (hundreds or even
+J Intell Robot Syst (2020) 100:417–433                                                                                     419
+
+
+thousands of required experiments) to achieve target per-        efficient unsupervised reinforcement learning framework is
+formance (not feasible for all industrial applications). Other   proposed. In such a way, the robot is capable to learn the
+approaches (such as [24] and the ones related to program-        task from its own sensory-data. The uncertainties related
+ming by demonstration and imitation learning [29, 30]) have      to the human actions is modeled using the Gaussian
+the focus of the learning only on a specific task objective,     Processes theory. In [41] a data-driven learning approach
+without considering the complex human-robot interaction          is proposed for the control of an exoskeleton robot. By
+dynamics modeling and learning for model-based control           means of electromyography signals, a cost function is
+design. Only few of the above described approaches con-          proposed to learn the assistive control strategies. In [42]
+sider such human-robot interaction dynamics modeling.            a method for human–robot collaboration is proposed. The
+[28] is based on learning the interaction dynamics between       controlled robot behavior is adapted online to the human
+the robot and the environment using a GP model. The              motor fatigue, estimated using a model based on the
+learned model is then used to optimize the impedance             muscles activity measurements. However, no approaches
+control parameters. Nevertheless, the computation of the         applying the learned nonlinear human-robot interaction
+new set of impedance control parameters takes minutes,           dynamics to variable impedance controller can be found.
+which is far from real-time implementation purposes in           As highlighted by the above state of the art analysis, the
+industrial environments. In fact, although GP models have        combination of variable impedance control with nonlinear
+high sample-efficiency [31], giving an accurate estimate         human-robot interaction dynamics modeling may lead to
+of model uncertainties (which is essential for model-based       high-performance model-based controllers for human-robot
+approaches to succeed) [32], the main drawback of such           collaboration purposes, making a conceptual step beyond
+approach is that it is very slow when data-set is large (do      the current available control solutions.
+not scale with the data-set), and it can work only with
+a certain type of loss functions. Additionally, GP models        1.4 Paper Contribution
+are not good at representing non-smooth dynamics, typi-
+cal behavior of high nonlinear systems such as human-robot       In order to develop an efficient control methodology,
+interaction dynamics.                                            capable to model the complex human-robot interaction
+                                                                 dynamics and to exploit it for the online optimization of
+1.3 Human-Robot Interaction Dynamics Modeling                    the impedance parameters for human-robot collaboration
+for Control Purposes: State of the Art                           purposes (i.e, minimizing human-robot interaction forces,
+                                                                 therefore, reducing the human effort), a model-based
+Although the human’s arm dynamics results to be highly           reinforcement learning (MBRL) variable impedance control
+nonlinear and difficult to be modeled [33, 34], human-           is proposed. In particular, three main components are
+robot interaction dynamics modeling has been proved to           defined: (i) an impedance controller, (ii) a human-robot
+be important in model-based control design for human-            interaction dynamics modeling approach, and (iii) an
+robot collaboration, even considering simplified modeling        online optimizing impedance control parameters strategy.
+[35–37]. Machine learning techniques have been applied in        Considering (i), the impedance control allows designing
+order to learn such human-robot interaction dynamics to be       a compliant behavior for the manipulator, being able
+exploited in model-based controllers. Some of the works          to safely interact with the human operator. Considering
+exploit a priori human’s arm dynamics modeling. In [38]          (ii), the proposed methodology relies on Artificial Neural
+a method for human intention estimation using Gaussian           Network (ANN) models [43]. The ANNs are offline
+Processes (exploiting an empirically identified impedance        trained, learning the human-robot interaction dynamics,
+dynamic model for the human arm) is proposed, allowing           and updated periodically, in order to keep the human-
+the estimation of the human motion intention exploiting          robot interaction dynamics learning active (i.e, accounting
+the measured interaction forces. In [39] the computation of      for the adaptation of human motor system). The obtained
+the interaction forces in a collaborative object manipulation    model allows correlating the interaction states at time t
+task is proposed. Such method exploits the theoretical           (i.e, force, derivative of the force, Cartesian position and
+studies on the human arm movements to identify a dynamic         Cartesian velocity at the robot end-effector) with the control
+model. Such dynamics is embedded in the proposed control         variables (i.e, stiffness and damping impedance control
+strategy to perform the collaborative task. However, such        parameters) in order to predict future interaction states
+approaches are not capable of capture the highly nonlinear       at time t + dt. In addition, ANNs are very expressive,
+behaviors of the human-robot interaction dynamics. Other         can represent any nonlinear function (more often present
+approaches involve instead the learning of the complex           in robotics), and very efficient when the data-set is large
+nonlinear human-robot interaction dynamics. In [40] a data-      (scale well with the data-set using modern GPUs). The
+420                                                                                           J Intell Robot Syst (2020) 100:417–433
+
+
+main drawback of ANNs is the fact that they suffer from
+over-fitting when the data-set is small, which leads to poor
+performance. To overcome such issue, the presented work
+implements an ensemble of ANNs to learn the human-robot
+interaction dynamics. In such a way, ANNs have as an
+output a distribution over a prediction instead of a single
+value. It is, therefore, possible to capture the uncertainties
+related to the human-robot interaction dynamics, improving
+the performance of the prediction [32]. Considering (iii),
+the proposed methodology implements a Model Predictive
+Controller (MPC) with Cross-Entropy Method (CEM) to
+online optimize the impedance control parameters (i.e,
+stiffness and damping parameters). The objective of such
+optimization is the minimization of the human forces
+applied to the robot in the collaborative application (i.e,      Fig. 1 KUKA LBR iiwa 14 R820 robot involved in the validation
+the human effort). The proposed control methodology              setup
+exploits the human-robot interaction dynamics modeling
+in (ii), performing interaction states predictions over a        the task. The novelties of the proposed approach are,
+finite prediction horizon H . A cost function minimizing the     therefore, related to:
+human interaction forces (i.e, minimizing the human effort)
+                                                                 –   the efficient human-robot interaction dynamics mod-
+is defined and exploited in the optimization procedure for
+                                                                     eling (requiring a limited number of initial training
+the online control parameters optimization.
+                                                                     experiments, specifically, 30 initial trials) performed
+    The here proposed MBRL has been developed in order
+                                                                     exploiting the proposed ensemble of ANNs;
+to identify the human-robot interaction dynamic model, to
+                                                                 –   the possibility to keep the human-robot interaction
+be exploited in the design and optimization of the presented
+                                                                     dynamic model updated while human-robot collabora-
+controller. Other techniques can also be investigated to
+                                                                     tion is performed (i.e, accounting for the adaptation of
+compute the optimal control action. Dynamic programming
+                                                                     human motor system);
+algorithms [44–46] can be applied to estimate the target
+                                                                 –   the online exploitation of the human-robot interaction
+cost function (i.e, approximating it since the theoretical
+                                                                     dynamic model to optimize the impedance control
+solution of the used Bellman equation is very difficult to
+                                                                     parameters (minimizing the human forces applied to the
+be obtained, except for simple systems), e.g., exploiting
+                                                                     robot, i.e, to reduce the human effort) by means of the
+ANNs. The optimal control signal can then be determined
+                                                                     proposed MPC.
+by minimizing the cost function (or maximizing a reward
+function). However, the use of such techniques does not          The main advantages of the proposed approach are,
+allow to identify the human-robot interaction dynamics           therefore, related to:
+and they are very sensitive to the target cost function
+                                                                 –   the possibility to identify the complex human-robot
+to be estimated. Identifying the human-robot interaction
+                                                                     interaction dynamics, accounting for uncertainties in
+dynamics it is instead possible to easily adapt the objective
+                                                                     the human-robot collaboration and updating such model
+of the controller on the basis of the specific task/scenario.
+                                                                     to the changes in the human motor system;
+In such a way, it is possible to avoid to perform from
+                                                                 –   the possibility to exploit the learned complex human-
+scratch the estimation of a new target cost function due to a
+                                                                     robot interaction dynamics to optimize the control action;
+(partially) new scenario or controller objective.
+                                                                 –   the possibility to easily modify/adapt the objective
+    The proposed MBRL variable impedance controller has
+                                                                     of the controller optimization to a different target
+been validated in experimental tasks involving a KUKA
+                                                                     performance;
+LBR iiwa 14 R820 as a test platform (Fig. 1). A lifting
+                                                                 –   the possibility to exploit all the acquired data (to iden-
+task of an unknown payload (10 kg) has been used
+                                                                     tify and update the human-robot interaction dynamics)
+as a reference task. Qualitative (i.e, questionnaire on
+                                                                     for the control design and optimization without per-
+perceived collaboration) performance have been evaluated,
+                                                                     forming a re-identification procedure of the new cost
+comparing the obtained results with previous developed
+                                                                     function from scratch (in the case that the objective of
+offline model-free optimized controllers [47] and with the
+                                                                     the controller changes).
+robot manual guidance controller. The proposed MBRL
+variable impedance controller shows improved human-robot         Considering the previously developed offline model-free
+collaboration, empowering the human operator in executing        optimization methodology, the proposed approach is less
+J Intell Robot Syst (2020) 100:417–433                                                                                    421
+
+
+time-consuming, not requiring a complex learning process          control schema (a) capable to model the complex human-
+and having the possibilities to model varying human-robot         robot interaction dynamics, (b) online optimizing the
+interaction dynamics through the human-robot collabora-           impedance parameters (c) to empower/assist (i.e, min-
+tion application (i.e, different human operators, changing        imizing human forces applied to the robot, i.e, mini-
+fatigue levels, different applications).                          mizing the human effort) the human operator in col-
+                                                                  laborative onerous tasks. To do that, (i) an impedance
+General Notation                                                  controller to achieve a compliant robot behavior, (ii)
+                                                                  a human-robot interaction dynamics modeling approach
+Mr , Cr , Kr     : mass, damping, and stiffness impedance         (offline trained and online updated) relying on an
+                 matrices, respectively, composed by both the     ensemble of Artificial Neural Networks, and (iii) a
+                 translational and rotational components          Model Predictive Controller employing a Cross-Entropy
+xr              : xr = xr − xdr , where xdr is the impedance    Method for the online optimization of the impedance param-
+                 control setpoint and xr the robot Cartesian      eters (i.e, stiffness and damping parameters) are proposed.
+                 position/orientation vector                      The MBRL variable impedance control schema is shown in
+fr               : external wrench vector (i.e, force and         Fig. 2.
+                 torque) applied to the manipulator                  In the following, the implemented impedance con-
+dt               : sampling time for both impedance control       troller (Section 2.1), the ensemble of ANNs approach
+                 setpoint and measurements                        (Section 2.2.2) and the MPC with CEM (Section 2.3) are
+gd               : gravity vector gd = [0, 0, 9.81, 0, 0, 0]T     detailed.
+xt               : human-robot interaction dynamics state
+                 vector at time t; xt = [fr , ḟr , xr , ẋr ]T   2.1 Cartesian Impedance Control
+Drand            : recorded data for the initial ensemble of
+                 ANNs training modeling the human-robot           The inner Cartesian impedance control [48] is considered
+                 interaction dynamics                             to implement the proposed MBRL variable impedance
+DRL              : online recorded data for the update of         controller:
+                 the human-robot interaction dynamic model
+                 exploiting the ensemble of ANNs                  Mr ẍr + Cr ẋr + Kr xr = fr .                         (1)
+ut               : MPC control action vector at time t; ut =
+                                                                     Impedance control receives as an input the interaction
+                 [diag(Kr ), diag(Cr )]T
+                                                                  state xt and the impedance control stiffness and damping
+H                : MPC finite prediction horizon (i.e, MPC
+                                                                  matrices. The updated impedance control setpoint xdr is
+                 optimization sampling time);
+                                                                  applied at each control-step on the basis of the following
+τ                : torque vector output from impedance
+                                                                  law:
+                 control
+                                                                  xdr = xr + K−1      −1
+                                                                              r fr + Mp Kr gd .                           (2)
+
+2 Methodology                                                        The term K−1r fr allows deforming the impedance control
+                                                                  setpoint xdr to assist the operator exploiting the measured
+The main purpose of this paper is to design a model-              force, while the term M  p K−1
+                                                                                               r gd allows to compensate for
+based reinforcement learning (MBRL) variable impedance            the estimated payload weight M    p . Indeed, the payload
+
+
+Fig. 2 Model-based
+reinforcement learning variable
+impedance control schema. The
+ensemble of ANNs employed
+for the human-robot interaction
+dynamics modeling (offline
+trained and online updated), the
+Model Predictive Controller
+employing the Cross-Entropy
+Method for optimization of
+control parameters, and
+impedance controller are
+highlighted
+422                                                                                            J Intell Robot Syst (2020) 100:417–433
+
+
+weight Mp is estimated on the basis of the measured forces     the correlation) between inputs and outputs of a dynamic
+before the collaborative task starts (i.e, in this task-phase   system for optimization purposes. Reinforcement learning
+no interaction between the human and the robot is present).     algorithms can be broadly classified in two main families:
+The forces are measured in a 1 s time-window, the vertical      model-free and model-based methodologies [51]. Consid-
+force component is computed and averaged, so that M     p is   ering model-free reinforcement learning approaches, the
+estimated as:                                                   policy is found without the need to estimate a model of the
+                                                                system dynamics, while model-based reinforcement learn-
+       nsample
+         i=0    fr,z (i)                                        ing approaches build a transition dynamics model of the
+           nsample
+p =
+M                          ,                              (3)   system dynamics, used for internal simulations (to improve
+            gd,z                                                the policy) and predictions of the rewards and optimal
+                                                                actions. While being more computationally intensive w.r.t.
+where nsample is the number of samples in the considered        model-free methodologies, the model-based reinforcement
+time-window. The M p gd estimation is also used to remove      learning is more data-efficient. In fact, in robotics, this char-
+the payload offset from force measurements fr during the        acteristic significantly reduces the physical experiments to
+next human-robot collaboration phase.                           be performed (i.e, model-based approaches are less time-
+   The stiffness and damping parameters are online              consuming). In addition, one of the main advantages of
+optimized and updated to the impedance controller by            learning the transition dynamics is that by changing the
+the MPC, exploiting the human-robot interaction dynamics        reward or cost function that is used for evaluation of the
+modeling performed by the ensemble of ANNs. In the              actions, new behaviors and objectives can be achieved with-
+following, the human-robot interaction dynamic model            out the need to learn from scratch which is the case for other
+learning methodology based on an ensemble of ANNs, and          methods. [52–54]. On the other hand, transition dynam-
+the MPC employing the CEM are detailed.                         ics models have a huge influence on the performance of
+                                                                model-based reinforcement learning algorithms. In fact, the
+Remark 1 It has to be underlined that the KUKA LBR iiwa         policy learning relies on the accuracy of their predictions. In
+14 R820 impedance control damping                               Section 2.2.2 the proposed approach to learn the transition
+                                √ is imposed as damping
+ratio diagonal matrix hr (Cr = 2 Mr Kr hr ).                    dynamics model (i.e, the human-robot interaction dynam-
+                                                                ics) to be used in the proposed model-based reinforcement
+Remark 2 It has to be remarked that the estimation of the       learning approach is described.
+payload weight doesn’t need to be accurate. As it will be
+shown in Section 2.2.2, the ensemble of ANNs will be able       2.2.2 Ensemble of Artiﬁcial Neural Networks Modeling
+to capture human-robot interaction dynamics uncertainties       the Human-Robot Interaction Dynamics
+also related to the payload weight.
+                                                                In order to design the proposed model-based reinforcement
+Remark 3 It has to be underlined that the proposed paper        learning approach, human-robot interaction dynamics (i.e,
+considers translational degrees of freedom (DoFs), while        the transition dynamics) has to be modeled. Human-
+involving pre-defined rotations of robot end-effector (fixed    robot interaction dynamics has a very complex nonlinear
+rotations are considered for the reference task described in    behavior, difficult to be modeled [39]. Commonly, works
+Section 3). Such an assumption is common in many real           in the human-robot collaboration field define simplified
+tasks (such as insertions, assemblies, etc.) where no re-       human-robot interaction dynamics models (e.g., impedance
+orientation of the robot end-effector is required, or when      models) to be used for the model-based control design [55].
+a bulky and/or heavy payload is manipulated and rotation        However, such simplified models are not able to account for
+path is pre-calculated (i.e, defining a reference trajectory    the real complexity of such dynamics, limiting the controller
+for the robot) [9, 49] (see https://www.youtube.com/watch?      performance. Therefore, there is the need to model the
+v=mdYpZZw93YE). The extension to rotations is under             complete nonlinear human-robot interaction dynamics to
+development, on the basis of the quaternion description.        improve the performance of the collaboration.
+                                                                   There are many ways to learn the transition dynamics
+2.2 Human-Robot Interaction Dynamics Modeling                   model required by the model-based reinforcement learn-
+                                                                ing approach [52]. Artificial Neural Networks (ANNs) have
+2.2.1 Model-Based Reinforcement Learning vs. Model-Free         some advantages over other methods: ANNs are general
+Reinforcement Learning                                          function approximators capable of learning arbitrary com-
+                                                                plex nonlinear functions which is often present in robotics.
+Reinforcement learning [50] is one of the most effective        Moreover, ANNs are very efficient and can easily scale-
+methodologies to perform the mapping (i.e, to identify          up with the data size thanks to parallelization with modern
+J Intell Robot Syst (2020) 100:417–433                                                                                           423
+
+
+GPUs, and ANNs are the only function approximators that               –   hidden layers: Deep learning models consist of more
+can work with high dimensional state spaces. However,                     than one hidden layer. In order to learn any complex
+because of their expressivity, ANNs tend to overfit in low                function, such models require to have a nonlinear
+data regime. To counter-act such issue, it is shown in [32,               transformation of input data which is done by hidden
+43, 56] that using an ensemble of ANNs is an effective                    layers. The ReLU (Rectified Linear Unit) function can
+solution to capture model uncertainty where there are less                be used for this purpose [57].
+data. In the region of the state-space where there are more           –   initial data set for training: For initial training of
+data availability, ANNs agree with each other. In the region              ANNs, the target task is executed using random control
+where there are less data, ANNs tend to disagree with each                input parameters and recorded the output data during
+other, hence, capturing the uncertainty over the models.                  the human-robot collaboration (Drand ). Then, the data
+In other words, each ANN is certain about its predictions                 is put in the correct format (i.e, with respect to
+but its model cannot be considered reliable. Therefore, to                Section 2.2.2).
+capture the dynamics uncertainties, a model describing the            –   defining the ensemble size: The size of the ensemble
+human-robot interaction dynamics can be created exploit-                  of ANNs is selected to be the minimum size required
+ing the ensemble of ANNs (Fig. 3), to be used by the MPC                  to capture model uncertainties. Such a procedure is
+controller for control action ut optimization.                            iterative. From experimental tests, a size of 5 ANNs
+   The following procedure has been implemented in order                  has been found to be a good solution for the proposed
+to train and update the ensemble of ANNs:                                 problem.
+                                                                      –   ANNs periodic update: The ensemble of ANNs is
+–    defining the ANN architecture: There is no standard
+                                                                          updated periodically (i.e, accounting for the adaptation
+     way of finding a good ANN architecture, it is an
+                                                                          of the human motor system) using DRL data after
+     iterative procedure. The intuition is to have enough
+                                                                          3 new task executions, improving and adapting the
+     layers and hidden units to capture the transition
+                                                                          model
+     dynamics. In [32] it has been shown that the architecture
+     with 5 hidden layers and 512 hidden units is able to
+                                                                      Remark 4 Data Drand and DRL for initial training and
+     capture the dynamics of wide variety of tasks. Hence,
+                                                                      online update are recorded if a human force is detected by
+     this architecture is used in this work.
+                                                                      the robot (in particular, if | fr |> fint , with fint = 3 N) in
+–    defining the input layer: Learning the transition
+                                                                      order to avoid the recording of not meaningful data.
+     dynamics is performed defining the input layer includ-
+     ing both the states of the human-robot system x t and
+                                                                      2.3 Online Optimization of Impedance Control
+     the control inputs ut at time t (Fig. 3).
+                                                                      Parameters
+–    defining the output layer: Learning the transition
+     dynamics can be difficult when the states xt and xt+dt
+                                                                      2.3.1 Cost Function Design
+     are too similar and the control input has seemingly little
+     effect on the output. To overcome this issue, in [53]
+                                                                      The objective of the MPC is to optimize the impedance
+     it is proposed instead to learn a function of the target
+                                                                      control parameters (i.e, stiffness and damping) in order
+     dynamics  fw (xt , ut ) that predicts the change in the state
+                                                                      to minimize the interaction forces during the human-robot
+     xt over the time step duration dt (Fig. 3):
+                                                                      collaboration (i.e, minimizing human effort). Indeed, to
+    xt+dt = xt +
+               fw (xt , ut ).                                 (4)    achieve the goal, the following quadratic cost function
+                                                                      C(xt , ut ) (a function of the interaction state xt and control
+                                                                      action ut ) is proposed:
+                                                                      C(xt , ut ) = xTt Qxt + qxt + uTt Rut + rut ,              (5)
+                                                                      where Q and R are the optimization gain matrices, q and
+                                                                      r are the optimization gain vectors. Q matrix has non-zero
+                                                                      values kQ only on diagonal elements in correspondence of
+                                                                      the wrench states related to Cartesian forces, q vector has
+                                                                      non-zero values kq only in correspondence of the wrench
+                                                                      state related to Cartesian forces, R is imposed to R = 0, r
+                                                                      vector is imposed to r = 0.
+                                                                         The cost function in Eq. 5 is then used in the MPC
+Fig. 3 Typical architecture of the ANN providing a model of the       to optimized the impedance control parameters (i.e, to
+variation of the human-robot interaction dynamics 
+                                                  fw (xt , ut ).      optimize the control action ut ).
+424                                                                                                  J Intell Robot Syst (2020) 100:417–433
+
+
+Remark 5 Having the above definition of optimization                  order to calculate an approximate solution of the above
+gain matrices/vectors means that only interaction Cartesian           finite-horizon control problem, the Cross-Entropy Method
+forces are taken into account in the optimization. Therefore,         is exploited [58]. The CEM is a probabilistic optimiza-
+Cartesian force derivative ḟr , position xr and velocity ẋr do      tion belonging to the field of Stochastic Optimization. The
+not have any influence on the optimization.                           strategy of the algorithm is to sample the problem space
+                                                                      and approximate the distribution of good solutions. This
+2.3.2 Model Predictive Control with Cross-Entropy Method              is achieved by assuming a distribution of the problem
+                                                                      space (such as Gaussian), and sampling from this dis-
+The learned interaction dynamics     fw (xt , ut ) Eq. 4, together   tribution to generate candidate solutions. Then, the dis-
+with the cost function C(xt , ut ) Eq. 5, are employed                tribution is updated on the basis of the best discovered
+by an MPC in order to optimize the impedance control                  candidate solutions. As the algorithm progresses, the distri-
+parameters (i.e, the control action ut ). Defining the MPC            bution becomes more refined, until it focuses on the area
+finite prediction horizon H , a sequence of control actions           of optimal solutions. Pseudocode of CEM is presented in
+  (H )
+Ut     = (ut , ..., ut+H −dt ) is optimized, using the learned        Algorithm 1.
+dynamics models to predict future states:                                 The procedure for calculating the best control action ut is
+                      
+                    t+H −dt                                           repeated until convergence to optimal values. Furthermore,
+U(H
+ t
+    )
+      = arg min                           xt = xt ,
+                                xξ , uξ );
+                              C(                  xξ +dt             rather than have the controller executing the control action
+             (H )
+            Ut       ξ =t                                             sequence in open-loop, an MPC has been implemented
+       xξ + 
+      =    fw (xξ , uξ ).                                     (6)    [59]. The controller executes the control action ut , receives
+                                                                      updated state information xt+dt , and recalculates the
+  The exact calculation of the optimum of Eq. 6 is not                optimal control action sequence at the next time step.
+possible due to the high nonlinearity of the problem. In              The pseudocode describing its implementation is given in
+                                                                      Algorithm 2.
+Algorithm 1 Pseudocode for Cross-Entropy Method.
+                                                                      Remark 6 It has to be underlined that the optimization of
+ Learnrate = α ∈ [0, 1] is considered, with typical
+                                                                      the control action ut and its update is performed when the
+ value of 0.7.
+                                                                      human force is detected, i.e, when the interaction force
+  Input: P roblemsize , Samplesnum ,
+                                                                      | fr |> fint , with fint = 3 N.
+          UpdateSamplesnum , Learnrate , V armin ;
+  Output: Sbest ;
+                                                                      Remark 7 It has to be underlined that constraints can
+  Means ← InitializeMeans();
+                                                                      be included in the MPC (such as for safety rules
+  Variances ← InitializeVar();
+                                                                      implementation) in order to impose limitations to the control
+  Sbest ← 0;
+                                                                      action optimization.
+  while Max(Var) ≤ V armin do
+      Samples ← 0;
+      for i = 0 to Samplesnum do
+          Samples ← GenerateSample(Means, Var);                       Algorithm 2 Pseudocode for MPC.
+      end                                                                gather dataset DRand of random trajectories;
+      EvaluateSamples(Samples);                                          initialize empty dataset DRL ;
+      SortSamplesByQuality(Samples);                                     randomly initialize ensemble of N,        fw neural networks;
+      if Cost(Samples0 ) ≤ Cost(Sbest ) then                             for iter=1 to max-iter do
+          Sbest ← Sampless0 ;                                                 train all fw (xt , ut ) functions using DRand , and
+      end                                                                     DRL ;
+      Samplesselected ← SelectBestSamples(Samples,                            for ξ = t to H do
+      UpdateSamplesnum );                                                         get current states xξ ;
+      for i = 0 to P roblemsize do
+          Meansi ← Meansi + Learnrate ×                                           use  fw (xξ , uξ ) to estimate optimal control
+                                                                                                          (H )
+          Mean(Samplesselected , i);                                              action sequence Ut (Algorithm 1);
+                                                                                                                              (H )
+          V ari ←                                                                 execute first control action ut from Ut ;
+          V ari + Learnrate × Var(Samplesselected , i);                           get the new state xt+dt ;
+      end                                                                         add (xt , ut , xt+dt - xt ) to DRL ;
+  end                                                                         end
+  return Sbest ;                                                         end
+J Intell Robot Syst (2020) 100:417–433                                                                                             425
+
+
+3 Experimental Evaluation in Human-Robot                                 of the proposed MBRL variable impedance controller to
+Collaboration Task                                                       the x and y Cartesian DoFs is straightforward. The vertical
+                                                                         trajectory performed by the human in interaction with the
+3.1 Validation Scenario                                                  robot has been online calculated by Eq. 2 as described in
+                                                                         Section 2.1, while the related impedance control parameters
+The considered scenario for the validation of the here                   have been online optimized by the MPC as described in
+proposed MBRL variable impedance controller is the same                  Section 2.3. The end-effector orientation has been kept
+as in the work described in [47].                                        fixed during the task execution, as stated in Section 2.1. As
+   10 healthy males subjects and 5 healthy females subjects,             described in Section 2.1, before to start the human-robot
+for a total of 15 healthy subjects (age 29 ± 4 years), have              collaboration task (i.e, without any interaction between the
+performed the validation experiments.                                    human and the robot), a quick estimation of the payload
+   A KUKA LBR iiwa 14 R820 robot has been involved                       weight M p is performed, exploiting the measured forces at
+in the experimental tests to collaborate with the human                  the robot end-effector, so that its weight can be compensated
+(Fig. 1). The human-robot interaction forces have been                   in Eq. 2.
+measured using the joint torque sensors of the manipulator.                 Performance of the proposed MBRL variable impedance
+The BTS FreeEMG300 system has been used to measure                       controller have been compared with previously developed
+the upper-limb electromyography activity of the subject                  offline model-free optimized controllers [47]. Additionally,
+involved in the experiments.                                             the proposed MBRL variable impedance controller has been
+   A lifting task of an unknown (to the robot controller)                compared with the KUKA iiwa 14 R820 high-performance
+payload (10 kg) has been considered as a reference task                  manual guidance controller with perfect-weight compensa-
+(Fig. 4). The complete task description can be found in [47].            tion and uncertain-weight compensation (30% of difference
+The MBRL variable impedance control has been applied to                  between the real weight and the compensated weight),
+the vertical Cartesian DoF z, while x and y components of                typical CAD part weight modeling errors [47]. Thus,
+Eq. 2 have been kept constant. In such a way, authors would              six controllers have been implemented, tested and com-
+like to highlight the evaluation of the perceived human-robot            pared: (1) an interaction forces-based controller iFctrl [47],
+collaboration in the most critical Cartesian direction (i.e, in          (2) a trajectory smoothness-based controller iJ Nctrl [47],
+which the payload has to be compensated). The application                (3) an electromyography-based controller iEMGctrl [47],
+                                                                         (4) an MBRL variable impedance controller MBRLctrl
+                                                                         (Section Section 2), (5) a perfect-weight compensation
+                                                                         KUKA iiwa manual guidance controller KU KActrl , (6)
+                                                                         an uncertain-weight compensation KUKA iiwa manual
+                                                                         guidance controller KU KActrl,u . To avoid any influence
+                                                                         on the results related to the sequence of the controllers,
+                                                                         their testing order has been randomized and no informa-
+                                                                         tion of the current tested strategy has been given to the
+                                                                         subjects [47].
+
+                                                                         Remark 8 The proposed MBRL impedance controller can
+                                                                         be applied to industrial manipulators that are not equipped
+                                                                         with joint torque sensors. In fact, adopting a force/torque
+                                                                         sensor mounted at the robot end-effector (between the robot
+                                                                         flange and the human-robot interaction handle to being able
+                                                                         to measure the interaction forces/torques applied by the
+                                                                         subject) or exploiting interaction force estimation based on
+                                                                         motor currents measurements [60], it is possible to apply the
+                                                                         proposed methodology without any modification.
+
+                                                                         3.2 Software
+
+                                                                         The proposed MBRL variable impedance controller has
+                                                                         been implemented on the KUKA LBR iiwa 14 R820 on the
+Fig. 4 Cooperative lifting task highlighting for the evaluation of the   basis of the ROS framework, exploiting the iiwa stack [61]
+proposed MBRL variable impedance controller                              (Fig. 5). The ensemble of ANNs has been implemented on
+426                                                                                               J Intell Robot Syst (2020) 100:417–433
+
+                                                                    Table 2 MPC and CEM internal parameters setting
+
+                                                                    Number of samples                                               64
+                                                                    Number of elites                                                32
+                                                                    Learn Rate                                                      0.9
+                                                                    Maximum Iterations                                              10
+
+
+
+
+                                                                    setting of such parameters have been performed to achieve
+                                                                    a computation time less than 0.2 s (i.e, the MPC finite pre-
+                                                                    diction horizon H = 0.2 s). In such a way, the MPC control
+                                                                    frequency has been imposed to 5 Hz (i.e, for stiffness and
+                                                                    damping parameters update). In fact, in order to guarantee
+                                                                    stability in the human-robot collaboration [63] and due to
+                                                                    the slow dynamics displayed by both impedance control and
+                                                                    human’s arm [64], such control frequency has been selected
+                                                                    to avoid any drastic change in the coupled human-robot
+                                                                    interaction dynamics, while being an order of magnitude
+                                                                    faster than the common human motion dynamics (≃ 0.5 Hz
+Fig. 5 Proposed MBRL variable impedance controller implemented in   [65]). The gain values kQ related to the matrix Q in Eq. 5
+the ROS framework
+                                                                    has been imposed equal to 5. The cost function values kq
+                                                                    related to the vector q in Eq. 5 has been imposed equal to 5.
+the basis of the PyTorch library [62]. CEM and MPC have                The MPC updates online the impedance control stiffness
+been ad hoc implemented in Python. A c++ wrapper has                and damping ratio parameters along the vertical axis z on the
+been developed in order to have ROS nodes communicating             basis of the optimized values in the range [500, 5000] N/m
+with the control layer.                                             and [0.1, 0.9] for stiffness and damping ratio, respectively.
+      A control frequency of 100 Hz (i.e, dt = 0.01 s) has          Impedance control stiffness and damping ratio parameters
+been imposed to update the impedance control setpoint.              along x and y Cartesian DoFs have been imposed to
+Such control frequency has been the maximum achievable              2500 N/m and 0.7, respectively. The impedance control
+reliable control frequency by means of the iiwa stack. In           rotational stiffness and damping ratio parameters have
+fact, iiwa stack for Cartesian impedance control exploits           been imposed as follows: Kr,transl = diag(300, 300, 300)
+the KUKA iiwa Sunrise DirectServo motion commands,                  Nm/rad, hr,transl = diag(0.9, 0.9, 0.9) (i.e, high stiffness
+allowing to control the robot between 50 and 100 Hz. The            and high damping to limit as much as possible deformations
+same frequency has been used to sampling the robot states           and oscillations).
+(i.e, interaction force fr , derivative of the interaction force
+ḟr , Cartesian end-effector position xr and velocity ẋr ).        3.3 Experimental Results
+      The ensemble of ANNs (Section 2.2.2) internal param-
+eters [43] have been tuned on the basis of experimen-               3.3.1 Human-Robot Interaction Dynamic Model Validation
+tal validation and [32] to the values shown in Table 1.
+30 initial sets of impedance control parameters have                The learned human-robot interaction dynamic model is
+been defined to train the ensemble of ANNs. In such                 fundamental for the effectiveness of the proposed MBRL
+a training phase, stiffness has been imposed equal to               variable impedance controller. In fact, on the basis of the
+[500, 1000, 2000, 3000, 4000, 5000] N/m, while damping              learned model, the MPC computes the optimized impedance
+ratio has imposed equal to [0.1, 0.3, 0.5, 0.7, 0.9]. All the       control parameters to be applied during the human-robot
+possible combinations have been used for the initial train-         collaboration task. Therefore, such model affects the task
+ing. The CEM parameters (Section 2.3) internal parameters           dynamics and the human perception of the collaboration
+[58] have been tuned to the values shown in Table 2. The            with the robot. It is therefore mandatory that the proposed
+                                                                    approach is capable to model the complex human-robot
+Table 1 ANNs internal parameters setting                            interaction dynamics to succeed in the MBRL variable
+Ensemble Size                                                5      impedance control purposes.
+Number of hidden layers                                      5         In order to validate the proposed model, Fig. 6 shows the
+Number of hidden units                                       512
+                                                                    training loss and the test loss for the 5 ANN. ANNs has
+                                                                    been trained on the basis of the initial 30 trials, while the
+J Intell Robot Syst (2020) 100:417–433                                                                                            427
+
+
+
+
+                                  ANN #1                                                                 ANN #2
+
+
+
+
+                                  ANN #3                                                                 ANN #4
+
+
+
+
+                                                                          ANN #5
+Fig. 6 Training loss (red line) and test loss (blue line) for the 5 ANN
+
+
+test has been performed considering additional 15 trails with               performed by the trained ANNs with the initial dataset
+random generated values for stiffness and damping ratio                     DRand for one lifting experiment (comparable results are
+parameters. Such plots highlight that the proposed ensemble                 shown for all the other experiments). The ensemble of
+of ANNs is capable to model the human-robot interaction                     ANNs is capable to model the uncertainties related to the
+dynamics. Figure 7 shows the measured interaction force                     human-robot interaction dynamics, being effective for the
+fr,z along the vertical direction z, and its predictions                    implementation of the proposed MBRL variable impedance
+428                                                                                                  J Intell Robot Syst (2020) 100:417–433
+
+
+                                                                        seen from Fig. 8, stiffness values are optimized to small
+                                                                        values (i.e, the robot is soft and easy to be positioned while
+                                                                        collaborating with the human - results are consistent with
+                                                                        optimization in [47]). Picks shown in the Figure are related
+                                                                        to very small measured interaction forces fr,z , which are
+                                                                        related to bigger uncertainties in the learned human-robot
+                                                                        interaction dynamic model.
+
+                                                                        3.3.3 MBRL Variable Impedance Controller Performance
+                                                                        in Human-Robot Collaboration
+Fig. 7 Measured interaction force fr,z for a lifting task (dashed red
+line), and the predictions of the five ANNs (continuous lines) are      The human-robot collaboration performance have been
+shown                                                                   qualitatively assessed using a questionnaire at the end of
+                                                                        each experiment, for all the subjects (as described in [47,
+controller. The ensemble of ANNs is then used in Eq. 6                  66], defining the following metrics: Naturalness, Smooth-
+to optimize the impedance control stiffness and damping                 ness, Effort, Motion, Stability, Detection of intention, Over-
+ration based on the cost function Eq. 5. The human-robot                all performance. See [47] for the complete description of
+interaction dynamics model is online updated on the basis               the metrics. All the metrics scores are in the range [0, 4]
+of the dataset DRL ti improve the model.                                (where 0 is related to very bad performance, 4 to very good
+                                                                        performance).
+3.3.2 Online Impedance Control Parameters Optimization                     The questionnaires scores of each performance criteria
+                                                                        are shown in Fig. 9, while the overall performance criterion
+On the basis of the human-robot interaction dynamic model               is shown in Fig. 10. Each subjects has ranked the proposed
+learned by the ensemble of ANNs, the MPC computes                       criteria w.r.t. each controller proposed in Section 3.1.
+online the optimized impedance control parameters (i.e,                    Results indicate that the previously developed offline
+stiffness and damping) in order to minimize the human-                  model-free electromyography-based controller and the
+robot interaction forces. Figure 8 shows the online opti-               MBRL variable impedance controller are the most per-
+                                              opt
+mization of the impedance control stiffness Kr,z in a lifting           formant methodologies. Their peeformance are improved
+task experiment. As stated in Section 2.3.2, the optimiza-              w.r.t. the perfect-weight compensation KUKA iiwa manual
+tion of the impedance control parameters is performed when              guidance controller KU KActrl . It is important to under-
+the human force is sensed by the manipulator. As it can be              line that the proposed MBRL variable impedance control is
+
+
+Fig. 8 Optimized impedance
+                     opt
+control stiffness Kr,z is shown
+for a given lifting task
+J Intell Robot Syst (2020) 100:417–433                                                                                                                                                                                   429
+
+Fig. 9 a Naturalness, b                                                    Naturalness                                                                                Smoothness
+Smoothness, c Effort, d Motion,
+e Stability, f Detection of
+Intention criteria of the                4                                                                                           4
+questionnaire [47] for the
+different tested controllers             3                                                                                           3
+
+
+                                         2                                                                                           2
+
+
+                                         1                                                                                           1
+
+
+                                         0                                                                                           0
+
+                                                  rl
+
+
+
+                                                              rl
+
+
+
+                                                                               rl
+
+
+
+                                                                                              rl
+
+
+
+                                                                                                             rl
+
+
+
+
+                                                                                                                                              rl
+
+
+
+                                                                                                                                                          rl
+
+
+
+                                                                                                                                                                          rl
+
+
+
+                                                                                                                                                                                         rl
+
+
+
+                                                                                                                                                                                                        rl
+                                                                                                                                 u
+
+
+
+
+                                                                                                                                                                                                                           u
+                                                                                                                             rl,
+
+
+
+
+                                                                                                                                                                                                                       rl,
+                                              ct
+
+
+
+                                                             ct
+
+
+
+                                                                              ct
+
+
+
+                                                                                             ct
+
+
+
+                                                                                                            ct
+
+
+
+
+                                                                                                                                          ct
+
+
+
+                                                                                                                                                         ct
+
+
+
+                                                                                                                                                                         ct
+
+
+
+                                                                                                                                                                                        ct
+
+
+
+                                                                                                                                                                                                       ct
+                                             iF
+
+
+
+
+                                                                                                                                         iF
+                                                                                                        A
+
+
+
+
+                                                                                                                                                                                                   A
+                                                                          G
+
+
+
+
+                                                                                                                                                                     G
+                                                       iJN
+
+
+
+
+                                                                                                                                                   iJN
+                                                                                         L
+
+
+
+
+                                                                                                                                                                                    L
+                                                                                                                            ct
+
+
+
+
+                                                                                                                                                                                                                      ct
+                                                                                                                        A
+
+
+
+
+                                                                                                                                                                                                                  A
+                                                                                      BR
+
+
+
+
+                                                                                                                                                                                BR
+                                                                                                      K
+
+
+
+
+                                                                                                                                                                                                 K
+                                                                       M
+
+
+
+
+                                                                                                                                                                  M
+                                                                                                                    K
+
+
+
+
+                                                                                                                                                                                                              K
+                                                                                                    U
+
+
+
+
+                                                                                                                                                                                               U
+                                                                     iE
+
+
+
+
+                                                                                                                                                                iE
+                                                                                     M
+
+
+
+
+                                                                                                                                                                                M
+                                                                                                                    U
+
+
+
+
+                                                                                                                                                                                                              U
+                                                                                                  K
+
+
+
+
+                                                                                                                                                                                             K
+                                                                                                               K
+
+
+
+
+                                                                                                                                                                                                         K
+                                                                                     (a)                                                                                   (b)
+                                                                                Effort                                                                                    Motion
+
+
+                                         4                                                                                           4
+
+
+                                         3                                                                                           3
+
+
+                                         2                                                                                           2
+
+
+                                         1                                                                                           1
+
+
+                                         0                                                                                           0
+                                                  rl
+
+
+
+                                                              rl
+
+
+
+                                                                               rl
+
+
+
+                                                                                              rl
+
+
+
+                                                                                                             rl
+
+
+
+
+                                                                                                                                              rl
+
+
+
+                                                                                                                                                          rl
+
+
+
+                                                                                                                                                                          rl
+
+
+
+                                                                                                                                                                                         rl
+
+
+
+                                                                                                                                                                                                        rl
+                                                                                                                               u
+
+
+
+
+                                                                                                                                                                                                                         u
+                                                                                                                             rl,
+
+
+
+
+                                                                                                                                                                                                                       rl,
+                                              ct
+
+
+
+                                                             ct
+
+
+
+                                                                              ct
+
+
+
+                                                                                             ct
+
+
+
+                                                                                                            ct
+
+
+
+
+                                                                                                                                          ct
+
+
+
+                                                                                                                                                         ct
+
+
+
+                                                                                                                                                                         ct
+
+
+
+                                                                                                                                                                                        ct
+
+
+
+                                                                                                                                                                                                       ct
+                                             iF
+
+
+
+
+                                                                                                                                         iF
+                                                                                                        A
+
+
+
+
+                                                                                                                                                                                                   A
+                                                                          G
+
+
+
+
+                                                                                                                                                                     G
+                                                       iJN
+
+
+
+
+                                                                                                                                                   iJN
+                                                                                         L
+
+
+
+
+                                                                                                                                                                                    L
+                                                                                                                            ct
+
+
+
+
+                                                                                                                                                                                                                      ct
+                                                                                                                        A
+
+
+
+
+                                                                                                                                                                                                                  A
+                                                                                      BR
+
+
+
+
+                                                                                                                                                                                BR
+                                                                                                      K
+
+
+
+
+                                                                                                                                                                                                 K
+                                                                      M
+
+
+
+
+                                                                                                                                                                 M
+                                                                                                                    K
+
+
+
+
+                                                                                                                                                                                                              K
+                                                                                                    U
+
+
+
+
+                                                                                                                                                                                               U
+                                                                     iE
+
+
+
+
+                                                                                                                                                                iE
+                                                                                     M
+
+
+
+
+                                                                                                                                                                                M
+                                                                                                                    U
+
+
+
+
+                                                                                                                                                                                                              U
+                                                                                                  K
+
+
+
+
+                                                                                                                                                                                             K
+                                                                                                               K
+
+
+
+
+                                                                                                                                                                                                         K
+                                                                                (c)                                                                                       (d)
+                                                                              Stability                                                                    Detection of Intention
+
+
+                                         4                                                                                           4
+
+
+                                         3                                                                                           3
+
+
+                                         2                                                                                           2
+
+
+                                         1                                                                                           1
+
+
+                                         0                                                                                           0
+                                                rl
+
+
+
+                                                                rl
+
+
+
+                                                                                rl
+
+
+
+                                                                                               rl
+
+
+
+                                                                                                               rl
+
+
+
+
+                                                                                                                                            rl
+
+
+
+                                                                                                                                                           rl
+
+
+
+                                                                                                                                                                           rl
+
+
+
+                                                                                                                                                                                          rl
+
+
+
+                                                                                                                                                                                                         rl
+                                                                                                                               u
+
+
+
+
+                                                                                                                                                                                                                        ,u
+                                                                                                                              rl,
+                                              ct
+
+
+
+                                                             ct
+
+
+
+                                                                              ct
+
+
+
+                                                                                             ct
+
+
+
+                                                                                                            ct
+
+
+
+
+                                                                                                                                          ct
+
+
+
+                                                                                                                                                         ct
+
+
+
+                                                                                                                                                                         ct
+
+
+
+                                                                                                                                                                                        ct
+
+
+
+                                                                                                                                                                                                       ct
+                                             iF
+
+
+
+
+                                                                                                                                         iF
+                                                                                                        A
+
+
+
+
+                                                                                                                                                                                                   A
+
+
+
+                                                                                                                                                                                                                         rl
+                                                                          G
+
+
+
+
+                                                                                                                                                                     G
+                                                       iJN
+
+
+
+
+                                                                                                                                                   iJN
+                                                                                         L
+
+
+
+
+                                                                                                                                                                                   L
+                                                                                                                            ct
+
+
+
+
+                                                                                                                                                                                                                      ct
+                                                                                                                        A
+
+
+
+
+                                                                                                                                                                                                                  A
+                                                                                      BR
+
+
+
+
+                                                                                                                                                                                BR
+                                                                                                      K
+
+
+
+
+                                                                                                                                                                                                 K
+                                                                      M
+
+
+
+
+                                                                                                                                                                 M
+                                                                                                                    K
+
+
+
+
+                                                                                                                                                                                                              K
+                                                                                                    U
+
+
+
+
+                                                                                                                                                                                               U
+                                                                     iE
+
+
+
+
+                                                                                                                                                                iE
+                                                                                     M
+
+
+
+
+                                                                                                                                                                                M
+                                                                                                                    U
+
+
+
+
+                                                                                                                                                                                                              U
+                                                                                                  K
+
+
+
+
+                                                                                                                                                                                             K
+                                                                                                               K
+
+
+
+
+                                                                                                                                                                                                         K
+
+
+
+
+                                                                                (e)                                                                                       (f)
+
+more efficient than the offline model-free iEMG optimized                                                   allows to evaluate the perceived physical load by the human
+approach, requiring only 30 initial training experiments vs.                                                operator (Fig. 9c). In particular, it can be underlined that
+405 initial training experiments. Moreover, the MBRL vari-                                                  the uncertain-weight compensation KUKA iiwa manual
+able impedance controller allows to continuously update the                                                 guidance controller KU KActrl,u becomes too heavy for
+learned human-robot interaction dynamic model, being able                                                   human-robot collaboration even in the presence of a lim-
+to capture changes in the interaction dynamics and in the                                                   ited weight modeling error. In addition, the proposed MBRL
+human motor system (not possible in the previously devel-                                                   variable impedance controller MBRLctrl performs better
+oped approach in [47]). One of the most valuable results                                                    than the perfect-weight compensation KUKA iiwa manual
+is related to the Effort criterion. In fact, the Effort criterion                                           guidance controller KU KActrl .
+430                                                                                                               J Intell Robot Syst (2020) 100:417–433
+
+
+                       Overall Performance                                      human. This means that constraints representing safety lim-
+                                                                                itations will be included (such as in [67–69]) in the MPC
+                                                                                to guarantee the computation of the optimal control action
+4                                                                               satisfying both performance and safety. As shown from
+                                                                                experimental results, the online use of electromyography
+                                                                                measurements can even improve the human-robot collabo-
+3                                                                               ration. The online use of such measurements is therefore
+                                                                                under consideration to be included in the MPC. Finally, the
+                                                                                automatic optimization of the ANNs and MPC parameters
+2
+                                                                                based on AI techniques is under investigation.
+
+1                                                                               Acknowledgments This project has received funding from the
+                                                                                European Union’s Horizon 2020 research and innovation programme,
+                                                                                via an Open Call issued and executed under Project EUROBENCH
+0                                                                               (grant agreement N◦ 779963).
+         rl
+
+
+
+                      rl
+
+
+
+                                      rl
+
+
+
+                                                     rl
+
+
+
+
+                                                                   l
+
+
+
+                                                                            u
+                                                               r
+
+
+
+                                                                         rl,
+       ct
+
+
+
+                    ct
+
+
+
+                                    ct
+
+
+
+                                                   ct
+
+
+
+                                                             ct
+      iF
+
+
+
+
+                                                         A
+                                G
+              iJN
+
+
+
+
+                                               L
+
+
+
+
+                                                                       ct
+                                                                 A
+                                           BR
+
+
+
+                                                        K
+                            M
+
+
+
+
+                                                                K
+                                                       U
+                           iE
+
+
+
+
+                                                                                References
+                                           M
+
+
+
+
+                                                               U
+                                                      K
+
+
+                                                              K
+
+
+
+Fig. 10 Overall performance criterion of the questionnaire [47] for the
+                                                                                 1. Lasi, H., Fettke, P., Kemper, H.G., et al.: Industry 4.0. Business &
+different tested controllers
+                                                                                    Information Systems Engineering 6(4), 239–242 (2014)
+                                                                                 2. Longo, F., Nicoletti, L., Padovano, A.: Smart operators in industry
+4 Conclusions                                                                       4.0: a human-centered approach to enhance operators’ capabilities
+                                                                                    and competencies within the new smart factory context. Comput.
+                                                                                    Indust. Eng. 113, 144–159 (2017)
+The presented work proposes an MBRL variable impedance                           3. Vysocky, A., Novak, P.: Human-robot collaboration in industry.
+control to minimize the interaction forces in human-robot                           MM Sci. J. 9(2), 903–906 (2016)
+collaboration tasks. The proposed approach implements                            4. Schmidtler, J., Knott, V., Hölzel, C., et al.: Human centered
+                                                                                    assistance applications for the working environment of the future.
+(i) an impedance control, (ii) an ensemble of Artificial                            Occupational Ergonomics 12(3), 83–95 (2015)
+Neural Networks, and (iii) a Model Predictive Controller                         5. Munoz, L.: Ergonomics in the industry 4.0: exoskeletons. J.
+employing a Cross-Entropy Method. The aim of the                                    Ergonomics 8, e176 (2018)
+proposed methodology is to create and online update (i.e,                        6. Nahavandi, S.: Industry 5.0–a human-centric solution. Sustain-
+                                                                                    ability 11(16), 4371 (2019)
+accounting for the adaptation of human motor system)                             7. Hogan, N.: Impedance control: an approach to manipulation. In:
+a model of the human-robot interaction dynamics, being                              1984 American Control Conference, pp. 304–313. IEEE (1984)
+exploited for online optimization of impedance control                           8. Roveda, L.: A user-intention based adaptive manual guidance with
+parameters. The proposed approach allows to continuously                            force-tracking capabilities applied to walk-through programming
+                                                                                    for industrial robots. In: 2018 15th International Conference On
+update the human-robot interaction dynamics, accounting                             Ubiquitous Robots (UR), pp. 369–376. IEEE (2018)
+for uncertainties and human motor system adaptations.                            9. Roveda, L., Haghshenas, S., Prini, A., et al.: Fuzzy impedance
+Optimization is also maintained effective exploiting such                           control for enhancing capabilities of humans in onerous tasks
+model update during the human-robot collaboration. In                               execution. In: 2018 15th International Conference on Ubiquitous
+                                                                                    Robots (UR), pp. 406–411. IEEE (2018)
+addition, it allows to easily adapt the objective of the                        10. Khan, S.G., Herrmann, G., Al Grafi, M., et al.: Compliance control
+control design and optimization without losing data (relying                        and human–robot interaction: part 1–survey. Int. J. Humanoid
+on the identified and updated human-robot interaction                               Robotics 11(03), 1430001 (2014)
+model). A lifting collaborative task has been defined                           11. Liang, P., Yang, C., Wang, N., et al.: Implementation and test
+                                                                                    of human-operated and human-like adaptive impedance controls
+as reference task, involving 15 human subjects. Results                             on baxter robot. In: Conference Towards Autonomous Robotic
+are compared with previous developed offline model-free                             Systems, pp. 109–119. Springer (2014)
+optimized controllers and with the robot manual guidance                        12. Yang, C., Zeng, C., Fang, C., et al.: A dmps-based framework
+controller, highlighting better performance for the proposed                        for robot learning and generalization of humanlike variable
+                                                                                    impedance skills. IEEE/ASME Transactions on Mechatronics
+MBRL variable impedance controller.
+                                                                                    23(3), 1193–1203 (2018)
+   To improve the here presented methodology, redundancy                        13. Grafakos, S., Dimeas, F., Aspragathos, N.: Variable admittance
+optimization is under investigation. The optimization of the                        control in pHRI using EMG-based arm muscles co-activation.
+impedance setpoint control law is also under consideration,                         In: 2016 IEEE International Conference on Systems, Man, and
+                                                                                    Cybernetics, SMC 2016 - Conference Proceedings, pp. 1900–
+together with the improvement of the cost function defini-
+                                                                                    1905 (2016)
+tion. In addition, safety rules will be embedded in the MPC                     14. Ranatunga, I., Lewis, F., Popa, D.O., Tousif, S.M.: Adaptive
+controller to ensure safe and reliable interaction with the                         admittance control for human-robot interaction using model
+J Intell Robot Syst (2020) 100:417–433                                                                                                          431
+
+
+    reference design and adaptive inverse filtering. IEEE Trans.            33. Admiraal, M.A., Kusters, M.J., Gielen, S.C.: Modeling kinematics
+    Control Syst. Technol. 25(1), 278–285 (2016)                                and dynamics of human arm movements. Motor Control. 8(3),
+15. Wai, H., Hlaing, W., Myo, A., Sin, T.: Variable admittance                  312–338 (2004)
+    controller for physical human robot interaction. In: IECON 2017         34. Rosen, J., Perry, J.C., Manning, N., et al.: The human arm
+    - 43rd Annual Conference of the IEEE Industrial Electronics                 kinematics and dynamics during daily activities-toward a 7
+    Society, pp. 2929–2934 (2017)                                               dof upper limb powered exoskeleton. In: 12th International
+16. Landi, C.T., Ferraguti, F., Sabattini, L., et al.: Admittance control       Conference on Advanced Robotics, 2005. ICAR’05. Proceedings,
+    parameter adaptation for physical human-robot interaction. In:              pp. 532–539. IEEE (2005)
+    Proceedings - IEEE International Conference on Robotics and             35. Rahman, M.M., Ikeura, R., Mizutani, K.: Investigation of the
+    Automation, pp. 2911–2916 (2017)                                            impedance characteristic of human arm for development of robots
+17. Secchi, C., Stramigioli, S., Fantuzzi, C.: Position drift compen-           to cooperate with humans. JSME International Journal Series
+    sation in port-hamiltonian based telemanipulation. In: Interna-             C Mechanical Systems, Machine Elements and Manufacturing
+    tional Conference on Intelligent Robots and Systems, IROS 2006,             45(2), 510–518 (2002)
+    pp. 4211–4216 (2006)                                                    36. Mobasser, F., Hashtrudi-Zaad, K.: A method for online estimation
+18. Gomes, W.: Role adaptive admittance controller for human-robot              of human arm dynamics. In: 2006 International Conference of the
+    co-manipulation. Robotics - HRC/New-L (2018)                                IEEE Engineering in Medicine and Biology Society, pp. 2412–
+19. Gopinathan, S., Mohammadi, P., Steil, J.J.: Improved human-                 2416. IEEE (2006)
+    robot interaction : a manipulability based approach improved            37. Howard, M., Braun, D.J., Vijayakumar, S.: Transferring human
+    human-robot interaction. Robotics - HRC/Control-pHRI,Thesis                 impedance behavior to heterogeneous variable impedance actua-
+    (2018)                                                                      tors. IEEE Transactions on Robotics 29(4), 847–862 (2013)
+20. Li, Z., Huang, B., Ye, Z., et al.: Physical human-robot interaction     38. Medina, J.R., Endo, S., Hirche, S.: Impedance-based gaussian
+    of a robotic exoskeleton by admittance control. IEEE Trans.                 processes for predicting human behavior during physical inter-
+    Indust. Electron. 0046(c), 1–11 (2018)                                      action. In: 2016 IEEE International Conference on Robotics and
+21. Buchli, J., Theodorou, E., Stulp, F., et al.: Variable impedance            Automation (ICRA), pp. 3055–3061. IEEE (2016)
+    control-a reinforcement learning approach. Robotics, Science and        39. Noohi, E., Žefran, M., Patton, J.L.: A model for human–human
+    Systems. 1. Available form: http://www.cs.washington.edu/homes/             collaborative object manipulation and its application to human–
+    etheodor/papers/buchli-RSS2010.pdf%5Cnhttp://citeseerx.ist.psu.             robot interaction. IEEE Trans. Robotics 32(4), 880–896 (2016)
+    edu/viewdoc/download?doi=10.1.1.167.7254&rep=rep1&type=pdf              40. Ghadirzadeh, A., Bütepage, J., Maki, A., et al.: A sensorimotor
+    (2010)                                                                      reinforcement learning framework for physical human-robot
+22. Dimeas, F., Aspragathos, N.: Reinforcement learning of variable             interaction. In: 2016 IEEE/RSJ International Conference on
+    admittance control for human-robot co-manipulation. IEEE Int.               Intelligent Robots and Systems (IROS), pp. 2682–2688. IEEE
+    Conf. Intell. Robots Sys. 2015-Decem, 1011–1016 (2015)                      (2016)
+23. Rozo, L., Calinon, S., Caldwell, D.G., et al.: Learning physical        41. Hamaya, M., Matsubara, T., Noda, T., et al.: Learning assistive
+    collaborative robot behaviors from human demonstrations. IEEE               strategies for exoskeleton robots from user-robot physical
+    Transactions on Robotics. 32(3), 513–527 (2016)                             interaction. Pattern Recogn. Lett. 99, 67–76 (2017)
+24. Alqaudi, B., Modares, H., Ranatunga, I., et al.: Model reference        42. Peternel, L., Tsagarakis, N., Caldwell, D., et al.: Robot adaptation
+    adaptive impedance control for physical human-robot interaction.            to human physical fatigue in human–robot co-manipulation.
+    Control Theory Technol. 14(1), 68–82 (2016)                                 Autonomous Robots 42(5), 1011–1021 (2018)
+25. Modares, H., Ranatunga, I., Lewis, F.L., et al.: Optimized assistive    43. Bekey, G.A., Goldberg, K.Y.: Neural Networks in Robotics,
+    human – robot interaction using reinforcement learning. Trans.              vol. 202. Springer, Berlin (2012)
+    Cybern. 46(3), 1–13 (2016)                                              44. Wang, F.Y., Zhang, H., Liu, D.: Adaptive dynamic programming:
+26. Li, Z., Liu, J., Huang, Z., et al.: Adaptive impedance control              an introduction. IEEE Comput Intell Magazine 4(2), 39–47 (2009)
+    of human–robot cooperation using reinforcement learning. IEEE           45. Lewis, F.L., Vrabie, D.: Reinforcement learning and adaptive
+    Trans. Indust. Electron. 64(10), 8013–8022 (2017)                           dynamic programming for feedback control. IEEE Circ Sys
+27. Rahimi, H.N., Howard, I., Cui, L.: Neural impedance adaption for            Magazine 9(3), 32–50 (2009)
+    assistive human-robot interaction. Neurocomputing 290, 50–59            46. Liu, D., Wei, Q., Wang, D., et al.: Adaptive Dynamic Program-
+    (2018)                                                                      ming with Applications in Optimal Control. Springer, Berlin
+28. Li, C., Zhang, Z., Xia, G., et al.: Efficient force control learning        (2017)
+    system for industrial robots based on variable impedance control.       47. Roveda, L., Haghshenas, S., Caimmi, M., et al.: Assisting
+    Sensors 18(8), 2018 (2539)                                                  operators in heavy industrial tasks: on the design of an optimized
+29. Argall, B.D., Chernova, S., Veloso, M., et al.: A survey of robot           cooperative impedance fuzzy-controller with embedded safety
+    learning from demonstration. Robotics and Autonomous Systems                rules. Frontiers in Robotics and AI 6, 75 (2019)
+    57(5), 469–483 (2009)                                                   48. Siciliano, B., Villani, L. Robot Force Control, 1st edn. Kluwer
+30. Lee, J.: A survey of robot learning from demonstrations for                 Academic Publishers, Norwell (2000)
+    human-robot collaboration. arXiv:171008789 (2017)                       49. Roveda, L., Castaman, N., Ghidoni, S., et al.: Human-robot
+31. Deisenroth, M., Rasmussen, C.E.: Pilco: a model-based and                   cooperative interaction control for the installation of heavy and
+    data-efficient approach to policy search. In: Proceedings of the            bulky components. In: 2018 IEEE International Conference on
+    28th International Conference on machine learning (ICML-11),                Systems, Man, and Cybernetics (SMC), pp. 339–344. IEEE
+    pp. 465–472 (2011)                                                          (2018)
+32. Chua, K., Calandra, R., McAllister, R., et al.: Deep reinforcement      50. Nikolaidis, S., Ramakrishnan, R., Gu, K., et al.: Efficient
+    learning in a handful of trials using probabilistic dynamics                model learning from joint-action demonstrations for human-
+    models. Robotics - HRC/ML Control,Thesis. Available from:                   robot collaborative tasks. In: 2015 10th ACM/IEEE International
+    arXiv:1805.12114 (2018)                                                     Conference on Human-Robot Interaction (HRI), pp. 189–196.
+                                                                                IEEE (2015)
+432                                                                                                            J Intell Robot Syst (2020) 100:417–433
+
+
+51. Gläscher, J., Daw, N., Dayan, P., et al.: States versus rewards:        Loris Roveda received the M.Sc. (2011) and the Ph.D. (2015) in
+    dissociable neural prediction error signals underlying model-            Mechanical Engineering at Politecnico di Milano. Currently, he is a
+    based and model-free reinforcement learning. Neuron 66(4), 585–          senior researcher at SUPSI-IDSIA, working on AI and ML techniques
+    595 (2010)                                                               applied to industrial robotics (such as robot control, human-robot
+52. Polydoros, A.S., Nalpantidis, L.: Survey of model-based rein-            collaboration, dynamics identification). He has been involved in many
+    forcement learning: applications on robotics. J. Intell. Robotic         national and European projects, and he is now coordinating the
+    Sys. 86(2), 153–173 (2017)                                               EUROBENCH STEPbySTEP project and he is the P.I. of the H2020
+53. Nagabandi, A., Kahn, G., Fearing, R.S., et al.: Neural network           CS2 ASSASSINN project.
+    dynamics for model-based deep reinforcement learning with
+    model-free fine-tuning. Robotics - HRC/ML Control, Thesis.
+    Available from: arXiv:1708.02596 (2017)                                  Jeyhoon Maskani received the M.Sc. degree in Mechanical Engineer-
+54. Sutton, R.S., Barto, A.G.: Reinforcement Learning: an Introduc-          ing from Politecnico di Milano. His background is in Mechanical Engi-
+    tion. MIT Press, Cambridge (2018)                                        neering with a specialization in Mechatronics and Robotics. Currently,
+55. Campeau-Lecours, A., Otis, M.J., Gosselin, C.: Modeling of               he is a Ph.D. student at the Eberhard Karls University of Tübingen
+    physical human–robot interaction: admittance controllers applied         working on the topic of “Model-Based Reinforcement Learning for
+    to intelligent assist devices with large payload. Int. J. Adv. Robotic   Robot Manipulation”. He won the silver medal in Iran’s National Skill
+    Sys. 13(5), 1729881416658167 (2016)                                      Competition in Mechatronics (2014).
+56. Zhou, Z.H., Wu, J., Tang, W.: Ensembling neural networks: many
+    could be better. Artificial Intelligence 137(1-2), 239–263 (2002).
+    Available from: http://dx.doi.org/10.1016/j.artint.2010.10.001
+57. Srivastava, R.K., Masci, J., Gomez, F., et al.: Understanding            Paolo Franceschi received the B.Sc. degree in Aerospace engineering
+    locally competitive networks. Available from: arXiv:1410.1165            and the M.Sc. in Mechanichal engineering from Politecnico of Milano,
+    (2014)                                                                   in 2015 and in 2017, respectively. During his studies he spent a period
+58. Brownlee, J.: Clever algorithms: nature-inspired programming             at IBM Almaden Research Center in San Josè, California, involved
+    recipes. Jason Brownlee (2011)                                           in the modeling and control of a humanoid bipedal robotic platform.
+59. Findeisen, R., Allgöwer, F., Biegler, L.T.: Assessment and Future       He is currently a research fellow at STIIMA (Institute of Intelligent
+    Directions of Nonlinear Model Predictive Control. Springer,              Industrial Technologies and Systems for Advanced Manufacturing), an
+    Berlin (2007)                                                            institute of CNR, National Counseil of Research, in Milan.
+60. Wahrburg, A., Bös, J., Listmann, K.D., et al.: Motor-current-based
+    estimation of cartesian contact forces and torques for robotic
+    manipulators and its application to force control. IEEE Trans.           Arash Abdi received the M.Sc. in Automation Engineering from
+    Automation Sci. Eng. 15(2), 879–886 (2017)                               University of Bologna in 2018. Currently, he is a fellow ship researcher
+61. Technical University of Munich, Germany. (2019). https://github.         at National Research Council of Italy (CNR) Institute of Intelligent
+    com/ifl-camp/iiwa stack. Online; Accessed 24 Jul 2019                    Industrial Technologies and Systems for Advanced Manufacturing
+62. Paszke, A., Gross, S., Chintala, S., et al.: Automatic differentiation   (STIIMA) Intelligent Robots and Autonomous Systems (IRAS). His
+    in PyTorch. In: NIPS Autodiff Workshop (2017)                            background is in Automation Engineering with a specialization in
+63. Keemink, A.Q., van der Kooij, H., Stienen, A.H.: Admittance              Mechatronics and Robotics.
+    control for physical human–robot interaction. The Int. J. Robotics
+    Res. 37(11), 1421–1444 (2018)
+64. Mitsantisuk, C., Katsura, S., Ohishi, K.: Kalman-filter-based            Francesco Braghin holds a M.Sc. in Mechanical Engineering (1997)
+    sensor integration of variable power assist control based on human       and Ph.D. in Applied Mechanics (2001) at Politecnico di Milano.
+    stiffness estimation. IEEE Trans. Indust. Electron. 56(10), 3897–        In 2001 he became Researcher and in 2011 Associate Professor at
+    3905 (2009)                                                              the Department of Mechanical Engineering of Politecnico di Milano.
+65. Warrier, R.B., Devasia, S.: Kernel-based human-dynamics inver-           Since 2015 he is Full Professor in Applied Mechanics in the same
+    sion for precision robot motion-primitives. In: 2018 IEEE/RSJ            department.
+    International Conference on Intelligent Robots and Systems
+    (IROS), pp. 6037–6042. IEEE (2018)
+66. Rahman, S.M., Ikeura, R.: Cognition-based control and optimiza-          Lorenzo Molinari Tosatti is the Director of the in CNR-STIIMA insti-
+    tion algorithms for optimizing human-robot interactions in power-        tute (Intelligent Industrial Technologies and Systems for Advanced
+    assisted object manipulation. J Inf Sci Eng. 32(5), 1325–1344            Manufacturing). Since 2001 is a senior researcher at CNR. He is the
+    (2016)                                                                   coordinator of the Cluster project “Factory of the Future”.
+67. Norouzzadeh, S., Lorenz, T., Hirche, S.: Towards safe physical
+    human-robot interaction: an online optimal control scheme. In:
+    2012 IEEE RO-MAN: the 21st IEEE International Symposium on
+                                                                             Nicola Pedrocchi holds an M.Sc.(2004) and Ph.D. (2008) in
+    Robot and Human Interactive Communication, pp. 503–508. IEEE
+                                                                             Mechanical Engineering from the University of Brescia. He is a
+    (2012)
+                                                                             permanent researcher at the National Research Council of Italy
+68. Avanzini, G.B., Zanchettin, A.M., Rocco, P.: Constrained model
+                                                                             (CNR) Institute of Intelligent Industrial Technologies and Systems
+    predictive control for mobile robotic manipulators. Robotica
+                                                                             for Advanced Manufacturing (STIIMA) Intelligent Robots and
+    36(1), 19–38 (2018)
+                                                                             Autonomous Systems (IRAS). He is the head of the Robot Motion
+69. Sun, K., Mou, S., Qiu, J., et al.: Adaptive fuzzy control for
+                                                                             Control and Robotized Processes Laboratory. He has been the
+    nontriangular structural stochastic switched nonlinear systems
+                                                                             referee for many European Projects (e.g., ROBOFOOT, FLEXICAST,
+    with full state constraints. IEEE Trans. Fuzzy Sys. 27(8), 1587–
+                                                                             EURECA).
+    1601 (2018)
+
+Publisher’s Note Springer Nature remains neutral with regard to
+jurisdictional claims in published maps and institutional affiliations.
+J Intell Robot Syst (2020) 100:417–433                                                        433
+
+
+
+
+Aﬃliations
+Loris Roveda1,2 · Jeyhoon Maskani3 · Paolo Franceschi1 · Arash Abdi1 · Francesco Braghin3 ·
+Lorenzo Molinari Tosatti1 · Nicola Pedrocchi1
+
+
+1   Institute of Intelligent Industrial Systems and Technologies
+    for Advanced Manufacturing (STIIMA-CNR), Milano, 20133,
+    Italy
+2   Istituto Dalle Molle di studi sull’Intelligenza Artificiale (IDSIA),
+    Scuola Universitaria Professionale della Svizzera Italiana
+    (SUPSI), Università della Svizzera Italiana (USI) IDSIA-SUPSI,
+    Manno, 6928, Switzerland
+3   School of Industrial and Information Engineering Politecnico
+    di Milano, Milano, 20156, Italy
+
