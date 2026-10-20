@@ -55,23 +55,14 @@ The synchronization helper runs at completed checkpoints, not arbitrary file
 writes. Preserve the user's notification and review preferences; report actual
 changes plainly, without making the user read inventory dumps.
 
-## Language and paths
+## Working conventions
 
-Keep only these working documents in Chinese:
-- `research/research_question.md`
-- `research/field_state.md`
-- `research/optimal_impedance_question_and_methods.md`
-- `research/method_design.md`
-- `project_records/long_term_requirements.md`
-- `project_records/research_failures_and_corrections.md`
-
-Use English for all other editable documentation, reports, indexes, handoffs,
-technical appendices, proofs, comments, and operational instructions. Working
-paths use English. Preserve original papers, extracted source texts, raw data,
-the frozen snapshot, and literal historical identifiers in their original form.
-Language edits must preserve scientific content, equations,
-values, conditions, references and evidence boundaries. Small corrections to
-previously identified wording or reference defects are allowed.
-Communicate with the user in Chinese. Explain what each step did, how it was
-done, and its results when reporting progress or answering questions. Maintain
-one working language version per document. On Windows use `python -X utf8`.
+Use English for user-facing responses and new technical documentation.
+When editing existing documents, preserve their current language.
+Do not translate existing material unless explicitly requested.
+Preserve scientific meaning, equations, values, assumptions, references and
+evidence boundaries. Keep original sources, extracted texts, raw data,
+historical identifiers and the frozen snapshot unchanged.
+Use English for new working paths. Maintain one working language version per
+document. Explain actions, methods and results clearly and concisely.
+On Windows, use `python -X utf8`.

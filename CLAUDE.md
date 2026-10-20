@@ -2,8 +2,7 @@
 
 @AGENTS.md
 
-Read `project_records/HANDOFF.md` and the current user request. Follow the exact
-Chinese document list in `AGENTS.md`; all other editable documentation is
-English. Original source material, evidence and the frozen snapshot retain their
-original form. Answer the user in Chinese, explaining actions, methods and results.
-Language edits preserve scientific content, equations, data and conclusions.
+Read `project_records/HANDOFF.md` and the current user request, then follow
+`AGENTS.md`. Use English for responses and new technical documentation.
+Preserve the current language of existing documents unless translation is
+explicitly requested. Keep scientific content and original evidence intact.
