@@ -22,4 +22,4 @@ B0路线为：柱面有限接触足迹 → Fn/Ft/My与MHE → 环境描述符η 
 
 此前转向“有限资源下整段有效采集”的候选A缺乏充分改题依据，已退出当前主线。相关错误和少量可用认识见[失败复盘](../project_records/research_failures_and_corrections.md)，原文件由Git保留。
 
-用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)，原问题保持。最新代码、任务/机制/泛化/计算发布实验见[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)，表示改造及边界见[分线设计§10](separate_candidate_design_and_iteration.md#10-用户澄清顺序后的任务仿真)与[HANDOFF](../project_records/HANDOFF.md)；不将平面数值实例当完整B0或实物结论。
+用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)，原问题保持。最新代码、任务/机制/泛化/计算发布实验见[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)，表示改造及边界见[分线设计§10](separate_candidate_design_and_iteration.md#10-task-simulations-after-the-user-clarified-the-sequence)与[HANDOFF](../project_records/HANDOFF.md)；不将平面数值实例当完整B0或实物结论。
