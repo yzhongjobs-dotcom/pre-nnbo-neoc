@@ -63,8 +63,7 @@ Read the Chinese project documents directly; do not substitute an English
 summary for the user's confirmed requirements. This language choice does not
 make any scientific claim exempt from evidence checking.
 Use English for working directory/file names, code documentation and technical
-tool instructions. AGENTS.md and CLAUDE.md remain brief English entry points
-to the same Chinese project documents, not separate translated policy copies.
+tool instructions.
 Communicate with the user in Chinese unless they request otherwise. Maintain one
 working version, not parallel English and Chinese copies. Source papers and
 original data retain their language and contents. The frozen B0 directory and

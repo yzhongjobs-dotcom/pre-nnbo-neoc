@@ -3,7 +3,7 @@
 
 **当前工作目录：** `E:\github_project\scan-impedance-update`。名称由用户确认，不限定最终采用的方法。完整Git历史和本地文件已在新位置验证；旧目录因自动安全审查拒绝删除而暂时保留，后续请使用此新目录。
 
-**2026-10-20：关键内容已恢复中文原文。** 长期要求、交接、决策、失败复盘、科研流程参考及索引以英文化前的Git中文版本为基础，目录和文件名继续使用英文。Claude Code通过[CLAUDE.md](CLAUDE.md)及[AGENTS.md](AGENTS.md)直接阅读同一套中文要求，不另维护英文摘要约束。历史路径见[迁移记录](project_records/english_migration.json)。本次只恢复文件并审查一致性，不启动科研或实验。
+**2026-10-20：关键内容已恢复中文原文。** 长期要求、交接、决策、失败复盘、科研流程参考及索引以英文化前的Git中文版本为基础，目录和文件名继续使用英文。历史路径见[迁移记录](project_records/english_migration.json)。本次只恢复文件并审查一致性，不启动科研或实验。
 
 可运行 `python -X utf8 scripts/verify_english_migration.py` 核对中文原文、路径、代码语法、链接和证据保全；技术检查不等于证明所有科研结论或翻译语义正确。
 
