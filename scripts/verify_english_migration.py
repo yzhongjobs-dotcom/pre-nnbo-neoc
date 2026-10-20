@@ -13,14 +13,11 @@ from urllib.parse import unquote
 
 from migrate_english_paths import COMPARISON, FROZEN, NAMES, ROOT, mapped_path, rewrite_references
 from research_sync import verify_snapshot
+from project_document_policy import (
+    CHINESE_RESTORED, CLEANUP_SCOPE_NOTE, documented_reference_repairs, strip_project_notes,
+)
 
-TRANSLATED = {
-    "experiments/experiment_index.md", "literature/literature_index.md",
-    "README.md", "project_records/HANDOFF.md",
-    "project_records/long_term_requirements.md",
-    "project_records/decisions_and_changes.md",
-    "project_records/research_failures_and_corrections.md",
-    "project_records/references/method_design_workflow_and_standards.txt",
+METADATA_FILES = {
     "project_records/cleanup_record.json",
     "literature/local_materials_manifest.json",
 }
@@ -55,7 +52,8 @@ def main():
     manifest = json.loads(target.read_text(encoding="utf-8"))
     counts = dict(mapped_files=0, renamed_files=0, unchanged_evidence_files=0,
                   scientific_text_files=0, python_syntax=0, json_files=0,
-                  local_links=0, python_path_rewrites=0)
+                  local_links=0, python_path_rewrites=0, chinese_originals_verified=0,
+                  original_metadata_verified=0)
     failures = []
     historical_paths = subprocess.check_output(
         ["git", "ls-tree", "-rz", "--name-only", COMPARISON], cwd=ROOT).decode("utf-8").split("\0")
@@ -78,15 +76,30 @@ def main():
             before_evidence.update(prefix + hashlib.sha256(historical).digest())
             after_evidence.update(prefix + hashlib.sha256(data).digest())
             counts["unchanged_evidence_files"] += 1
-        elif new not in TRANSLATED and new != "AGENTS.md":
+        elif new in CHINESE_RESTORED:
+            expected_text = documented_reference_repairs(new, rewrite_references(historical.decode("utf-8")))
+            assert strip_project_notes(data.decode("utf-8")) == expected_text, f"Chinese original differs: {new}"
+            counts["chinese_originals_verified"] += 1
+        elif new in METADATA_FILES:
+            expected_data = json.loads(historical.decode("utf-8"))
+            if new == "literature/local_materials_manifest.json":
+                for record in expected_data["records"]:
+                    for key in ("local_path", "text_path"):
+                        record[key] = mapped_path(record[key])
+            else:
+                expected_data["record_scope_note"] = CLEANUP_SCOPE_NOTE
+            assert json.loads(data.decode("utf-8")) == expected_data, f"Original metadata differs: {new}"
+            counts["original_metadata_verified"] += 1
+        elif new != "AGENTS.md":
             expected = digest(historical)
             if path.suffix in {".md", ".txt", ".py"} or new.startswith("literature/"):
-                expected = digest(rewrite_references(historical.decode("utf-8")).encode("utf-8"))
+                expected = digest(documented_reference_repairs(new, rewrite_references(historical.decode("utf-8"))).encode("utf-8"))
             if new == "literature/verify_materials.py":
                 old_text = historical.decode("utf-8")
                 expected = digest(rewrite_references(old_text).replace(
                     "Material path outside 文献:", "Material path outside literature:").encode("utf-8"))
-            assert digest(data) == expected, f"Unexpected content change: {new}"
+            comparable = strip_project_notes(data.decode("utf-8")).encode("utf-8") if path.suffix in {".md", ".txt"} else data
+            assert digest(comparable) == expected, f"Unexpected content change: {new}"
             if path.suffix in {".md", ".txt"}:
                 counts["scientific_text_files"] += 1
         # Existing scientific code may change path strings, but not algorithms.
@@ -117,12 +130,15 @@ def main():
                 failures.append([path.relative_to(ROOT).as_posix(), reference])
             counts["local_links"] += 1
     assert not failures, json.dumps(failures, ensure_ascii=False)
-    # The operational translations must not retain Chinese prose. Frozen names
-    # and legacy paths in the historical cleanup record are explicit exceptions.
-    for name in TRANSLATED - {"project_records/cleanup_record.json", "literature/local_materials_manifest.json"}:
+    # User-approved policy: Chinese source requirements/context, English paths
+    # and thin technical entry points. Do not reimpose the superseded English rule.
+    for name in CHINESE_RESTORED:
+        assert re.search(r"[\u3400-\u9fff]", (ROOT / name).read_text(encoding="utf-8")), name
+    for name in ("AGENTS.md", "CLAUDE.md"):
         text = (ROOT / name).read_text(encoding="utf-8").replace(FROZEN, "FROZEN")
         text = re.sub(r"https?://[^\s)]+", "", text)
-        assert not re.search(r"[\u3400-\u9fff]", text), f"Untranslated operational text: {name}"
+        assert not re.search(r"[\u3400-\u9fff]", text), f"Non-English technical entry: {name}"
+        assert "Use English for operational documentation" not in text, f"Superseded language policy: {name}"
     verify_snapshot(ROOT)
     counts["frozen_snapshot_verified"] = True
     counts["broken_local_links"] = failures
@@ -135,9 +151,13 @@ def main():
     manifest["renamed_files"] = counts["renamed_files"]
     manifest["note"] = "Git at comparison_commit retains original paths and bytes. Apply component_map to path components, except inside the frozen snapshot. Aggregate hashes avoid a redundant per-file historical inventory."
     manifest["validation"] = counts
-    manifest["translation_files"] = sorted(TRANSLATED)
+    if "translation_files" in manifest:
+        manifest.setdefault("historically_translated_files", manifest.pop("translation_files"))
+    manifest["current_chinese_original_files"] = sorted(CHINESE_RESTORED | METADATA_FILES)
+    manifest["current_language_policy"] = "Chinese confirmed requirements, handoff, decisions, lessons and scientific explanations; English working paths and technical entry points."
+    manifest["scope"] = "Working-path migration followed by user-authorized restoration of important Chinese originals and a document-consistency audit."
     manifest["validation_scope"] = (
-        "Static dependency paths, source AST, links, JSON, scientific text/path equivalence and evidence bytes. "
+        "Chinese originals against the comparison commit, explicitly documented context/reference repairs, static dependency paths, source AST, links, JSON and evidence bytes. "
         "Historical environment/source hashes remain historical. Import smoke checks and existing sync-helper tests are recorded separately.")
     target.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(counts, ensure_ascii=False))

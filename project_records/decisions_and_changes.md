@@ -1,151 +1,147 @@
-# Research decisions and changes
+# 研究决策与变更
+<!-- project-update:start -->
 
-This file retains useful decisions, evidence boundaries and recovery versions. The former 350-line chronological record is preserved in Git commit `db28365f33dc314ce8bfe83a23796dd18cf27f5b`; its historical “next steps” are not current instructions. Earlier complete material is in `b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c`. See the [failure review](research_failures_and_corrections.md) for causes and lessons.
+## 2026-10-20：语言迁移回顾、恢复中文原文与项目一致性审查
 
-## 1. B0 and necessary history
+**授权与比较版本。** 用户在语义复核后决定，重要要求、交接、关键决策和失败教训切回中文原版本，并要求审查其他文件。操作前版本为 `4bd7f3dacf6851f1003272ebacb6b711f583ac4c`；中文恢复来源为 `067ca1048fc492c1a61d39e88c7f839c80c29961`，其中已包含此前从GitHub同步的最新科研进展，不退回10月16日状态。
 
-| Stage/version | Retained fact or decision |
+**必要后续历史。** `526c338`完成英文路径迁移及操作文档英译；`4bd7f3d`复核后修正“发布/publication”“尚未建立贡献”等歧义。两次检查未证明全部翻译逐句等价。原英文稿保留于Git，不在工作区并列保存。
+
+**本次变更及理由。** 从Git原文恢复长期要求、HANDOFF、决策、失败复盘、流程参考、README与实验/文献索引，更新有效路径，不做反译。文献用途/阅读范围及清理依据也恢复原中文字段；原始来源URL、SHA256、历史路径和数量不改。AGENTS/CLAUDE改为引导读取中文要求，撤掉“交接与要求必须英文”的旧规则。新增说明用专门标记与原文分开，检查器能对照原提交确认其余正文未被压缩或改写。
+
+**审查发现与修正。** 发现原路径替换误将中文“参考/补偿”“参考/前馈”“原文/非零目标力”等并列表达当作目录，也漏掉一条cd命令的末级目录，且改动了两处已删除分支的历史路径；已恢复措辞/来源并修正命令与替换规则，增加回归检查。旧经验标尺的“主经验标尺”、固定对照篇数及先选对照流程不再作为当前规则；旧MHE暂停、强制NNBO和现状入口“标准分析留新对话”的过时续接安排明确为历史。证明文本中的逐项等待审核是当时编写节奏，不是本轮或以后每轮的串行审批门槛。三份B0工作文件只修正文内旧文件名指向，公式、假设、推导及科学结论不改。
+
+**影响范围与核验。** 不改原研究问题、两候选定义、已有结果、证明假设或科研标准，不新增科学实验/训练。核对中文原文与明确增补、所有工作路径/本地链接、源码AST/导入、JSON、文献哈希、原始数据及冻结快照；结果写入迁移记录。旧结果中的源码/环境哈希仍属于历史版本，不重写为当前哈希。审查覆盖文档与工程一致性，不声称重新核读全部论文或逐行复证全部定理。本次完成后按AGENTS自动提交推送。
+
+<!-- project-update:end -->
+
+本文件保留对后续有用的决定、证据边界与恢复版本。旧350行逐轮记录由Git提交 `db28365f33dc314ce8bfe83a23796dd18cf27f5b` 保存；其中历史“下一步”不再是执行指令。完整旧材料见 `b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c`。错误原因另见[失败复盘](research_failures_and_corrections.md)。
+
+## 1. B0与必要历史
+
+| 阶段/版本 | 保留的事实与决定 |
 |---|---|
-| B0, tag `baseline-b0-2026-10-14` | Complete written starting point: spatial contact/MHE → finite-horizon four-gain-rate HJB → ANEOC → conditional release of control updates. Frozen snapshot; methods may change with evidence. Conditional proofs are not whole-system experimental guarantees. |
-| Early local roots → NNBO reproduction → finite-horizon/slow-variation repairs | Distinguish critic representation, nodal-root quality and trajectory performance. Ordinary Newton, analytic/fixed controls and warm starts are valid references. A single 50% jump does not judge slow variation; physical slow variation need not mean small descriptor steps. |
-| Value/complementarity-root checks, originals at `b3046ce` | Full smooth KKT roots can be singular at weak activity. Reduced value roots conditionally improve regularity; multinode action prediction can match simple schemes. Retain tools without selecting a new main question. |
-| 2026-10-15 consolidation and pre-`78b8b9d` history | Reduced the original 1025 files; Git retains originals. Unapproved changes to long-term principles were withdrawn. Current requirements/latest user instructions govern. |
-| 2026-10-16 confirmation; reorganization at `644c2be` | The user confirmed question/method co-refinement, strong-prior understanding, active mechanism transfer and stage-specific verification. Consolidation did not rewrite stable requirements. |
-| Old direct PPO, comparison starting at `cb8b382` | One-dimensional short-history policy beat fixed control, not known-motion scheduling; complete MHE/preview omitted. Mislabeling it complete candidate 2 is withdrawn and cannot invalidate the original concept. |
-| Candidate A/resource/acquisition branches, old record at `db28365` | Drifted from rapid impedance; the user explicitly restored the original question. Current designs/unneeded assets removed, lessons retained; no new topic selected. |
-| `ed3a329`, optimal impedance updates | Known-local-model network/RBF, Newton/chord/sensitivity comparisons and finite-rate optimization. Structured adjoint gradients improve prototype computation, not unique NEOC/network advantage or complete B0 success/failure. |
-| `7e01957`, constrained contact updates | Known-model four-gain execution, task-cost learning and delay accounting. Network does not reliably beat RBF. Later prediction alignment/background improvements have local benefits; old delay negatives alone cannot reject online methods. |
-| `1a3ff1c`, sample/field rebuilding | Two external sources pinned;22 sample identities/abstracts, ten passage-level readings,61-PDF screening and idea-stage leads. Not all-full-text audits; old cards are not automatically facts. |
-| `c8d094f`, contact history/question checks | History aids future-force prediction, but choosing different K/D adds little in two cases; ordinary observers handle the known model. No memory-network question selected. |
-| `8497388`, `ad9f978`, `57499ab`, `272a585`, within-scan work | Local estimates/model prediction/small CEM formulas in 48,24 and separate corrected-physics 24 cases. Joint output has small positives; pure K/D/new cohorts do not stably beat adequate simple controls. Not complete MHE/HJB/NEOC or PPO/NN; no merged cohort. |
-| `63f186d`, rollout/transport | New 24 cases beat analytic control but not reliably fixed/original learned control. Transport estimation is conditional identification. Independent estimation/scale tools extracted; other pipeline work not continued. |
-| `c9574d8`, formation review | Re-emphasized inheritance, adaptation and natural integration. Not proof the agent understood journal standards; further calibration left for a new conversation at that time. |
-| `db28365`, posterior planning | New 64 cases add 0.08363% ideal timely benefit; median planning 668 ms plus 162 ms construction. Not complete scanning/practical deployment advantage. Not promoted to main method; original question retained. |
+| B0，标签 `baseline-b0-2026-10-14` | 空间接触/MHE—有限时域四增益率HJB—ANEOC—条件性发布的完整书面起点。快照固定，研究方法可依据证据修订，不把条件性证明当全系统实验保证 |
+| 早期局部根→NNBO复现→有限时域与缓变修复 | critic表达、节点根质量和轨迹表现需要区分；普通Newton、解析/固定和热启动是合法参照。单次50%跳变不能裁决慢变设计；物理慢变也不等于描述符小步 |
+| 值根/互补根核查，原件见 `b3046ce` | 弱活动处完整光滑KKT根可奇异，约化值根有条件改善正则性；多节点动作预测可与简单方案等价。保留工具，不把它指定成新的主研究问题 |
+| 2026-10-15整理，及 `78b8b9d` 之前历史 | 原材料从1025文件精简，原件由Git承担；曾撤回未经讨论的长期原则改写。现有要求以当前长期要求文件和最新用户指令为准 |
+| 2026-10-16要求确认；`644c2be` 再整理 | 用户确认问题/方法共同迭代、深入强prior、主动迁移机制及分阶段验证。本轮不重写这些稳定要求 |
+| 旧直接PPO，比较起点 `cb8b382` | 一维短历史策略胜固定，未胜已知运动程序调度；省略完整MHE/空间预瞄。误标为完整候选2，现撤回该解释，不能据此否定原构想 |
+| 候选A及资源/采集分支，旧记录见 `db28365` | 曾逐渐偏离快速阻抗问题；用户明确要求回到原问题。现移除其当前设计及无具体后续用途的工作文件，保留错误教训，不将其作为新选题 |
+| `ed3a329`，最优阻抗更新 | 已知局部模型上的网络/RBF、Newton/弦/灵敏度比较与有限速率优化。结构化伴随梯度改善原型计算，未证明NEOC/网络独有优势或完整B0成败 |
+| `7e01957`，接触约束更新 | 已知模型四增益执行、任务代价学习和延迟计账。网络未可靠胜RBF；后加入预测对齐/后台改进有局部正收益，不能只引用旧等待负结果否定在线方法 |
+| `1a3ff1c`，样本分析与现状重建 | 固定两个外部仓库来源，22样本身份/摘要、10篇关键段落；61篇PDF筛查及idea-stage线索。阅读范围不扩大成全部全文审计，旧卡片也不直接当事实 |
+| `c8d094f`，接触历史及问题核查 | 预测未来力的历史信息确有作用，但两例不同K/D的额外收益小；普通观察器已可处理已知模型。没有据此确定记忆网络题目 |
+| `8497388`、`ad9f978`、`57499ab`、`272a585`，同次扫描 | 局部估计、模型候选预测和CEM小公式，先后48、24、修正物理24例。联合输出部分有小正结果，纯K/D/新批未稳定胜充分简单参照。非完整MHE/HJB/NEOC，也非PPO/NN，不把三批合成统一测试 |
+| `63f186d`，策略滚动/输运探查 | 新24例对解析有正结果，对固定/原学习无可靠优势；输运估计只为有条件识别。独立估计/尺度工具已提取，其余流水线不续接 |
+| `c9574d8`，论文方法形成复核 | 已重新强调成熟方法的继承、改造及自然融合；不把它当agent已正确掌握顶刊标准的证明，后续理解校准留新对话 |
+| `db28365`，后验规划 | 新64例额外理想时效收益0.08363%，中位规划668ms、另构造162ms。不是完整连续扫描或实际部署优势，不升为主方法；原问题保持 |
 
-Specific numbers, cohorts and scope are governed by [retained reports](../experiments/experiment_index.md) and their Git versions. Removed branches' positive/negative results were not rewritten or erased from history.
+以上实验的具体数字、样本与范围，以[保留实验报告](../experiments/experiment_index.md)和相应Git版本为准。被删除分支的原始正负结果未被改写或从Git历史抹去。
 
-## 2. 2026-10-19: consolidate for subsequent research use
+## 2. 2026-10-19：按后续研究用途整理项目
 
-**Authorization/comparison.** The user explicitly requested stopping research, correcting mistakes, removing useless material and cleaning the project, then requested execution. Starting checkpoint `db28365f33dc314ce8bfe83a23796dd18cf27f5b`, clean worktree. Substantive requirements/standards updates were left for a new conversation.
+**授权与比较版本。** 用户明确要求停止科研、纠正错误、删除无用材料并使项目干净，随后要求实际执行。比较起点为 `db28365f33dc314ce8bfe83a23796dd18cf27f5b`，开始时工作区干净。长期要求及顶刊标准的实质更新留到新对话。
 
-**Content corrections.** Reorganized question, field state, candidates, README, HANDOFF and experiment/literature indexes; removed mutually superseding plans. Restored candidate 2 as estimation/spatial preview plus YOPO-inspired offline simulation learning. YOPO uses guidance learning; PPO is optional. Short-history PPO, supervised mappings and CEM formulas are not complete candidates. Withdrew complete-method validation/rejection and untested substitution claims.
+**内容纠正。** 重整研究问题、现状、候选方法、README、HANDOFF和实验/文献索引，移除多轮相互覆盖的执行计划。候选2恢复为环境估计/空间预瞄＋参考YOPO的仿真离线学习；YOPO采用guidance learning，PPO是可选工具。短历史PPO、监督映射和CEM公式均不代表完整候选；撤回完整方法已验证/被否定及未经比较的替代判断。
 
-**Assets.** Removed six pipelines without direct future use: misread candidate 2 PPO; candidate-A scan-information/mechanical-coverage/public-acquisition branches; policy-library rollout; two-stage posterior planning. Extracted spatial-estimation/static-scale tools unchanged. Retained NNBO, finite/slow variation, strong simple controls, execution/control-update release, corrected contact, conditional theory and useful positive/negative results. Added failure review complementary to reverse analysis; removed thousand-item cleanup inventories and redundant sourcing tools.
+**资源筛选。** 删除六组无直接后续用途的实验流水线：误解候选2的旧PPO、候选A扫描信息/机械覆盖/公开采集分支、策略库滚动和两阶段后验规划。空间估计与静态尺度工具从旧策略滚动目录原样提取。NNBO、有限/缓变、强简单对照、执行与发布、修正接触、条件性理论和相关有效正负结果保留。新增失败复盘，与顶刊逆向分析互补；不再保留千项清理流水账或冗余来源/获取工具。
 
-**Literature.** Consolidated selected relevant/partly relevant/background papers from requested repositories, ten supplements, ten examined samples and YOPO. Hash deduplication gives 65 PDFs/texts and 68 usage records including the original eleven. Source versions, original hashes, actual local versions, reading scope and missing-full-text sources are separate. Downloading did not expand scientific reading/systematic-review scope.
+**文献落地。** 将指定仓库中已筛选的相关/部分相关/背景文献、10份补充原文、10篇已核读样本和YOPO归集到项目，按内容哈希去重，共65份PDF及文本、68条用途记录（含原有11份）。源版本、原文件哈希、实际本地版本、阅读范围和未获取全文来源分别标注。没有把下载当新科学阅读，也未扩展此前系统综述范围。
 
-**Boundaries.** B0 three cores, frozen snapshot, requirements, AGENTS and retained experiment source/data were byte-identical; only two independent tools moved and explanations were reorganized. No new control experiments, training, theory optimization, journal-readiness conclusions or research main line.
+**影响边界。** B0三核心、冻结快照、长期要求、AGENTS及保留实验源码/数据保持原字节；只移动两项独立工具并整理说明。没有新控制实验、训练、理论优化或论文达标结论。本轮不指定新的科研主线。
 
-**Checks/sync.** Checked protected files, retained source/config/results, unchanged moves, JSON/arrays, Python syntax, local references, dependencies, paper hashes/restoration URLs, without scientific reruns. Actual checks are in [cleanup record](cleanup_record.json); automatically committed/pushed.
+**核验与同步。** 核查保护文件、保留源码/参数/结果、原样迁移、JSON/数组、源码语法、本地引用、模块依赖、文献哈希与下载入口；不重跑旧科研实验。实际检查汇总见[清理记录](cleanup_record.json)，通过后按AGENTS自动提交推送。
 
-## 3. Subsequent records
+## 3. 后续记录方式
 
-Current understanding/stopping point comes from [HANDOFF](HANDOFF.md) and the latest request; history supports targeted verification. Append reasons, evidence, comparison version, scope and checks for new authorized changes. Do not restore old plans as default instructions.
+当前理解与停止点只由[HANDOFF](HANDOFF.md)和用户最新任务给出；历史结论供按需查证。完成新的授权改动时，在此追加原因、证据、比较版本、范围及核验，不把旧计划恢复成默认指令。
 
-## 2026-10-19: layered, prioritized handoff
+## 2026-10-19：按优先级和阅读层次重写交接
 
-After reviewing consolidation, the user requested a handoff enabling accurate succession. Comparison `368a29539a723f960f27fb7e28362a65f51428c8`. Rewrote HANDOFF to distinguish information priority from scientific evidence, give three reading layers, define both candidates' correct interfaces/progress, and record withdrawn routes/uncertainties. At that time, continuation was requirements/journal-understanding calibration, then design–quick-check–iteration with deliverables/boundaries. Retained communication requirements, recovery points and synchronization.
+用户审核整理内容后，要求编写能让新agent准确接手的分层、带优先级HANDOFF。比较版本为 `368a29539a723f960f27fb7e28362a65f51428c8`。重写HANDOFF，明确项目内信息优先级与科学证据的区别、三层阅读入口、两候选正确接口、实际进度、已撤回路线及不确定事项；列出下一对话先校准要求/顶刊理解，恢复科研后方法设计—快验—迭代的交付与边界。保存用户沟通要求、Git恢复点和自动同步操作。
 
-Only organized existing confirmations/handoff structure; no new long-term standards, questions, methods or experiments. Requirements, AGENTS, B0 and experiments unchanged. Checked links, definitions, scope and absence of other changes, then synchronized.
+本次只整理已有确认和交接结构，不新增长期科研标准、选题、方法或实验；长期要求、AGENTS、B0和实验材料均未改。检查本地链接、关键定义及差异范围，核对无其他文件变更后自动提交同步。
 
-## 2026-10-19: learn contribution scale from actual designs, then compare failures
+## 2026-10-19：从论文实际设计重新理解贡献尺度，再对照失败
 
-**Grounds/comparison.** The user identified insufficient understanding of failure/journal standards and requested independent study of concrete papers' questions, methods, actual changes and contribution organization before project comparison. Starting point `368a29539a723f960f27fb7e28362a65f51428c8`, clean. Remote acquired handoff commit `0fd55c4d9378d6cd9b590a29c0340baec6ed8aab`; preserved its structure/record and integrated analysis. Final comparison `0fd55c4`.
+**依据与比较版本。** 用户明确指出过去对failure和顶刊标准理解不足，要求先独立研究具体论文的问题、方法、实际改进与贡献组织，不先制定标准；之后再对照项目失败。核读起点`368a29539a723f960f27fb7e28362a65f51428c8`，工作区原先干净。同步前发现远端已有分层交接提交`0fd55c4d9378d6cd9b590a29c0340baec6ed8aab`，保留该交接结构及记录后整合本轮分析；最终差异相对`0fd55c4`。
 
-**Work.** Reread ten local originals' methods/evidence, all five T-RO plus R01/R03/R15/R17/R19; recorded passages/pages, visually rechecked R13 PDF 5/R21 PDF 10. Rewrote reverse analysis around R01 common-phase extension, R13 certificate representation, R12 target-dynamics division of labor, R11 human-law transfer, R19 residual structure and R21 physical/executable sets, with four supplemental cases. Structural-change size differs from code/development effort; published arguments do not recover discovery chronology.
+**实际工作。** 从本地原文重新核读10篇样本的方法与证据，覆盖全部5篇T-RO及R01/R03/R15/R17/R19，记录本轮段落/页码；复看R13 PDF5和R21 PDF10原图。重写逆向分析，以R01共同相位的小扩展、R13证书表示、R12目标动力学分工、R11人体规律迁移、R19残差结构、R21物理/可执行集合为主要案例，另四篇补充具体设计。明确结构改动量不等于代码量或研发工作量，公开论证不等于真实发现顺序。
 
-**Corrections.** R12 two physical tasks have twelve participants total, six each; H-MAN another six. R19 acknowledges contemporaneous residual work, not first control-plus-learning. R21 stability probability is a process-decision count ratio, not hill-climb success; retained finite-hull/squared-distance mathematical limits. Checked old decisions/posterior-planning reports, separating defensiveness/drift/object confusion from insufficient prototype benefits. No claim of all causes known, or contribution/B0 judgment from small numerical gains.
+**纠正与证据。** R12实物两任务共12名、每任务6名，H-MAN另6名；R19承认同期残差工作，不写首次控制加学习；R21稳定概率是过程判定计数比例，不是爬坡成功率，保留有限凸包及平方距离目标的数学边界。核查项目旧决策记录和后验规划原报告，再把过度防守、漂移、对象混淆等判断错误与具体原型收益不足分开。没有声称所有失败根因已查清，也没有因小幅数字自动裁决贡献或完整B0。
 
-**Scope/checks.** No new PDFs, expansion of 22 identity/abstract records into full-text audits, paper reproduction or control reruns. Updated reading scope, failure explanation/HANDOFF. AGENTS, requirements, B0 cores/snapshot, candidate definitions and experiment source/data unchanged. Checked citations, JSON, hashes, protection and differences, then synchronized. Analysis submitted for review, without universal acceptance checklist or resumed optimization.
+**范围及核验。** 未新增PDF、未扩充22样本身份/摘要筛查为全文审计，未重跑论文或项目控制实验。更新阅读范围、失败解释和HANDOFF；未改AGENTS、长期要求、B0三核心、冻结快照、候选定义及实验源码/数据。检查引用、JSON、资料哈希、保护文件及差异后按AGENTS同步。本轮分析供用户审核，未制定新的统一录用清单或恢复方法优化。
 
-## 2026-10-19: implement confirmed formation understanding in stage requirements
+## 2026-10-19：将已确认的方法形成认识落实到科研阶段要求
 
-**Authorization/comparison.** The user confirmed explanations of formation/journal-method scale and explicitly requested recording them: each stage needs its own practices/judgment, incorporating paper analysis and user understanding. Comparison `8771a3be855874cd9b1f332c8ce4f40a90489ec2`. Implementation authorized without another understanding gate.
+**授权与比较版本。** 用户在确认“方法如何形成”与“顶刊方法实际尺度”的解释后，明确要求先写入长期要求或相关文件：科研分阶段，每阶段应有自己的做法和判断，论文逆向分析结果及用户理解均需落地。比较版本`8771a3be855874cd9b1f332c8ce4f40a90489ec2`。这是对已确认内容的实施授权，无需再次等待理解审核。
 
-**Changes/reasons.** Made practices, substance and judgment explicit for the six stages; added paper organization with early/overlapping iteration. Distinguished method formation from finished narrative. Implemented mature-main-line improvement, natural problem-driven combination and positive transfer while retaining other routes. Explained legitimate small changes/extensive inheritance, technical adaptation, actual progress, novelty/evidence, and contribution organization as important work. Learn from actual papers rather than invented thresholds; stage outputs are not templates/approval lists.
+**改动及理由。** 在既有六阶段流程上明确每阶段的做法、应形成内容和判断，补出论文组织阶段并说明其从早期同步开展、各阶段交叉迭代。新增方法形成与成稿叙事的区别；落实沿成熟主线改进、围绕问题自然组合两种路径及正向迁移，保留其他形成方式。写清小改造、大量继承成熟部件的正常性，以及专业适配、实际进展、创新性和证据的关系；明确论文包装是将真实工作组织成有说服力贡献的重要环节。认识从具体论文中学习，不先凭空设门槛，阶段产出不是新增模板或审批清单。
 
-**Grounds/boundaries.** Confirmation superseded provisional pending-review/no-requirements-update status. Detailed sources/failures remain separate. Updated analysis ending, HANDOFF, README and research/candidate entries, removing obsolete stops/repeated review. Retained uncertain causes without attributing all prototype failures to standards or prescribing sample architectures.
+**依据与边界。** 用户确认优先于此前“分析待审核、未写长期约束”的暂存状态；原文和失败证据仍由逐例分析及失败复盘承载。更新分析结尾、HANDOFF、README与研究/候选入口，移除“标准留到新对话”和重复待审核的过时停止点。保留不确定原因的范围，不将全部原型失利归于标准理解，也不将任何样本方案指定为本项目必选结构。
 
-**Checks/effects.** Seven explanation documents only. Checked links, stage/confirmation alignment, obsolete stops and scope. B0 cores/snapshot, AGENTS and raw materials unchanged. Synchronized without search, experiments, training or optimization; question, candidates and proof assumptions unchanged.
+**核验及影响。** 仅变更七份说明文档；核查本地引用、阶段与用户确认内容的对应、陈旧停止点及Git差异，核对B0三核心、冻结快照、AGENTS与实验/文献原始材料未改，按AGENTS自动提交推送。本轮没有新检索、控制实验、训练或方法优化；原问题、候选定义及相关证明假设未变。
 
-## 2026-10-19: restore useful original requirement wording
+## 2026-10-19：对照原长期要求，补回被压缩的有效表述
 
-The user emphasized preserving useful original requirements while updating from failure/paper analysis and asked about splitting files. Comparison `6f820a3729fd915745fd686f190720879c9670a4`, checked against `8771a3b`. Retained goals, six-stage backbone, question/method co-refinement, strong comparators, stage judgment, boundaries/autonomy. Restored Socratic questioning, required capabilities/new design where needed, substantive-coverage checks during design, no endless diagnosis without candidates, clear main contribution and per-round question/method change reports. Preserved valid requirements without new gates.
+用户强调原长期要求有许多有效内容，本轮应在原基础上依据failure和论文分析更新补全，并询问文件是否需要拆分。比较版本`6f820a3729fd915745fd686f190720879c9670a4`，对照前版`8771a3b`逐项检查。保留目标、六阶段主干、问题/方法共同迭代、强对照、阶段判断、证据边界与自主推进；补回苏格拉底式追问、明确所需能力及必要时自行设计、设计阶段同步核查实质覆盖、不能持续调研而不实现候选、围绕清晰主贡献及每轮说明问题/方法变化的明确措辞。这是对原有有效要求的保全，不新增科研门槛。
 
-Kept existing file responsibilities: requirements for stable goals/practice, reverse analysis for paper-specific evidence, failure review for deviations, HANDOFF for current status/entries. No additional split or paper/experiment history in requirements. Only requirements/this record changed; checked differences, links/protection, then synchronized. No research question/method/proof/experiment changes.
+文件继续沿用现有职责：长期要求存稳定目标、阶段实践与执行原则；论文逆向分析存具体设计及贡献尺度的原文依据；失败复盘存项目偏差和教训；HANDOFF存当前状态与阅读入口。本轮不新增拆分文件，也不把论文细节和实验历史塞入长期要求。仅改长期要求和本记录，检查差异、引用及保护范围后同步；无研究问题、方法、证明或实验变化。
 
-## 2026-10-19: research starts, reduced prechecks and corrected main comparisons
+## 2026-10-19：研究启动、约化原型预检及用户纠正主比较
 
-**Authorization/comparison.** The user requested workflow-based search, analysis, candidate improvement, quick checks and iteration. Comparison `9cd267256a058af1b4049104faa32514fde9d725`. Then identified the main baseline as wrong and paused: compare NNBO/relevant field methods, not tuned fixed impedance as primary journal evidence. The record preserves actual work/correction, not research completion.
+**授权与比较版本。** 用户要求依据已定流程检索、分析改进两候选并快速验证、持续迭代，比较版本`9cd267256a058af1b4049104faa32514fde9d725`。之后明确指出主要基线错误并要求暂停：应至少比较NNBO及相关领域方法，不能以充分调优固定阻抗作为主要顶刊证据。本次记录保留实际工作及纠正，不将暂停或标准校准记作研究完成。
 
-**Literature/design.** Targeted MHE-VIC, predictive/actor–critic impedance, YOPO task gradients, state/preview neighboring extremals and Sobolev approximate MPC. Distinguished original-PDF passages/equations from abstract indexes; no new local PDFs/full-text audit claims. Added `experiments/mhe_guided_impedance_pilot`: seven-parameter constrained rolling estimation plus four actual gains/energy, ordinary two-segment shooting and pending task-gradient NN. Not complete B0 MHE/HJB/NEOC/PPO. Reused corrected contact without changing old code/data.
+**文献与具体设计。** 定向检索MHE-VIC、预测/actor–critic阻抗、YOPO任务梯度、状态/预瞄邻近极值和Sobolev近似MPC。新增定向分析，区分作者PDF关键段、原文公式与摘要索引；未新增本地论文PDF或冒充全文审计。新增独立目录`experiments/mhe_guided_impedance_pilot`：七参数局部约束滚动窗估计＋四增益/能量实际执行；普通两段打靶及待训练任务梯度NN，不等于完整B0 MHE、HJB/NEOC或PPO。复用旧修正接触模型，不改旧代码/数据。
 
-**Results/scope.** Two training-distribution pilots: Fn prediction RMSE≈0.023–0.026N, model control slightly better in one and worse in the other. In 28 correlated states,25% gradient direction cosines negative and 35.7% optimized true short-time costs worse. Local mismatch, not 28 independent cases/field failure. Fixed auxiliary tuning used twelve training scenarios; fixed/analytic trajectories once each in 24 scenarios yield 3600 correlated contexts. User pause terminated NN training; no completed actor/validation/test or complete candidate 2/journal claim.
+**实际结果及范围。** 两个训练分布pilot显示当前Fn预测RMSE约0.023–0.026N，但模型控制一例略好、一例更差；28个相关状态的动作梯度诊断有25%负方向余弦、35.7%优化后真实短时成本变差。这是局部模型失配诊断，不是独立28例或领域failure。固定辅助调优12个训练场景，采集24场景固定/解析各一次轨迹，共3600个相关上下文。NN训练被用户暂停终止，无完成actor、验证集/测试结果；不称完整候选2已验证，更不声称达顶刊标准。
 
-**Correction.** Required strong-method comparisons were missing; fixed tuning cannot conceal that. Stopped processes, marked engineering prechecks, specified NNBO(TSMC 2025), Jin predictive VIC(TMECH 2023/E41) and Li unknown-terrain learning(T-RO 2025/E27), still to implement then. Checked NNBO equation 22/Remark 6/Algorithm 1: position references/zero desired force. Existing minimal reproduction lacks identification/position inner loop; preserve mechanism and label scan/nonzero-force adaptation, rather than constrain to four K/D. Fixed control auxiliary. Standards/question/candidates retained; no candidate A/new understanding approval.
+**接受纠正。** 本轮没有把既有长期要求中的领域强方法比较落实到主要验证，不能用固定控制调优掩盖。已终止进程，现有结果标为工程预检；主对照具体落实到NNBO（TSMC2025）、Jin预测VIC（TMECH2023，E41）、Li未知地形阻抗学习（T-RO2025，E27），其实现仍待完成。核对NNBO原式22/Remark6及Algorithm1，明确其位置参考接口与零期望力目标；已有最小复现缺辨识/位置内环，后续须保留原机制并清楚标记扫描/非零目标力适配，不能限制成四K/D制造劣势。固定只作辅助参照。标准、原问题和两候选定义继续有效，不恢复抽象候选A或重新等待理解审批。
 
-**Effects/checks.** Updated HANDOFF, failure review, index and targeted design/protocol, without new gates. Added environment/source/data hashes. Uniform models agree 4.44e-16, independent gradient relative difference 3.4e-7, delay causality passes. Not complete control/footprint convergence/deployment validation. JSON/scripts/links/protection checked; B0 cores/snapshot/old experiments/papers unchanged; synchronized pause checkpoint.
+**影响与核验。** 更新HANDOFF、失败复盘、实验索引及定向设计/协议，长期要求未另加门槛。新增环境版本/源码数据哈希。均匀场两模型一致到4.44e-16，独立方向梯度相对差3.4e-7，延迟因果检查通过；这些数值检查不等于完整控制、足迹收敛或部署验证。检查JSON/脚本/本地链接及保护范围，B0三核心、冻结快照、既有实验和原文材料保持不变；按AGENTS保存并同步暂停检查点。
 
-## 2026-10-19: resume independent candidate design and iteration, methods primary
+## 2026-10-19：以方法为主恢复两候选独立设计、快验与迭代
 
-**Authorization/scope.** Comparison `a25d887fbdd71133263012d1550b1e59d22fdadb`. After accepting corrections, the user emphasized solving the original question at journal standard, separately testing/judging candidates and improving deficits. Resumed, clarified comparisons support iteration, without “all baselines first.” Original question/AGENTS/B0 retained.
+**授权与范围。** 比较版本`a25d887fbdd71133263012d1550b1e59d22fdadb`。用户接受领域比较纠正后进一步强调：关键是形成能解决原问题、达到顶刊标准的方法；两候选分别实验、分别判断，不足继续优化。按此恢复研究，在长期要求补明方法为主、比较服务迭代，不设置“先完成全部基线再设计”的新关卡。原问题、AGENTS和B0三核心/冻结快照保持。
 
-**Design/source.** Examined NNBO objective/critic/inversion, E41 direct-impedance QP/execution, E27 training, YOPO gradients, ENE and high-performance MPC. Added separate design/tests: candidate 1 reduced MHE→finite-horizon parameter OCP→neighbor update/correction→actual gain rates, explicitly replacing an unimplemented HJB root provisionally. Candidate 2 network conditioned on estimation/execution, trained on contact/gain-transition task gradients. Neither full B0/original-paper reproduction; abstract-only neighbors were not assigned verified limits.
+**设计及原文依据。** 定向核读NNBO目标/critic/参考反演、E41直接阻抗QP与执行、E27训练分工，结合YOPO任务梯度、ENE及普通高性能MPC等成熟机制。新建分线设计与独立实验目录：候选1以约化MHE—有限时域参数OCP—邻近更新/校正—实际率执行实现模型路线，明确暂代未实现HJB根；候选2以估计及执行状态条件化网络，用实际接触/增益过渡任务梯度训练。均不是全B0或原论文整套复现；没有将未获全文的摘要近邻写成已核查限制。
 
-**Iterations.** Dense sensitivity refresh did not stably beat warm starts; switched to directional residual/cached curvature without novelty claims. Added bounded variable-gain trajectories for the same 72 scenarios,10800 correlated contexts; independently trained with/without front end. Aligned 100 Hz holding/smoothing and 20 ms force delay, retaining queue-initialization approximation. Compiled AD checked with Numba costs/directional differences, not a generic bottleneck claim. Derived two-stiffness-power-channel closed projection: max rate difference≈6.6e-6 versus bisection in 1000 cases(393 active); plant retained original projection, no novelty/safety claims. Observation-compatible models, minimum-residual point estimates and analytic static VIC had insufficient added validation benefit for default adoption.
+**实际迭代。** 密集灵敏度刷新成本未稳定胜普通热启动，改方向残差及缓存曲率；32个相关状态的远目标Kn梯度全零，改回B0已有增益率动作。旧72条固定轨迹四增益范围为零，新增同72物理场景变增益轨迹，合计10800相关上下文；分别训练有/无前端模型。对齐100Hz采样/平滑及20ms力觉延迟，保留感知队列初值近似；编译AD并与独立Numba代价/方向差分核对，不把解释执行慢称通用瓶颈。基于两刚度功率通道推导闭式投影，与原二分1000例（393激活）最大率差约6.6e-6；实际plant保持原投影，不据此声称新颖性或机器人安全。观测兼容模型和最小残差点估计、解析静态VIC在验证集另测，尚无充分额外收益，不选为默认新增模块。
 
-**Grouped evidence.** Added w=12.5/25 matching NNBO Q/R, retaining 1; no favorable difficulty selection. Retuned training comparators for each. Frozen methods:24 seed 9401 scenarios repeated at three tradeoffs, not 72 independent. Candidate 1 over declared E41:−3.959%,+3.681%(interval crosses zero),+2.271%; over more adequate ordinary optimization:−2.614%,−3.259%(crosses zero),−0.039%(crosses zero). Candidate 2 over E41:+0.707%,+6.628%,+0.745%; front end versus independent no-front-end:−0.139%,+3.109%,+0.084%(last crosses zero). Exploratory intervals condition on fixed training/implementation/in-distribution cases, not seeds/physical generalization. Zero-wait/design-frequency results separate from six 100 Hz validation scenarios with measured release waiting; no pooled test/real-time certification. Changes informed by 9401 require new scenarios.
+**分组证据。** NNBO原文两组Q/R对应补w=12.5、25，保留w=1，未靠改分布难度挑有利结果；各权重重新训练集调优对照。冻结方法后seed9401的24场景三组重复权衡分别报告，不称72独立样本。候选1相对E41声明适配的平均改善为−3.959%、+3.681%（区间跨零）、+2.271%；相对较充分普通优化为−2.614%、−3.259%（区间跨零）、−0.039%（区间跨零）。候选2相对E41适配为+0.707%、+6.628%、+0.745%；前端相对独立训练无前端版本为−0.139%、+3.109%、+0.084%（末组跨零）。仅固定训练/实现、同分布数值场景的逐项探索区间，不含训练种子或实物泛化。设计频率零等待结果与另6验证场景同为100Hz请求、计入实测计算发布的结果分开，未并成统一试验或实时认证。未来据9401结果改造后须用新场景验证。
 
-**NNBO isolation/diagnosis.** Nonzero-force reference inversion failed: w=1 median 88/600,max 572/600; isolated apparent wins. Critic replay matched failure counts. Equation 52 gives finite positive inversion bound for shifted quadratic critic;4597 of 4774 failures have no root in positive contact. More Newton iterations cannot fix it; original zero-force NNBO did not fail. Local small-case checks were insufficient and discovery late. Fix objective/representation/execution together, retain native reference capability and do not claim superiority. E41 is declared OS adaptation; E27 incomplete.
+**NNBO比较隔离与具体失败定位。** 非零力目标适配的参考反解明显失败，w=1中位88/600、最高572/600，相关看似较大胜幅已从贡献结论隔离。逐步重放critic与失败次数一致；从式52推得当前偏移＋二次critic反演正项有有限上界，4774次失败中4597次在正接触域无根。失败不靠增加Newton迭代可解，不属于原零目标力NNBO失败。局部公式/小样例核对不足以核准实际对照，本轮发现偏晚；后续须同时修目标、表达与执行，保留原参考能力，不凭此声称超越原文。E41仅为声明的OS任务适配，E27尚未完成复现。
 
-**Not achieved/next design.** Carrier omits B0 positive-definite Qg/Rg, terminal/reference structure, trajectory constraints and two-region Hertz front end. Cannot judge all B0 or indefinitely shield prototype as local. Neither complete journal-level method established. Restore task–estimation–control–execution, improve dynamic impedance on capable structure/reliable information. Keep ordinary solving if fast, invent no bottleneck, narrow no question for mature prior and count no modules/names as novelty. Platform/interface/frequency/scales requested/pending, not absent; no invented clinical requirements.
+**未达标及下一设计。** 当前载体省略B0正定Qg/Rg、终端/参考结构、轨迹硬约束及双区域Hertz前端，故不能整体裁决B0，也不能以“只是局部”继续保护当前原型。两候选均尚无顶刊级完整方法结论。继续以原问题为主，补齐任务—估计—控制—执行关系，研究有能力物理结构之上的动态阻抗修正与可靠信息作用；普通求解够快则保留，不虚构瓶颈、不因成熟方法存在缩题、不以新增模块或方法名字计创新。实际平台/接口、频率、目标尺度已询问，仍待补充；不把未回复当不存在或自行指定临床要求。
 
-**Checks/effects.** Added reproducible source/models/config/raw grouped results/reports, updated entries/failures, preserved old data. Syntax/JSON/data/models/links/gradient/projection checks; six cited material hashes, not new full-text reading. B0 cores/snapshot, old experiments/papers/AGENTS unchanged. Stopped processes and synchronized an iteration checkpoint, not final goal completion.
+**核验及影响。** 新增可复核源码、模型、配置、原始分组结果和报告，更新当前入口/失败记录，保留原数据。检查语法、JSON/数据/模型、局部链接、梯度与投影；6条引用材料哈希核对通过，不冒充新增全文核读。确认B0三核心、冻结快照、旧实验/原文、AGENTS未改；停止本轮训练/实验后按AGENTS同步。此次完成的是研究迭代检查点，不是用户最终顶刊目标完成。
 
-## 2026-10-19: question-driven code/task simulations before suitable baselines
+## 2026-10-19：由研究问题先完成双候选代码/任务实验，再选择合适基线
 
-**Authorization/correction/version.** Comparison `46b502e27976e0f40d202220d84c9ec602e5d1eb`. User required concrete understanding/work/results, mechanisms, why MPC comparison and whether paper practices were used. Then specified question/method-driven experiments: code/simulate both candidates first, then suitable fair comparisons if any, without forced baselines. Added requirements/handoff; no uniform acceptance gates or mandatory paper templates.
+**授权、纠正与版本。** 比较版本`46b502e27976e0f40d202220d84c9ec602e5d1eb`。用户指出汇报没有讲清候选机制、为什么比MPC及是否落实论文做法，要求具体说明理解/工作/结果。随后明确顺序：实验必须根据本研究问题和方法设置，先分别写出两候选代码、完成各自仿真，之后选合适对比算法，有则复现公平比较，无则无需强行基线。把这些明确要求补入长期要求与交接，没有新增统一顶刊录用门槛或将论文例子变成强制模板。
 
-**Task restoration.** Added `experiments/dual_candidate_task_simulation`, retaining old code/data. B0 two-region cylindrical Hertz, Fn/Ft/My, joint CV-surface/window-fixed-bias rolling estimation,2D torque interface, four actual gains/energy, positive-definite gain/rate cost, terminal term, gain/rate/energy projections and nominal/actual sampled trajectory checks. This implementation did not reuse the earlier carrier's additional direct-force servo. Synthetic engineering parameters, not platform/tissue/clinical calibration; no full samplewise stochastic MHE, arm or continuous-constraint certificate.
+**任务关系恢复。** 新建`experiments/dual_candidate_task_simulation`，保留全部既有代码/数据。本轮采用B0双区域柱面Hertz、Fn/Ft/My、常速度表面/窗口固定偏置联合滚动估计，二维力矩接口、四实际增益及储能，正定增益偏好和增益率代价、终端项、增益/速率/能量投影及名义/实际轨迹采样检查。没有沿用前载体的额外直接力伺服。参数是合成工程设置，不是平台/组织/临床标定；未实现全逐样本随机状态MHE、完整机械臂或连续约束证书。
 
-**Implementations.** Candidate 1 global 66-term quadratic HJB collocation found no acceptable root in four horizons×500 evaluations, with diagnostics; not a B0 no-root proof. Explicitly changed to trajectory-local quadratic HJB/iLQR value gradients/Hessians/state feedback, not just open-loop plans. Initial 24-extra-solve full-parameter neighbor differences became directional residual/Riccati recursion, limited correction/nominal checks. Gauss–Newton approximation, not original root sensitivity/certificate. Candidate 2 is 64–64 task-gradient NN; estimates/motion/actual gains/energy inputs, truth only offline short-time cost.48 physical training scenarios/3840 correlated contexts/600 fixed updates/three independent seeds; not PPO/original YOPO/ideal-gain labels.
+**两候选实际实现。** 候选1先尝试固定全域二次基66项HJB配置，4个时域各500评估未找到合格根，完整诊断保留；没有据此声称B0无根。明确改用轨迹局部二次HJB/iLQR价值表示，递推价值梯度/Hessian和状态反馈，保留价值反馈而非只用开环轨迹。邻近更新曾用24次额外求解形成全参数差分，随后改为新旧模型方向残差与Riccati递推、少量校正和名义检查；是Gauss–Newton近似，不等同原固定根灵敏度或继承原证书。候选2实际完成64–64任务梯度NN，估计/运动/实际增益/能量作输入，真值只算离线短时任务代价；48物理训练场景3840相关上下文、600固定更新、3独立训练种子。不是PPO、YOPO原算法或理想增益标签拟合。
 
-**Corrections/reproducibility.** Fixed descriptor timestamps, action/gain/energy causality, finite-horizon feedback phase. Inactive energy branches produced 0×∞ gradients; bounded every branch/rejected nonfinite training; failed runs produced no main model. Compiled scalar Hertz formulas shared by all methods:1000-state max component difference 7.1e-15; four replays max J difference 1.84e-6/force RMSE 1.86e-7N, not byte identity.24-case zero-wait table uses original implementation; `compiled_timed_*` is current isolated timing, old `timed_*` diagnostics. Implementation overhead is not a universal bottleneck.
+**实现纠正及可复核性。** 修正描述符查询时间戳、动作/增益/储能因果关系、实际有限时域反馈相位；不激活能量分支中曾出现0×∞梯度，已使所有分支有界并立即拒绝非有限训练，失败训练未生成主模型。标量Hertz调用的Python开销很大，编译同公式并让全部方法共用；1000状态最大项差7.1e-15，4场景闭环回放J差最大1.84e-6、力RMSE差1.86e-7N，不声称逐字相同。24场景零等待表保留原实现，最新单任务计时用`compiled_timed_*`，旧`timed_*`只保留诊断；不能把实现开销当通用优化瓶颈。
 
-**Experiments.**24 seed 16301 scenarios: stiffness/friction/surface motion/combined noise-delay, six each. Candidate 1 equal-budget no-neighbor/more adequate same-family solve; candidate 2 three seeds. Eight seed 16401 cases test unseen softening/faster surface. Eight common-prefix cases include MHE/decisions/waiting/busy skips/horizon expiry; isolated timing, not concurrent training. Borrowed source practices from E41 decomposition, E27 unseen-terrain/training, YOPO task/computation and NNBO model/position-force tradeoffs, not copied tasks/new full-proof audits.
+**实验由问题决定。** 主要seed16301的24场景（刚度、摩擦、表面运动、叠加噪声/延迟各6例）各自测试；候选1有同预算关闭邻近预测及较充分同族求解，候选2有3种子。另seed16401的8场景检验训练未见的变软方向和更快表面；8场景同一前缀测量含MHE、决策、发布等待/忙碌跳过/时域过期的闭环；单任务计时，不与并发训练的耗时混用。依据E41任务分解、E27未见地形/训练、YOPO任务效果/计算、NNBO模型/位置力取舍的原文具体段落借鉴做法，不照搬其任务，也不称新增全文证明审计。
 
-**Suitable baseline/fairness.** After code/development, chose Jin TMECH 2023 multistep predictive VIC for compatible direct K/D/contact precision–compliance/execution. Reconstructed equations 13/14/21/28/29/32/36–42,Algorithm 1, using analytic-gradient L-BFGS for the same transformed problem. Explicit nonzero-force/two-axis/hardware adaptation, not Panda reproduction. Retained both-axis K/D/original tank and shared physical gain/rate/energy interface. Baselines without MHE pay no unused estimation cost and retain native inputs. Shared R was unsuitable; original permits separate Q/R. Equal seven-point grids/axis on eight training scenarios, combined validation selected R=(1e-10,1e-5), frozen before testing. Additional eight-case 640-solve audit had five unsuccessful statuses but bounded executable outputs; no global-optimum/full-performance claim. Failed NNBO excluded/incomplete E27 not mislabeled. No exhaustive-baseline claim.
+**适合才选基线及公平性。** 在候选代码及开发测试完成后选择Jin TMECH2023多步预测VIC，因为其直接K/D、接触下精度—柔顺与执行接口匹配。重建源式13/14/21/28/29/32/36–42、Algorithm1，数值优化改用同一变换问题的解析梯度L-BFGS；为非零目标力、两轴及共同硬件界明确适配，非Panda原实验精确复现。保留两轴K/D与原能量罐；当前物理增益/率/能量接口对所有方法相同。不用MHE的基线不计无用估计开销，不剥去原生输入。最初共享R不合适，按论文形式容许的两轴独立Q/R，在8训练场景、每轴同7点网格选择并组合验证，固定R=(1e-10,1e-5)后测试。额外8场景审计640次优化有5次未返回成功，输出仍有界可执行；不称全局最优或完全重现原性能。NNBO失败适配仍不参与贡献比较，E27未完整实现则不冒名。没有声称已穷尽所有合适工作。
 
-**Results.** Candidate 1/candidate 2 three-seed mean/Jin: force RMSE≈0.00854/0.00646/0.00399N, tangential≈0.2370/0.2149/0.1647 mm, normal≈0.1061/0.1075/0.1087 mm. Shared sampled physical score≈25.39% higher for candidate 1/6.78% higher for candidate 2. Lower full J is not superiority because of family gain/rate regularization; corrected scores/report tradeoffs. NEOC on/off mean≈0.007%,interval[-0.260%,0.207%], no stable benefit; compiled eight-case mean median decision≈52.9 ms versus 32.3 ms off. NN≈0.10 ms inference excludes additional MHE that contributes to control-update release delays; no full-chain speed claim over Jin≈0.72 ms. Primary sampled constraints pass/energy mostly inactive: not continuous/real safety.
+**关键结果。** 候选1/候选2三种子均值/Jin适配，力RMSE分别约0.00854/0.00646/0.00399N，切向RMSE约0.2370/0.2149/0.1647mm，法向RMSE约0.1061/0.1075/0.1087mm。共同采样物理评分中，候选1比Jin均值高约25.39%，候选2三种子均值高约6.78%。两候选完整J较低不能作为获胜证据，因为它含控制器族内的增益偏好/率正则；已剔除该评分混淆，单项取舍同时报告。NEOC开/关逐例平均差约0.007%，配对区间[-0.260%,0.207%]，没有稳定收益；编译后8场景的决策中位时间均值约52.9ms（NEOC）与32.3ms（关闭），仍额外耗时。NN推理约0.10ms，但MHE另计且进入发布，不能据此声称全链快于约0.72ms的Jin决策。主要约束采样未违反、能量约束多数不激活，不等于连续或真实安全验证。
 
-**Ablation correction.** Initial Ef always replaced by old E0, deleting new-material info even once current; weakened no-preview.26.86%/6.17% withdrawn as diagnostic. Causal uniform model preserves current Fn/Ft, removes spatial parameterization;30-state force agreement≈2.2e-16, independent no-spatial NN retraining. New 24 seed 16501 cases unused in correction: candidate 1 full-J improvement 2.428%[1.445%,3.433%], matched-seed candidate 2 3.740%[-0.168%,8.922%]. Moments/local derivatives not fully matched, so supports spatial-modeling effect, not exclusively anticipation. Main models/external comparison unchanged; no pooling three cohorts.
+**消融缺陷与再次纠正。** 首版把Ef始终替成旧区E0，材料变成当前区之后仍删掉其信息，过度削弱“不预瞄”。原26.86%/6.17%消融提升撤回为诊断。改为用因果估计形成保持当前Fn/Ft的均匀模型，只去掉空间参数化，30状态当下合力核对约2.2e-16；重新独立训练无空间参数NN。在此前未用于该改造的seed16501、24场景重测，候选1完整J逐例改善2.428% [1.445%,3.433%]，候选2匹配种子为3.740% [-0.168%,8.922%]。不匹配全部力矩和局部导数，故只能支持空间建模输入整体作用，不能全归于时间提前。三个主模型和外部主比较未随此缺陷改动，三批物理场景也未合并夸大样本数。
 
-**Conclusion/continuation.** Both implementations/synthetic experiments, suitable field comparison, corrections/isolated timing completed, not journal objective. Retain question; improve information→impedance, eliminate ineffective update cost, relate objective to force/motion. Build on strong structures, not retreat/change scores/add baselines alone. Platform/interface/calibration pending; no absence/clinical-threshold assumptions. AGENTS/B0/old experiments/papers unchanged.
+**结论、范围与后续。** 本轮完成两候选各自代码及相应合成任务实验、匹配领域方法比较、失败纠正和单任务计时；不是方法达到顶刊目标。保留原问题，后续应改进新信息怎样变成更好的阻抗决策、消除无收益的更新开销，并查明规范代价与实际力/运动取舍；可以沿强已有结构改进，不能遇强工作退避、改评分制造胜利或再只增加基线。实际平台/接口及标定仍待用户补充，不假定不存在平台，不自行规定临床阈值。此次没有更改AGENTS、B0三核心/快照、旧实验或原文。
 
-**Checks/delivery.** Preserved source/models/protocol/raw case trajectories/metrics/retractions/figures/hashes. Independent contact integration/energy QP/directional gradient/active branch/source cost-gradient checks passed. Checked syntax/strict JSON/finite arrays-models/citations/protected scope; stopped processes/synchronized. Explain mechanisms/comparison/positive-negative outcomes, not only “24 more cases.”
+**核验与交付。** 保存源码、模型、协议、逐场景原始轨迹/指标、修正及撤回记录、图表和环境哈希；接触独立积分、能量QP、任务方向梯度及激活分支、源方法独立代价/梯度检查通过。核查语法、严格JSON、数组/模型有限性、引用和保护范围，结束本轮进程后按AGENTS自动同步。汇报须具体说明理解、实际改动、比较理由和负/正结果，不只报“补了24组”。
+## 2026-10-20：从 GitHub 更新本地项目
 
-## 2026-10-20: update local project from GitHub
+按用户要求检查远端更新，并将本地 main 从 `cb8b38221b76588062c282ac6fe83d9fcaeda6ba` 快进至 GitHub main 的 `2cbff63382b327a1c30f84a2b3f434ca3de12556`。远端领先26个提交，本地无独有提交或未提交修改；共505个文件变动（新增491、修改13、删除1），涉及研究与交接材料、候选源码及实验结果、文献原文和提取文本。
 
-Requested remote inspection/fast-forward from `cb8b38221b76588062c282ac6fe83d9fcaeda6ba` to `2cbff63382b327a1c30f84a2b3f434ca3de12556`. Remote 26 ahead, no local-only commits/uncommitted work.505 file changes:491 additions,13 modifications,one deletion in research/handoffs, candidate source/results and literature.
+GitHub 直连下载较慢，因此通过公开中转取得 Git 对象；目标提交哈希与 GitHub 直连 ls-remote 及官方 API 一致，origin 保持授权仓库地址。采用快进更新，没有改写历史。Git 对象连通性检查、工作区一致性及 B0 快照 manifest/SHA256 检查通过；快照目录的 Git tree 在更新前后完全一致。
 
-Direct download slow; public relay supplied Git objects. Target matched direct GitHub ls-remote/official API; origin unchanged. Fast-forward without rewriting history. Git connectivity/worktree/B0 manifest-SHA 256 checks passed; frozen tree identical.
-
-Only synchronized existing results/recorded scope, with no research/training/experiments or independent review of new conclusions. Scientific assumptions/proof/evidence boundaries remain those in remote commits; synchronization changes no judgment.
-
-## 2026-10-20: directly migrate operational content and working paths to English
-
-**Authorization/comparison.** The user rejected an English-entry-only approach and explicitly selected Chinese only for scientific prose and experiment explanations, English directly elsewhere and in paths. Comparison `067ca1048fc492c1a61d39e88c7f839c80c29961`, clean worktree; frozen B0 exception retained.
-
-**Changes/reasons.** Renamed working directories/files, updated live dependencies/document links/material paths, translated operational entry/handoff/requirements/decision/failure records/workflow instructions. Scientific analyses, mathematical prose/experiment explanations stay Chinese; papers retain their original language. CLAUDE.md imports shared English AGENTS.md using [Anthropic's documented import syntax](https://code.claude.com/docs/en/memory#import-additional-files). One working set; user communication Chinese. [Migration manifest](english_migration.json) and [migration script](../scripts/migrate_english_paths.py) preserve mappings and comparison hashes.
-
-**Evidence/limits.** Frozen names/bytes, PDFs/extracted paper texts, arrays/models/figures and historical experiment payloads remain original. Historical URLs/source names/run paths are provenance, resolved via migration map. Old source/environment hashes describe old code, not current equivalents. Scientific reference analyses remain Chinese research content even under references. Translation preserves scientific boundaries and negative results; it establishes no findings. No intended changes to formulas, algorithms, objectives, proof assumptions or results; Chinese scientific files receive live-reference updates only.
-
-**Validation.** Verified 671 renamed paths across 686 original files, 515 byte-identical evidence files, Chinese scientific text modulo path rewrites, Python ASTs, local links and JSON. All 68 material records/65 unique PDFs passed hash checks; the existing commit/push/failure-retry/snapshot-guard test passed. Imported the moved MHE core, slow-contact module and NNBO reproduction entry successfully without running experiments. The local Python environment lacks torch/casadi/matplotlib, so no full candidate import/training claim is made; existing per-experiment requirements remain authoritative. Detailed counts and matching aggregate evidence hashes are in the migration manifest. Historical environment hashes remain historical. No training/scientific reruns or deployment claims.
-
-## 2026-10-20: review English meaning against the pre-migration Chinese
-
-**Reason and versions.** The user questioned whether migration checks also established translation accuracy. They did not: file hashes, source ASTs and links do not prove semantic equivalence. Compared the operational English at `526c338cf4c14f8f71df4f36d7ce34e17abfce42` with the Chinese at `067ca1048fc492c1a61d39e88c7f839c80c29961`.
-
-**Review and corrections.** Rechecked the complete long-term requirements and key scope, authorization, negation, terminology and numerical clauses in the handoff, decisions, failure review and indexes, with selected workflow/source-metadata passages. Corrected technical control-update release previously rendered as ambiguous scholarly “publication”; restored “not yet established” rather than categorical absence of a journal-level contribution; stated that local tests do not establish a general NEOC advantage; specified normal-position error rather than broader normal-motion improvement. Replaced a potentially stronger “reproducible evidence” requirement with evidence that can be checked, restored the explicit requirement to check reproduction/task-adaptation correctness, and removed ambiguity over an MPC-based gate. “Did not reuse the old servo” is no longer described as removal from earlier code. Available weights/data are distinguished from a claim that training has been reproduced.
-
-**Scope and checks.** These are language corrections to five operational files, plus this record and migration review metadata. They do not change the research question, approved experimental order, user authority over substantive topic changes, scientific models, equations, code, proof assumptions or original results. Numeric-token screening was a review aid; it is not a proof of semantic equivalence. The same translating agent performed this review; no independent translator or exhaustive sentence-by-sentence equivalence certification is claimed. The migration integrity audit checks preserved evidence, source and paths separately. Scientific prose and experimental explanations remain in their existing Chinese/original language. Synchronize the corrections under AGENTS after checks.
+本次仅同步已有远端成果并记录版本范围，未启动研究、训练或实验，未独立复核新增科研结论。新增研究内容的假设、证明及证据边界沿用相应远端提交的记录；本次同步本身不改变其科学判断。

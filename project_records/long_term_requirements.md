@@ -1,59 +1,62 @@
-# Long-term requirements and scientific judgment
+# 长期要求与科研判断
+<!-- project-update:start -->
 
-This file records the user's confirmed stable goals, research workflow and stage-specific judgment. Updated on 2026-10-19 following explicit confirmation about method formation, contribution scale and paper organization. Paper-specific evidence remains in the [case-by-case reverse analysis](../research/independent_reverse_analysis_of_top_journal_methods.md); the current task is in [HANDOFF](HANDOFF.md), and historical/failure evidence is in [decisions and changes](decisions_and_changes.md) and the [failure review](research_failures_and_corrections.md).
+## 当前语言与版本约定（用户于2026-10-20确认调整）
 
-## 1. Goal and grounds for judgment
+本文件及交接、关键决策、失败教训、科研正文和实验解释使用中文单一工作版本。恢复依据为英文化前提交 `067ca1048fc492c1a61d39e88c7f839c80c29961`；除路径引用与明确标出的本次说明外，保留原文，不采用英文压缩稿反译。目录、文件名、代码和技术工具说明继续使用英文；AGENTS.md与CLAUDE.md用英文引导agent直接阅读这些中文文件。文献原文、原始实验数据和冻结B0快照保持原样。本文中10月19日的科学要求不因语言恢复而改变。
 
-The goal is one paper with a substantive scientific contribution and evidence strong enough to compete at a leading journal. The question must be specific and important. The method must be technically complete, suited to the question and a substantive advance over the field's adequately developed existing capabilities. Evidence must support the claimed capabilities, with accurate conditions, costs and limits.
+<!-- project-update:end -->
 
-**Understand methods and contributions through actual leading conference/journal papers, then apply that understanding here.** Examine what papers inherit, what they change, how they form effective solutions, and how they organize evidence and contributions. Do not invent standards first and make papers or candidates satisfy them. Actual sample designs are references, not a universal acceptance checklist. Do not prescribe improvement percentages, numbers of new components, exclusive algorithms, large changes or theorem counts. Publication venue, workflow completion and local win rates cannot establish that the goal is met.
+本文件保存用户确认的稳定目标、科研流程与阶段判断。2026-10-19根据用户对方法形成、贡献尺度及论文组织的明确确认更新；具体论文依据保留在[逐例逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md)，当前任务见[HANDOFF](HANDOFF.md)，历史及失败证据见[研究决策与变更](decisions_and_changes.md)和[失败复盘](research_failures_and_corrections.md)。
 
-## 2. Research stages: practice, substance and judgment
+## 一、目标与判断依据
 
-The table aligns each stage with its purpose. Its outputs help research advance; they do not require another template document every round or sequential approval gates.
+目标是一篇有实质科学贡献、证据足以参与顶刊竞争的论文。问题应具体重要，方法应专业完整、适合当前问题，并取得相对领域充分已有能力的实质进展；证据支持所声称的能力，条件、成本与边界准确。
 
-| Stage | Practice | Substance to develop | How to judge this stage |
+**从具体顶会/顶刊论文理解方法和贡献，再用于本项目判断。** 研究论文实际继承了什么、调整了什么、怎样形成有效方案、如何组织证据与贡献，不先凭空制定一套标准让论文和候选满足。样本中的实际设计提供参照，不构成统一录用清单；不设固定提升比例、全新组件数量、独有算法、庞大改动或定理数量要求。论文发表身份、流程完成和局部胜率均不能单独证明达标。
+
+## 二、科研阶段：做法、产出与判断
+
+下表用于让每阶段的工作对准其目的。产出是帮助研究推进的具体内容，不要求每轮另写一份模板文档，也不设置串行审批关卡。
+
+| 阶段 | 做法 | 应形成的内容 | 这一阶段怎样判断 |
 |---|---|---|---|
-| **1. Understand the field** | Read original papers around the core question; understand strong methods' mechanisms, full capabilities, conditions and costs, and revisit key uncertainties. | A capability-based field picture, direct neighbors and transferable mechanisms; distinguish source facts from pending judgments. | Explain what existing methods actually do and what still merits deeper study; go beyond paper lists and authors' stated limitations, without selective evidence. |
-| **2. Refine an important question** | Probe real needs, objective conflicts, capability boundaries and first principles. Use Socratic questioning to ask what difficulties strong methods retain, why, and how they could improve. Study established challenges and important problems not yet clearly formulated. | A concrete task, important tension, desired capability improvement and supporting grounds; revisable hypotheses are allowed. | Explain what capability or understanding a solution would change, what is already solved and why further work matters. Do not retreat because strong prior work exists or narrow the question so an algorithm can win. |
-| **3. Form methods** | Specify required capabilities. Improve a mature main line or naturally combine/adapt mechanisms around the question; design new elements when needed. Actively investigate transfer within and across fields, co-design through derivation, implementation and initial checks, and assess substantive prior coverage during design. | A small set of grounded, complete candidates: inheritance and changes, key relationships, inputs/outputs, models/assumptions, training/solving, feedback and execution interfaces. | The design fits the question, its parts work together, and the changes have a plausible explanation and advance relative to existing capabilities. Early mechanisms may remain unverified; components need not all be new or an algorithm uniquely indispensable. |
-| **4. Verify quickly** | Use the smallest credible theory or experiment preserving the task's key difficulty; compare adequately tuned simple methods and relevant strong methods early, and examine mechanisms and practical benefits. | Results, costs and failure scope that inform the next decision; distinguish the concept, actual implementation and tested instance. | Match validation to claims; fairly account for information, training/preparation, computation and execution. A performance claim remains unestablished if a reasonable simple method does better. One simplified test does not decide the complete concept. |
-| **5. Co-refine question and method** | Combine source papers, derivations and results to identify whether to fix implementation, experiment, mechanism, conditions or question; actively propose and implement changes. | Reasons, affected level, improved candidates and the next decision-relevant validation. | Each iteration adds method effectiveness, question value or evidence credibility. Do not overgeneralize local results; cumulative evidence can support higher-level revision. Do not indefinitely protect an idea by calling every failure local. |
-| **6. Converge on contribution and complete evidence** | Organize around a clear, substantial main contribution; add relevant theory, strong comparisons, mechanism analysis, generalization, costs and necessary physical validation. | Accurate differences from the closest work, complete evidence that can be checked, conditions and failure boundaries. | The substantive advance withstands strong comparisons and alternative explanations; theory and experiments support their respective claims. Judge method construction, prototype benefit and final paper competitiveness separately. |
-| **7. Organize the paper and contributions** | Present actual improvements at the appropriate capability level; clearly explain the question, method, novelty and evidence. Begin early and revise with results. | A persuasive problem argument, method logic, contribution statements and experimental case that support one another. | Readers understand why it matters, what was done, why it is valuable and where evidence stops. Presentation reflects real progress: neither inflate a small adaptation into a new paradigm nor undervalue a contribution by listing only modules or equations. |
+| **1．理解领域现状** | 围绕核心问题核读原文，理解强方法的机制、充分能力、条件与代价，持续补查关键疑问。 | 按能力组织的现状、直接近邻与可借鉴机制；明确原文事实和待核判断。 | 能准确说明已有方法实际能做什么及仍值得深入的地方；不只罗列论文或作者自述局限，不选择性取证。 |
+| **2．凝练重要问题** | 从实际需求、目标冲突、已有能力边界和第一性原理深入追问；用苏格拉底式追问分析强方法仍有什么困难、为什么、能否改进。既研究公认难题，也寻找尚未清楚提出的重要问题。 | 具体任务、重要矛盾、希望改善的能力及其依据；允许作为可修订假设。 | 说明解决后改变什么能力或认识、已有解决程度及进一步研究价值；不因强工作存在退避，不为某算法能赢而缩题。 |
+| **3．形成方法** | 明确所需能力，沿成熟主线改进，或围绕问题自然组合、改造机制，必要时自行设计；主动研究本域与外域迁移，通过推导、实现和初步检验共同设计，同步检查贡献是否已被实质覆盖。 | 少量有依据的完整候选：继承与调整、关键关系、输入输出、模型/假设、训练或求解、反馈与执行接口。 | 方案适合当前问题，组成部分协调，能解释所作调整为何可能有效及相对已有能力的进展；初期允许机制尚待验证，不要求部件全新或算法不可替代。 |
+| **4．快速验证** | 用保留关键任务困难的最小可信理论或实验，尽早比较充分调优的简单方法及相关强方法，检查机制与实际收益。 | 能支持下一决定的结果、成本和失败范围；区分候选设想、实际实现及测试实例。 | 验证对象与主张对应，公平计入可得信息、训练/准备、计算和执行条件。若声称性能更好却不如合理简单方法，该性能主张尚未成立；不以一次简化实验裁决整套构想。 |
+| **5．共同迭代问题与方法** | 结合原文、推导和结果，判断应修实现、实验、机制、适用条件还是问题，主动提出并实现调整。 | 调整依据、影响层次、改进后的候选及下一项有决定作用的验证。 | 每轮增加方法有效性、问题价值或证据可信度；局部结果不越界，累计证据也能推动高层修订，不用“只是局部”无限保护idea。 |
+| **6．收敛贡献与完整证据** | 围绕清晰、有分量的主贡献，补足相关理论、强对照、机制分析、泛化、成本及必要实物验证。 | 与最接近工作的准确区别、完整可复核证据、适用条件与失败边界。 | 实质进展经得起强方法比较与替代解释检验；理论和实验各支持对应主张。方法构造、原型收益和最终论文竞争力分开判断。 |
+| **7．组织论文与贡献表达** | 将实际改进组织到恰当的能力层次，清楚呈现问题、方法、创新性和证据；从早期同步梳理，随结果修订。 | 有说服力的问题叙述、方法逻辑、贡献陈述及实验论证，各部分相互支撑。 | 读者能理解为什么值得研究、具体做了什么、为何有价值、证据到哪里。包装准确体现真实进展，不将小改造夸成全新范式，也不因只列模块或公式而低估实际贡献。 |
 
-Stages overlap and recur. Questions and methods can form together through borrowing, derivation and experiment; a perfect question need not precede algorithm design, and all existing methods need not first be shown to fail. Do not keep investigating and diagnosing without proposing and implementing candidates. Low-cost checks advance grounded early ideas; later work completes contribution evidence. Final-manuscript requirements must not block exploration, and initial results must not be called completion. Simulations must preserve genuinely necessary task structure, without adding complexity or artificial conditions to manufacture a win.
+各阶段交叉循环。问题和方法可在借鉴、推导、实验中共同成形，不要求先得到完美问题才设计算法，也不必先证明所有已有方法失败；不能一直调研、诊断而不提出并实现候选方案。初期用低成本验证推进有依据的设想，后期补齐贡献证据；不以终稿要求阻断探索，也不以初步结果宣布达标。仿真保留任务真实必要结构，不靠堆复杂度或制造条件让方法获胜。
 
-**Method design is the primary objective; comparisons support formation and improvement.** Design, test and judge multiple candidates separately. Retain those that meet the requirements and improve each deficient candidate based on its specific failures. Completing a comparator roster is not research completion. Fusion or selected local outcomes cannot replace each candidate's evidence.
+**方法设计是主目标，对照实验服务于形成与改进方法。** 多候选分别设计、分别实验和判断；各自满足要求则保留，不满足则据具体失败继续优化。不能把补齐比较方法当作研究完成，也不能以融合或挑选局部结果代替各候选的实际证据。
 
-**Experiments start from this research question and the candidate methods.** First specify the capability each candidate must verify, write its actual code and run corresponding simulations. Specific papers provide useful experimental practices. Then select comparators suited to the task; check the correctness of the reproduction or explicit task adaptation, then compare fairly. Do not force a baseline if none fits. Do not first select MPC or copy another paper's task and make the candidates accommodate it. Absence of an external baseline does not establish journal-level quality.
+**实验从本研究问题和候选方法出发。** 先明确各候选要验证的能力，分别写出实际方法代码并完成对应仿真；具体论文提供可借鉴的实验做法。随后选择适合任务的比较算法，有则核准复现/任务适配并公平比较，没有合适对象则无需强行设置基线。不能反过来先选一个MPC或照搬论文任务，再让候选迎合它；也不因没有外部基线便声称方法已达顶刊水平。
 
-## 3. Method formation and the actual scale of leading-journal methods
+## 三、方法形成与顶刊方法的实际尺度
 
-**Method formation and the finished narrative are different levels.** A finished paper may present a method as naturally derived from its question. Reverse analysis must also identify mature foundations, concrete adjustments, adaptation relationships and the role of verification, to learn feasible construction paths. A published account does not recover the authors' actual discovery order, and explaining a paper is not the same as forming a method.
+**方法形成与成稿叙事是两个层次。** 成稿可以把方法写得像从问题自然推导出来；逆向分析还应拆出成熟基础、具体调整、适配关系和验证作用，学习可行的构造路径。不能仅凭公开成稿声称恢复了作者真实的发现顺序，也不能把会解释论文等同于会形成方法。
 
-Actively use both design approaches confirmed by the user:
+用户确认的两种常见设计思路均应积极使用：
 
-- **Improve a mature methodological main line.** Understand its mechanism and the present question, then change key representations, models, assumptions, information, training, optimization or execution structure. Improvements may arise from theory, experiments or inspiration/transfer from related or unrelated fields.
-- **Naturally combine and adapt methods around a clear question.** A single main line is optional, but every part must have a concrete task role and coordinated relationships, forming a technically complete and effective design. Address compatibility, information transfer and execution through design; a module list cannot replace that work.
+- **沿成熟方法主线改进。** 深入理解其机制和当前问题，调整关键表示、模型、假设、信息、训练、优化或执行结构。改进可以来自理论分析、实验发现，或相关/不相关领域工作的启发与迁移。
+- **围绕明确问题自然组合、改造方法。** 可以没有单一主线，但各部分应有具体任务作用和协调关系，形成专业、完整、有效的方案。通过设计解决相容性、信息传递或执行问题，不能用模块清单代替这些工作。
 
-These approaches may overlap; they are neither exhaustive nor compulsory routes. Positive mechanism inspiration is a normal source of ideas, alongside failure analysis.
+两种思路可交叉，不是穷尽分类或强制路线。正向机制启发同样是正常来源，不限于失败分析驱动。
 
-**Borrowing is normal, and changes can be small.** Methods may inherit many existing components, and the key adjustment may be concise. Examine what was done after borrowing, whether it fits this question, whether the connections are technically sound, whether it works and what advances over the closest work. Existing methods or small changes do not negate value; transfer or combination alone does not establish novelty. The final method must accurately address the question with innovation and evidence sufficient to compete at a leading journal.
+**借鉴正常，改进可以小。** 方法可以大量继承已有部件，关键调整也可以简洁。关注借鉴后具体做了什么、是否适合当前问题、连接是否专业、结果是否有效，以及相对最接近工作的实际进展。不因方法已有或改动不大否定价值，也不因做了迁移或拼合就认定创新成立。最终方法仍须准确解决研究问题，并具备足以竞争顶刊的创新性与证据。
 
-**Presentation is an important part of research.** Organize real changes into clear, persuasive capabilities and contributions, explain their importance accurately and arrange corresponding evidence. Co-refine the question–method–evidence narrative during research; unclear presentation should feed back into design and validation. Writing helps real progress be understood, but contribution strength must match the work and evidence.
+**论文包装是研究工作的重要部分。** 把真实调整组织成清楚、有说服力的能力与贡献，准确说明其重要性，并安排对应证据。问题—方法—证据的叙述可在研究中共同打磨；呈现中说不清的地方，应反馈到设计和验证。写法能使实际进展被正确理解，贡献表述的强度仍与实际工作和证据对应。
 
-Concrete references appear in [reverse analysis, sections 2–4](../research/independent_reverse_analysis_of_top_journal_methods.md): R01's small common-phase extension, R13's constrained representation, R12's target-dynamics division of labor, R11's positive transfer, R19's concise residual structure and R21's physical/executable sets. These examples inform scale, not compulsory constructions or evidence sizes.
+以上认识的具体参照见[逐例分析§2–4](../research/independent_reverse_analysis_of_top_journal_methods.md)：R01的共同相位小扩展、R13的受约束表示、R12的目标动力学分工、R11的正向迁移、R19的简洁残差结构、R21的物理—可执行集合。例子用于理解尺度，不把其构造或证据规模规定成本项目必选形式。
 
-## 4. Execution principles and avoiding repeated mistakes
+## 四、执行原则与防止重犯
 
-- **Preserve question continuity while allowing grounded revision.** The complete B0 question and method are a revisable starting point; existing candidates need not be preserved. Co-refine question and method. Explain grounds, effects and options for substantive question changes and let the user choose. Advance within the selected question without repeated approval; avoid drifting into abstract, trivial or excessively broad questions.
-- **Deepen strong work and actively seek transfer.** Ask how strong work in the field can improve under its capabilities and conditions. Mature methods elsewhere are design resources: investigate applicability and necessary changes. If in-field work substantively covers a contribution, correct that judgment and continue deeper analysis rather than retreating because algorithm names or modules overlap.
-- **Separate judgment errors, method effectiveness and evidence scope.** Correct poor understanding of standards, excessive defensiveness, topic drift and validation-object confusion. Insufficient prototype benefits still require substantive improvement; do not assign a single unverified cause. Distinguish source claims, agent synthesis, hypotheses and measurements. Important judgments must be traceable; expectations do not determine facts or mathematics.
-- **Advance according to stage, with accurate boundaries.** Uncertainties are candidate concerns, not automatic new topics or permanent gates. Distinguish baseline, candidate change and tested instance. Identify theoretical objects, approximations, closed-loop behavior and deployment costs; neither overgeneralize local evidence nor indefinitely shield a design through locality.
-- **Advance autonomously and record concisely.** Use literature and tools as needed. Explain question/method changes, key evidence and the next decision each round. Keep stable understanding here, paper-specific details in their analysis, and experiments/failures in their own files. Retain reproducible source, configuration and necessary positive/negative results. Follow [AGENTS](../AGENTS.md) for B0 preservation, checks and automatic commit/push. Discuss new material before turning it into long-term constraints; do not repeatedly seek approval for confirmed requirements.
-- **Report understanding, work and results concretely.** Briefly explain the research question and both candidates as understood, what was changed/tested and what happened. Explain comparator selection, give necessary numbers and boundaries, and state what remains unfinished. Do not report only “24 more cases” or substitute abstract plans for actual work.
-
-## 5. Working language and naming (confirmed 2026-10-20)
-
-Use English directly for operational documentation, handoff/decision records, code documentation and working paths. Keep scientific prose and experiment explanations in Chinese, including generated scientific reports and scientific reference analyses. Communicate with the user in Chinese unless requested otherwise. Maintain one working set; do not create parallel translated copies. Preserve original paper/data contents, the frozen B0 snapshot and historical provenance. Pinned recovery URLs must continue to address the historical version. The [migration manifest](english_migration.json) maps old names to current files.
+- **保持核心问题连续，允许有依据地修订。** B0完整问题和方法是可修订起点，已有候选不是必须保留的答案。问题与方法共同优化；实质换题说明依据、影响与可选方向，由用户取舍。题内探索主动推进，不反复求批，不逐渐漂移成抽象、过小或过大的题目。
+- **深入强工作，主动寻找迁移机会。** 遇到本领域强工作，按能力和条件继续追问还能怎样改进；其他领域的成熟方法是设计资源，应研究适用条件及必要调整。本域实质覆盖时修正贡献判断并继续深挖，不因算法名称或模块重合退避、缩题。
+- **分开判断错误、方法成效和证据范围。** 对标准理解不足、过度防守、偏题或验证对象混淆应纠正；具体原型收益不足仍需实质改进，不归给未经证实的单一原因。区分原文、agent归纳、假设和实测，重要判断可追溯，事实与数学不由预期决定。
+- **依据阶段推进，保留准确边界。** 不确定性是候选关注点，不自动成为新题或永久门槛；区分基线、候选改动和被测实例。核清理论对象、数值近似、实际闭环及部署成本，避免局部结果扩大，也避免以局部性无限保护原方案。
+- **自主推进，简洁记录。** 按需使用文献与工具，每轮说明问题和方法的变化、关键证据及下一决定；长期要求保留稳定认识，具体论文、实验和失败细节放在相应文件。保留可复现源码、配置和必要正负结果。B0保全、检查及自动提交推送遵循[AGENTS](../AGENTS.md)。新讨论先梳理建议，经用户确认再写入长期约束；已确认要求不反复请求批准。
+- **汇报说清理解、工作与结果。** 用几句话具体说明如何理解研究问题及两候选、实际改了/测了什么、结果是什么。提到比较须说明对象和为什么比较，给必要数字、范围和未完成内容；不只报“补了24组”，也不用抽象计划代替实际工作。

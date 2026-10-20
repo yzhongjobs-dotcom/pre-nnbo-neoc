@@ -110,7 +110,7 @@ F_n=3[\max(\delta,0)/\delta_d]^{3/2},\quad \delta_d=4.5/k,
 依赖Python3.12、NumPy1.26.4、SciPy1.13.1、Numba0.68.0、Torch2.7.1+cpu；绘图Matplotlib3.9.4。
 
 ```bash
-cd experiments/接触约束阻抗更新
+cd experiments/contact_constrained_impedance_update
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python screen.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python verify.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python ranking.py

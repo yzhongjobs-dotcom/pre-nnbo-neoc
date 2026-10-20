@@ -1,4 +1,9 @@
 # 两候选的定向文献、设计与快验
+<!-- project-update:start -->
+
+**历史适用范围（2026-10-20审查）：** 本文保存早期定向分析与MHE预检的当时安排，第4节要求至少落实NNBO、暂停训练不是当前默认指令。用户后来已明确：先由研究问题/方法决定各候选代码和仿真，再选适合的公平比较；不强行使用不适合的基线。后续进度见[HANDOFF](../project_records/HANDOFF.md)及[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)。
+
+<!-- project-update:end -->
 
 2026-10-19。用户已授权在原问题内检索、设计、快速验证并持续迭代。本文承接[候选定义](optimal_impedance_question_and_methods.md)，不修改长期要求或另设顶刊录用门槛。结论随证据修订。
 

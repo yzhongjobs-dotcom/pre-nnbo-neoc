@@ -1,4 +1,9 @@
 # 约化MHE—阻抗执行工程预检（已暂停）
+<!-- project-update:start -->
+
+**历史状态说明（2026-10-20审查）：** “已暂停”、未训练完成和下文“恢复前先补基线”只指本目录当时原型。后续两候选已有独立训练、仿真与比较，见[最新任务仿真](../dual_candidate_task_simulation/README.md)。当前不恢复强制NNBO或先完成全部对照的关卡；执行顺序见[长期要求](../../project_records/long_term_requirements.md)，当前任务见[HANDOFF](../../project_records/HANDOFF.md)。
+
+<!-- project-update:end -->
 
 2026-10-19。用户指出本轮将固定阻抗调优置于主要比较位置，未落实NNBO及领域强方法；已立即停止NN训练。保留本目录以复用估计/执行工具和复核实际正负结果，**不作为候选有效性、领域优势或顶刊贡献验证**。恢复工作优先落实[领域主对照](../../research/candidate_improvements_targeted_literature_and_design.md#4-用户纠正主对照必须落实到领域方法)，不先续训。
 

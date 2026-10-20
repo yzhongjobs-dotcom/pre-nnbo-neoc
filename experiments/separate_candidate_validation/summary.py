@@ -45,7 +45,7 @@ def main():
         all_results[token]={'weight':w,'methods':rows,'paired':comparisons}
         lines+= [f'## 法向姿态权重 {w:g}','', '| 方法 | 平均综合代价 | 平均力RMS/N | 平均切向RMS/mm | 全部场景峰值/N |','|---|---:|---:|---:|---:|']
         for method,row in rows.items():lines.append(f"| {method} | {row['mean_cost']:.6g} | {row['mean_force_rms_N']:.5g} | {row['mean_tangent_rms_mm']:.5g} | {row['worst_peak_N']:.5g} |")
-        lines+=['','NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不作为贡献证据；papers/非零目标力适配尚待修复核准。E41行也仅限本目录声明的OS扫描适配，不推广为原论文整体结论。']
+        lines+=['','NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不作为贡献证据；原文/非零目标力适配尚待修复核准。E41行也仅限本目录声明的OS扫描适配，不推广为原论文整体结论。']
         lines+=['','| 配对比较 | 平均改善/% | 95%区间/% | 改善场景 |','|---|---:|---|---:|']
         for name,row in comparisons.items():
             if row.get('valid_for_contribution') is False:continue

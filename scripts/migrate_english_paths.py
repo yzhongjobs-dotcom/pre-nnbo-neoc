@@ -1,5 +1,9 @@
 """Reproduce the approved English path migration from its recorded checkpoint.
 
+This reproduces the historical migration, not the current document-language
+policy. Important Chinese originals were subsequently restored by user request;
+see project_document_policy.py and verify_english_migration.py for current checks.
+
 Run --apply only on the original, clean comparison commit. Historical URLs,
 frozen B0 files, paper contents, and experiment data remain original evidence.
 The manifest records old names and hashes; it is not a new experiment record.
@@ -86,15 +90,26 @@ def rewrite_references(text):
     # Some local Markdown targets use URL-encoded Chinese names. External URLs
     # were protected above and must continue to address their pinned versions.
     text = re.sub(r"(?<=\]\()([^\s)]+)(?=\))",
-                  lambda m: mapped_path(unquote(m.group())) if "%" in m.group() else m.group(), text)
-    for old, new in sorted(NAMES.items(), key=lambda pair: len(pair[0]), reverse=True):
-        if "." in old:
-            text = text.replace(old, new)
-        else:
-            # At a path boundary, or as a quoted component in Path expressions.
-            text = re.sub(r"(?<![\w\u3400-\u9fff])" + re.escape(old) + r"(?=[/\\])", new, text)
-            for quote in ("'", '"', '`'):
-                text = text.replace(quote + old + quote, quote + new + quote)
+                  lambda m: mapped_path(unquote(m.group())), text)
+    # Repeat to resolve parent directories after equally short child names.
+    # Six passes exceed the depth of the working directories in this checkpoint.
+    for _ in range(6):
+        previous = text
+        for old, new in sorted(NAMES.items(), key=lambda pair: len(pair[0]), reverse=True):
+            if "." in old:
+                text = text.replace(old, new)
+            else:
+                # A slash also joins prose. Only map a directory when its
+                # following child is already an ASCII working-path component.
+                text = re.sub(r"(?<![\w\u3400-\u9fff])" + re.escape(old) +
+                              r"(?=[/\\][A-Za-z0-9_.-])", new, text)
+                text = re.sub(r"(?<=[/\\])" + re.escape(old) +
+                              r"(?=$|[\s`\"')])", new, text)
+                for quote in ("'", '"', '`'):
+                    text = text.replace(quote + old + quote, quote + new + quote)
+                    text = text.replace(quote + old + "/" + quote, quote + new + "/" + quote)
+        if text == previous:
+            break
     for i, value in enumerate(protected):
         text = text.replace(f"\x00PROTECTED{i}\x00", value)
     return text

@@ -7,8 +7,9 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    relevant parts of `project_records/long_term_requirements.md` and `project_records/decisions_and_changes.md`.
    Older root handoffs and dated plans were consolidated; recover originals
    from Git only when needed. Do not repeatedly reread all history.
-2. Current scope: the user explicitly corrected the drift toward abstract
-   whole-acquisition candidate A. Resume from the original question: use online
+2. Research context (not an instruction to start research on every turn): the
+   user explicitly corrected the drift toward abstract whole-acquisition
+   candidate A. For research work, continue from the original question: use online
    environment information to rapidly update near-optimal impedance with actual
    control value. Compare the model/optimization route and the learned impedance
    route; investigate task benefit and computational bottlenecks together.
@@ -56,9 +57,14 @@ changes plainly, without making the user read inventory dumps.
 
 ## Language and paths
 
-Use English for operational documentation, handoffs, requirements, decision
-records, code documentation, and new directory/file names. Keep scientific prose
-and experiment explanations in Chinese, including generated experiment reports.
+Keep approved requirements, handoffs, key decisions, failure lessons, scientific
+prose, experiment explanations and human-facing research indexes in Chinese.
+Read the Chinese project documents directly; do not substitute an English
+summary for the user's confirmed requirements. This language choice does not
+make any scientific claim exempt from evidence checking.
+Use English for working directory/file names, code documentation and technical
+tool instructions. AGENTS.md and CLAUDE.md remain brief English entry points
+to the same Chinese project documents, not separate translated policy copies.
 Communicate with the user in Chinese unless they request otherwise. Maintain one
 working version, not parallel English and Chinese copies. Source papers and
 original data retain their language and contents. The frozen B0 directory and

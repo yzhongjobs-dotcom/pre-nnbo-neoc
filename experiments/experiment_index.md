@@ -1,44 +1,44 @@
-# Experimental resources for subsequent research
+# 可用于后续研究的实验资源
 
-Retained materials serve environment estimation, both candidate designs, reasonable simple/strong comparators, and physical/numerical checks. They use different carriers, protocols and implementations; they are not a unified ranking of complete candidates 1/2 and need not be rerun in table order.
+本目录保留对环境估计、两套候选设计、合理简单/强对照、物理和数值核查有具体用途的材料。它们是不同载体、协议和实现，不构成完整候选1/2的统一排名；不要求按表顺序重跑。
 
-## Purpose and reproduction entries
+## 保留用途与复现入口
 
-| Resource | Subsequent use | Required boundary |
+| 资源 | 后续用途 | 必须保留的边界 |
 |---|---|---|
-| [NNBO source reproduction](nnbo_source_reproduction/README.md) | Critic equations, exploration and Newton position inversion | Minimal mechanism, without complete identification/robot experiments; not B0 four gains |
-| [Finite-horizon contact](finite_horizon_contact/README.md) | Cylindrical contact, Bellman carrier and independent trajectories; dependency of slow-variation tests | Single K rate/fixed D, not the full-dimensional B0 critic |
-| [Continuous slow variation](continuous_slow_variation_updates/README.md) | Sensitivity/re-anchoring, cost accounting and slow/small-step instances | Retain both original failures and exploratory groups, not favorable selection |
-| [Dynamic strong comparators](dynamic_contact_strong_comparators/README.md) and [Q2](dynamic_contact_strong_comparators/Q2/README.md) | Actual K/D, energy execution, feedback/cheap prediction and independent integration | Strong conceptual controls, not whole-paper reproduction; Q2 assumes a known motion program |
-| [Observation/local roots](observation_local_roots/test_report.md) | Separate estimation, geometry and critic approximation errors | Known geometry/ideal normal moment, not complete MHE |
-| [Parameter/observation boundaries](parameter_observation_boundaries/README.md) | Descriptor revision, physical slow variation and full-wrench conditions | Rechecks B0 boundaries, not a new field failure |
-| [Constraint switching/value roots](constraint_switching_value_roots/candidate_description.md) | Regularity, reduced-root/projection tools candidate 1 may borrow | Conditional revision, not a third selected question; multinode actions may equal simple prediction |
-| [B0 evidence audit](b0_problem_evidence_audit/README.md) | Leading-footprint information, geometry timing and model scales | Known structure/synthetic parameters, not useful-preview, real-load or MHE validation |
-| [Contact-history audit](contact_history_mechanism_audit/README.md) | Realizable histories, ordinary observers and prediction versus control benefits | Two known Maxwell histories, not unknown-tissue/scan-control validation |
-| [Optimal impedance updates](optimal_impedance_update/README.md) | Network/RBF/simple solvers, adjoints, finite-rate optimization and delay accounting | Known local model, not complete candidate 2 |
-| [Constrained contact updates](contact_constrained_impedance_update/README.md) | Four-gain execution, task-cost learning, prediction release and background improvement | 0.3s known-model transition, not spatial MHE/original PPO |
-| [Within-scan prototype](within_scan_impedance_feedback/README.md) | Local responses, fixed/analytic/reference baselines, CEM feedback and physics corrections | Small offline formula, not NN/PPO; original/corrected physics separate, not complete candidates |
-| [Spatial estimation audit](spatial_contact_estimation_audit/README.md) | Extracted material/displacement estimation, noise propagation and scale tools | Synchronous sampling/affine conditions; no closed-loop/novelty evidence |
+| [NNBO原文复现](nnbo_source_reproduction/README.md) | critic方程、探索和Newton位置反解接口 | 最小机制，不含全篇辨识/实机，不是B0四增益 |
+| [有限时域接触](finite_horizon_contact/README.md) | 柱面接触函数、Bellman载体和独立轨迹参照；缓变实验依赖 | 单K率、D固定，非B0全维critic |
+| [持续缓变更新](continuous_slow_variation_updates/README.md) | 灵敏度/重锚、成本账本、慢变与小步实例 | 原失败组和探索组均有数据，不能只选优势组 |
+| [动态接触强对照](dynamic_contact_strong_comparators/README.md)及[Q2](dynamic_contact_strong_comparators/Q2/README.md) | 实际K/D、能量执行、反馈和廉价预测，独立积分 | 原理性强对照，不是领域论文整套复现；Q2已知运动程序限制用途 |
+| [观测与局部根](observation_local_roots/test_report.md) | 分开估计、几何和critic近似误差 | 已知几何及理想法向矩，不是完整MHE |
+| [参数与观测边界](parameter_observation_boundaries/README.md) | 描述符修订、物理慢变、完整wrench的条件核查 | 复核B0已有边界，不是新领域failure |
+| [约束切换与值根](constraint_switching_value_roots/candidate_description.md) | 候选1可借用的正则性、约化根与投影工具 | 条件性修订，不是第三个已选研究问题；多节点动作可能与简单预测等价 |
+| [B0依据核查](b0_problem_evidence_audit/README.md) | 足迹前缘信息、几何时序与模型尺度 | 已知结构与合成参数；不是有效预瞄、真实载荷或MHE验证 |
+| [接触历史核查](contact_history_mechanism_audit/README.md) | 可实现历史、普通观察器与预测/控制收益区别 | 两条已知Maxwell历史，非未知组织/扫描控制验证 |
+| [最优阻抗更新](optimal_impedance_update/README.md) | 网络/RBF与简单求解比较、伴随梯度、有限速率优化和延迟账本 | 已知局部模型，不是候选2完整实现 |
+| [接触约束更新](contact_constrained_impedance_update/README.md) | 四增益执行、任务代价学习、预测发布及后台改进 | 0.3秒已知模型过渡，非空间MHE或原PPO |
+| [同次扫描原型](within_scan_impedance_feedback/README.md) | 局部响应、固定/解析/参考基线、CEM反馈、物理修正 | 离线策略为小公式，不是NN/PPO；原与修正模型分开，非完整两候选 |
+| [空间接触估计核查](spatial_contact_estimation_audit/README.md) | 从旧分支提取的独立材料/位移估计、噪声传播和尺度工具 | 同步采样、仿射条件，无闭环控制/新颖性证据 |
 
-Added [MHE–impedance engineering precheck, paused at that time](mhe_guided_impedance_pilot/README.md). Reduced rolling estimation, gain execution and local-gradient tools are reusable. It stopped after the user's baseline correction, without strong NNBO-type methods, completed NN training or independent tests; it cannot establish candidate superiority or journal readiness.
+新增：[MHE—阻抗工程预检（暂停）](mhe_guided_impedance_pilot/README.md)。约化滚动窗估计、增益执行及局部梯度工具可复用；用户纠正主基线后已停止，尚未落实NNBO等强方法、未完成NN训练/独立测试，不能作为候选优势或顶刊验证。
 
-Work then resumed under the user's latest instruction: [separate-candidate iteration](separate_candidate_validation/README.md), [grouped independent results](separate_candidate_validation/independent_results.md). Includes actual rate actions, state coverage/sampling alignment, separate model/learning experiments and paper-mechanism adaptations. Nonzero-force NNBO inversion failures are isolated from contribution comparisons. This carrier omits full B0 objectives/constraints and does not establish complete candidates/journal readiness. The old paused directory is a historical record, not the present stopping point.
+随后已按用户最新指令恢复：[两候选分线迭代](separate_candidate_validation/README.md)、[分组独立结果](separate_candidate_validation/independent_results.md)。包含实际率动作、状态覆盖与采样一致性改造、学习/模型各自实验及论文机制适配。原NNBO非零力适配存在明显反解失败，已隔离其贡献比较；当前载体未完整覆盖B0目标/约束，不能据此宣称完整候选或顶刊达标。旧暂停目录只保留其当时记录，不是当前默认停止点。
 
-**Latest: [dual-candidate task simulations](dual_candidate_task_simulation/README.md), [results](dual_candidate_task_simulation/results.md).** Implemented both routes from the research question, then selected Jin multistep predictive VIC task adaptation. Restored B0 two-region Hertz, positive-definite gain/rate costs, terminal terms, four actual gains and trajectory checks. Candidate 1 uses local quadratic HJB feedback/directional Riccati updates, not original B0 collocation roots. Candidate 2 is an actual task-gradient NN with three training seeds. Keep 24 independent main cases, preview/neighbor ablations, eight softening/faster-surface cases and isolated compute/release experiments separate. Both candidates still trail comparator force/tangential performance; low totals due to gain preferences do not establish a win.
+**最新：[双候选任务仿真](dual_candidate_task_simulation/README.md)、[结果](dual_candidate_task_simulation/results.md)。** 依研究问题先实现两路线，再选择Jin多步预测变阻抗任务适配；加入B0双区域Hertz、正定增益/率代价、终端项、四实际增益与轨迹检查。候选1改为局部二次HJB价值反馈及方向扰动Riccati更新，非B0原配置点根；候选2是真正任务梯度NN，有3训练种子。24独立场景、预瞄/邻近机制消融、8场景变软/更快表面及单任务计算发布实验分别保留。两候选仍未胜过基线的力/切向表现，不能用增益偏好项造成的低总分宣称获胜。
 
-## How to use key results
+## 关键结果怎样使用
 
-- Local NEOC/sensitivity computation does not stably beat adequate ordinary solvers; even one Newton step may be better in finite-horizon cases. This limits specific speed claims, not the original complete question.
-- Steady-state networks/RBF approximate numerical references; RBF is faster, and tuned fixed gains approach references in some tasks. Weights, training configuration and results support reproducibility of this comparison, not original candidate 2.
-- Release-aligned background model improvement has local gains about 0.67%–0.78%; old waiting negatives alone cannot reject the model route. Difficult contact/energy constraints were not active.
-- Initial 48-case joint CEM feedback improves about 0.433% over analytic control; 24 new pure-K/D cases do not beat continuously tuned fixed control; a separate corrected-physics 24-case joint comparison gives about 0.201%, interval crossing zero. Protocols differ; no pooled sample or attribution of joint feedforward benefit to gain learning.
+- NEOC或灵敏度的局部计算收益未稳定超过充分普通求解；有限时域例一次Newton也可能更好。用于限制具体加速主张，不否定完整原问题。
+- 稳态网络与RBF均能逼近数值参照，RBF更快；调优固定在一些任务中已接近参照。保留网络权重、训练配置和结果是为了可重建这一有效比较，不把它称为原候选2。
+- 发布对齐的后台模型改进有约0.67%–0.78%的局部正结果，不能只用旧等待负结果否定模型路线。该载体未激活困难接触/能量约束。
+- 同次扫描首48例联合CEM反馈对解析改善约0.433%；新24例纯K/D未胜连续调优固定；物理修正另24例联合对解析约0.201%、区间跨零。批次协议不同，不合并为统一样本，也不把联合前馈收益归因于增益学习。
 
-## Materials removed from the workspace
+## 已退出工作区的材料
 
-Removed misread candidate-2 direct PPO training, candidate-A scan/coverage/public-acquisition branches, unselected policy-library rollout and two-stage posterior planning pipelines. No-advantage outcomes/lessons appear in the [failure review](../project_records/research_failures_and_corrections.md); grouped reasons/recovery points are in the [cleanup record](../project_records/cleanup_record.json). Independent spatial-estimation tools were extracted and retained. Removal does not revoke measurements or invalidate original candidate 2.
+误解候选2的直接PPO训练、候选A扫描/覆盖/公开采集分支、未选定的策略库滚动和两阶段后验规划流水线已移除。其无优势结果和误判教训见[失败复盘](../project_records/research_failures_and_corrections.md)，分组原因及恢复版本见[清理记录](../project_records/cleanup_record.json)。独立可复用的空间估计工具已提取保留。删除不撤销原测量结果，也不构成否定原候选2的证据。
 
-## Usage notes
+## 使用注意
 
-Source, parameters/protocols, necessary models, per-case results and independent checks correspond to their historical versions. Old result source hashes may refer to the commits stated in reports; never silently relabel them as current hashes. Select the relevant Git version and reproduce in a copy to avoid overwriting results. The English [path map](../project_records/english_migration.json) resolves former local paths without rewriting historical data.
+保留源码、参数/协议、必要模型、逐例结果及独立检查，均与各自历史版本对应。旧阶段结果的源码哈希可能对应报告注明的旧提交，不能悄悄重写为当前哈希。优先按报告选择具体Git版本，在副本中复现，避免覆盖已有结果。
 
-Root requirements cover older numerical resources; newer environments are specified by local requirements/environment.json. Preservation checks are not scientific reruns or validation of synthetic physics on real tissue. See [HANDOFF](../project_records/HANDOFF.md) for continuation.
+根目录requirements供旧数值资源使用；较新实验环境按目录requirements或environment.json。完整结果保全检查不等于本轮重新运行实验，也不等于旧仿真物理已通过真实组织验证。后续安排见[HANDOFF](../project_records/HANDOFF.md)。

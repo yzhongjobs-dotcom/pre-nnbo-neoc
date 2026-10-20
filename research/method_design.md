@@ -1,6 +1,6 @@
 # R15：研究问题与技术路线
 
-本文给出从接触过程中的空间观测、未来接触模型到 single-critic HJB、ANEOC 和实际阻抗生成的研究问题与方法路线。接触与控制推导见同目录 `R15_RESEARCH_PROBLEM_SPATIAL_PREVIEW_CONTACT_MODEL_APPENDIX_2026-09-12.txt`；认证域、预测误差、闭环可行性、局部近最优性和计算优势的完整证明见 `R15_ANEOC_CERTIFIED_DEPLOYMENT_PROOFS_2026-09-13.txt`（下称“认证证明”）。性能结论针对指定名义模型、比较域和有限时域；真实组织上的精度与实时性需通过实验验证。
+本文给出从接触过程中的空间观测、未来接触模型到 single-critic HJB、ANEOC 和实际阻抗生成的研究问题与方法路线。接触与控制推导见同目录 `technical_appendix.txt`；认证域、预测误差、闭环可行性、局部近最优性和计算优势的完整证明见 `theoretical_proofs.txt`（下称“认证证明”）。性能结论针对指定名义模型、比较域和有限时域；真实组织上的精度与实时性需通过实验验证。
 
 ## 1. 总研究问题
 

@@ -1,92 +1,101 @@
-# Handoff: rapid impedance updates under environmental change
+# 项目交接：环境变化时的快速阻抗更新
+<!-- project-update:start -->
 
-Research status updated: 2026-10-19. Scientific asset consolidation was completed and synchronized at `368a29539a723f960f27fb7e28362a65f51428c8`; this file clarifies reading order and priorities. Check the current user request and Git state first; historical plans are not today's instructions.
+## 当前任务说明（2026-10-20）
 
-Language/path migration: 2026-10-20. Operational documentation and working names now use English; scientific prose and experiment explanations remain Chinese. The [migration manifest](english_migration.json) maps former paths. This migration did not run research, training or experiments and did not independently revalidate scientific conclusions.
+本轮按用户要求恢复重要中文原文，并审查全项目的要求、路径和证据边界；不启动新的研究优化、训练或实验。下文科研状态沿用10月19日已记录的检查点，旧报告的“下一步”或“暂停”不替代当前用户任务。
 
-## 1. Understand these six points first
+恢复来源为 `067ca1048fc492c1a61d39e88c7f839c80c29961`，保留英文路径；语言迁移与恢复记录见[决策记录](decisions_and_changes.md)及[路径映射](english_migration.json)。科研正文中原来的B0长文件名现在分别对应 `research/method_design.md`、`research/technical_appendix.txt` 和 `research/theoretical_proofs.txt`；冻结快照中的旧名称不变。
 
-1. **Goal:** one paper with a substantive scientific contribution and evidence strong enough to compete at a leading journal. This has not yet been achieved.
-2. **Core question:** when the environment changes during continuous robotic scanning of soft tissue, how can new contact information rapidly update near-optimal impedance and improve actual contact-force and motion behavior? This includes environment understanding, impedance decisions and timely execution.
-3. **Candidates:** the shared front end is MHE with spatial preview. Candidate 1 explores NNBO/critic–HJB feedback and fast updates such as NEOC. Candidate 2 draws on YOPO to train a network offline in simulation and produce impedance quickly at deployment. Both can be improved, combined or retired.
-4. **Actual progress:** both candidates have been implemented and run under the research question: two-region Hertz contact/joint rolling estimation, four actual gains and energy, positive-definite gain/rate costs, terminal and trajectory checks. Candidate 1 is local quadratic HJB feedback with directional neighboring Riccati updates; candidate 2 is a task-gradient neural network with three training seeds. Work includes 24 main scenarios, mechanism ablations, eight distribution-shift scenarios and independent compute/release checks. These tests have not established a journal-level contribution; they neither implement the complete B0 fixed-node-root method nor constitute physical-robot validation.
-5. **Largest deviations:** excessive defensiveness, retreat/narrowing around strong prior work and misunderstanding candidate 2. An earlier reduced carrier omitted objectives/constraints; the latest implementation must also avoid concealing physical performance deficits with controller-preference costs. Specific failures are recorded. Do not resume mistaken judgments or indefinitely shield the implementation as “only local.”
-6. **Current stopping point:** the user required experiments to follow the research question/method: implement and simulate each candidate first, then fairly compare suitable baselines if any exist, without forcing unsuitable comparisons. This order was followed. Jin's adapted multistep variable impedance scan controller has lower force/tangential errors. Corrected ablation gives a small spatial-information benefit for candidate 1; candidate 2's interval crosses zero. NEOC on/off benefit is near zero and updates are slower. Next improve the relation between physical performance and cost objectives, update efficiency, and the front-end-to-action pathway. Do not manufacture wins through gain-preference terms or add baselines without purpose.
+本次审查另明确：旧经验标尺只作历史参考，不能恢复其中固定篇数或先完成全部对照的门槛；旧MHE预检的暂停与NNBO要求仅指当时实例，当前研究顺序以长期要求和本文件的最新证据状态为准。
 
-**Latest task and primary objective.** The user requests methods that solve the original question with leading-journal innovation and evidence under the confirmed workflow. Implement/test each candidate separately and improve its own deficits. Experiments follow the question/method, followed by suitable comparisons; none need be forced. These requirements are in the [long-term requirements](long_term_requirements.md). Do not return to fixed control as the main comparison, repeatedly audit the standards or silently change the question.
+<!-- project-update:end -->
 
-**Latest entry: [dual-candidate task simulations](../experiments/dual_candidate_task_simulation/README.md) and [results](../experiments/dual_candidate_task_simulation/results.md).** Candidate 1 changes the value representation and cannot be called the original B0 root or inherit its certificate. E41 is a source-equation reconstruction adapted to MS scanning, with a different numerical optimizer, not a reproduction of the original Panda experiments. Common physical scoring removes controller-family gain-preference/rate penalties and reports component errors. Use `compiled_timed_*` for independent compiled timing; old `timed_*` files diagnose software overhead only. Failed NNBO adaptations remain isolated. The original question and the candidates' computational division of labor remain.
+更新：2026-10-19。科研资产整理完成并同步于 `368a29539a723f960f27fb7e28362a65f51428c8`；本文件进一步明确接手顺序与优先级。先核对当前用户任务和Git状态，不把历史计划当成今天的指令。
 
-## 2. Information priority within this project
+## 1．先掌握这六点
 
-| Level | How to use it |
+1. **目标：** 一篇有实质科学贡献、证据足以参与顶刊竞争的论文；目前尚未达到。
+2. **核心问题：** 机器人连续扫描软组织、环境发生变化时，怎样利用新接触信息，快速更新近最优阻抗，改善实际接触力与运动表现？包含环境认识、阻抗决策和及时执行。
+3. **候选：** 共同前端是MHE与空间预瞄；候选1探索NNBO/critic–HJB＋NEOC等快速更新，候选2参考YOPO，通过仿真离线训练网络、部署时快速生成阻抗。两套都可改进、融合或退出。
+4. **实际进度：** 最新已按研究问题各自写出并运行两候选：双区域Hertz/联合滚动估计、四实际增益与能量、正定增益/率代价、终端及轨迹检查；候选1为局部二次HJB反馈＋方向邻近Riccati更新，候选2为任务梯度NN（三种子）。完成24场景主实验、机制消融、8场景分布变化和独立计算发布检验；仍未建立顶刊级贡献，非完整B0固定节点根或实机。
+5. **最大偏差：** 过去过度防守、遇强prior退避缩题，以及误读候选2；前一轮约化载体遗漏目标/约束，最新又需防止用控制器偏好代价掩盖物理性能落后。都已记录具体失败，不从错误状态继续判断，不靠“只是局部”无限保护当前实现。
+6. **当前停止点：** 用户明确实验先由研究问题/方法决定，先完成两候选代码和各自仿真，再选合适基线，有则公平比较、没有不强行设置。已依次执行；Jin多步变阻抗扫描适配的力/切向误差更小。修正消融后，空间信息对候选1有小幅作用、候选2区间跨零；NEOC开/关收益近零且更新更慢。下一步改进实际性能与代价目标的关系、更新效率和前端到动作的作用，不靠增益偏好项制造总体获胜，不再无目的补基线。
+
+**最新任务与主目标。** 用户要求按已确认流程形成能解决原问题、具备顶刊创新与证据的方法；两候选分别实现/实验，各自不足继续优化。实验由问题/方法决定，先完成候选再选合适比较；无适合对象则不强行设置。已写入[长期要求](long_term_requirements.md)，不回到固定控制主比较，不反复审核标准或悄悄换题。
+
+**最新入口：[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)及[结果](../experiments/dual_candidate_task_simulation/results.md)。** 候选1改变了价值表示，不能冒充B0原根或继承原证书；E41比较是源方程重建的MS扫描适配，数值优化器不同，不是原Panda实验复现。共同物理评分剔除控制器族内的增益偏好/率惩罚，分项误差同时报告。编译后的独立计时用`compiled_timed_*`，旧`timed_*`只是软件开销诊断。NNBO失败适配仍隔离，原问题与两候选计算分工未换题。
+
+## 2．项目内的信息优先级
+
+| 层次 | 使用方式 |
 |---|---|
-| Current user task and confirmed corrections | Establish this turn's scope first; the latest explicit user request overrides old arrangements. Briefly restate understanding and scope for each new request. |
-| [Long-term requirements](long_term_requirements.md) and [AGENTS](../AGENTS.md) | Confirmed goals, stage practices/judgment, method-formation understanding and file/synchronization constraints. The research checkpoint updated requirements as explicitly requested; it did not change AGENTS. |
-| Current research files and HANDOFF | Candidate definitions, actual evidence and stopping point; all remain checkable and correctable. Being committed does not make a statement true. |
-| Older reports, decisions and reference workflows | Consult for explanations or resource recovery. Old “next steps,” withdrawn topics and early gates do not automatically become instructions. |
+| 当前用户任务与已确认纠正 | 先明确本次授权范围；用户最新明确指令优先于旧项目安排。每次收到新要求先简洁复述理解与执行范围 |
+| [长期要求](long_term_requirements.md)与[AGENTS](../AGENTS.md) | 已确认的科研目标、阶段做法与判断、方法形成认识及文件/同步约束；本轮按用户明确要求更新长期要求，AGENTS未改 |
+| 当前研究文件与HANDOFF | 提供候选定义、实际证据和停止点；均可核查、可纠正，写入仓库不等于正确 |
+| 旧报告、历史决策与参考流程 | 按需解释或恢复资源；旧“下一步”、已撤回选题及早期门槛不自动恢复为指令 |
 
-This is the order for project materials, not a change to system/developer instruction priority. Scientific judgment must return to the relevant source version, equations, protocol, code and results. Publication status, agent synthesis and file recency cannot establish scientific correctness by themselves.
+以上是项目材料的使用顺序，不改变系统/开发者指令层级。科学判断须另回到对应版本的原文、公式、协议、代码和结果；论文发表身份、agent归纳或文件时间新旧均不能单独证明结论正确。
 
-## 3. Read in layers, not by rereading everything
+## 3．分层阅读，不机械重读
 
-| Layer | Materials | What the successor should be able to explain |
+| 层次 | 材料 | 接手后应能说明什么 |
 |---|---|---|
-| **1: goals and avoiding drift** | This file, current request, [requirements](long_term_requirements.md), [failure review](research_failures_and_corrections.md) | What the user wants, what to do now and which mistakes must not be continued |
-| **2: research and judgment foundations** | [Question](../research/research_question.md), [field state](../research/field_state.md), [candidates](../research/optimal_impedance_question_and_methods.md), [independent paper analysis](../research/independent_reverse_analysis_of_top_journal_methods.md) | Existing capabilities, candidate inputs/training/outputs, verified scope, how sample papers form methods, and where the analysis needs calibration |
-| **3: evidence for the current decision** | [Literature](../literature/literature_index.md), [experiments](../experiments/experiment_index.md), [transferable mechanisms](../research/transferable_mechanisms.md) and their original papers/data/code | Grounds for key judgments; distinguish source conclusions, agent synthesis, hypotheses and measurements; know what is reusable and missing |
+| **第一层：目标与防偏** | 本文件、当前任务、[长期要求](long_term_requirements.md)、[失败复盘](research_failures_and_corrections.md) | 用户要什么、本次先做什么、哪些错误不能续接 |
+| **第二层：研究与标准依据** | [研究问题](../research/research_question.md)、[研究现状](../research/field_state.md)、[候选方法](../research/optimal_impedance_question_and_methods.md)、[顶刊独立逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md) | 问题与已有能力、候选的输入/训练/输出、已验证范围、样本怎样形成问题与方法，以及现有分析哪里仍需校准 |
+| **第三层：按当前判断回查** | [文献索引](../literature/literature_index.md)、[实验索引](../experiments/experiment_index.md)、[可借鉴机制](../research/transferable_mechanisms.md)及对应原文/数据/源码 | 关键判断的依据，原文结论、agent归纳、假设与实测的区别；复用什么，尚缺什么 |
 
-For B0 models/theory, consult the relevant sections of the [method](../research/method_design.md), [appendix](../research/technical_appendix.txt) and [conditional proofs](../research/theoretical_proofs.txt). Read the [decision record](decisions_and_changes.md) as needed. Starting work does not require reading all history, all 65 papers or rerunning every experiment.
+涉及B0模型或理论时，进入[方法正文](../research/method_design.md)、[技术附录](../research/technical_appendix.txt)、[条件性证明](../research/theoretical_proofs.txt)的对应章节。历史按需查[决策记录](decisions_and_changes.md)。不必通读全部历史、65份文献或重跑所有实验才开始思考。
 
-## 4. Research definitions: prevent another misunderstanding
+## 4．研究定义：防止再次误读
 
-**Shared front-end concept:** contact force/moment and motion observations → MHE and finite-footprint spatial preview → environment/contact-response estimates → impedance decisions → actual execution. Complete noisy MHE and usable preview control benefits remain unverified.
+**共同前端构想：** 接触力/力矩和运动观测 → MHE及有限足迹空间预瞄 → 环境变化/接触响应估计 → 阻抗决策 → 实际执行。完整带噪MHE及可利用的预瞄控制收益尚未验证。
 
-| Object | Correct definition and key distinction |
+| 对象 | 正确定义及关键区别 |
 |---|---|
-| B0 | Revisable complete written starting point: cylindrical contact → MHE → descriptor η → finite-horizon HJB for four actual gain rates → fixed-node root → ANEOC and conditional release of control updates. Written conditional proofs are not implemented robot guarantees. |
-| Candidate 1 | Build an optimal-control problem from new environmental information, obtain feedback through critic/HJB ideas and update quickly using NEOC or other mechanisms. Original NNBO generates position references using HC pre-identification, critic and Newton. Four K/D gains and gain-rate control are B0 extensions, not the original paper interface. |
-| Candidate 2 | Retain estimation/spatial preview and draw on RA-L2024 YOPO to move decision burden into simulation/offline training. PPO is optional; original YOPO uses guidance learning, not PPO. Adaptation/fusion remains a design question; do not freeze the architecture or training algorithm. |
+| B0 | 可修订的完整书面起点：柱面接触→MHE→描述符η→四实际增益率有限时域HJB→固定节点根→ANEOC与条件性发布。书面条件性证明不是已实现的机器人保证 |
+| 候选1 | 依据新环境信息构造最优控制问题，借鉴critic/HJB获取反馈，以NEOC等机制快速更新。原NNBO通过HC预辨识、critic与Newton生成位置参考；四K/D及增益率控制是B0扩展，不能混为原论文接口 |
+| 候选2 | 保留环境估计与空间预瞄，参考RA-L2024 YOPO，将在线决策负担转入仿真/离线网络训练。PPO是可选工具；YOPO原文采用guidance learning，不是PPO。具体借鉴融合仍待设计，不锁死网络或训练算法 |
 
-“Optimal” is relative to an explicit task, model, information and constraints. Candidate outputs, node roots and local numerical references are not automatically globally optimal. Earlier stochastic-expectation, joint feedforward/reference actions and simplified contact extensions do not automatically inherit B0 proofs.
+“最优”对应明确任务、模型、信息和约束；候选输出、节点根或局部数值参照不自动成为全局最优。此前随机期望、前馈/参考联合动作和简化接触扩展不自动继承B0证明。
 
-## 5. Current evidence and reusable assets
+## 5．当前证据与可复用资产
 
-| Material/fact | Use and boundaries |
+| 材料/事实 | 接手判断与用途 |
 |---|---|
-| NNBO reproduction, finite-horizon/slow variation and dynamic strong controls | Check critic, ordinary Newton/chord, NEOC, errors and cost. These tests neither establish a general NEOC advantage nor invalidate B0 as a whole. |
-| Known-model networks/RBF and constrained contact updates | Reuse mappings, actual gain/energy execution, adjoint gradients, task-cost learning and release alignment. Networks do not reliably beat RBF; background model improvement has local positive results, so old delay negatives alone cannot reject online methods. |
-| Within-scan prototype | Local estimation with model prediction or small CEM feedback formulas. The initial 48-case joint-output cohort improves roughly 0.433% over the analytic comparator; later 24-case pure-K/D and separate 24-case corrected-physics cohorts show no stable advantage over adequate simple controls. Not complete MHE/HJB/NEOC or PPO/NN; do not merge the three cohorts. |
-| Old direct PPO | Omits complete MHE/spatial preview and does not validate original candidate 2. Unneeded training pipelines were removed; conclusions and mistakes remain in the failure review. Do not restore “complete candidate 2 failed.” |
-| Candidate A, policy-library rollout and posterior planning | Removed from the workspace/default main line; useful results, sources and lessons were extracted. Independent tools remain in [spatial contact estimation](../experiments/spatial_contact_estimation_audit/README.md); identification is not closed-loop benefit. |
-| Local literature | 65 deduplicated PDFs/texts and 68 usage records, including relevant material from the two requested repositories, supplemental originals and YOPO. Abstract, passage, full-text and reproduction scopes are separate; downloading does not expand reading. |
-| Paper-by-paper reverse analysis | Earlier screening covered 22 identities/abstracts. Ten original methods/evidence sections were reread, including all five T-RO papers: six detailed cases and four supplements, then comparison with project failures. Not 22 full-text or complete-proof audits. Confirmed lessons are in the requirements. |
-| [Earlier reduced MHE precheck, paused at that time](../experiments/mhe_guided_impedance_pilot/README.md) | Two pilots and old trajectories retained. The pause was historical. Latest work is in separate-candidate directories; do not restore a present stop instruction or claim the NN remains untrained. |
-| [Previous separate design/tests](../experiments/separate_candidate_validation/README.md) | Model/learning iteration, rate-action/100Hz feedback alignment, 72 training scenarios and 10800 correlated contexts, 24 independent scenarios repeated at three tradeoffs. Model reuse does not stably beat ordinary optimization; learning has positive results relative to the declared E41 adaptation, but information effects depend on the tradeoff. Not complete B0, original-paper reproduction or journal-level judgment. |
-| [Current dual-candidate task simulation](../experiments/dual_candidate_task_simulation/README.md) | Original question → separate implementations/experiments → Jin MS selection. New 48 training scenarios/3840 contexts, 24 independent scenarios in four categories, three learning seeds, eight distribution-shift and eight independently timed cases. Hertz/objective relationships restored; synthetic 2DOF model, CV/fixed-bias MHE instance and local value feedback rather than B0 root. Comparator force/tangential behavior is better; the candidates' normal-position errors are slightly smaller. No completion claim. |
+| NNBO复现、有限时域/缓变、动态强对照 | 可核对critic、普通Newton/弦迭代、NEOC、误差及成本。未证明NEOC普遍更好，也未整体否定B0 |
+| 已知模型网络/RBF、接触约束更新 | 可用映射、实际增益/能量执行、伴随梯度、任务代价学习和发布对齐。网络未可靠胜RBF；后台模型改进有局部正结果，不能只引用旧等待负结果 |
+| 同次扫描原型 | 局部估计＋模型候选预测，或CEM小型反馈公式。首48例联合输出对解析约改善0.433%；后续24例纯K/D、修正物理另24例未建立对充分简单参照的稳定优势。不是完整MHE/HJB/NEOC或PPO/NN；三批不能合成统一测试 |
+| 旧直接PPO | 省略完整MHE/空间预瞄，不是原候选2验证。无后续用途的训练流水线已移除；结论和误判留在失败复盘，不能恢复“完整候选2已失败”的判断 |
+| 候选A、策略库滚动与后验规划 | 已退出工作区及默认主线；必要结果、来源与教训已提炼。独立工具存于[空间接触估计核查](../experiments/spatial_contact_estimation_audit/README.md)，其识别结果不等于闭环收益 |
+| 本地文献 | 65份去重PDF与文本、68条用途记录，含指定两个仓库的相关资料、补充原文及YOPO；摘要、关键段落、全文与复现分开标记，下载不等于新增核读 |
+| 论文逐例逆向分析 | 此前22篇身份/摘要；已重新核读10篇原文方法与证据，含全部5篇T-RO。六篇展开、四篇补充，再对照失败；不是22篇全文或全部证明审计。经用户确认的方法形成与贡献尺度认识已落实长期要求 |
+| [早期约化MHE预检（当时暂停）](../experiments/mhe_guided_impedance_pilot/README.md) | 保留两例pilot及旧轨迹；其暂停只是当时历史。最新研究在分线目录，不能恢复成当前停止指令或据此称NN一直未训练 |
+| [前一轮分线设计/独立测试](../experiments/separate_candidate_validation/README.md) | 模型/学习各自迭代、率动作与100Hz反馈一致性、72训练场景10800相关上下文、24独立场景三组重复权衡。模型复用未稳定优于普通优化；学习相对E41适配有正结果但信息作用随权衡变化。非完整B0、非完整原文复现、非顶刊判定 |
+| [当前双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md) | 原问题先行、各自代码/实验，再选Jin MS；新48训练场景3840上下文，24独立场景（四类）、3学习种子、8场景分布变化、8场景单任务计时。Hertz/目标关系已补；2DOF合成模型、CV/固定偏置MHE实例、局部价值反馈而非B0根。基线力/切向更好，候选法向稍好，不能宣布达标 |
 
-**Overall: the original question remains; a specific important advance and complete method advantage are not yet established.** Platform/control interface, material/sensor calibration and references remain to be verified. These are candidate concerns, not selected new topics or fixed gates.
+**总状态：原问题保持，具体重要进展和完整方法优势尚未建立。** 平台/控制接口、材料与传感器标定、参考等仍待核实；它们是候选关注点，不是已定选题或固定门槛。
 
-## 6. What to do next, and to what extent
+## 6．接下来先做什么、做到什么程度
 
-The table records the agreed continuation order. **A new user task takes precedence; standards calibration is not an approval gate to repeat every turn.**
+下表记录已约定的续接顺序。**若新用户任务改变安排，以新任务为准；标准校准不是以后每轮重做的许可关卡。**
 
-| Priority | Work/deliverable | Completion/boundary |
+| 优先级 | 工作与交付 | 完成标准/边界 |
 |---|---|---|
-| **P0: requirements implementation complete** | Confirmed method-formation understanding and paper-analysis lessons are in the requirements; source evidence remains in the analysis. | Continue at the appropriate stage without repeating understanding audits. Actual design/evidence must demonstrate implementation; a completion record is not method success. |
-| **P1: improve each candidate's actual task effect** | Hertz/Qg/Rg/terminal/trajectory checks were added while retaining separate mechanisms. Determine why preview helps yet force/tangential performance trails; improve information-to-impedance relationships and update efficiency, and verify platform/task scale. A low gain-preference cost is not a physical win. | Comparisons follow the question/method; do not impose a fixed MPC-based pass/fail gate or force an unsuitable NNBO adaptation. Deepen Jin/E27/NNBO where useful and reproduce/adapt fairly only if suitable. Explicitly state representation changes and evidence limits; do not retreat from the question because strong prior work exists. |
-| **P2: iterate and converge from evidence** | Decide whether implementation, carrier, mechanism or question needs change; progressively form the paper's contribution and complete evidence. | Do not overgeneralize local evidence or shield the idea indefinitely. Explain substantive question changes and their effects. Judge actual contribution/evidence, not workflow completion or wording. |
+| **P0：要求落实已完成** | 用户确认的方法形成认识及论文分析所得已进入长期要求，逐例原文依据另存 | 后续直接按相应阶段开展工作，不反复重做理解审核；仍须用实际设计和证据检验是否落实，完成记录不等于方法达标 |
+| **P1：继续改进两候选的实际任务作用** | 最新已补Hertz/Qg/Rg/终端/轨迹检查并保留各自机制；接下来查明为何预瞄有用但总体力/切向仍落后，改进新信息到阻抗的关系和更新效率，核准实际平台任务尺度。不要把Kg偏好低分当物理任务获胜 | 对照由问题/方法决定，不设MPC必胜门槛或强行NNBO适配。可深化Jin/E27/NNBO，适合才复现公平比较。方法表示变化和证据局限明说；不因强prior存在而退避原题 |
+| **P2：据结果迭代和收敛** | 判断应修实现、载体、机制还是问题，逐步形成论文贡献与完整证据 | 局部结论不越界，也不无限保护原idea；实质换题说明依据及影响。依据实际贡献和证据判断，不凭流程完成或文字包装宣布达标 |
 
-NN weights, training data and grouped results are available for inspection. They belong to reduced implementations, which are not automatically selected as final methods. PPO has not been selected; candidate A/future posterior planning has not been restored. Platform, interface, frequency and task scale were requested and remain pending; silence does not mean no platform exists. Complete-method formalization and public-original-paper work can continue without inventing clinical thresholds. Stop all training/experiments at completed checkpoints; do not claim background work continues.
+当前已有可复核的NN权重、训练数据和分组结果；只是约化方法，不自动选为最终方案。没有选定PPO或恢复候选A/未来后验规划。已询问实际平台、接口、频率和任务尺度，仍待补充，不把未回复解释为不存在平台。可继续完整方法形式化及公开原文工作，不自行指定临床阈值。当前所有训练/实验应在检查点结束后停止，不声称后台仍在推进。
 
-## 7. Recovery, reproduction and update rules
+## 7．恢复、复现与更新规则
 
-- Preserve `00_基线快照_2026-10-14/` byte-for-byte, including names. The three working B0 core files may be revised with research evidence and explicit effects on assumptions/proofs. The research checkpoint added independent precheck code/data without changing B0, older experiments or the snapshot. The later English migration changes working paths/references, not the scientific model.
-- Paper/file check: `python -X utf8 literature/verify_materials.py`. Select experiments by their reports and Git versions; do not silently refresh historical result hashes or overwrite original data. File checks are not scientific reruns or physical validation. Old evidence paths can be mapped through `english_migration.json`.
-- Consolidation checkpoint: `368a295`; preceding materials: `db28365f33dc314ce8bfe83a23796dd18cf27f5b`; earlier complete materials: `b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c`. Use `git show <revision>:<historical-path>` for necessary individual files; do not restore withdrawn branches wholesale.
-- Reports must explain understanding of the question/candidates, actual work and results, comparator choice, relevant numbers and limits. File counts, “24 more cases,” abstract plans or commit IDs alone are insufficient.
-- After authorized changes, append reason, evidence, comparison version, scope and checks to [decisions](decisions_and_changes.md), then automatically commit/push under AGENTS: `python -X utf8 scripts/research_sync.py --message "research: specific change and purpose"`. No repeated upload approval; no force-push or history rewriting.
+- 冻结快照 `00_基线快照_2026-10-14/` 必须字节保持；B0三工作核心可在未来按研究证据修订，须说明变化及对假设/证明的影响。本轮新增独立预检代码/数据，未改B0、旧实验或冻结快照。
+- 原文与文件核查：`python literature/verify_materials.py`。实验按报告及对应Git版本选择，不能悄悄更新旧结果哈希或覆盖原数据。文件核查不等于重跑科研实验或物理验证。
+- 清理完成版本 `368a295`；清理前 `db28365f33dc314ce8bfe83a23796dd18cf27f5b`；更早完整材料 `b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c`。用 `git show <版本>:<路径>` 查必要单项，不整包恢复已撤回路线。
+- 每次汇报具体说明：如何理解问题/两候选、实际做了什么、结果是什么；比较对象及为什么比较要讲清，给必要数字和边界。不能只报“补了24组”、文件数、抽象下一步或提交号。
+- 完成授权改动后，在[决策记录](decisions_and_changes.md)追加原因、证据、比较版本、影响范围和检查，再按AGENTS自动提交推送：`python -X utf8 scripts/research_sync.py --message "research: 具体改动和目的"`。无需重复询问上传许可，不得强推或改写历史。
 
-## 8. Concise first handoff report
+## 8．首次接手的简洁回报
 
-Explain in this order: **goal/core requirements → research question/two candidates → completed/pending work and evidence boundaries → largest past deviations → what to do now and why.** Point each item to its source. State unread material and unconfirmed judgments honestly; do not claim every file has been read.
+按此顺序向用户说明：**目标与核心要求 → 研究问题与两候选 → 已做/未做及证据边界 → 过去最大偏差 → 本次先做什么、为什么。** 每项能指向来源；没读过的材料和未确认的判断直接说明，不声称“全部文件都已读完”。

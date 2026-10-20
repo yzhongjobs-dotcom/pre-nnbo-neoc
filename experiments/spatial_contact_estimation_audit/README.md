@@ -9,4 +9,4 @@
 
 需要时可运行 `python experiments/spatial_contact_estimation_audit/transport_probe.py` 或 `python experiments/spatial_contact_estimation_audit/task_geometry.py`，依赖NumPy/SciPy。运行会覆盖同名输出；本轮只验证迁移完整性，不重跑。
 
-提取前版本 `db28365f33dc314ce8bfe83a23796dd18cf27f5b`，原位置 `experiments/闭环策略滚动阻抗/`。相关原文见[文献索引](../../literature/literature_index.md)。
+提取前版本 `db28365f33dc314ce8bfe83a23796dd18cf27f5b`，原位置 `实验/闭环策略滚动阻抗/`。相关原文见[文献索引](../../literature/literature_index.md)。

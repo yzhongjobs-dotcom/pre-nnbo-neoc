@@ -1,76 +1,81 @@
-# Research failures and corrections in this project
+# 本项目的科研失败与纠偏
+<!-- project-update:start -->
 
-These lessons come from actual project work and complement the [paper-by-paper reverse analysis](../research/independent_reverse_analysis_of_top_journal_methods.md). On 2026-10-19, the user requested independent examination of papers first, followed by comparison with this project, rather than prescribing standards for papers to satisfy. This file preserves actual deviations, does not assign every experimental failure to one cause and does not rewrite long-term requirements.
+**当前适用性（2026-10-20审查）：** 下文记录的是实际历史偏差。中段“至少落实NNBO”“暂停”等措辞指当时纠正，后续用户已明确先按研究问题分别实现并仿真两候选，再选择合适的比较方法；不能据旧段落恢复强制NNBO或新的串行门槛。当前状态见[HANDOFF](HANDOFF.md)，稳定要求见[长期要求](long_term_requirements.md)。
 
-## Key deviations that occurred
+<!-- project-update:end -->
 
-| Deviation and actual behavior | Consequence | Correction |
+这是从实际过程提炼的经验，与[论文逐例逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md)互补。2026-10-19按用户最新要求先独立核读论文，再对照项目；不先规定标准让论文满足。本文件保留实际偏差，不把所有实验失利归结成同一个原因，也不改写长期要求。
+
+## 已发生的关键偏差
+
+| 偏差与实际表现 | 造成的后果 | 后续怎样纠正 |
 |---|---|---|
-| **Excessive defensiveness.** Retreating around strong prior work; repeatedly requiring exclusive NEOC benefits, original modules or proof that all existing methods fail. | Important questions became progressively smaller; literature investigation became a barrier to design. | Understand prior work through task capabilities, probe important limitations and improve. Direct reuse/small adaptations are legitimate; component overlap does not decide an entire contribution. |
-| **Confusing in-field coverage with cross-field opportunity.** Judging overlap from algorithm names. | Transferable mature mechanisms became reasons to reject an idea. | Ask whether the same capability is already realized under the same task/conditions. Use external mechanisms as design resources and check applicability rather than reinventing them. |
-| **Gradual topic drift.** Moving from rapid optimal impedance under environmental change to Q3 update value or abstract whole-acquisition resource planning. | The question became unclear to the user and was silently replaced. | Explain whether each change still answers the original task; substantiate substantive question changes and their effects. Candidate A/Q3 are outside the current main line. |
-| **Misreading candidate 2.** Replacing MHE/spatial preview plus YOPO-inspired offline learning with short-history direct PPO, then replacing the NN with a small CEM formula without demonstrated superiority. | Experiments did not test the original concept, while reports retained the candidate name and distorted later judgment. | State inputs, training, outputs and execution against the user's concept; distinguish original concept, proposed changes and actual implementation. YOPO is not PPO. Withdraw claims that the complete candidate was validated or failed. |
-| **Substituting assembly for method design.** Adding policy libraries, transport observers and posterior planning without a complete contribution argument against the closest work. | Code and experiments did not become a credible solution to an important problem. | Explain how mechanisms jointly provide required capabilities. Improve a mature main line or integrate naturally; module counts and new names do not constitute contribution. |
-| **Generalizing reduced-carrier results to the whole idea.** Rejecting environment understanding and B0 when fixed/simple policies were close. | Direction-level judgments exceeded the evidence. | Identify omitted key structure and whether results constrain an implementation, mechanism or question. Do not use locality to protect the algorithm indefinitely either. |
-| **Distorted experimental objectives.** Ideal stiffness labels, information proxies used to establish preview value, or adding difficulty until an algorithm wins. | Comparator wins became disconnected from task improvement. | Derive task losses from actual dynamics/needs, ground conditions, tune baselines adequately and distinguish reference/feedforward benefit from K/D benefit. |
-| **Confusing theoretical and numerical objects.** Equating precise nodal roots with good policies, NNBO reproduction with B0 reproduction, or conditional bounds with practical guarantees. | Optimality, stability and safety were overstated. | Separate original NNBO position references, B0 gain rates, critic representation/residuals and closed-loop quality. Match conclusions to the checked object. |
-| **Ignoring full cost and physical differences.** Counting prediction but not checking/re-anchoring, treating immediate-execution results as deployment performance, and omitting moving-contact convection. | Speed/control gains could be overstated and material-information interpretation distorted. | Account for preparation, updates, control-update release and ongoing feedback. Let ordinary fast solvers compete fairly. Preserve corrected physics and independent checks; internal power consistency is not validation on real tissue. |
-| **Treating better estimates or changing K/D as contribution.** History changes predicted holding force, but different K/D choices add little. | Predictive capability was confused with important task capability. | Test how information changes actions and actual force/motion. Use an ordinary observer if sufficient rather than forcing a network. |
-| **Records replacing progress.** Repeated “latest designs,” giant inventories and obsolete tasks in entry files. | Successor agents could not distinguish evidence, conjecture and withdrawn instructions. | Keep valid definitions/evidence in current entries, useful code/papers locally and history in Git. Do not report unfinished work as complete. |
+| **过度防守。** 看到强prior就避让；反复要求NEOC独有、模块原创或先证明所有已有方法失败 | 把有分量的问题越缩越小，调研变成阻止设计方法的关卡 | 按任务能力理解已有工作，继续追问重要局限并改进。成熟方法可直接借鉴或小改造，不由部件重合判整套贡献 |
+| **混淆本域覆盖与外域机会。** 按算法名字判重合 | 可迁移的成熟机制被当成否定idea的理由 | 区分是否已在相同任务/条件实现所需能力；把外域机制当设计资源，核查适配条件，不重复造轮子 |
+| **渐进偏题。** 从环境变化时快速最优阻抗，转向Q3更新价值或抽象整段采集资源规划 | 用户难以理解研究到底解决什么，原问题被暗中替换 | 每次改动说明是否仍回答原任务，实质换题交代依据与影响。候选A/Q3已退出当前主线 |
+| **误解候选2。** 将MHE/空间预瞄＋参考YOPO离线学习，写成短历史直接PPO；后又以CEM小公式替代NN而未证优 | 实验没有验证原构想，汇报却仍使用“候选2”名称，影响后续判断 | 对照用户思路写清输入、训练、输出与执行；区分原构想、拟改造与实际实现。YOPO不是PPO。撤回完整候选已验证/已失败的说法 |
+| **用简单拼接代替方法设计。** 追加策略库、输运观察器和后验规划，缺少相对最接近工作的完整贡献论证 | 做了代码与实验，仍没有解决重要问题的可信方法 | 从所需能力解释各机制如何共同起作用；允许锚定成熟主线改进或自然融合，不用模块数量或新名称作贡献 |
+| **把局部载体结果推及完整idea。** 固定/简单策略接近，就否定环境认识与完整B0 | 对研究方向下了超出证据的判断 | 说明省略的关键结构，判断结果限制的是实现、机制还是问题；也不靠“只是局部”无限保护原算法 |
+| **实验目标失真。** 曾给理想刚度标签、用信息代理证明预瞄价值，或考虑不断加难度让算法赢 | 对照胜负与真实任务改善脱节 | 任务损失来自实际动力学和需求；条件有依据，基线充分调优，区分参考/前馈收益与K/D收益 |
+| **理论与数值对象混淆。** 节点根精确当优质策略、NNBO复现当B0已复现、条件性界当实际保证 | 最优性、稳定性和安全性被夸大 | 分清原NNBO位置参考、B0增益率、critic表达/残差和闭环质量；结论对准所检查对象 |
+| **忽略完整成本和物理差异。** 只计预测不计校验/重锚，立即执行性能当部署性能；遗漏移动接触对流项 | 加速或控制收益可能被高估，材料信息解释失真 | 记录准备、更新、发布和持续反馈；普通快速求解器公平竞争。保留修正模型及独立检查，内部功率一致不当真实组织验证 |
+| **把更准估计或变化K/D当贡献。** 历史使保持力不同，但选不同K/D只改善很少 | 预测能力与重要任务能力被混为一谈 | 直接检查信息怎样改变动作和力/运动表现；普通观察器足够时可直接采用，不强加网络 |
+| **记录替代推进。** 多轮“最新方案”、巨大清单和过时待办留在入口 | 新agent难分已证事实、猜想和已撤回指令 | 当前入口只保留有效定义与证据；有用代码/文献落地，历史由Git回溯；未完成不写完成 |
 
-These correspond to explicit user criticism and existing experiments, not a claim that every method failure has a known root cause. In particular, do not claim that a specific good method was rejected for novelty reasons without a contemporaneous record. The defensive tendency and actual question narrowing are established.
+以上对应用户明确批评和已有实验，不声称所有方法失利都已查清根因。尤其不能断言“某个好方法曾因novelty被具体剔除”，除非能指出当时记录；可确认的是这种防守倾向及实际缩题已经发生。
 
-## Experimental facts to retain after consolidation
+## 清理后仍应记住的实验事实
 
-- Local NEOC/sensitivity comparisons did not show stable advantages over adequate ordinary solvers; they do not cover complete B0.
-- Old direct PPO beat fixed targets in a one-dimensional carrier but not scheduling with a known motion program. It lacked complete MHE/spatial preview and cannot judge original candidate 2. Misinterpreted/unreusable training material was removed.
-- Within-scan joint CEM feedback showed a small improvement over the analytic comparator; pure-gain and new-cohort results did not stably beat adequate simple control. It was not an NN/PPO. Correcting physics did not automatically create reliable advantages.
-- In 24 new cases, policy rollout improved 1.613% over the analytic comparator but did not reliably beat tuned fixed or original learned policies. Two-stage posterior planning added 0.08363% mean ideal benefit in 64 new cases, with median planning about 668ms and another 162ms construction; effects excluded waiting. Neither was selected as the main line. Lessons/sources remain; entire pipelines without direct reuse were removed.
+- 局部NEOC/灵敏度比较未显示对充分普通求解方法的稳定优势；比较不覆盖完整B0。
+- 原直接PPO在旧一维载体胜固定目标、未胜已知运动程序调度；它没有完整MHE/空间预瞄，不是原候选2的成败验证。误解部分及无复用价值的训练材料已删除。
+- 同次扫描的联合CEM反馈对解析有小幅正结果，但纯增益与新批未稳定胜充分简单控制；不是神经网络/PPO。修正物理模型也未自动产生可靠优势。
+- 策略滚动新24例对解析改善1.613%，对调优固定和原学习无可靠优势；两阶段后验规划新64例额外平均收益0.08363%，规划中位约668ms、另有构造约162ms，效果未计等待。未选为主线；保留认识与来源，删除无直接用途的整组实现。
 
-Recover original configurations, data and texts from `db28365f33dc314ce8bfe83a23796dd18cf27f5b`; earlier complete material is in `b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c`. Retained experiments and sources appear in the [experiment index](../experiments/experiment_index.md).
+原始配置、数据和全文回溯：清理前提交 `db28365f33dc314ce8bfe83a23796dd18cf27f5b`；更早整体材料提交 `b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c`。保留实验及其具体来源见[实验索引](../experiments/experiment_index.md)。
 
-## Further understanding after comparison with papers
+## 论文对照后，对失败原因的进一步理解
 
-Original passages, pages and case comparisons appear in [reverse analysis, sections 2–5](../research/independent_reverse_analysis_of_top_journal_methods.md). The corrections learned from papers are not another prior gate:
+具体原文、页码与逐项对照见[逆向分析§2–5](../research/independent_reverse_analysis_of_top_journal_methods.md)。本轮由论文得到的纠偏不是另一套先验门槛：
 
-- R01 explicitly needs only a small adaptation but achieves synchronized motion/stiffness generalization through a common phase. R19 uses existing TD3, and R21 reuses mature optimizers. Requiring exclusive algorithms, entirely new modules or large changes conflicts with these examples' method origins. Records still do not establish that a specific already-excellent proposal was rejected for that reason.
-- R12's division of labor follows desired easy-to-handle dynamics; R15's combination produces inertia-weighted decoupling. The project's added rollout/posterior planning lacks stable important task advantages, showing a need for effective relational design and evidence in those instances. This does not make borrowing or combination illegitimate.
-- R11 distinguishes feedforward, stiffness and damping under different disturbances; R01 separates motion and stiffness generalization. This project must distinguish better understanding, reference/feedforward effects, K/D and their coordination. Different predictions/actions do not alone establish substantial control progress.
-- R13 checks energy compatibility separately from final trajectory quality; R21's finite sets and metrics require accurate interpretation. Separate numerical roots, approximate policies, actual closed loops and deployment costs rather than using local numerical correctness for stronger claims.
+- R01明确只需小改造，却通过共同相位实现运动/刚度同步泛化；R19使用现成TD3；R21复用成熟优化器。反复要求独有算法、全新模块或庞大改动，确实不符合这些样本的方法来源。现有记录仍不足以证明某个已经优秀的方案因此被具体淘汰。
+- R12的分工来自希望保留的易操作动力学，R15的组合落实到惯量加权解耦。相比之下，项目追加滚动或后验规划后尚无稳定重要任务优势，说明这些实例还缺有作用的关系设计与证据；不能把它解释成借鉴或组合本身不合法。
+- R11区分前馈、刚度、阻尼在不同扰动中的作用，R01区分运动和刚度泛化。项目还需区分更准认识、参考/前馈、K/D与其配合的实际收益。预测有差异或动作不同尚不等于有分量的控制进展。
+- R13将能量相容性与最终轨迹质量分别检验；R21的有限集合及指标需要准确理解。对应项目，应分开数值根、近似策略、实际闭环和部署成本，避免局部数值正确支撑过强结论。
 
-**Mistaken judgment and insufficient method benefit are separate facts.** Correct defensiveness, narrowing and confusion of validation objects; continue substantive design where benefits remain insufficient. Lower standards or renaming cannot fix the latter. Without evidence, do not assign all small gains to network weakness, a simple model or poor standards understanding, or reject B0 through local tests. The user subsequently confirmed understanding and authorized research; HANDOFF/current tasks set the stopping point, without restoring old review gates.
+**判断方式错误与具体方法尚无足够收益是两层事实。** 前者需要纠正过度防守、缩题和验证对象混淆；后者需要继续实质设计，不能靠降低要求或重新命名解决。缺少证据时，不把小收益一概归于网络不足、模型太简单或标准理解差，也不据局部实例整体裁决B0。用户随后已确认理解并授权方法研究；当前停止点依HANDOFF和最新任务，不恢复旧审核关卡。
 
-## Correction added 2026-10-19: inadequate main comparator level
+## 2026-10-19新增纠正：主对照层次不足
 
-After research was authorized, this round examined NNBO/predictive impedance/learned neighbors but first implemented reduced MHE, tuned fixed impedance and began NN training, without implementing NNBO or strong relevant variable impedance methods. The user identified the main baseline as wrong and requested a pause. Training was terminated without a completed actor or independent test. Existing results were downgraded to engineering prechecks, not evidence judging either candidate or a journal-level contribution.
+用户授权研究后，本轮虽核读了NNBO/预测阻抗/学习近邻，却先实现约化MHE原型、调优固定阻抗并启动NN训练，尚未落实NNBO或相关领域强变阻抗方法。用户明确指出主要基线错误并要求暂停。已终止训练，没有完成actor或独立测试；现有结果降为工程预检，不用来判断候选方法或顶刊贡献。
 
-The mistake was placing simple-control diagnostics at the center of field-level comparison, not merely poor tuning of fixed parameters. Existing requirements already called for strong relevant methods, but this round did not implement them. The continuation at that point was to implement NNBO's original mechanism with a clear common-task adaptation and choose close predictive/learned variable impedance methods; fixed control was auxiliary. Do not label arbitrary MPC/PPO scripts as original-paper reproductions or restrict native reference/feedforward interfaces to manufacture advantages. The correction did not cancel the literature–design–quick-check–iteration workflow, add acceptance criteria or lower standards. The later user correction below determines the current experiment order.
+错误是把简单控制诊断放在了领域主要比较的位置，而不只是固定参数没有调好。既有长期要求已明确相关强方法比较，本轮执行没有落实。后续主对照至少落实NNBO原机制和共同任务的清楚适配，并选预测变阻抗/学习变阻抗等最接近工作；固定控制只作辅助。不能将任意MPC/PPO脚本冠以原论文名称，也不能限制原方法的参考/前馈接口来制造优势。用户纠正不取消原有文献—设计—快验—迭代流程，不另设录用清单，不降低标准。
 
-## Lessons from further iteration that day
+## 同日继续迭代后的具体教训
 
-The user emphasized forming journal-level methods rather than completing comparisons: design/test each candidate and improve each deficiency. Research resumed without turning baseline audits into a new sequential gate.
+用户进一步强调：主目标是形成顶刊级方法，不是补齐比较；两候选分别设计/实验，不足则各自优化。已恢复研究，没有把基线核查变成新的串行门槛。
 
-- **Faithful action representation.** Distant target gains can generate identical short-time actions under rate saturation; all target-Kn gradients were zero in 32 training states. Returning to B0's actual gain-rate action made gradients nonzero. This corrects implementation; it is not a discovery or failure of the original question.
-- **Gain inputs do not imply gain coverage in training.** All four actual gain ranges were zero in the original 72 fixed trajectories. The network read g but had no transitional experience. Constrained variable-gain trajectories for the same 72 physical scenarios and independently trained front-end ablations were added, without ideal material labels.
-- **Align prediction, training and execution.** Initial prediction omitted actual 100Hz holding/smoothing; this was aligned, while perception-queue initialization remains approximate. Slow interpreted graphs, second-order compilation exceeding memory and successful numerical projection are not robot-performance or general algorithm conclusions.
-- **A quick carrier must not silently omit the full objective.** B0 inspection found missing positive-definite Qg/Rg, terminal terms, full-trajectory constraints and two-region Hertz front end. Restore original task relationships instead of indefinitely defending locality or adding small modules to an old short-time objective.
-- **Paper names and local equation checks do not validate a comparator.** The nonzero-force NNBO adaptation had many reference-inversion failures: w=1 median 88/600, maximum 572/600. Related improvement numbers are isolated and do not establish superiority to NNBO. Check objective matching, policy expressiveness and the actual inner loop. E41 is only the declared OS scan adaptation.
-- **Do not select favorable ranges or fix improvement thresholds.** All three tradeoffs remain. The learned front end has positive middle-tradeoff results but no consistent effect in the others; model reuse does not stably beat ordinary optimization. Comparisons inform design; numbers alone do not decide journal readiness. A complete substantial validated contribution remains missing.
+- **执行动作表示要忠实。** 远目标增益在速率饱和时可对应完全相同的短时执行，32个训练状态中的目标Kn梯度全零；回到B0已定义的实际增益率，梯度均非零。这是实现纠偏，不是新发现或原问题失效。
+- **输入增益不等于训练覆盖增益。** 原72条固定轨迹中实际四增益极差为零；网络虽读实际g也没有过渡状态经验。已补同72物理场景的受限变增益轨迹，独立训练前端消融，未用理想材料标签。
+- **预测、训练与执行须对应。** 初版预测省略实际100Hz保持/平滑，后来已对齐；仍明确感知队列初值近似。解释图慢、二阶大图编译超内存、数值投影通过均不是机器人性能或通用算法结论。
+- **完整目标不能被快速载体悄悄省去。** 回查B0后确认本轮未覆盖正定Qg/Rg、终端项、全轨迹约束及双区域Hertz前端。不能靠反复强调“只是局部”保护当前实现，应补齐原任务关系，而非在旧短时目标上继续堆小模块。
+- **论文名字与方程局部核对不足以核准对照。** NNBO非零力适配出现大量参考反解失败，w=1中位88/600、最高572/600；相关改善数字已隔离，不能称超过NNBO原文。目标匹配、策略表达范围和实际内环必须查清；E41也只到声明的OS扫描适配。
+- **不挑有利范围，也不设固定提升门槛。** 三组权衡均保留。学习前端在中间权衡有正结果、另外两组未显示一致作用；模型复用未稳定超过普通优化。比较为设计提供线索，数字本身不判顶刊；当前仍缺完整、有分量、经核准的贡献。
 
-See [separate-candidate research](../research/separate_candidate_design_and_iteration.md) and [experiments](../experiments/separate_candidate_validation/README.md) for designs, code, grouped raw results and scope. This round did not reject all B0, restore candidate A or declare a candidate successful.
+具体设计、源码、分组原始结果及范围见[分线研究](../research/separate_candidate_design_and_iteration.md)和[实验说明](../experiments/separate_candidate_validation/README.md)。本轮没有整体否定B0、恢复候选A，或宣布任何候选达标。
 
-Returning to NNBO equation 52 and this adaptation's policy representation showed that shifting to a nonzero force target gives the positive inversion term of the quadratic critic a finite upper bound: some negative force errors have no root. Replaying all w=1 critics and checking final weights/failure counts found 4597 of 4774 failures met the no-root condition. This is the adaptation's range error, not Newton speed or failure of original zero-target-force NNBO. Earlier checks covered local rooted cases, not operating inputs. Correct objective–representation–execution relationships rather than hiding the issue through iteration counts or abandoning the original question.
+进一步回到NNBO式52和当前适配的策略表达，推得非零目标力偏移后二次critic的反演正项有有限上界；某些负力误差下根不存在。逐步重放w=1全部critic并核对最终权重/失败次数，4774次失败中4597次满足无根条件。这是本轮适配值域错误，不是Newton速度问题，更不是原零目标力NNBO失败。先前只检查局部有根样例、没有覆盖运行输入范围，核准不充分。相关胜幅已隔离，后续修目标—表达—执行关系，不能调迭代次数掩盖或以此退避原问题。
 
-## New lessons after the user corrected experiment order
+## 用户纠正实验顺序后：任务仿真得到的新教训
 
-The user explicitly required experiments to start from this question/method: implement and simulate each candidate first, then see whether a suitable baseline exists, without forcing MPC or an unsuitable NNBO adaptation. The latest [dual-candidate task simulations](../experiments/dual_candidate_task_simulation/README.md) follow that order. Reporting only case counts/abstract plans, without mechanisms and comparator rationale, was another error now addressed by the communication requirements.
+用户明确实验应从本研究问题/方法出发，先各自写代码并仿真，再看是否有适合的基线；不强行MPC，也不要求不适合的NNBO适配。最新已按此完成[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)。此前反复只报24组/抽象计划、没有解释候选机制与比较理由，也是汇报错误，已写入长期沟通要求。
 
-- **State value-representation changes explicitly.** Fixed global 66-term quadratic collocation found no acceptable root in four horizons with 500 evaluations each. This is not a no-root proof. Local quadratic trajectory value feedback ran, but cannot be called original B0 or inherit its certificate.
-- **Controller preference cost is not shared physical task performance.** Both candidates' full J is lower than Jin's adaptation, but force/tangential errors favor Jin. Shared physical scoring excludes gain-preference/rate penalties and reports normal-displacement tradeoffs separately. Objective-weight changes need task grounds, not a desire to beat a baseline.
-- **Separate information effects from the whole contribution.** Corrected spatial-parameterization ablation gives candidate 1 a small full-cost benefit, yet NEOC on/off is nearly tied. Candidate 2's matched-seed information interval crosses zero, and its three main models still trail the field method in force/tangential performance. These levels cannot establish complete success.
-- **Compute accounting includes implementation and the full chain.** Full-parameter finite-difference preparation was expensive and changed to directional Riccati perturbations. Per-point NumPy Hertz overhead exaggerated model cost; all methods were retimed with an equivalent compiled kernel. Current NEOC remains slower than disabling it at the same budget. Fast NN inference does not remove MHE cost. Old timings remain diagnostics, not generic bottleneck evidence.
-- **Numerical equivalence is not byte reproduction.** Scalar compiled/NumPy formulas differ by about 7.1e-15 over 1000 states, but nonlinear fitting/stopping criteria give about 1.84e-6 J differences in four replays. Preserve this honestly. Inactive training projection branches produced 0×∞ gradients; all branches were bounded and nonfinite training immediately rejected.
-- **Fair tuning permits the original method's degrees of freedom.** One shared two-axis regularization tied accuracy/force choices; Jin's form allows independent Q/R. Equal seven-point training grids on eight scenarios selected each axis, followed by combined validation. A further eight-scenario execution audit had five unsuccessful status returns in 640 solves. Bounded executable local outputs are not exact global solutions or complete Panda reproduction.
-- **Ablations must not weaken the comparator, intentionally or accidentally.** The initial version always replaced the forward region with old-region parameters even after entering new material, overstating spatial-information benefit. Withdraw 26.86%/6.17%. A uniform model preserving current Fn/Ft and independently retrained no-spatial NN were tested on 24 new seed16501 scenarios unused in the change: candidate 1 improves 2.43% [1.45%,3.43%], candidate 2 3.74% [-0.17%,8.92%]. Not all local derivatives are matched, so the entire spatial-modeling effect cannot be assigned to anticipation; a favorable ablation cannot fill an unknown cause.
+- **价值表示失败必须明说改变。** 全域66项二次配置在4个时域、各500评估内未找到合格根。这不是无根证明；改为轨迹局部二次价值反馈后跑通，不能把它冒充原B0固定根或继承原认证。
+- **不要把控制器偏好代价当共同物理任务成绩。** 两候选的完整J低于Jin适配，主要比较若据此会误导；独立力/切向误差反而以Jin更好。共同物理评分剔除增益偏好/率正则，并把法向位移取舍单列。是否修改任务权重必须有任务依据，不能为赢基线改权重。
+- **信息作用和完整贡献分开。** 修正后的空间参数化消融中，候选1完整代价有小幅正结果，NEOC开/关却近似持平；候选2匹配种子的信息作用区间跨零，三个主模型仍未胜领域方法的力/切向表现。不能把这些层次混成“整套已达标”。
+- **计算账本包含实现与全链。** 参数全差分准备成本高，改为方向扰动Riccati；逐点NumPy Hertz开销又夸大模型费用，编译等价核并让所有方法共用后重测。即便如此，当前NEOC仍比同预算关闭NEOC更慢，NN推理快也不能忽略MHE。旧计时保留为诊断，不继续拿来主张算法瓶颈。
+- **数值一致性不等于字节复现。** 标量编译与NumPy公式1000状态约7.1e-15差异；含非线性拟合/停止准则的四场景回放仍有J约1.84e-6的变化，须如实保留，不声称完全相同。训练不激活投影分支曾产生0×∞梯度，修为分支有界并立即拒绝非有限训练。
+- **公平调参要允许原方法的自由度。** 初次只给两轴一个共同正则值会绑死精度/力目标；Jin原形式允许每轴Q/R不同，已在训练8场景的相同七点网格选择两轴后组合验证，不用弱化适配制造优势。8场景额外执行审计640次求解有5次未报告成功，仍是可执行局部输出，不能称精确全局解或原Panda整篇复现。
+- **消融也不能故意或无意削弱对照。** 首版把前方区参数始终替换成旧区，进入新材料后仍不允许更新当前区，夸大空间信息收益。原26.86%/6.17%撤回；改为保持当下Fn/Ft的均匀接触模型，重训无空间参数网络，在未用于该改造的新seed16501、24场景重测。候选1改善2.43% [1.45%,3.43%]，候选2为3.74% [-0.17%,8.92%]。对照仍不匹配全部局部导数，不能把空间建模整体作用全部归于提前量；未知原因不由一个有利消融填补。
 
-The latest round restores contact/objective relationships already in B0 and implements both routes, but remains a synthetic two-dimensional instance with CV/fixed-bias rolling estimation and local value approximation. “Simple model” does not excuse current negatives. The next design needs explicit changes and new validation to address substantive issues, not renaming, module additions or selected scores.
+本轮补入B0已有接触/目标关系并完成真实两路线实现，但仍是二维合成实例、CV/固定偏置滚动估计与局部价值近似。不能归因“模型简单”就免除当前负结果；下一设计须以明确调整和新验证解决实质问题，不通过改名、加模块或挑评分维持原型。
