@@ -1,23 +1,23 @@
-# 环境变化后的最优阻抗更新：价值、速度与一次实际方法迭代
+# Optimal impedance updates after change: value, speed and a method iteration
 
-2026-10-18。回到用户确认的原问题：[怎样快速更新具有控制收益的近最优阻抗](../../research/optimal_impedance_question_and_methods.md)。本次完成检索依据下的推导、模型/学习比较及有限速率瞬态优化；不是完整B0、实机或顶刊成果。
+2026-10-18. Return to the confirmed [rapid control-beneficial near-optimal impedance question](../../research/optimal_impedance_question_and_methods.md). Completed literature-grounded derivation, model/learning comparison and finite-rate transient optimization, not full B0, hardware or leading-journal results.
 
-## 模型与比较对象
+## Model and comparisons
 
-独立两广义坐标的预载附近线性接触，四个对角K/D；第二轴按杠杆归一化转动，不是B0切/法向Hertz滑动接触。固定环境、无观测误差时的动力学为
+Independent two-coordinate linear contact near preload with four diagonalK/D. The second axis is lever-normalized rotation, not B0 tangential/normal Hertz sliding. With fixed known environment,
 
 \[
 M\ddot q+(B_e+D)\dot q+(K_e+K)q=w,
 \quad u=-K(q+n_q)-D(\dot q+n_v).
 \]
 
-无噪声条件取n=0；有噪声时控制力中的噪声也进入动力学。法向/归一化力矩的接触扰动为\(K_eq+B_e\dot q\)。代价仅含位移、速度、接触力和实际控制作用，**没有人为指定的目标增益、信息奖励或成像代理**。初始共用预载平衡；模型条件已知，不承担估计识别的功劳。
+Use n=0 without noise; control-force noise also enters dynamics otherwise. Contact disturbances are \(K_eq+B_e\dot q\). Costs include displacement, velocity, contact force and actual control,**without artificial target gains, information reward or imaging proxies**. All start at common preload equilibrium with known models, not earned identification benefits.
 
-分别测试白力扰动、带限相关力扰动、后者叠加带限观测噪声。噪声幅值/频谱是说明机制的假设，没有宣称由真实组织标定。坐标/增益/参数范围及训练设置在`protocol.json`。
+Test white forces, band-limited correlated forces, and correlated forces plus band-limited observation noise. Spectra/amplitudes illustrate mechanisms, not calibrated tissue. See `protocol.json` for coordinates, ranges/training.
 
-## 1. 稳态理论与映射比较
+## 1. Stationary theory and mapping comparisons
 
-固定K/D时通过Lyapunov方程求状态协方差与实际期望代价。单轴白力扰动的闭式最优值（边界不激活时）为
+For fixedK/D, Lyapunov equations give covariance/expected cost. Single-axis white-force interior optima are
 
 \[
 K^*=-k+\sqrt{k^2+(q_x+q_fk^2)/r},\qquad
@@ -28,78 +28,78 @@ D^*=-b+\sqrt{b^2+mA/r},
 A=\frac{q_x+q_fk^2+r(K^*)^2}{k+K^*}+\frac{q_v+q_fb^2}{m}.
 \]
 
-这是标准线性二次/稳态协方差计算，不宣称新定理。它给出必须纳入的廉价参照；共同缩放力扰动强度只缩放代价，不自动改变最优增益。两轴耦合、带限扰动和观测误差须另算，不能无条件套公式。
+This standard quadratic/stationary computation is not new theory but a required cheap comparator. Common noise-intensity scaling changes cost, not automatically optimal gains. Coupling, band-limited disturbance and observation error need separate calculations.
 
-每族320训练、64验证、96独立测试。网络三种子，每次2500个监督更新，以数值优化解为标签；常规RBF插值使用相同320份训练标签。网络是离线学习路线的**已知模型条件监督探索**，不是原PPO重跑或从未知组织观测直接生成最优策略。教师为带界局部数值解，测试加两个起点，不作全局最优声明。
+Each family has320 training,64 validation,96 independent tests. Three networks train2500 supervised updates on optimizer labels; RBF uses identical320 labels. This is **known-model supervised exploration**, not old PPO or direct unknown-tissue optimal inference. Teachers are bounded local solutions; two extra test starts do not establish globality.
 
-| 测试条件 | 调优固定K/D距数值参照平均代价差 | 解析调度差 | RBF差 | 三网络差 |
+| Test condition | Tuned-fixed mean cost gap from numerical reference | Analytical schedule gap | RBF gap | Three-network gaps |
 |---|---:|---:|---:|---:|
-| 白力扰动 | 0.1108% | 0.01124% | 0.0000128% | 0.0000300%–0.0000401% |
-| 带限相关扰动 | 0.2575% | 48.05% | 0.002451% | 0.002327%–0.002601% |
-| 带限扰动＋观测噪声 | 0.9544% | 20.33% | 0.000348% | 0.000264%–0.000328% |
+| White forces | 0.1108% | 0.01124% | 0.0000128% | 0.0000300%–0.0000401% |
+| Band-limited correlated forces | 0.2575% | 48.05% | 0.002451% | 0.002327%–0.002601% |
+| Band-limited forces/observation noise | 0.9544% | 20.33% | 0.000348% | 0.000264%–0.000328% |
 
-解析规则在不符合其假设时变差，不据此宣布战胜了所有解析方法；调优固定值是更强的必要反事实。网络/插值均接近数值参照，插值单次约0.03ms，网络约0.09–0.11ms。顺序已随机化以减少首个网络缓存效应；不是批处理耗时除样本数。教师/训练准备另列，不把离线成本消失当优势。
+Analytical rules failing their assumptions do not defeat all analytical control; tuned fixed gains are stronger counterfactuals. Network/RBF approximate references; single-call RBF≈0.03ms, networks≈0.09–0.11ms. Randomized order reduces first-network cache effects; these are not batch-time divisions. Teacher/training preparation is separately counted.
 
-白噪声全状态LQR提供更宽反馈类的精确参照，其控制矩阵不受四个对角增益形式限制；带限/观测噪声时该白模型LQR不再是此问题的最优下界，不能据超越它称超越LQR理论。
+White-noise full-state LQR provides an exact broader-feedback reference, unrestricted by four diagonal gains. Under colored/observation noise it is not this problem's optimal lower bound; beating it does not beat LQR theory.
 
-**判断：静态参数映射可快速近似，但本载体的强固定阻抗也已接近最优，尚无重要控制增量。** 不能因K/D数值变化明显就推出频繁精确更新必要；也不能用该稳态结果否定B0的有限时域问题。
+**Static mappings are fast approximations, but strong fixed impedance is already near-optimal here, without major control increments.** ChangingK/D values do not establish a need for frequent exact updates; stationary results do not invalidate B0 finite-horizon problems.
 
-## 2. 普通Newton、弦迭代与灵敏度更新
+## 2. Ordinary Newton, chord and sensitivity updates
 
-`update_benchmark.py`对每种方法执行1152次参数更新（平滑与含两次模型修订的序列），共用\(10^{-6}\)投影梯度停止标准。固定锚点每8次更新刷新，敏感度由同一Hessian与参数混合导数构造，准备/刷新、梯度检查、线搜索及回退均计账。
+`update_benchmark.py`:1152 updates per method, smooth sequences plus two model revisions, shared\(10^{-6}\)projected-gradient stopping. Refresh anchors every8 updates; derive sensitivities from common Hessian/mixed derivatives and count preparation, refresh, gradient checks, line search/fallbacks.
 
-- 普通热启动Newton平均约1.49–2.23ms；固定Hessian弦迭代约0.69–0.89ms。
-- 灵敏度预测＋弦校正约0.76–1.01ms；计入构造后没有优于弦迭代。
-- 各方法全部更新达到共同标准，没有回退。弦迭代优势来自本小问题的低代价梯度及Hessian复用；不能外推全部NEOC，也不是B0有限HJB根或机器人总链路计时。
+- Ordinary warm Newton≈1.49–2.23ms; fixed-Hessian chord≈0.69–0.89ms.
+- Sensitivity prediction/chord correction≈0.76–1.01ms, no advantage after preparation.
+- All updates reach common tolerance without fallback. Cheap gradients/Hessian reuse explain chord benefits in this small problem, not all NEOC, B0 finite roots or robot-chain timing.
 
-RBF/网络进一步校正至极小残差时，要多付约1–3ms却几乎不改变任务代价。这提醒我们区分求根精度与控制精度；本轮没有把停止阈值设计改成新研究主问题。
+Further RBF/network correction costs≈1–3ms with almost unchanged task cost. Distinguish root/control accuracy; stopping-threshold design is not a new research question here.
 
-## 3. 环境刚变化、实际增益只能有限速率变化时
+## 3. Newly changed environments with finite actual gain rates
 
-`transient.py`：八个探索实例，0.3秒、12段增益率，K/D为实际状态；初始增益/协方差取旧环境的稳态解，新环境与当前状态/分布共同已知，未来噪声实现对所有方法未知。没有末端增益目标或偏好。比较冻结旧阻抗、有限速率追新稳态值、追解析值、1/2/12段优化。
+`transient.py`: eight exploratory cases,0.3 seconds,12 gain-rate segments, actualK/D states. Initial gains/covariance use old stationary solutions; new environment/current distribution are known, while future noise is unknown to all. No terminal-gain targets/preferences. Compare holding old gains, tracking new stationary/analytical gains, and1/2/12-segment optimization.
 
-| 四例平均距当前最好12段轨迹参照 | 保持旧值 | 追新稳态最优 | 一段优化 | 两段优化 |
+| Four-case mean gap from best current12-segment reference | Hold old | Track new stationary | One-segment optimization | Two-segment optimization |
 |---|---:|---:|---:|---:|
-| 白扰动 | 0.641% | 0.673% | 0.356% | 0.221% |
-| 带限扰动＋观测噪声 | 1.734% | 1.936% | 0.413% | 0.148% |
+| White disturbance | 0.641% | 0.673% | 0.356% | 0.221% |
+| Band-limited disturbance/observation noise | 1.734% | 1.936% | 0.413% | 0.148% |
 
-一个带观测噪声实例中，保持旧值J=0.121377，追新稳态值J=0.123486，短时参照J=0.117292。说明新稳态最优目标不必产生最好的过渡动作。**这不意味着B0或原PPO漏了状态：它们本来含状态；这里只否定把本轮静态参数网络当成完整动态解。**
+One noisy case: holdingJ=0.121377, tracking new stationaryJ=0.123486, short-horizon reference J=0.117292. New stationary targets need not give best transitions. **B0/PPO already include states; this only rejects treating this static network as a complete dynamic solution.**
 
-两段方案距当前参照最大0.3551%；原12段求解有两条达到150次迭代上限。参照只称“当前最好数值轨迹”，不能把上述百分比写成相对全局最优的已认证误差。样本为八个机制实例，不推总体或临床效应。
+Two-segment worst gap is0.3551%; two12-segment solves hit150 iterations. Call it best current numerical trajectory, not a certified global gap. Eight mechanism examples do not establish population/clinical effects.
 
-## 4. 根据结果实施求解改造
+## 4. Solver revision driven by results
 
-原复数步展开每个控制变量都要积分整条轨迹。`adjoint.py`改用第二矩前向、伴随反向，在同一任务、初值与迭代预算下计算梯度。这是主动复用成熟最优控制机制。
+Original complex-step expansion integrates whole trajectories for every variable. `adjoint.py` uses forward second moments/backward adjoints under identical tasks, starts and budgets, borrowing established optimal-control structure.
 
-| 12段轨迹原型，四例平均 | 复数步展开求解 | 伴随梯度求解 |
+|12-segment prototype, four-case mean | Complex-step solve | Adjoint solve |
 |---|---:|---:|
-| 白扰动 | 12.60秒 | 0.919秒 |
-| 带限扰动＋观测噪声 | 15.87秒 | 0.779秒 |
+| White disturbance |12.60 seconds|0.919 seconds|
+| Band-limited disturbance/observation noise |15.87 seconds|0.779 seconds|
 
-同一积分器重评的代价最大相对差约6.3e−7；原两条达迭代上限的情况也仍未收敛。秒级原型不证明领域瓶颈，改造也不是新算法贡献或实机实时性证明。
+Same-integrator reevaluation gives maximum relative cost difference6.3e−7; the same two iteration-limited cases remain unconverged. Slow prototypes establish neither a field bottleneck, new solver nor robot real-time control.
 
-继续实现`bounded_iterations.py`：保持两段参数化，以伴随梯度作至多4次带线搜索的序列线性规划，不追求极小求根残差。相同八例中，最终距当前12段参照0.110%–0.483%，计算约47–82ms（七例4次、另一例3次结束）。包括初值选择、梯度、LP和线搜索；不含JIT和共同机械数据构建。它是在看过完整求解后改造的探索结果，不冒充独立新测试。
+`bounded_iterations.py` keeps two segments and uses adjoints for at most4 line-searched sequential LP steps, without tiny residual targets. Same eight cases end0.110%–0.483% above the 12-segment reference in47–82ms: seven use4 steps, one3. Include initialization, gradients, LP/search, excludeJIT/shared mechanics. This follows full-solve inspection, not independent testing.
 
-**当前可用的方法改进是控制分块＋结构化导数＋有限迭代，并非确认NEOC或网络独有优势。** 仍需独立实例和完整执行条件检验；也不能拿这类单状态轨迹计时直接取代B0多状态复用反馈的账本。
+**Usable improvements are blocking, structured derivatives and limited iterations, not exclusive NEOC/network advantages.** Test independent cases/full execution; single-state trajectory timing cannot replace B0 multistate feedback-reuse accounting.
 
-计时口径：`transient_results.json`基线的`optimization_ms=0`表示未运行轨迹优化，不表示追稳态目标没有求解成本或总控制延迟为0。稳态目标的生成成本另见稳态部分；本报告只将1/2/12段求解的同类时间用于比较。所有时间均为本环境实测，非WCET或认证实时性。
+`optimization_ms=0` in `transient_results.json` means no trajectory optimization, not free stationary targets/zero total delay. Their production costs are elsewhere; compare like1/2/12-segment solves only. All timings are local measurements, not WCET/certified real time.
 
-## 5. 把计算延迟计入控制效果
+## 5. Include computation delay in control outcomes
 
-`delay_audit.py`保持同八例、代价与计划不变：计算时旧K/D继续反馈，发布后执行已计算的速率计划，截断到同一0.3秒时域。独立DOP853评价如下：
+`delay_audit.py` retains the eight cases, costs/plans: old K/D controls during computation, then execute stored rates truncated at the same0.3-second horizon. Independent DOP853 gives:
 
-| 相对保持旧阻抗的平均代价改善 | 计划立即可用 | 等待各例实测47–82ms后发布 |
+| Mean improvement over holding old impedance | Plan immediately available | Release after measured47–82ms |
 |---|---:|---:|
-| 白扰动 | 0.331% | 0.111% |
-| 带限扰动＋观测噪声 | 1.525% | 0.192% |
+| White disturbance |0.331%|0.111%|
+| Band-limited disturbance/observation noise |1.525%|0.192%|
 
-因此上一节的近参照效果不能当部署收益。这不是一条研究问题新定义，而是原“快速更新”问题必须算的时间账。**这个诊断执行的是旧状态计划，不是延迟感知重规划或B0的发布后状态反馈**；结果不证明它们必然同样损失。准备/反馈分离、状态对齐和快速策略可作为后续工具，本组结果没有检验它们的充分能力。
+Near-reference scores therefore are not deployment gains. Timing is part of the original rapid-update question, not a new question. **This diagnostic executes old-state plans, not delay-aware replanning or B0 postrelease feedback**; it does not show equivalent losses for those methods. Preparation/feedback separation, alignment and fast policies remain possible, untested in their full strength.
 
-## 独立核对与复现
+## Independent verification and reproduction
 
-`verify.py`重建物理矩阵，用Kronecker协方差方程和频域积分核对代价；中心差分核解析梯度/Hessian；重载9个网络；对两条预选瞬态、所有原方法及新有限迭代方案用独立DOP853核对，并独立检查分段增益/速率边界。具体非零误差见`independent_checks.json`。
+`verify.py` rebuilds physical matrices, checks costs by Kronecker covariance/frequency integration, gradients/Hessians by differences, reloads9 networks, and checks preselected transients/all original/budgeted methods with DOP853 plus independent gain/rate bounds. See `independent_checks.json` for nonzero errors.
 
-依赖根目录NumPy/SciPy/Numba，另需Torch和Matplotlib（本次分别2.7.1+cpu、3.9.4，完整版本见`environment.json`）。从项目根目录运行：
+Use root NumPy/SciPy/Numba plusTorch/Matplotlib(here2.7.1+cpu/3.9.4; see `environment.json`). Run from root:
 
 ```bash
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python experiments/optimal_impedance_update/screen.py
@@ -112,4 +112,4 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python experiments/optimal_impedance_up
 python experiments/optimal_impedance_update/summarize.py
 ```
 
-**未覆盖：B0能量池、硬力约束、MHE、Hertz滑动接触、全维机器人、实际成像。** 高斯噪声期望代价不能提供逐样本硬力安全；固定增益下稳定也不保证任意变增益闭环稳定。保留用途为求解、映射与成本对照；不把本载体或某个固定误差百分比当最终选题/统一门槛。具体后续不由旧报告指定。
+**Not covered: B0 energy tanks, hard force constraints, MHE, Hertz sliding, full robots or imaging.** Gaussian expected costs do not ensure samplewise force safety; fixed-gain stability does not ensure arbitrary time-varying stability. Retain solver/mapping/cost references, not a final topic or universal percentage threshold. Old reports do not prescribe current work.

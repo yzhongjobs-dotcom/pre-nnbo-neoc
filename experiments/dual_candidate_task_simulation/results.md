@@ -1,42 +1,42 @@
-# 两候选各自仿真与比较结果
+# Separate simulations and comparison results for the two candidates
 
-24个物理场景，每类6例。三个学习种子复用同一批场景，不能称72个独立物理试验。零计算等待主表如下。
+24 physical scenarios, 6 per category. Three learning seeds reuse the same scenarios; these are not 72 independent physical trials. The main table assumes zero computation wait.
 
-| 方法 | 力RMSE/N | 切向RMSE/mm | 法向RMSE/mm | 共同物理评分（越低越好） | 采样约束违反 |
+| Method | Force RMSE/N | Tangential RMSE/mm | Normal RMSE/mm | Shared physical score (lower is better) | Sampled constraint violations |
 |---|---:|---:|---:|---:|---:|
-| 候选1：局部价值反馈＋邻近更新 | 0.008543 | 0.2370 | 0.1061 | 0.07080 | 0 |
-| 候选1关闭邻近更新 | 0.008487 | 0.2375 | 0.1062 | 0.07072 | 0 |
-| 较充分同族价值求解 | 0.008479 | 0.2373 | 0.1062 | 0.07065 | 0 |
-| 候选2：种子16111 | 0.006577 | 0.2178 | 0.1074 | 0.06112 | 0 |
-| 候选2：种子16112 | 0.006060 | 0.2156 | 0.1076 | 0.05921 | 0 |
-| 候选2：种子16113 | 0.006753 | 0.2114 | 0.1073 | 0.06054 | 0 |
-| Jin多步方法扫描适配 | 0.003986 | 0.1647 | 0.1087 | 0.05646 | 0 |
+| Candidate 1: local value feedback + neighboring updates | 0.008543 | 0.2370 | 0.1061 | 0.07080 | 0 |
+| Candidate 1 without neighboring updates | 0.008487 | 0.2375 | 0.1062 | 0.07072 | 0 |
+| More thorough same-family value solve | 0.008479 | 0.2373 | 0.1062 | 0.07065 | 0 |
+| Candidate 2: seed16111 | 0.006577 | 0.2178 | 0.1074 | 0.06112 | 0 |
+| Candidate 2: seed16112 | 0.006060 | 0.2156 | 0.1076 | 0.05921 | 0 |
+| Candidate 2: seed16113 | 0.006753 | 0.2114 | 0.1073 | 0.06054 | 0 |
+| Jin multistep scanning adaptation | 0.003986 | 0.1647 | 0.1087 | 0.05646 | 0 |
 
-这里的共同物理评分只包含运动、速度和法向力，按相同采样积分；不含某控制器族的增益偏好/率正则。不能用Jin在本候选完整OCP代价中的大数值声称胜出。单项误差显示法向位置与力/切向运动的取舍。
+The shared physical score contains only motion, velocity and normal force, integrated with the same sampling; it excludes controller-family gain-preference/rate regularization. A large Jin cost under this candidate's complete OCP objective does not establish a win. Component errors show the tradeoff between normal position and force/tangential motion.
 
-| 实测等待发布：8场景 | 力RMSE/N | 切向RMSE/mm | 法向RMSE/mm | 每场景决策中位耗时的均值/ms | 跳过的更新 |
+| Measured-wait release: 8 scenarios | Force RMSE/N | Tangential RMSE/mm | Normal RMSE/mm | Mean of per-scenario median decision times/ms | Skipped updates |
 |---|---:|---:|---:|---:|---:|
-| 候选1 | 0.009282 | 0.2366 | 0.1043 | 52.867 | 13 |
-| 关闭邻近预测 | 0.008887 | 0.2376 | 0.1045 | 32.280 | 0 |
-| 较充分价值求解 | 0.010998 | 0.2370 | 0.1033 | 77.283 | 37 |
-| 候选2 | 0.006748 | 0.2198 | 0.1058 | 0.099 | 1 |
-| Jin扫描适配 | 0.003820 | 0.1329 | 0.1074 | 0.720 | 0 |
+| Candidate 1 | 0.009282 | 0.2366 | 0.1043 | 52.867 | 13 |
+| Without neighboring prediction | 0.008887 | 0.2376 | 0.1045 | 32.280 | 0 |
+| More thorough value solve | 0.010998 | 0.2370 | 0.1033 | 77.283 | 37 |
+| Candidate 2 | 0.006748 | 0.2198 | 0.1058 | 0.099 | 1 |
+| Jin scanning adaptation | 0.003820 | 0.1329 | 0.1074 | 0.720 | 0 |
 
-计时是所有方法共用编译标量接触核后的CPU原型，2ms发布网格，非机器人实时认证。旧timed_*文件是NumPy逐点版本诊断，不作为当前速度结论。模型更新时间与网络逐次推理的粒度不同，不直接拿两个中位时间作全链加速比；估计开销另计且已进入发布延迟。
+Timing uses CPU prototypes with a shared compiled scalar contact kernel and a 2ms release grid; it is not robot real-time certification. Old timed_* files diagnose the pointwise NumPy version and do not establish current speed. Model updates and individual network inference have different granularity, so their two median times are not an end-to-end speedup ratio. Estimation overhead is reported separately and included in release delay.
 
-机制、分层数据、置信区间、分布变化及训练种子范围见[summary.json](summary.json)。小区间只反映固定实现的场景差异，不是顶刊达标结论。
+See [summary.json](summary.json) for mechanisms, stratified data, confidence intervals, distribution shifts and training-seed scope. Narrow intervals reflect scenario variation for fixed implementations, not attainment of leading-journal standards.
 
-逐例分项与示例轨迹：[PNG图](results.png)、[PDF图](results.pdf)。
+Per-case components and example trajectories: [PNG figure](results.png), [PDF figure](results.pdf).
 
-## 这些结果具体说明什么
+## What these results establish
 
-预瞄消融经核查重做：旧版本把新材料进入当前区后的信息也删掉了，原26.86%/6.17%不作为贡献证据。现保留与当前接触Fn/Ft匹配的均匀模型，只去掉空间变化；学习版重新独立训练。在新seed16501的24场景比较，未用原测试挑参数。
-该对照匹配当前Fn/Ft，不匹配全部力矩和局部导数；因此检验空间参数化信息的整体作用，不能把收益单独归因于时间提前量。
+The preview ablation was checked and redone: the old version also removed new-material information after it entered the current region, so the original 26.86%/6.17% is not contribution evidence. The correction retains a uniform model matched to current-contact Fn/Ft and removes spatial variation only; the learning version is independently retrained. Comparison uses 24 new seed16501 scenarios without selecting parameters from the original test.
+This comparison matches current Fn/Ft, not every moment or local derivative. It tests the overall role of spatially parameterized information; benefits cannot be attributed solely to temporal anticipation.
 
-候选1的修正预瞄消融：完整任务代价逐例平均改善2.428%，配对95%区间[1.445%,3.433%]。NEOC开/关仍只改善约0.007%，区间[-0.260%,0.207%]；当前带邻近预测还比同预算关闭它更慢。信息作用与邻近更新价值必须分别判断。较充分同族求解也不是已知真值的全局最优控制，不能将微小实测胜幅解释成超过最优。
+Candidate 1 corrected preview ablation: mean paired improvement in complete task cost is 2.428%, paired 95% interval [1.445%,3.433%]. NEOC on/off still gives only about 0.007% improvement, with interval [-0.260%,0.207%]; neighboring prediction is currently slower than disabling it under the same budget. Information and neighboring-update value must be judged separately. More thorough same-family solving is not ground-truth globally optimal control; tiny measured wins cannot mean surpassing the optimum.
 
-候选2的修正预瞄消融（同训练种子16111、各自训练）：逐例完整代价改善3.740%，配对95%区间[-0.168%,8.922%]；这是固定种子的条件结果。三个主种子的共同物理评分均值为0.06029，Jin适配为0.05646，约高6.78%。不能拿单次网络推理快或一个种子的消融当作总体优于领域方法。
+Candidate 2 corrected preview ablation (same training seed16111, separately trained): paired complete-cost improvement is 3.740%, paired 95% interval [-0.168%,8.922%]; this is conditional on a fixed seed. The three main seeds have mean shared physical score 0.06029 versus 0.05646 for the Jin adaptation, about 6.78% higher. Fast individual inference or a one-seed ablation does not establish overall superiority to in-field methods.
 
-两候选法向位移误差略小，力与切向运动误差仍更大；这是真实取舍。目前没有顶刊级方法优势结论。变软和更快表面8场景中，候选1/2力RMSE均值约0.01792/0.02482N；这个额外队列没有外部基线，不作为超越已有工作的证据。约束检查均为当前采样轨迹，主要场景能量约束不活跃，不能据此声称证明了主动约束场景或真实接触安全。
+Both candidates have slightly smaller normal-displacement errors but larger force/tangential-motion errors; this is an actual tradeoff. No leading-journal-level method advantage is established. Across 8 softer/faster-surface scenarios, candidate 1/2 mean force RMSE is about 0.01792/0.02482N. This extra cohort has no external baseline and does not establish superiority to prior work. Constraint checks concern sampled trajectories; energy constraints are inactive in the main scenarios, so these results do not establish active-constraint behavior or real-contact safety.
 
-下一轮应解释并改进：候选1为何额外预测/校正未换来比普通反馈更新更好的成本；候选2为何利用了预瞄仍未达到强方法的力/切向效果，并检查训练目标与实际任务取舍。可沿已有强阻抗结构改进或学习修正，但必须明确改什么并用新场景验证；不通过改分数、虚构计算瓶颈或新增模块数量宣布成功。实际平台/标定仍待核实。
+Next explain and improve why candidate 1's extra prediction/correction does not yield better cost than ordinary feedback updates, and why candidate 2 uses preview yet trails strong force/tangential performance; check training objectives against actual task tradeoffs. Existing strong impedance structures or learned corrections may be improved, with explicit changes verified on new scenarios. Changing scores, inventing computational bottlenecks or counting added modules cannot establish success. The actual platform/calibration still needs verification.

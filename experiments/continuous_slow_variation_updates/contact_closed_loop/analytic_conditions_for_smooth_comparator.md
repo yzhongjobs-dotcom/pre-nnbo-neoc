@@ -1,12 +1,12 @@
-> 既有局部验证记录。过时选题与续做安排已移除，原配置和数值结论保留。后续安排见[HANDOFF](../../../project_records/HANDOFF.md)。
+> Existing local validation record. Obsolete topics/plans were removed; original configurations/results remain. Current plans: [HANDOFF](../../../project_records/HANDOFF.md).
 
-# 平滑接触对照：直接 NEOC 的解析条件
+# Smooth-contact comparator: analytical conditions for direct NEOC
 
-这是本目录的简化验证证明，不是原 R15 全维方法的新证明或机器认证。它隔离“缓变参数、直接预测、误差保证”这一机制；实际脚本还用浮点实现、有限时间表面运动和采样控制核对结果。
+This simplified validation proof is neither a new full-dimensional R15 proof nor machine certification. It isolates slow parameters, direct prediction and error guarantees; scripts additionally check floating-point implementation, finite-time surface motion and sampled control.
 
-## 1. 平滑且有精确参照的 critic 根
+## 1. Smooth critic root with an exact reference
 
-局部法向接触刚度为 θ，质量 m、环境阻尼 b。冻结 θ 与参考时，误差状态 x=(e,v)，力增量 u 满足
+With local normal stiffness θ, mass m and environmental damping b, freeze θ/reference. State x=(e, v) and force increment u satisfy
 
 \[
 \dot x=A(\theta)x+Bu,\quad
@@ -14,13 +14,13 @@ A=\begin{bmatrix}0&1\\-\theta/m&-b/m\end{bmatrix},\quad
 B=\begin{bmatrix}0\\1/m\end{bmatrix}.
 \]
 
-静态调节代价为 ∫(xᵀQx+r u²)dt，Q=diag(q_e,q_v)>0、r>0。这里惩罚平衡接触力之外的**力增量**，并不把持续非零接触力的平方积分称为有限值。二次 single critic V=xᵀPx 的根是
+The stationary regulation cost is ∫(xᵀQx+r u²)dt, Q=diag(q_e, q_v)>0, r>0. It penalizes **force increments** about equilibrium, not a finite infinite-horizon integral of sustained nonzero force squared. The quadratic single-critic V=xᵀPx root is
 
 \[
 F(P,\theta)=A^TP+PA-PBB^TP/r+Q=0.
 \]
 
-反馈 u=−ke−dv，可直接解释为法向 PD 阻抗，其中
+Feedback u=−ke−dv is directly normal PD impedance, where
 
 \[
 s=\sqrt{\theta^2+q_e/r},\quad
@@ -34,49 +34,49 @@ r[bk+(\theta+k)d]&rmk\\rmk&rmd
 \end{bmatrix}.
 \]
 
-代入即验证 Riccati 方程。k,d>0，闭环特征多项式为 mλ²+(b+d)λ+(θ+k)，故冻结闭环稳定。本实验区间内 P₁₁>0，且 det(P)/(r²m)=bkd+sd²−mk² ≥ s_min d_min²−m k_max²>0，故 P 正定。若有两个稳定根，其差满足两个稳定闭环矩阵之间的齐次 Sylvester 方程，唯一解为零，因此稳定根唯一。根分支光滑，隐式灵敏度满足
+Substitution checks Riccati. k, d>0 and characteristic polynomial mλ²+(b+d)λ+(θ+k) ensure frozen-loop stability. Here P₁₁>0 and det(P)/(r²m)=bkd+sd²−mk² ≥ s_min d_min²−m k_max²>0, so P≻0. Two stabilizing roots would differ by a homogeneous Sylvester equation between stable loops, whose unique solution is zero. The stabilizing root is unique/smooth, with sensitivity
 
 \[
 A_c^TC+CA_c=-(A_\theta^TP+PA_\theta),\quad
 A_c=A-BB^TP/r.
 \]
 
-左侧 Lyapunov 算子因 A_c 稳定而可逆。脚本计算 C，通过独立解析解差分核对；预测点不需要再次求根。
+The left Lyapunov operator is invertible because A_c is stable. Compute C and check independent analytical-solution differences; predicted points need no new root solve.
 
-## 2. 事先定半径，范围内直接发布
+## 2. Predeclare radius and release directly within it
 
-令 c=q_e/r，θ∈[θ_l,θ_h]。有
+Let c=q_e/r,θ∈[θ_l,θ_h]. Then
 
 \[
 k'=\theta/\sqrt{\theta^2+c}-1,\quad
 0<k''=c/(\theta^2+c)^{3/2}\le M_k.
 \]
 
-取 L_k=1−θ_l/√(θ_l²+c)，w_min=√(b²+2mk(θ_h)+q_v/r)，则
+Take L_k=1−θ_l/√(θ_l²+c), w_min=√(b²+2mk(θ_h)+q_v/r). Then
 
 \[
 |d'|\le mL_k/w_{\min},\quad
 |d''|\le M_d:=mM_k/w_{\min}+m^2L_k^2/w_{\min}^3.
 \]
 
-反馈增益由 P 线性恢复，所以使用 P_p=P_a+C_a(θ−θ_a) 得到的 k_p,d_p 正是它们的一阶预测。理想精确锚点/灵敏度下，
+Gains recover linearly from P, so P_p=P_a+C_a(θ−θ_a) exactly gives their first-order predictors. For ideal exact anchors/sensitivities,
 
 \[
 |k_p-k^*|\le M_k|\Delta\theta|^2/2,\quad
 |d_p-d^*|\le M_d|\Delta\theta|^2/2.
 \]
 
-预设误差允许量 ε_k=0.1 N/m、ε_d=0.002 Ns/m，可提前选
+With ε_k=0.1 N/m and ε_d=0.002 Ns/m, preselect
 
 \[
 r_\theta=\min\{\sqrt{2\varepsilon_k/M_k},\sqrt{2\varepsilon_d/M_d}\}\approx13.0\ \mathrm{N/m}.
 \]
 
-脚本范围内只从锚点预测；超过参数半径才建立新锚点。不依据候选残差或真实误差决定接受。若锚点/灵敏度不是精确量，仍须加入其误差项；本次只做浮点核对，未用区间算术外包数值误差。
+Within this radius predict directly from anchors; create new anchors only outside it. Candidate residuals/true errors do not determine acceptance. Inexact anchors/sensitivities need additional budgets; this floating-point check does not interval-enclose numerical errors.
 
-## 3. 缓变下的稳定条件与适用边界
+## 3. Slow-variation stability and limits
 
-用精确冻结根构造 V=xᵀP*(θ(t))x。实际增益与当前精确增益的偏差为 Δg=(Δk,Δd)。在齐次误差系统中，
+Use V=xᵀP*(θ(t)) from exact frozen roots, with gain deviation Δg=(Δk,Δd). In homogeneous error dynamics,
 
 \[
 \dot V\le-[1-\gamma_\theta-\gamma_g]x^TQx,
@@ -88,6 +88,6 @@ r_\theta=\min\{\sqrt{2\varepsilon_k/M_k},\sqrt{2\varepsilon_d/M_d}\}\approx13.0\
 \gamma_g=2\|Q^{-1/2}PB\|\,\|\Delta g Q^{-1/2}\|.
 \]
 
-脚本用解析区间上界计算这些量，同时把材料采样、一个发布周期内的因果增益插值及低层半步保持偏移计入 Δg。γ_θ+γ_g<1 给出齐次系统的统一衰减裕量；移动表面、变化参考和采样参考偏差是另行计入的有界外部输入，不能把其影响删去后宣称全任务误差趋零。
+Analytical interval bounds include material sampling, causal interpolation over a release cycle and low-level half-step holds in Δg. γ_θ+γ_g<1 gives uniform homogeneous decay. Moving surfaces, references and sampled-reference deviations are separately bounded external inputs; excluding them cannot establish vanishing full-task error.
 
-**该证明说明怎样提前给出直接 NEOC 的有效条件，不要求逐候选 rollout 检查。** 它不证明时变任务的全局最优代价，不提供全部接触力/能量的连续时间认证，也不覆盖原 R15 的非线性接触、增益率最优控制、MHE 或空间预瞄。脚本中的这些物理指标仅做事后采样核对。
+**The proof shows how to predeclare direct-NEOC validity without per-candidate rollout checks.** It proves neither global time-varying task optimality nor continuous force/energy certification, and excludes full R15 nonlinear contact, gain-rate OCP, MHE and preview. Scripts check those physical metrics retrospectively at samples.

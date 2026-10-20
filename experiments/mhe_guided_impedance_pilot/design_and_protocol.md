@@ -1,35 +1,30 @@
-# MHE前端与任务代价引导阻抗：第一轮可执行设计
-<!-- project-update:start -->
+# MHE front end/task-cost-guided impedance: first executable design
 
-**历史协议范围（2026-10-20审查）：** 本协议只描述本目录早期预检的当时定义、划分与暂停，不是当前完整候选或默认续做计划；未训练完成也不代表后续候选从未训练。后续结果及用户更新的实验顺序见[HANDOFF](../../project_records/HANDOFF.md)。
+2026-10-19; comparison`9cd2672`. The user authorized search, design, quick tests and iteration, not a new approval gate. FrozenB0/old data remain unchanged. This reduces both candidates, not full B0 or leading-journal completion.
 
-<!-- project-update:end -->
+**Status after user correction: paused.** Fixed/analytical tuning dominated validation without implementedNNBO/strongVIC. Training stopped with no completedactor/independent tests. Retain engineering prechecks, not effectiveness/contribution evidence. Recorded resumption prioritizes[field methods](../../research/candidate_improvements_targeted_literature_and_design.md#4-user-correction-main-comparisons-must-use-field-methods), with fixed control auxiliary. Confirmed requirements were neither lowered nor replaced.
 
-2026-10-19；比较起点 `9cd2672`。本轮用户已授权检索、设计、快验并持续迭代；不是新审批关卡。冻结B0和旧数据不变。此原型是两候选的约化实现，尚不等于完整B0或已达顶刊标准。
+## Adaptations from mature work
 
-**用户纠正后的状态：暂停。** 原协议把固定/解析控制调优放在主要验证位置，没有先落实NNBO和相关强变阻抗方法，比较层次不足。用户指出后已终止训练，未生成训练完成的actor或独立测试结果。下述实现/数据保留为工程预检，不作为候选有效性或顶刊贡献证据。恢复时先按[主对照修订](../../research/candidate_improvements_targeted_literature_and_design.md#4-用户纠正主对照必须落实到领域方法)落实领域方法；固定控制降为辅助参照。没有降低或另设用户已确认的要求。
+YOPO backpropagates numerical task gradients rather than only imitating labels; Roveda2022 already approximates predictive impedance with actors. Replacing optimization by networks is not separately new. Adaptation: network sees delayed/noisy joint estimates/current execution states; offline gradients pass through contact, actual gain transitions, energy projection/feedback, training executable rolling actions. Truth may score training, but deployment cannot read materials/future contact.
 
-## 从成熟工作调整什么
+Jointly fit finite-footprintFn/Ft/My and measured trajectories for local material/surface/motion. Both share this front. Candidate 1 first uses ordinary warm shooting as a capable model route, notHJB/NEOC. Candidate 2 uses task-gradient networks, with four gain targets/bounded normal compensation and pure-gain variants for attribution. Experiments determine joint-action value, without requiring gains to win.
 
-YOPO将数值任务代价梯度传至网络，避免仅模仿某个求解器标签；Roveda等2022已把预测阻抗决策近似为actor。因此，本轮不把“在线优化换网络”单列为新贡献。借鉴后的具体调整是：网络只输入带延迟、噪声的联合估计及当前执行状态；离线梯度经过接触、真实增益过渡、能量投影和反馈控制，训练的对象是能够执行的滚动动作。训练可以用仿真真值计算代价，部署不能读取材料真值或未来接触信息。
+This may reduce losses from model error, slow optimization and delayed gain execution; compare actual increments against nearest prior/strong simple control. No new theorem or first joint estimation/gradient learning is claimed.
 
-共同前端将有限足迹的Fn/Ft/My与已测机器人轨迹联合拟合，得到局部材料、表面和运动估计；两候选共享该前端。候选1本轮先用普通热启动直接打靶优化建立有能力的模型路线，不冒充HJB/NEOC。候选2用小型神经网络的任务代价引导训练。网络可以联合产生四个增益目标和有界法向补偿；另留纯增益实例，区分收益来源。是否需要联合动作由实验判断，不预设增益必须获胜。
+## Executable interfaces
 
-这组关系可能减少“模型估计有误、优化过慢、增益来不及执行”的共同损失；实际贡献尺度仍须与最接近工作及强简单控制比较。不存在一条已证明的新理论，也未声称首次联合估计或首次梯度学习。
+- Truth: reuse corrected finite cylindrical foundation, heterogeneous materials, moving surfaces/material convection; fixed attitude, not6D/calibrated tissue. Old files unchanged.
+- Front end:31 samples at 100Hz,20ms wrench delay,20Hz constrained nonlinear window fitting. Seven parameters: log stiffness, gradient, surface height/slope/velocity, viscous time, friction; propagated previous estimates provide arrival regularization. Known pose inputs, not joint robot-state/full B0MHE. Known initial surface reference, no later truth. Linear local fields mismatch true sine/hyperbolic fields.
+- Execution:100Hz force feedback,12.5Hz decisions, shared rate/energy projections;1ms/65-node truth. Prediction240ms,2ms/33nodes, two120ms segments. Roll future sensing; initialize first20ms queue with arrived force, not future-oracle data.
+- Objective: previous engineering force, motion, velocity/effort scales, normal-pose weight1. Preserve prior distributions without artificially increasing difficulty. Not clinical thresholds.
+- Auxiliary controls only: delayed force feedback/tuned fixedK/D, shared-front analytical force/reference compensation, ordinary warm finite-horizon optimization. NotNNBO/strong fieldVIC and insufficient for main contribution comparisons; the user corrected that arrangement.
+- NN:64–64tanh, joint estimates/actual robot state/gains/energy/task inputs,10 bounded outputs; brief feasible analytical initialization then numerical task gradients. NotPPO/YOPO reproduction.
 
-## 可执行接口
+## Splits and decisions
 
-- 真值接触：复用此前修正的有限柱面足迹、非均匀材料、运动表面及材料点对流项模型；固定姿态，非完整6D接触，也非标定组织。旧文件不改。
-- 前端：31个100Hz历史样本，20ms力觉延迟，20Hz约束滚动窗非线性拟合；局部log刚度、刚度梯度、表面高度/斜率/速度、黏性时间及摩擦七参数；传播上次估计作到达正则。已测姿态作为已知输入，不联合估计机器人状态；不是B0完整非线性MHE。初始表面基准已知，此后不读真值。局部线性场与真实正弦/双曲场有失配。
-- 执行：100Hz力反馈、12.5Hz决策，目标增益经过既有变化率/能量投影；实际积分1ms、65点足迹。预测240ms、2ms/33点、两个120ms动作段。未来感知通过模型滚动预测，初始20ms感知队列用当前已到达力初始化；不是未来传感器oracle。
-- 目标：沿用先前工程尺度的力误差、切向及法向运动、速度和执行努力；法向姿态权重1。参数分布也沿用旧扫描载体，不为新机制增加难度。不是临床阈值。
-- 当前仅有的辅助参照：直接延迟力反馈＋调优固定K/D、共享前端解析力/参考补偿、普通热启动有限时域优化。它们不等于NNBO或领域强变阻抗方法，不能承担主要贡献比较；原来的比较安排已被用户纠正。
-- NN：64–64 tanh，输入为共同估计、真实机器人状态/实际增益/能量及任务信息，输出10个有界量；先短暂学习解析可行初值，再用数值代价梯度训练。不是PPO，也不是YOPO复现。
+Trainingseed9101; first two pilots from training. Fixed control tunes12 cases, not tests. Collect24 fixed/analytical trajectories; validationseed9201 supports design; newseed9401 reserved after freezing. Repeated trajectories are not independent cases; share noise within scenarios. Viewed/reused batches become validation, not blind tests.
 
-## 划分与本轮决定
+First check local-model consistency with homogeneous ground truth, task-gradient direction and causal delay. Then compare actual closed-loop cost/force/motion, energy/gain execution and estimation/decision costs. Finally check relevant ablations, integration resolution and delay sensitivity. Current zero-release-wait results show algorithm/closed-loop potential only; actual computation or explicit sensitivity must be accounted for, without claiming deployment real-time guarantees. Complete MHE, nonlinear tissue memory, hardware and full strong-paper reproductions remain outside this prototype scope.
 
-训练材料seed9101；初始两例pilot来自训练分布。固定基线在其中12例调优，不用测试集。学习首先采集训练24例固定/解析轨迹；验证seed9201用于修改设计；冻结后新seed9401留作测试。轨迹重复不是新独立样本；同场景共享噪声种子。若某批被看过并用于改动，该批改称验证，不继续称盲测。
-
-先检查：局部模型与均匀真值一致、任务梯度方向、因果延迟；再比较实际闭环代价/力/运动、能量和增益执行、估计与决策成本。最后做相关消融、积分分辨率及延迟敏感性。当前零发布等待的结果只说明算法/闭环潜力；必须另计真实计算或明确敏感性，不能称部署实时保证。完整MHE、非线性组织记忆、实物和强论文完整复现仍在本原型边界外。
-
-实际完成：训练分布前两例fixed/analytic/mpc预检；12例固定辅助调优；24例固定及解析各一次轨迹采集，共3600个相关上下文。NN训练在用户暂停时被终止，无完成模型，不能称候选2训练成功。验证seed9201和测试seed9401未运行。模型梯度诊断28个相关状态只说明局部估计误差可能影响动作，不是独立28次闭环比较。
+Completed: two trainingfixed/analytic/mpc pilots,12 fixed-tuning cases,24 paired trajectory collections/3600 correlated contexts. User-pausedNN has no completed model; candidate 2 training success is not established. Validationseed9201/testseed9401 were not run.28 correlated-state gradients diagnose possible local action errors, not28 independent loops.

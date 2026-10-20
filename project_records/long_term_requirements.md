@@ -1,13 +1,6 @@
 # 长期要求与科研判断
-<!-- project-update:start -->
 
-## 当前语言与版本约定（用户于2026-10-20确认调整）
-
-本文件及交接、关键决策、失败教训、科研正文和实验解释使用中文单一工作版本。恢复依据为英文化前提交 `067ca1048fc492c1a61d39e88c7f839c80c29961`；除路径引用与明确标出的本次说明外，保留原文，不采用英文压缩稿反译。目录、文件名、代码和技术工具说明继续使用英文。文献原文、原始实验数据和冻结B0快照保持原样。本文中10月19日的科学要求不因语言恢复而改变。
-
-<!-- project-update:end -->
-
-本文件保存用户确认的稳定目标、科研流程与阶段判断。2026-10-19根据用户对方法形成、贡献尺度及论文组织的明确确认更新；具体论文依据保留在[逐例逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md)，当前任务见[HANDOFF](HANDOFF.md)，历史及失败证据见[研究决策与变更](decisions_and_changes.md)和[失败复盘](research_failures_and_corrections.md)。
+本文件保存用户确认的稳定目标、科研流程与阶段判断。2026-10-19根据用户对方法形成、贡献尺度及论文组织的明确确认更新；具体论文依据保留在[逐例逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md)，当前任务见[HANDOFF](HANDOFF.md)，科研偏差与教训见[失败复盘](research_failures_and_corrections.md)，版本历史由Git保存。
 
 ## 一、目标与判断依据
 

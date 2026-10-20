@@ -1,100 +1,100 @@
-> 既有局部验证记录。过时选题与续做安排已移除，原配置和数值结论保留。后续安排见[HANDOFF](../../project_records/HANDOFF.md)。
+> Existing local validation. Obsolete topics/plans removed; original configurations/results remain. See [HANDOFF](../../project_records/HANDOFF.md).
 
-# 问题、强对照与机制重新对齐
+# Realigning problems, strong comparators and mechanisms
 
-本目录保留局部接触动力学、强反馈与短预测的代码和结果，用作验证参照；未替代B0问题或方法。
+Retain local contact dynamics, strong feedback/short-prediction code/results as references, without replacing B0.
 
 ## Material Passport
 
 - Origin Skill: academic-research-suite / experiment-agent
 - Origin Mode: run + independent numerical validation
 - Version Label: physical_transient_alignment_v1
-- Verification Status: 已执行；主优化同初值重跑的动作与轨迹逐项一致。
-  独立积分、梯度、能量核对见下文；不是全维 R15 或全局最优性认证。
+- Verification Status: executed; optimization actions/trajectories rerun identically from the same start.
+  Independent integration, gradient/energy checks follow, not full R15/global certification.
 - Type: local physical contact simulation / rival-mechanism discrimination
-- Status: 当前问题实例审查完成；完整研究问题—方法匹配尚未完成。
+- Status: local-instance review complete; complete question–method matching remains unfinished.
 
-## 局部测试问题
+## Local test question
 
-Q1：受扰后需要控制精度、恢复平稳后需要柔顺，实际刚度与阻尼又受
-变化率和能量限制。这样的动态取舍是否需要持续优化，是否自然支持原 NEOC 核心？
+Q1: disturbed operation needs precision; recovered operation needs compliance, while actual stiffness/damping face
+rate/energy limits. Does this dynamic tradeoff require continued optimization and naturally support original NEOC?
 
-不同于此前信息代理，本轮误差由接触动力学求出，没有规定目标刚度轨迹。
-模型是预载附近的局部线性软接触；变量为位置误差、速度、实际 K/D 与能量。
-所有控制在同一物理代价、力/增益/变化率/能量限制下比较。
-模型有机器人增量控制力、接触力和真实增益积分；不是原四维增益率 HJB。
-数值范围用于机制辨别，未做组织/平台标定，材料留出是局部冻结参数族，
-尚未执行整条环境持续变化的闭环；不能据此否定持续扫描 idea。
+Unlike information proxies, contact dynamics determines errors; no target stiffness trajectory is imposed.
+Model: local linear soft contact near preload; states are position error, velocity, actual K/D and energy.
+All methods share physical costs, force/gain/rate/energy bounds.
+Robot incremental control/contact forces and actual gain integration are included, not original four-dimensional gain-rate HJB.
+Ranges distinguish mechanisms without tissue/platform calibration; material holdouts freeze local parameters,
+not a full continuously changing environment. They do not invalidate continuous scanning.
 
-## 结果改变了哪些判断
+## Judgments changed by results
 
-| 顺序 | 所检验的解释 | 结果 | 问题与方法的决定 |
+|Order|Hypothesis|Result|Decision|
 |---|---|---|---|
-| 1 | 动态恢复与柔顺取舍会使固定目标增益不够好 | 主例完整增益率优化代价 0.07374682，固定目标 0.08377740，改善约 11.97%；允许预选实际初始固定增益的更强诊断仍为 0.08220324 | 可以保留“需要随状态改变阻抗”；没有得到复杂优化必要性 |
-| 2 | 动态反馈能否补足固定控制的差距 | 全局搜索+Powell 修复后，六参数状态调度仅比优化参照高 0.07586% | 该实例中调优状态反馈接近局部优化 |
-| 3 | 单一调度能否覆盖变化材料及扰动状态 | 六组留出中，冻结主例调度最差高 9.60%；各组独立重调后最大差仅 0.363% | 区分策略覆盖不足与机制能力不足；重调不是在线可免费完成 |
-| 4 | 材料条件化查表能否补足覆盖 | 四个同初始扰动的材料锚点在新材料上准确，但部分新状态最差高 12.30% | 材料查表本身不能保证状态覆盖，不能拿此局部失败否定全部条件化策略 |
-| 5 | 便宜的一步模型预测能否修复覆盖 | 26 个候选的一步 rollout 在五个宽裕组差 0.061%–0.176%；低能量组差 1.42%–2.41% | 先查预测实现，而非立即宣布需要完整 HJB |
-| 6 | 低能量差距来自时间耦合还是动作网格 | 只将当前两个动作连续细化，七组代价差 0.00240%–0.06478%；样本能量/力/增益约束通过 | 差距主要来自动作分辨率，不代表算法类别的本质差距 |
+|1|Recovery/compliance defeats fixed targets|Full rate cost 0.07374682 versus fixed0.08377740, about 11.97%better; stronger preselected-initial-gain diagnostic0.08220324|State-dependent impedance remains useful, complex optimization not necessary yet|
+|2|Dynamic feedback closes fixed-control gaps|Global search/Powell six-parameter schedule is only0.07586%above reference|Tuned feedback approximates local optimization|
+|3|One schedule covers materials/states|Six holdouts: worst frozen gap9.60%; independent retuning≤0.363%|Coverage differs from mechanism inability; retuning is not free online|
+| 4 | Can material-conditioned lookup repair coverage? | Four material anchors with the same initial disturbance are accurate on new materials, but some new-state costs are up to 12.30% higher | Material lookup alone cannot ensure state coverage; this local failure does not refute all conditioned policies |
+|5|Cheap one-step prediction repairs gaps|26-candidate rollout: five ample-energy groups0.061%–0.176%; low energy 1.42%–2.41%|Check implementations before claiming full HJB necessary|
+|6|Low-energy gaps: coupling or grids?|Refine current two actions: seven gaps0.00240%–0.06478%, sample constraints pass|Action resolution dominates, not intrinsic class differences|
 
-原单次主例简单调度的 L-BFGS-B 出现线搜索异常；没有将它当作能力失败。
-随后通过独立全局搜索和 Powell 获得成功的可行解，原始结果仍保留。
-固定目标从共同实际初始增益进入，与允许预选初始固定增益的诊断分开报告。
+Original simple-schedule L-BFGS-B line-search failure was not treated as incapability.
+Independent global search/Powell found feasible successful solutions; retain originals.
+Fixed targets start from common actual gains; preselected fixed-initial gains are separate diagnostics.
 
-## 强简单预测对照实际做什么
+## What the strong simple predictor does
 
-对每个当前增益率动作，在相同接触模型中预报下一步，再用固定的廉价
-状态反馈策略延伸到剩余终点。选择可行且代价较低的当前动作；实际执行
-只施加这一动作。细化版只优化当前两个动作，未来仍用廉价策略，
-不查询最优轨迹、真实最优值或 NEOC 参考答案。
+For each current gain-rate action, predict one step in the same contact model, then use cheap fixed
+feedback to the endpoint. Choose feasible low-cost current actions; execute
+only that action. Refined versions optimize current two actions continuously and retain cheap future feedback,
+without querying optimal trajectories, true values or NEOC answers.
 
-它属于既有 rollout / 一步策略改进原则，本项目不把它包装为新贡献。
-它不是 Beber/Jin/Xue 论文的完整复现；这里说明的是一个较简单的同问题竞争机制
-已能补上当前失效，不能声称已穷举强对照或得到理论支配。
+This is established rollout/one-step policy improvement, not a new contribution.
+It is not whole Beber/Jin/Xue reproduction; it demonstrates a simpler same-problem mechanism
+repairs this failure, not exhaustive comparators or theoretical dominance.
 
-细化版七组最长观测决策耗时为 12.92–21.22 ms，本实例决策周期为 50 ms。
-这是本机原型、单次运行中的观测最大值；不是 WCET、平台实时性或端到端部署证明。
-JIT 准备单独记录，物理仿真与独立最优参照不计入控制器耗时。
-廉价尾策略已有离线调参；该准备工作没有计为零，但尚未完整计时，
-因此只解释在线决策耗时，不宣称全过程/摊销成本优势。
+Seven-group maximum observed decisions12.92–21.22ms versus50ms periods.
+These are local single-run maxima, not WCET, platform real time or end-to-end deployment.
+Record JIT separately; exclude physical simulation/independent references from controller time.
+Cheap tail policies need offline tuning, not free preparation, but preparation was not fully timed,
+so report online timings only, not total/amortized advantage.
 
-## 核对证据
+## Verification evidence
 
-- 主例最优解四个初值均收敛到近似相同的可行值；同一初值重跑动作与轨迹
-  bitwise 一致，见 [复现](pilot_compiled/reproducibility.json)。
-- 编译与原 Python RK4 的实数轨迹、约束和代价完全相同；复数导数差处于浮点量级。
-  编译仅减少实现开销，不能成为方法贡献。
-- 五个独立方向：代价梯度误差最大约 4.4e-11，约束方向误差最大约 1.36e-9。
-- 50 个状态的机器人储能账本恒等式误差最大约 1.04e-17。
-- 主例 DOP853 独立积分的代价相对差约 0.00251%；步长减半差约 0.00234%。
-- 细化 rollout 的代表宽裕组及两个低能量组：独立积分代价相对差不超过
-  0.00056%；物理步长缩为四分之一后，两个低能量组的能量仍高于原下界。
-  这是独立数值/采样检查，未建立连续时间的严格区间证书。
-- 代价采用 RK4 阶段积分；表中 RMSE 是共同采样网格上的点 RMSE，
-  不将不同采样密度下的 RMSE 差解释为动力学差。
+- Four optimization starts reach similar feasible costs; same-start actions/trajectories
+  match bitwise; see [reproduction](pilot_compiled/reproducibility.json).
+- Compiled/original Python RK4 real trajectories, constraints/costs match; derivative differences are floating-point scale.
+  Compilation reduces overhead, not a methodological contribution.
+- Five directions: maximum cost-gradient error4.4e-11, constraint error1.36e-9.
+-50-state robot-storage identity error≤1.04e-17.
+- Main DOP853 relative cost difference0.00251%; halved-step 0.00234%.
+- Refined rollout on one ample/two low-energy groups: independent relative cost differences≤
+  0.00056%; quarter steps retain low-energy bounds.
+  These are numerical/sample checks, not continuous interval certificates.
+- Cost uses RK4 stage integration; RMSE uses common sample grids,
+  so differing sample-density RMSE is not interpreted as changed physics.
 
-核对：[主例](pilot_compiled/audit.json)、[预测对照](rollout_rival_refined/audit.json)。
-参照为收敛的非线性局部轨迹优化，不是真实全局最优；很小的代价差不能
-被解读为绝对最优性的严格证书。
+See [main audit](pilot_compiled/audit.json),[predictor audit](rollout_rival_refined/audit.json).
+References are converged local nonlinear optimizations, not true global optima; tiny gaps are not
+strict absolute-optimality certificates.
 
-## 结果适用范围
+## Scope
 
-Q1显示该局部动态任务中固定目标增益有损失，调优状态反馈和细化一步预测可接近局部优化。它限定本实例的机制收益，不决定B0研究问题是否成立，也不设定后续研究任务。
+Q1 shows fixed-target loss and near-reference tuned feedback/refined prediction in this local task. It limits mechanism benefits, not B0 validity or future tasks.
 
-连续阶段及因果信息消融的结果见[Q2报告](Q2/README.md)。
+See [Q2](Q2/README.md) for continuous phases/causal-information ablations.
 
-## 代码与数据
+## Code and data
 
-- [物理载体](dynamic_tradeoff.py)、[等价编译积分](compiled_flow.py)
-- [独立核对与留出](audit_and_family.py)、[能量边界](energy_boundary.py)
-- [条件化对照](conditioned_rival.py)、[一步预测对照](rollout_rival.py)
-- `pilot_compiled/`：完整主例、独立核对与复现。
-- `material_and_state_holdout/`：六组冻结/重调对照。
-- `energy_boundary/`：四组真实能量预算对照；最紧主例消耗约 98% 初始余量。
-- `conditioned_rival/`：八组材料查表与状态覆盖。
-- `rollout_rival/`、`rollout_rival_refined/`：粗网格与连续动作细化；两版均保留。
+- [Physics](dynamic_tradeoff.py),[equivalent compiled flow](compiled_flow.py)
+- [Independent checks/holdouts](audit_and_family.py),[energy boundary](energy_boundary.py)
+- [Conditioned control](conditioned_rival.py),[one-step control](rollout_rival.py)
+- pilot_compiled/: full main case, audits/reproduction.
+- material_and_state_holdout/: six frozen/retuned groups.
+- energy_boundary/: four actual energy budgets; tightest main case uses about 98%initial margin.
+- conditioned_rival/: eight lookup/state-coverage groups.
+- rollout_rival/, rollout_rival_refined/: retain both coarse/refined versions.
 
-运行顺序（在本目录）：
+Run order in this directory:
 
 ```powershell
 python -X utf8 dynamic_tradeoff.py --name pilot_compiled
@@ -106,4 +106,4 @@ python -X utf8 rollout_rival.py
 python -X utf8 rollout_rival.py --refine
 ```
 
-不要直接覆盖既有结果进行追溯复现；使用独立副本或新输出目录。
+Use copies/new output directories rather than overwriting results for reproduction.

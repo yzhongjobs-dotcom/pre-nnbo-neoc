@@ -1,12 +1,12 @@
-# 分线独立数值结果
+# Independent numerical results for the separate candidates
 
-这是约化载体，不是完整B0、原论文复现或顶刊达标判定。独立物理场景24个，各权重重复同一批场景，不能合并称72独立样本。百分比为逐场景配对均值及bootstrap 95%区间。正数表示候选综合代价较低，不表示力与运动各项均改善。
+This is a reduced test model, not complete B0, an original-paper reproduction or a judgment of leading-journal readiness. There are 24 independent physical scenarios reused at each weight, not 72 independent samples. Percentages are scenario-paired means with bootstrap 95% intervals. Positive values mean lower aggregate candidate cost, not improvement in every force/motion component.
 
-主要表为零发布等待、各原型设计频率（模型12.5Hz、廉价反馈/网络100Hz）；不据此认定普通MPC不能更快。实际计算发布/同频核查另列。
+Main tables use zero release wait and each prototype's design frequency (model 12.5Hz, inexpensive feedback/network 100Hz); they do not establish that ordinary MPC cannot run faster. Actual computational release and matched-frequency checks are separate.
 
-## 法向姿态权重 1
+## Normal-pose weight 1
 
-| 方法 | 平均综合代价 | 平均力RMS/N | 平均切向RMS/mm | 全部场景峰值/N |
+| Method | Mean aggregate cost | Mean force RMS/N | Mean tangential RMS/mm | Peak over all scenarios/N |
 |---|---:|---:|---:|---:|
 | nnbo_adapted | 0.67127 | 0.10045 | 0.007912 | 3.3684 |
 | mpvic_os_adapted | 0.565822 | 0.017158 | 0.0077505 | 3.2392 |
@@ -15,9 +15,9 @@
 | candidate2 | 0.563017 | 0.01476 | 0.01617 | 3.1115 |
 | candidate2_no_front | 0.560947 | 0.018414 | 0.01549 | 3.1595 |
 
-NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不作为贡献证据；原文/非零目标力适配尚待修复核准。E41行也仅限本目录声明的OS扫描适配，不推广为原论文整体结论。
+The NNBO adaptation has substantial inversion failures: this row is diagnostic only, and related improvement percentages are not contribution evidence. Original-paper/nonzero-target-force adaptation still needs repair and verification. The E41 row is limited to this directory's declared OS scanning adaptation, not a conclusion about the whole original paper.
 
-| 配对比较 | 平均改善/% | 95%区间/% | 改善场景 |
+| Paired comparison | Mean improvement/% | 95% interval/% | Improved scenarios |
 |---|---:|---|---:|
 | rate_neighbor_vs_mpvic_os_adapted | -3.9588 | [-6.8831, -1.3974] | 8/24 |
 | rate_neighbor_vs_rate_mpc | -2.6136 | [-5.2427, -0.4915] | 10/24 |
@@ -26,9 +26,9 @@ NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不�
 | candidate2_vs_rate_mpc | 1.8761 | [0.6178, 3.5212] | 20/24 |
 | candidate2_vs_candidate2_no_front | -0.1392 | [-0.2919, -0.0129] | 6/24 |
 
-## 法向姿态权重 12.5
+## Normal-pose weight 12.5
 
-| 方法 | 平均综合代价 | 平均力RMS/N | 平均切向RMS/mm | 全部场景峰值/N |
+| Method | Mean aggregate cost | Mean force RMS/N | Mean tangential RMS/mm | Peak over all scenarios/N |
 |---|---:|---:|---:|---:|
 | nnbo_adapted | 5.60969 | 0.1911 | 0.0080907 | 4.3534 |
 | mpvic_os_adapted | 5.77167 | 0.11356 | 0.008028 | 4.5034 |
@@ -37,9 +37,9 @@ NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不�
 | candidate2 | 5.46106 | 0.34048 | 0.019954 | 4.5515 |
 | candidate2_no_front | 5.68037 | 0.37022 | 0.012982 | 5.0109 |
 
-NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不作为贡献证据；原文/非零目标力适配尚待修复核准。E41行也仅限本目录声明的OS扫描适配，不推广为原论文整体结论。
+The NNBO adaptation has substantial inversion failures: this row is diagnostic only, and related improvement percentages are not contribution evidence. Original-paper/nonzero-target-force adaptation still needs repair and verification. The E41 row is limited to this directory's declared OS scanning adaptation, not a conclusion about the whole original paper.
 
-| 配对比较 | 平均改善/% | 95%区间/% | 改善场景 |
+| Paired comparison | Mean improvement/% | 95% interval/% | Improved scenarios |
 |---|---:|---|---:|
 | rate_neighbor_vs_mpvic_os_adapted | 3.6806 | [-3.4795, 10.5466] | 14/24 |
 | rate_neighbor_vs_rate_mpc | -3.2586 | [-7.4936, 0.1167] | 12/24 |
@@ -48,9 +48,9 @@ NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不�
 | candidate2_vs_rate_mpc | -0.2422 | [-2.6565, 2.1458] | 14/24 |
 | candidate2_vs_candidate2_no_front | 3.1086 | [1.5765, 4.8420] | 23/24 |
 
-## 法向姿态权重 25
+## Normal-pose weight 25
 
-| 方法 | 平均综合代价 | 平均力RMS/N | 平均切向RMS/mm | 全部场景峰值/N |
+| Method | Mean aggregate cost | Mean force RMS/N | Mean tangential RMS/mm | Peak over all scenarios/N |
 |---|---:|---:|---:|---:|
 | nnbo_adapted | 10.0499 | 0.22764 | 0.0081534 | 4.6065 |
 | mpvic_os_adapted | 8.84358 | 0.43512 | 0.0092317 | 5.0166 |
@@ -59,9 +59,9 @@ NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不�
 | candidate2 | 8.81032 | 0.42267 | 0.037336 | 5.011 |
 | candidate2_no_front | 8.81919 | 0.42222 | 0.026019 | 5.0112 |
 
-NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不作为贡献证据；原文/非零目标力适配尚待修复核准。E41行也仅限本目录声明的OS扫描适配，不推广为原论文整体结论。
+The NNBO adaptation has substantial inversion failures: this row is diagnostic only, and related improvement percentages are not contribution evidence. Original-paper/nonzero-target-force adaptation still needs repair and verification. The E41 row is limited to this directory's declared OS scanning adaptation, not a conclusion about the whole original paper.
 
-| 配对比较 | 平均改善/% | 95%区间/% | 改善场景 |
+| Paired comparison | Mean improvement/% | 95% interval/% | Improved scenarios |
 |---|---:|---|---:|
 | rate_neighbor_vs_mpvic_os_adapted | 2.2711 | [0.4380, 4.3739] | 16/24 |
 | rate_neighbor_vs_rate_mpc | -0.0390 | [-0.6245, 0.5175] | 11/24 |
@@ -70,11 +70,11 @@ NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不�
 | candidate2_vs_rate_mpc | -1.8226 | [-3.8158, -0.0938] | 12/24 |
 | candidate2_vs_candidate2_no_front | 0.0843 | [-0.5134, 0.5584] | 23/24 |
 
-## 同频、计算等待核查
+## Matched-frequency and computation-wait checks
 
-验证seed9201的6场景，100Hz请求，按本机实测计算时间发布；与上面的独立24场景/零等待结果分开。前端费用、准备/尾耗时及未发布更新均不能省去；不是机器人实时认证。NNBO仍为未通过反解核准的适配实例。
+6 seed9201 validation scenarios use 100Hz requests and release according to measured local computation time; they are separate from the 24 independent zero-wait scenarios above. Front-end costs, preparation/tail time and unreleased updates must be included. This is not robot real-time certification. NNBO remains an adaptation whose inversion has not passed verification.
 
-| 权重 | 方法 | 决策中位/ms | p95/ms | 未发布时跳过的请求/3600 |
+| Weight | Method | Median decision/ms | p95/ms | Requests skipped before release/3600 |
 |---|---|---:|---:|---:|
 | 1 | rate_neighbor | 1.399 | 2.872 | 41 |
 | 1 | rate_mpc | 2.575 | 3.524 | 12 |

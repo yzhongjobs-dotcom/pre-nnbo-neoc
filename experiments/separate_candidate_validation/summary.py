@@ -13,9 +13,9 @@ def paired(candidate,baseline):
 
 
 def main():
-    all_results={};lines=['# 分线独立数值结果','',
-    '这是约化载体，不是完整B0、原论文复现或顶刊达标判定。独立物理场景24个，各权重重复同一批场景，不能合并称72独立样本。百分比为逐场景配对均值及bootstrap 95%区间。正数表示候选综合代价较低，不表示力与运动各项均改善。','',
-    '主要表为零发布等待、各原型设计频率（模型12.5Hz、廉价反馈/网络100Hz）；不据此认定普通MPC不能更快。实际计算发布/同频核查另列。','']
+    all_results={};lines=['# Independent numerical results for the separate candidates','',
+    'This is a reduced test model, not complete B0, an original-paper reproduction or a judgment of leading-journal readiness. There are 24 independent physical scenarios reused at each weight, not 72 independent samples. Percentages are scenario-paired means with bootstrap 95% intervals. Positive values mean lower aggregate candidate cost, not improvement in every force/motion component.','',
+    'Main tables use zero release wait and each prototype\'s design frequency (model 12.5Hz, inexpensive feedback/network 100Hz); they do not establish that ordinary MPC cannot run faster. Actual computational release and matched-frequency checks are separate.','']
     for token,w in [('w1',1.),('w12_5',12.5),('w25',25.)]:
         methods={};files=[(f'candidate1_test_{token}.json',None),(f'candidate2_test_{token}.json','candidate2'),(f'candidate2_no_front_test_{token}.json','candidate2_no_front')]
         for name,rename in files:
@@ -43,15 +43,15 @@ def main():
                         comparisons[f'{candidate}_vs_{baseline}']['valid_for_contribution']=False
                         comparisons[f'{candidate}_vs_{baseline}']['reason']='Nonzero-force task adaptation has substantial reference inversion failures; cannot claim superiority to the original NNBO.'
         all_results[token]={'weight':w,'methods':rows,'paired':comparisons}
-        lines+= [f'## 法向姿态权重 {w:g}','', '| 方法 | 平均综合代价 | 平均力RMS/N | 平均切向RMS/mm | 全部场景峰值/N |','|---|---:|---:|---:|---:|']
+        lines+= [f'## Normal-pose weight {w:g}','', '| Method | Mean aggregate cost | Mean force RMS/N | Mean tangential RMS/mm | Peak over all scenarios/N |','|---|---:|---:|---:|---:|']
         for method,row in rows.items():lines.append(f"| {method} | {row['mean_cost']:.6g} | {row['mean_force_rms_N']:.5g} | {row['mean_tangent_rms_mm']:.5g} | {row['worst_peak_N']:.5g} |")
-        lines+=['','NNBO适配反解存在明显失败：该行仅作诊断，相关改善比例不作为贡献证据；原文/非零目标力适配尚待修复核准。E41行也仅限本目录声明的OS扫描适配，不推广为原论文整体结论。']
-        lines+=['','| 配对比较 | 平均改善/% | 95%区间/% | 改善场景 |','|---|---:|---|---:|']
+        lines+=['','The NNBO adaptation has substantial inversion failures: this row is diagnostic only, and related improvement percentages are not contribution evidence. Original-paper/nonzero-target-force adaptation still needs repair and verification. The E41 row is limited to this directory\'s declared OS scanning adaptation, not a conclusion about the whole original paper.']
+        lines+=['','| Paired comparison | Mean improvement/% | 95% interval/% | Improved scenarios |','|---|---:|---|---:|']
         for name,row in comparisons.items():
             if row.get('valid_for_contribution') is False:continue
             lo,hi=row['ci95_percent'];lines.append(f"| {name} | {row['mean_percent_improvement']:.4f} | [{lo:.4f}, {hi:.4f}] | {row['wins']}/{row['n']} |")
         lines+=['']
-    native={};lines+=['## 同频、计算等待核查','', '验证seed9201的6场景，100Hz请求，按本机实测计算时间发布；与上面的独立24场景/零等待结果分开。前端费用、准备/尾耗时及未发布更新均不能省去；不是机器人实时认证。NNBO仍为未通过反解核准的适配实例。','', '| 权重 | 方法 | 决策中位/ms | p95/ms | 未发布时跳过的请求/3600 |','|---|---|---:|---:|---:|']
+    native={};lines+=['## Matched-frequency and computation-wait checks','', '6 seed9201 validation scenarios use 100Hz requests and release according to measured local computation time; they are separate from the 24 independent zero-wait scenarios above. Front-end costs, preparation/tail time and unreleased updates must be included. This is not robot real-time certification. NNBO remains an adaptation whose inversion has not passed verification.','', '| Weight | Method | Median decision/ms | p95/ms | Requests skipped before release/3600 |','|---|---|---:|---:|---:|']
     for token in ('w1','w12_5','w25'):
         path=ROOT/f'native_timing_{token}.json'
         if not path.exists():continue

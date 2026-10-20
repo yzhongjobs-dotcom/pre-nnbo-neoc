@@ -1,9 +1,4 @@
 # 本项目的科研失败与纠偏
-<!-- project-update:start -->
-
-**当前适用性（2026-10-20审查）：** 下文记录的是实际历史偏差。中段“至少落实NNBO”“暂停”等措辞指当时纠正，后续用户已明确先按研究问题分别实现并仿真两候选，再选择合适的比较方法；不能据旧段落恢复强制NNBO或新的串行门槛。当前状态见[HANDOFF](HANDOFF.md)，稳定要求见[长期要求](long_term_requirements.md)。
-
-<!-- project-update:end -->
 
 这是从实际过程提炼的经验，与[论文逐例逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md)互补。2026-10-19按用户最新要求先独立核读论文，再对照项目；不先规定标准让论文满足。本文件保留实际偏差，不把所有实验失利归结成同一个原因，也不改写长期要求。
 

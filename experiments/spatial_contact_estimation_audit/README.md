@@ -1,12 +1,12 @@
-# 空间接触估计与任务尺度的条件核查
+# Conditional checks of spatial contact estimation and task scales
 
-从旧策略滚动分支提取的两个独立工具；源码和结果原样迁移，没有新实验。保留用途是检查候选共同前端的几何/材料混淆、噪声传播及简化任务尺度，不是完整MHE或论文方法。
+Two independent tools extracted from the old receding-policy branch. Source/results were moved unchanged; no new experiment was run. They check geometry/material confounding, noise propagation and simplified task scales in the shared front end, not a full MHE or paper method.
 
-- `transport_probe.py`：有限弹性地基、已知初始表面与切向力臂、仿射材料场，用力及法向一阶矩更新材料与整体位移。包括尖锐边界、对流黏性失配和原始wrench噪声。原始Fn/Ft各0.03N、My为0.0001Nm；扣力臂后的矩噪声约0.000757Nm。5mm/0.2Hz来自Moreira原文试验条件，非本项目实测。
-- `task_geometry.py`：冻结线性弹簧、准静态、同一世界参考下的代价解析核查，帮助识别任务权重为何使固定增益接近最优。不是非线性动态任务收益上界。
+- `transport_probe.py`: a finite elastic foundation with known initial surface and tangential lever arm, an affine material field, and updates of material/global displacement from force and normal first moment. Includes sharp boundaries, convective-viscous mismatch and raw wrench noise. Raw Fn/Ft noise is 0.03N each and My noise 0.0001Nm; moment noise after lever-arm subtraction is about 0.000757Nm. The 5mm/0.2Hz condition comes from Moreira's original experiments, not project measurements.
+- `task_geometry.py`: analytical cost checks for a frozen linear spring, quasistatic behavior and a shared world reference, explaining why weights make fixed gains nearly optimal. It is not an upper bound on nonlinear dynamic task benefits.
 
-仿射场原始wrench噪声下的位移估计RMS约0.021–0.030mm；尖锐边界/黏性失配约0.058/0.086mm。仅为同步采样时刻估计，未补偿20ms传感延迟、未闭环验证、未证明新颖性或真实组织有效性。完整参数/误差见[结果](transport_probe.json)，逐时刻数组见`transport_probe.npz`。
+Under affine fields with raw wrench noise, displacement-estimation RMS is about 0.021–0.030mm; sharp-boundary/viscous mismatch gives about 0.058/0.086mm. These are estimates at synchronized sample instants, without compensation for 20ms sensor delay, closed-loop validation, demonstrated novelty or real-tissue validity. Full parameters/errors are in [results](transport_probe.json); per-step arrays are in `transport_probe.npz`.
 
-需要时可运行 `python experiments/spatial_contact_estimation_audit/transport_probe.py` 或 `python experiments/spatial_contact_estimation_audit/task_geometry.py`，依赖NumPy/SciPy。运行会覆盖同名输出；本轮只验证迁移完整性，不重跑。
+If needed, run `python experiments/spatial_contact_estimation_audit/transport_probe.py` or `python experiments/spatial_contact_estimation_audit/task_geometry.py` with NumPy/SciPy. Runs overwrite matching outputs. This consolidation checks transfer integrity without rerunning them.
 
-提取前版本 `db28365f33dc314ce8bfe83a23796dd18cf27f5b`，原位置 `实验/闭环策略滚动阻抗/`。相关原文见[文献索引](../../literature/literature_index.md)。
+Pre-extraction version: `db28365f33dc314ce8bfe83a23796dd18cf27f5b`; original location: `实验/闭环策略滚动阻抗/`. Relevant sources are in the [literature index](../../literature/literature_index.md).

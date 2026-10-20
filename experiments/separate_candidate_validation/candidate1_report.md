@@ -1,29 +1,29 @@
-# 候选1：接触模型驱动的增益率优化与邻近更新
+# Candidate 1: contact-model-driven gain-rate optimization and neighboring updates
 
-**当前判断：尚未达到顶刊级完整方法与证据要求。** 原问题保留；这是一条约化数值实现及其改造，不将它冒充完整B0或全部原候选。
+**Current judgment: a complete leading-journal method/evidence is not established.** The original question remains; this is a reduced implementation/iteration, not full B0 or the entire candidate concept.
 
-实现为约化MHE → 同模型有限时域OCP → 方向残差/缓存曲率预测与少量校正 → 实际受限增益率。暂以直接OCP代替未实现的critic根，不继承HJB节点根认证。成熟来源是预测VIC、ENE和拟Newton；当前不声称新的通用求解算法。
+Reduced MHE → same-model finite-horizon OCP → directional-residual/cached-curvature prediction with limited correction → constrained actual gain rates. Direct OCP temporarily replaces an unimplemented critic root without inheriting node-root certificates. Sources are predictive VIC, ENE and quasi-Newton methods; no new general solver is claimed.
 
-首版全灵敏度刷新平均成本偏大；改为缓存曲率及方向更新。远目标增益的梯度死区促使动作回到B0增益率，预测与执行对齐100Hz采样/平滑。兼容模型平均与最小残差单模型另验证，增加计算而只有局部变化；不选作默认改进。
+Expensive full sensitivity refresh was replaced by cached curvature/directional updates. Distant-target dead zones motivated B0 gain-rate actions; prediction/execution now align at 100Hz sampling/smoothing. Compatible-model averaging and minimum-residual single models were separately checked; extra cost with local changes did not justify default adoption.
 
-## 独立结果
+## Independent results
 
-同一批24个新物理场景，三组任务权衡分别报告，不合并称72独立样本。正数为综合代价改善；不代表各项力/运动均改善。NNBO非零力适配反解未核准，相关比较不作为贡献证据。E41也仅到声明的OS扫描适配。
+One new 24-scenario cohort is reported at three tradeoffs, not 72 independent samples. Positive values improve composite cost, not necessarily each force/motion component. Unverified nonzero-force NNBO inversion comparisons are excluded from contribution evidence. E41 is only the declared OS scan adaptation.
 
-| 权重 | 相对E41适配改善/%（95%区间） | 相对普通热启动MPC改善/%（95%区间） |
+| Weight | Improvement over adapted E41/% (95% interval) | Improvement over ordinary warm-start MPC/% (95% interval) |
 |---|---|---|
 | 1 | -3.959 [-6.883, -1.397] | -2.614 [-5.243, -0.491] |
 | 12.5 | 3.681 [-3.480, 10.547] | -3.259 [-7.494, 0.117] |
 | 25 | 2.271 [0.438, 4.374] | -0.039 [-0.624, 0.517] |
 
-主要独立表为零发布等待、各设计频率（模型12.5Hz、廉价反馈/网络100Hz）；不能假定普通MPC只能12.5Hz。另在验证6场景单任务核查100Hz请求＋实测计算等待，含前端及投影相关费用，不是机器人实时认证。
+Main independent results assume zero release wait at design frequencies: model12.5Hz, cheap feedback/network100Hz. Ordinary MPC is not assumed limited to12.5Hz. Six validation cases separately check single-task100Hz requests with measured waiting, including front-end/projection expenses, not robot certification.
 
-- 原型计时w=1：决策中位1.399ms、p95 2.872ms；3600次请求中跳过41次仍未发布的更新。前端成本另记录。
-- 原型计时w=12.5：决策中位1.400ms、p95 3.101ms；3600次请求中跳过33次仍未发布的更新。前端成本另记录。
-- 原型计时w=25：决策中位1.411ms、p95 3.310ms；3600次请求中跳过33次仍未发布的更新。前端成本另记录。
+- Prototype w=1: median 1.399ms, p95 2.872ms;41 pending updates skipped among3600 requests. Front-end cost recorded separately.
+- Prototype w=12.5: median 1.400ms, p95 3.101ms;33 pending updates skipped among3600 requests. Front-end cost recorded separately.
+- Prototype w=25: median 1.411ms, p95 3.310ms;33 pending updates skipped among3600 requests. Front-end cost recorded separately.
 
-## 限制与下一改造
+## Limits and next revision
 
-本载体未实现B0正定Qg/Rg、终端项、全轨迹约束、严格正增益下界及双区域Hertz前端；也没有平台标定、跨模型/实物泛化。当前投影数值检查或预算内QP参照不构成真实安全/全局近最优证明。
+This carrier omits B0 positive-definite Qg/Rg, terminal costs, full trajectory constraints, strictly positive gain lower bounds and two-region Hertz front ends, with no platform calibration/cross-model/hardware generalization. Projection checks or budgeted QP references do not prove real safety/global near-optimality.
 
-恢复完整任务关系后，继续研究新接触信息如何改变动态阻抗和及时执行；普通求解本就够快时保留它，不捏造瓶颈。先解决模型预测与动作后果的可靠连接，不继续靠更精细的局部求解器包装主要贡献。
+Restore complete task relationships and study how new contact information changes dynamic impedance/timely execution. Retain ordinary solving when fast enough, without invented bottlenecks. Establish reliable model-to-action effects rather than framing finer local solvers as the main contribution.

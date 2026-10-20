@@ -1,17 +1,17 @@
-# 已查阅的可借鉴机制
+# Reviewed transferable mechanisms
 
-用途：保留后续设计可直接查取的机制与来源，避免删除旧路线时连同有价值的方法线索一起丢失。以下未被预定为最终方案；本次不新增新颖性结论或方法优劣排名。详细原文阅读范围见[文献索引](../literature/literature_index.md)与来源JSON。
+Purpose: retain mechanisms and sources for later design so useful methodological leads are not lost when old routes are removed. None is predetermined as the final method. This record adds no novelty verdict or method ranking. See the [literature index](../literature/literature_index.md) and source JSON for reading scope.
 
-| 机制及来源 | 可以解决什么 | 适配时要核对什么 |
+| Mechanism and source | Potential use | Adaptation checks |
 |---|---|---|
-| NNBO的critic/HJB与位置参考反解，[原文](../literature/papers/NNBO.pdf) | 从接触最优控制到可执行参考的组织方式 | 原论文是预辨识HC和位置参考；不能直接当四K/D输出 |
-| NEOC，[原文](../literature/papers/NEOC.pdf)；RTI，[Diehl等CDC2005](https://skoge.folk.ntnu.no/prost/proceedings/cdc-ecc05/pdffiles/papers/1186.pdf) | 参数变化后利用已有解/导数快速更新；准备与反馈分离 | 光滑与正则条件、更新幅度、完整成本、与简单Newton/弦方法比较；RTI旧核读仅§II–III |
-| YOPO，[本地原文](../literature/papers/method_transfer/YOPO.pdf) | 离线承担求解负担、在线直接生成候选；任务代价指导学习 | 原任务是飞行轨迹规划，训练是guidance learning；接触信息、实际阻抗动作和不可微仿真需要适配 |
-| PPO及VICES，[VICES作者稿](https://arxiv.org/abs/1906.08880) | 无需接触求导地训练阻抗动作策略 | 样本量、观测充分性、任务奖励和迁移；已有阻抗RL，不能把算法组合本身当成果 |
-| 模型学习＋预测/actor–critic，E37/E38/E40、Matschek F04，[本地资料](../literature/literature_index.md) | 预测实际交互后果，以学习近似决策或在线修正模型 | 原有参考/阻尼/刚度动作和模型条件各不相同；按能力借鉴和改进 |
-| 内部状态接触模型与联合估计，Moreira F10、Tiezzi F05、[CARE](https://www.roboticsproceedings.org/rss10/p51.pdf) | 处理松弛/运动及材料—几何混淆 | 本领域已有先例；观察器/MHE/空间矩是否带来所需任务收益尚待检查 |
-| 任务代价训练、伴随梯度、控制分块、热启动，[现有实现](../experiments/experiment_index.md) | 减少无效标签误差、梯度开销及在线工作量 | 这些是成熟工具，旧原型有可复用实现，尚未据此建立论文贡献 |
-| 无源/能量与稳定变阻抗，Fu、E06/E16/E47/E49、SNEUM F06 | 处理时变增益注能及实际执行约束 | 正K/D不自动保证时变稳定，能量账本不自动保证硬力安全；不用脱离条件的证书 |
-| 双重控制/未来观测规划，[JMLR2016](https://www.jmlr.org/papers/v17/15-162.html)、TASE2026 DCEE；价值映射复用，[外域线索](https://doi.org/10.1038/s41467-021-25123-3) | 计入行动对后续信息/决策的作用，或复用环境变化前的价值结构 | 旧两阶段原型增益小且耗时大，已退出默认主线；外域映射的接触适用性未推导。JMLR仅核摘要，不能据此引用全部理论 |
+| NNBO critic/HJB and inverse position-reference mapping, [paper](../literature/papers/NNBO.pdf) | Organize contact optimal control into executable references | The paper uses preidentified HC and position references; it does not directly output four K/D gains |
+| NEOC, [paper](../literature/papers/NEOC.pdf); RTI, [Diehl et al., CDC2005](https://skoge.folk.ntnu.no/prost/proceedings/cdc-ecc05/pdffiles/papers/1186.pdf) | Reuse solutions/derivatives after parameter changes; separate preparation and feedback | Smoothness, regularity, update size, complete cost and comparisons with simple Newton/chord methods; RTI reading covered only §II–III |
+| YOPO, [local paper](../literature/papers/method_transfer/YOPO.pdf) | Move solution effort offline, generate candidates directly online, and guide learning with task cost | Original task is flight-trajectory planning with guidance learning; contact information, actual impedance actions and nondifferentiable simulation require adaptation |
+| PPO and VICES, [VICES author manuscript](https://arxiv.org/abs/1906.08880) | Train impedance-action policies without contact derivatives | Sample count, observation sufficiency, task reward and transfer; impedance RL already exists, so combining algorithms is not itself a contribution |
+| Model learning plus prediction/actor–critic, E37/E38/E40 and Matschek F04, [local material](../literature/literature_index.md) | Predict interaction consequences, approximate decisions through learning or update models online | Reference/damping/stiffness actions and model assumptions differ; borrow and improve capabilities accordingly |
+| Internal-state contact models and joint estimation, Moreira F10, Tiezzi F05, [CARE](https://www.roboticsproceedings.org/rss10/p51.pdf) | Handle relaxation/motion and material–geometry confounding | Precedents already exist in this field; whether observers/MHE/spatial moments provide required task benefits remains to be checked |
+| Task-cost training, adjoint gradients, control blocking and warm starts, [implementations](../experiments/experiment_index.md) | Reduce irrelevant label error, gradient overhead and online work | These are mature tools with reusable prototype implementations; no paper contribution has yet been established from them |
+| Passivity/energy and stable variable impedance, Fu, E06/E16/E47/E49 and SNEUM F06 | Handle energy injection from time-varying gains and execution constraints | Positive K/D does not automatically ensure time-varying stability; an energy ledger does not guarantee hard force safety; certificates require their conditions |
+| Dual control/future-observation planning, [JMLR2016](https://www.jmlr.org/papers/v17/15-162.html), TASE2026 DCEE; value-map reuse, [cross-field lead](https://doi.org/10.1038/s41467-021-25123-3) | Account for actions changing later information/decisions, or reuse value structure across environment changes | The old two-stage prototype had small benefits and high cost and is no longer the default route; applicability of the cross-field map to contact is not derived. Only the JMLR abstract was checked, which cannot support citing its entire theory |
 
-SRL-VIC（DOI10.1109/LRA.2024.3396368）及Zanella等（DOI10.1049/cth2.12558）也已有安全/能量辅助RL。此前报告记录过原文相关段落，但未完成全部证明审计；当前仅作可回查近邻，不把删除错误PPO实验理解为删除学习控制的文献依据。
+SRL-VIC (DOI10.1109/LRA.2024.3396368) and Zanella et al. (DOI10.1049/cth2.12558) also use safety/energy-assisted RL. Earlier reports recorded relevant original passages but did not audit every proof. Retain these as traceable neighboring work; removing the mistaken PPO experiment does not remove the literature basis for learning control.

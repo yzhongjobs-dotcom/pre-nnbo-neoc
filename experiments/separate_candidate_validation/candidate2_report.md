@@ -1,37 +1,37 @@
-# 候选2：估计条件化、任务代价引导的增益率反馈
+# Candidate 2: estimate-conditioned, task-cost-guided gain-rate feedback
 
-**当前判断：尚未达到顶刊级完整方法与证据要求。** 原问题保留；这是一条约化数值实现及其改造，不将它冒充完整B0或全部原候选。
+**Current judgment: a complete leading-journal method/evidence is not established.** The original question remains; this is a reduced implementation/iteration, not full B0 or the entire candidate concept.
 
-实现为约化MHE及当前运动/实际增益/储能/任务权重 → 64–64网络 → 四实际增益率 → 与模型路线同一边界/能量执行。训练允许仿真真值算代价，部署不读材料真值或未来；不是PPO，不是YOPO原算法复现。
+Reduced MHE plus motion/actual gains/energy/task weights →64–64 network →four actual gain rates →shared bounds/energy execution. Simulation truth may evaluate training costs; deployment reads neither material truth nor future information. This is not PPO or original YOPO reproduction.
 
-依次修正联合动作的收益归属、远目标率饱和死区、固定增益训练覆盖为零、预测反馈与实际采样不一致。最终有/无前端各自从72物理场景、10800相关上下文独立训练2000步；不是对同一模型简单屏蔽输入。
+Corrections addressed joint-action benefit attribution, distant-target rate-saturation dead zones, zero gain-state training coverage and prediction/sampling mismatch. Final with/without-front-end models each train independently for2000 steps on72 physical scenarios and10800 correlated contexts, not simple masking of one model.
 
-## 独立结果
+## Independent results
 
-同一批24个新物理场景，三组任务权衡分别报告，不合并称72独立样本。正数为综合代价改善；不代表各项力/运动均改善。NNBO非零力适配反解未核准，相关比较不作为贡献证据。E41也仅到声明的OS扫描适配。
+One new 24-scenario cohort is reported at three tradeoffs, not72 independent samples. Positive values improve composite cost, not necessarily each force/motion component. Unverified nonzero-force NNBO inversion comparisons are excluded from contribution evidence. E41 is only the declared OS scan adaptation.
 
-| 权重 | 相对E41适配改善/%（95%区间） | 相对普通热启动MPC改善/%（95%区间） |
+| Weight | Improvement over adapted E41/% (95% interval) | Improvement over ordinary warm-start MPC/% (95% interval) |
 |---|---|---|
 | 1 | 0.707 [0.275, 1.197] | 1.876 [0.618, 3.521] |
 | 12.5 | 6.628 [1.289, 12.464] | -0.242 [-2.656, 2.146] |
 | 25 | 0.745 [0.302, 1.236] | -1.823 [-3.816, -0.094] |
 
-有前端相对无前端改善依次为：
+With-front-end versus without-front-end improvements are:
 
 - w=1：-0.139% [-0.292, -0.013]。
 - w=12.5：3.109% [1.576, 4.842]。
 - w=25：0.084% [-0.513, 0.558]。
 
-这只区分本前端与当前状态/延迟力输入，不能把收益全部归为空间力矩预瞄；还未比较强历史编码器或完整E27实现。局部信息有用是设计线索，不是新颖性结论。
+This separates this front end from current-state/delayed-force inputs, not spatial-moment preview alone. Strong history encoders/full E27 remain untested. Useful local information is a design lead, not novelty evidence.
 
-主要独立表为零发布等待、各设计频率（模型12.5Hz、廉价反馈/网络100Hz）；不能假定普通MPC只能12.5Hz。另在验证6场景单任务核查100Hz请求＋实测计算等待，含前端及投影相关费用，不是机器人实时认证。
+Main independent results assume zero release wait at design frequencies: model12.5Hz, cheap feedback/network100Hz. Ordinary MPC is not assumed limited to12.5Hz. Six validation cases separately check single-task100Hz requests/measured waiting with front-end/projection expenses, not robot certification.
 
-- 原型计时w=1：决策中位0.142ms、p95 0.290ms；3600次请求中跳过2次仍未发布的更新。前端成本另记录。
-- 原型计时w=12.5：决策中位0.136ms、p95 0.241ms；3600次请求中跳过0次仍未发布的更新。前端成本另记录。
-- 原型计时w=25：决策中位0.139ms、p95 0.263ms；3600次请求中跳过0次仍未发布的更新。前端成本另记录。
+- Prototype w=1: median 0.142ms, p95 0.290ms;2 pending updates skipped among3600 requests. Front-end cost recorded separately.
+- Prototype w=12.5: median 0.136ms, p95 0.241ms;0 pending updates skipped among3600 requests. Front-end cost recorded separately.
+- Prototype w=25: median 0.139ms, p95 0.263ms;0 pending updates skipped among3600 requests. Front-end cost recorded separately.
 
-## 限制与下一改造
+## Limits and next revision
 
-本载体未实现B0正定Qg/Rg、终端项、全轨迹约束、严格正增益下界及双区域Hertz前端；也没有平台标定、跨模型/实物泛化。当前投影数值检查或预算内QP参照不构成真实安全/全局近最优证明。
+This carrier omits B0 positive-definite Qg/Rg, terminal costs, full trajectory constraints, strictly positive gain bounds and two-region Hertz front ends, and lacks calibration/cross-model/hardware generalization. Projection checks or budgeted QP references do not prove real safety/global near-optimality.
 
-恢复完整目标/约束及参考，研究物理/解析阻抗结构之上的动态增益率修正，继续核查时变接触、过渡和信息的作用。不把训练完成或局部小幅胜利视为达标，也不因借鉴成熟机制否定价值。
+Restore complete objectives, constraints and references; study dynamic gain-rate corrections to capable physical/analytical impedance structures, including time-varying contact, transitions and information. Training completion/local small wins are insufficient; mature borrowed mechanisms are not automatically valueless.

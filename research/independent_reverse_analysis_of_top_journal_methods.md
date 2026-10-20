@@ -1,77 +1,77 @@
-# 从具体论文理解方法设计、改进尺度与贡献组织
+# Understanding method design, improvement scale and contribution presentation through specific papers
 
-2026-10-19。本轮按用户要求重新从原文分析，先理解论文自身，再对照项目失败。前四节独立分析论文，第五节才关联项目。本报告重建公开的论证关系，不推测作者发现idea的真实顺序，也不从发表身份推出所有公式正确。
+2026-10-19. At the user's request, this analysis returns to original papers, understanding each paper first and only then comparing project failures. Sections 1–4 analyze papers independently; Section 5 connects them to the project. This report reconstructs publicly presented arguments, does not infer the authors' actual order of discovery, and does not infer that all equations are correct from publication status.
 
-## 1. 阅读范围与分析对象
+## 1. Reading scope and analyzed materials
 
-来源为[固定样本仓库](https://github.com/yzhongjobs-dotcom/academic-writing-skill/tree/c88d48eb08a876eb9b81a30d37b62d70fa028581/文献资料)，提交`c88d48eb08a876eb9b81a30d37b62d70fa028581`。此前22篇身份/摘要筛查不计成本轮新阅读。本轮重新核读10篇本地原文的方法与证据：全部5篇T-RO，以及R01、R03、R15、R17、R19。逐例给PDF页码及公式/图号，新范围记录在[来源清单](../literature/top_venue_sample_sources_and_reading_scope.json)。
+The source is the [pinned sample repository](https://github.com/yzhongjobs-dotcom/academic-writing-skill/tree/c88d48eb08a876eb9b81a30d37b62d70fa028581/文献资料), commit `c88d48eb08a876eb9b81a30d37b62d70fa028581`. Earlier identity/abstract screening of 22 papers is not counted as new reading here. This round rechecked methods and evidence in ten local originals: all five T-RO papers, plus R01, R03, R15, R17 and R19. PDF pages and equation/figure numbers are given per case; the new scope is recorded in the [source list](../literature/top_venue_sample_sources_and_reading_scope.json).
 
-10篇混合了T-RO、TMECH、TIE、TNNLS、Mechatronics与ICRA，不能统称顶刊。年代、作者群和任务分布有限，不能代表完整的2026年领域。本轮未逐行复证全部定理、重跑论文源码或调查每篇的全部前作。“已有基础”首先依据原文明确引用、复用及比较的内容；“贡献解释”是本轮分析。“改动大小”指结构相对既有基础的变化，不虚构代码行数、研发工作量或真实发现过程。
+The ten papers span T-RO, TMECH, TIE, TNNLS, Mechatronics and ICRA and cannot all be called leading-journal papers. Their limited years, author groups and tasks do not represent the entire 2026 field. This round did not reprove every theorem line by line, rerun paper source code or investigate every preceding work for each paper. “Existing foundations” primarily means explicitly cited, reused or compared material; “contribution interpretation” is this analysis. “Size of change” means structural change relative to those foundations, not invented code-line counts, development effort or discovery history.
 
-## 2. 六篇具体展开：问题如何进入设计，贡献实际有多大
+## 2. Six detailed cases: how problems shape design and how large the contributions actually are
 
-### R01：沿DMP主线做小扩展，得到运动与刚度的同步泛化
+### R01: a small extension along the DMP route enables synchronized motion/stiffness generalization
 
-Yang等，TMECH2018，*A DMPs-Based Framework for Robot Learning and Generalization of Humanlike Variable Impedance Skills*，[原文](../literature/papers/reverse_analysis_samples/R01.pdf)，DOI10.1109/TMECH.2018.2817589。本轮核PDF2–8，重点§II-C、式(13)–(18)、图4、7及§III-B。
+Yang et al., TMECH2018, *A DMPs-Based Framework for Robot Learning and Generalization of Humanlike Variable Impedance Skills*, [original](../literature/papers/reverse_analysis_samples/R01.pdf), DOI10.1109/TMECH.2018.2817589. Checked PDF2–8, especially §II-C, Eqs.(13)–(18), Figs.4,7 and §III-B.
 
-**研究什么。** 示教不只要传递运动，还要传递切削、搬放中合适的刚度过程。作者承认已有DMP刚度调度，进一步研究怎样从人的示教直接得到刚度曲线，并随目标和时长一起泛化，减少执行新任务时的反复试错。
+**Research question.** Demonstration should convey suitable stiffness evolution for cutting and pick-and-place as well as motion. The authors acknowledge existing DMP stiffness scheduling and ask how stiffness profiles can be obtained directly from human demonstration and generalized with target and duration, reducing repeated trial and error on new tasks.
 
-**继承与调整。** DMP、肌电刚度估计、双臂示教与虚拟弹簧反馈均有前作。中心调整是把运动与刚度指标同等放入两个变换系统：
+**Inheritance and changes.** DMPs, EMG stiffness estimation, dual-arm demonstration and virtual-spring feedback all have predecessors. The central change puts motion and stiffness indices on equal footing in two transformation systems:
 
 \[
 \dot s=h(s),\quad \dot x=g_1(x,s,\gamma),\quad \dot p=g_2(p,s,\omega).
 \]
 
-两者共用相位和时间缩放；运动放慢时，刚度过程也按同一进度变化。肌电提供可直接学习的指标，不再只从常数刚度开始试错。原文明确说实现“only needs minor modifications”，包括以p替换x、选取相应参数。
+Both share phase and temporal scaling; slowing motion changes stiffness according to the same progress variable. EMG provides a directly learnable index instead of starting trial and error from constant stiffness. The original explicitly says implementation “only needs minor modifications,” including replacing x with p and choosing corresponding parameters.
 
-**专业在哪里、尺度多大。** 局部计算改动小，设计工作在于选准表示对象和同步关系，并把示教、泛化与执行连起来。统一表示使“在需要的时候提供相应刚度”成为可实现能力。引言先承认已有刚度调度，再指出其直接示教及泛化方面的限制；贡献先写EMG与DMP的结合，再用“more importantly”强调统一编码运动与刚度。
+**Technical substance and scale.** The local computational change is small. The design work selects the represented object and synchronization relationship, connecting demonstration, generalization and execution. Unified representation makes it possible to provide appropriate stiffness when needed. The introduction acknowledges existing stiffness scheduling before identifying limitations in direct demonstration/generalization. Contributions first describe combining EMG and DMPs and then emphasize unified motion/stiffness encoding with “more importantly.”
 
-**证据怎样支持贡献。** 切削和搬放分别安排固定刚度改变运动、固定运动改变刚度、同时改变两者的情况。搬放较重物体时，无刚度泛化为1/7成功，有泛化为6/7；原物体换目标为7/7。小结构扩展由具体技能能力支撑，不只展示拟合曲线。
+**Evidence supporting the contribution.** Cutting and pick-and-place each include changing motion with fixed stiffness, changing stiffness with fixed motion, and changing both. With a heavier object, pick-and-place succeeds 1/7 without stiffness generalization and 6/7 with it; changing the target for the original object succeeds 7/7. Specific skill capabilities support the small structural extension, beyond fitted curves alone.
 
-**保留边界。** p是肌电推得的刚度指标，不是精确恢复全部关节刚度；实验泛化参数由人设定，不证明自动识别任意新物体并给出最优刚度。成功率来自所选任务的小样本，不能当普适效果。
+**Boundaries.** p is an EMG-derived stiffness index, not an exact recovery of all joint stiffnesses. Humans set the generalization parameters; this does not establish automatic recognition and optimal stiffness for arbitrary new objects. Success rates are small samples from selected tasks, not universal effects.
 
-### R13：沿稳定学习主线，改造真正限制性能的证书表示
+### R13: redesigning the certificate representation that limits stable learning performance
 
-Jin等，T-RO2023，*Learning a Flexible Neural Energy Function With a Unique Minimum…*，[原文](../literature/papers/reverse_analysis_samples/R13.pdf)，DOI10.1109/TRO.2023.3303011。本轮核PDF2–7、9–17，PDF5另核原图；重点式(5)、(18)、(45)–(49)及图10–19。
+Jin et al., T-RO2023, *Learning a Flexible Neural Energy Function With a Unique Minimum…*, [original](../literature/papers/reverse_analysis_samples/R13.pdf), DOI10.1109/TRO.2023.3303011. Checked PDF2–7,9–17, including the original figure on PDF5; especially Eqs.(5),(18),(45)–(49) and Figs.10–19.
 
-**研究什么。** 稳定运动学习已能保证轨迹收敛，但简单能量证书会迫使复杂示教轨迹发生较大修正；灵活网络又可能产生额外极小值，使运动停在错误位置。原文具体比较二次型、WSAQF、FDM、NILC和ICNN，没有把“学习Lyapunov函数”当空白。
+**Research question.** Stable motion learning can already guarantee trajectory convergence, but simple energy certificates force large corrections to complex demonstrated trajectories. Flexible networks may introduce extra minima that stop motion at the wrong location. The paper specifically compares quadratic forms, WSAQF, FDM, NILC and ICNN; it does not treat learning Lyapunov functions as unexplored.
 
-**继承与调整。** 保留能量证书、回归原始向量场和CLF最小修正路线。中心改造是能量结构及其可训练条件：
+**Inheritance and changes.** The route retains energy certificates, regression of the original vector field and minimum CLF correction. The central redesign is the energy structure and its trainable conditions:
 
 \[
 V=\omega^Tf(z(x))-\omega^Tf(z(0))+\alpha\|x\|^2,
 \quad z(x)=(\|x\|^{1+\epsilon},\|x\|^\epsilon x^T)^T.
 \]
 
-把x写成rh(θ)，约束每个隐藏单元满足\(a_{k,1}>\|a_{k,2:}\|\)、\(\omega_k>0\)，使非零射线上的径向导数为正。于是“全空间不出现额外驻点”的要求落实到有限参数条件；\(\epsilon>0\)和二次项分别参与原点光滑性与径向无界性。训练又区分固定特征下的凸问题与共同学习特征的非凸问题。
+Writing x as rh(θ), each hidden unit is constrained by \(a_{k,1}>\|a_{k,2:}\|\) and \(\omega_k>0\), making radial derivatives positive on nonzero rays. Thus the absence of additional stationary points throughout the space is expressed through finitely many parameter conditions. \(\epsilon>0\) and the quadratic term contribute to smoothness at the origin and radial unboundedness, respectively. Training distinguishes a convex problem with fixed features from a nonconvex problem jointly learning features.
 
-执行仍采用成熟QP最小修正，使\(\nabla V^T(o+u)\le-\rho\)。同一个径向性质还参与说明新增椭球位置约束与下降要求相容。**表示、参数条件、训练和执行相互对应**，是它的专业设计。
+Execution still uses an established minimum-correction QP to enforce \(\nabla V^T(o+u)\le-\rho\). The same radial property also helps establish compatibility between added ellipsoidal position constraints and descent. **Representation, parameter conditions, training and execution correspond to each other**, giving the design its technical substance.
 
-**尺度及贡献组织。** 这是集中在表示与性质上的实质技术改造，超过替换网络，但没有重写整个学习/执行框架。引言层层解释已有证书的限制；方法从所需性质推到结构、学习和执行；实验先比较能量表示的相容性，再比较最终轨迹SEA/DTWD，最后检验起点、目标、扰动及装配和7维关节空间超声轨迹复现。
+**Scale and presentation.** This is a substantive technical redesign focused on representation and properties, beyond swapping networks, while retaining the broader learning/execution framework. The introduction progressively explains existing-certificate limitations; the method develops structure, learning and execution from required properties. Experiments first compare energy-representation compatibility, then final-trajectory SEA/DTWD, and finally starting points, goals, disturbances, assembly and reproduction of ultrasound trajectories in 7-dimensional joint space.
 
-**保留边界。** 一些LASA案例与CLF-DM相近，JShape_2和Leaf_2甚至相同，原文有报告。所设计网络不等于任意唯一极小值函数；相容性指标不等于所有域外任务质量；运动场稳定也不自动保证接触力安全。本轮学习构造关系，未把全部表达能力及稳定性主张视作已独立复证。
+**Boundaries.** Some LASA cases are close to CLF-DM; JShape_2 and Leaf_2 are even identical, as reported. The network does not represent every function with a unique minimum; compatibility metrics do not establish quality on all out-of-domain tasks, and motion-field stability does not automatically ensure contact-force safety. This analysis learns the construction relationships without claiming independent reproof of every expressivity/stability assertion.
 
-### R12：围绕易操作与稳定接触的冲突，安排不同机制的分工
+### R12: dividing mechanisms around the conflict between ease of manipulation and stable contact
 
-Xing等，T-RO2023，*Impedance Learning for Human-Guided Robots in Contact With Unknown Environments*，[原文](../literature/papers/field_papers/E28.pdf)，DOI10.1109/TRO.2023.3281483。本轮核PDF1–6、8–13；重点式(5)、(11)–(12)、(19)–(21)及图6–11。
+Xing et al., T-RO2023, *Impedance Learning for Human-Guided Robots in Contact With Unknown Environments*, [original](../literature/papers/field_papers/E28.pdf), DOI10.1109/TRO.2023.3281483. Checked PDF1–6,8–13; especially Eqs.(5),(11)–(12),(19)–(21) and Figs.6–11.
 
-**研究什么。** 人引导工具时希望轻松移动，环境扰动下又希望稳定准确。增加阻抗可能使操作者更费力。重要性来自两个需求的冲突，“环境未知”只是条件。
+**Research question.** Human-guided tools should move easily while remaining stable and accurate under environmental disturbances. Higher impedance can require more human effort. Importance comes from this conflict; an unknown environment is a condition.
 
-**方法怎样形成完整关系。** 从理想易操作行为\(M\ddot x_r+B\dot x_r=f_h\)出发，让人的力决定参考运动；再针对环境扰动\(d=Kx+K_v\dot x+k_p\)设计补偿和学习，力求恢复该行为。控制包含\(-\hat Kx-\hat K_v\dot x-\hat k_p-K_e\dot e+g\)，学习律对应误差与回归项，处理Lyapunov导数中的参数误差交叉项。
+**How the method forms a complete relationship.** Start with desired easy-manipulation behavior \(M\ddot x_r+B\dot x_r=f_h\), allowing human force to determine reference motion. Then design compensation/learning for environmental disturbance \(d=Kx+K_v\dot x+k_p\) to recover that behavior. Control includes \(-\hat Kx-\hat K_v\dot x-\hat k_p-K_e\dot e+g\); learning laws correspond to errors/regressors and handle parameter-error cross terms in the Lyapunov derivative.
 
-因此参考生成、阻抗学习有明确分工和共同目标。非重复任务用常系数自适应；重复任务利用同位置参数可重复的结构，借空间学习和速度相关因子处理不同动作时长，并在近零速度处正则化。专业性在于**保留人的引导作用，补偿环境扰动，并让学习与任务重复结构匹配**。
+Reference generation and impedance learning therefore have explicit roles and a shared objective. Nonrepetitive tasks use constant-coefficient adaptation; repetitive tasks exploit repeatability of parameters at the same position, using spatial learning and velocity-dependent factors for different durations, with regularization near zero velocity. The technical substance is **retaining human guidance, compensating environmental disturbance and matching learning to task repetition**.
 
-**尺度及贡献组织。** 自适应、迭代学习、导纳参考、Lyapunov分析都是成熟工具；作者针对三方交互组织它们，给出具体更新与闭环分析。贡献落在减轻人的负担同时改善任务表现。已知虚拟扰动验证学习与补偿，真实雕刻/磨削验证路径误差和人的功；H-MAN为6名被试，Panda两任务共12名、每任务6名。专门的手柄装置还将人的力与工具接触力区分，信息接口也服务于方法。
+**Scale and presentation.** Adaptation, iterative learning, admittance references and Lyapunov analysis are mature tools. The authors organize them for three-party interaction, deriving specific updates and closed-loop analysis. The contribution reduces human burden while improving task performance. Known virtual disturbances test learning/compensation; real carving/grinding tests path error and human work. H-MAN has six participants; the two Panda tasks have twelve in total, six per task. A dedicated handle also separates human force from tool-contact force, making the information interface serve the method.
 
-**保留边界。** 常系数与空间重复不能混成任意时变环境保证。小扰动下优势不明显，原文有报告；速度型对照本身也考虑人和环境，不能说它完全忽略环境。参数都收敛到真值也不是仅由负半定Lyapunov导数自动得到的结论。
+**Boundaries.** Constant coefficients and spatial repetition cannot be merged into guarantees for arbitrary time-varying environments. The paper reports weak advantages under small disturbances. The velocity-based comparator also considers humans and the environment, so it cannot be said to ignore the environment entirely. Negative-semidefinite Lyapunov derivatives alone do not automatically establish that all parameters converge to their true values.
 
-### R11：从人体适应规律正向迁移，推成机器人共同更新律
+### R11: transferring human adaptation patterns into joint robot update laws
 
-Yang等，T-RO2011，*Human-Like Adaptation of Force and Impedance in Stable and Unstable Interactions*，[原文](../literature/papers/reverse_analysis_samples/R11.pdf)，DOI10.1109/TRO.2011.2158251。本轮核PDF1–10；重点式(3)、(14)–(16)、图4–5、7–10。
+Yang et al., T-RO2011, *Human-Like Adaptation of Force and Impedance in Stable and Unstable Interactions*, [original](../literature/papers/reverse_analysis_samples/R11.pdf), DOI10.1109/TRO.2011.2158251. Checked PDF1–10; especially Eqs.(3),(14)–(16) and Figs.4–5,7–10.
 
-**研究什么。** 可重复外力可用前馈补偿，不稳定交互则会放大偏差；人为什么既调作用力又调机械阻抗，机器人能否获得类似行为？作者从人体实验规律获得正向设计来源，不是先列完所有算法失败才设计。
+**Research question.** Repeatable external forces can be compensated by feedforward, whereas unstable interactions amplify deviations. Why do humans adjust both applied force and mechanical impedance, and can robots acquire similar behavior? Human experimental patterns provide a positive design source, without first listing failures of every algorithm.
 
-**继承与调整。** 控制主体仍是动力学补偿、前馈、刚度及阻尼反馈。变化集中在三者的共同学习与遗忘：前馈根据复合运动误差更新，K和D分别根据误差与位置误差、速度误差的乘积更新；误差小时遗忘加强，减少多余用力。典型结构为
+**Inheritance and changes.** Control retains dynamic compensation, feedforward, stiffness and damping feedback. Changes focus on joint learning and forgetting: feedforward updates from composite motion error; K and D update from products of that error with position and velocity errors, respectively. Forgetting increases at small errors to reduce unnecessary effort. A representative structure is
 
 \[
 \delta\tau=Q_\tau(\varepsilon-\gamma\tau),\quad
@@ -79,89 +79,89 @@ Yang等，T-RO2011，*Human-Like Adaptation of Force and Impedance in Stable and
 \delta D=Q_D(\varepsilon\dot e^T-\gamma D).
 \]
 
-公式简洁，但各项与“补可重复力、抵抗不稳定偏差、减少多余阻抗”有对应。人体机制、控制模型、代价与稳定分析共同约束这种迁移。
+The equations are concise, but each term corresponds to compensating repeatable forces, resisting unstable deviations or reducing unnecessary impedance. Human mechanisms, the control model, costs and stability analysis jointly constrain the transfer.
 
-**贡献和证据。** 贡献是获得一种自动分配前馈与阻抗的适应行为。恒定偏置、位置发散和速度发散干扰分别检验前馈、K、D的作用；与只学前馈比较显示不稳定情况下的区别。VIA、单关节和7自由度平台进一步展示低频扰动以力补偿、高频扰动增加阻抗、加负载主要改变前馈等行为。这样的实验帮助解释机制，不只是给总误差排名。
+**Contribution and evidence.** The contribution is adaptive behavior that automatically allocates feedforward and impedance. Constant-bias, position-divergent and velocity-divergent disturbances separately test feedforward, K and D; comparison with feedforward-only learning shows the unstable-case distinction. VIA, single-joint and 7-DOF platforms further show force compensation for low-frequency disturbances, increased impedance for high-frequency disturbances and predominantly feedforward changes for added load. Such experiments explain mechanisms rather than merely rank total error.
 
-**保留边界。** 有周期参考、动力学补偿、噪声及可补偿交互条件；文中的“最优”不能直接当任意有限时域任务的全局最优。这里能学习的是正向迁移和行为分工，不照搬2011年的对照范围作为今天完整标准。
+**Boundaries.** Conditions include periodic references, dynamics compensation, noise and compensable interactions. “Optimal” in the paper cannot directly mean global optimality for arbitrary finite-horizon tasks. The lesson concerns positive transfer and behavioral roles; the 2011 comparator scope is not today's complete standard.
 
-### R19：一个加法结构，也可以组织成有实质内容的机器人研究
+### R19: an additive structure can support substantive robotics research
 
-Johannink等，ICRA2019，*Residual Reinforcement Learning for Robot Control*，[原文](../literature/papers/reverse_analysis_samples/R19.pdf)。本轮核PDF1–6；重点式(4)–(5)、算法1、图2–5及§VII。这是顶会补充例，不冒充T-RO身份。
+Johannink et al., ICRA2019, *Residual Reinforcement Learning for Robot Control*, [original](../literature/papers/reverse_analysis_samples/R19.pdf). Checked PDF1–6; especially Eqs.(4)–(5), Algorithm1, Figs.2–5 and §VII. This is a leading-conference supplement, not a T-RO paper.
 
-**研究什么。** 接近目标的几何运动容易用反馈完成，接触后的摩擦、细小耦合及物体倾倒却难直接设计有效反馈。作者保留人工控制器，RL只学习修正：
+**Research question.** Feedback can readily handle geometric motion near a goal, but friction, small couplings and object toppling after contact make effective feedback harder to design directly. The authors retain a hand-designed controller and let RL learn corrections only:
 
 \[
 u=\pi_H(s_m)+\pi_\theta(s_m,s_o).
 \]
 
-学习器使用现成TD3，原文明确不依赖某个特定RL算法，还承认同期独立的residual policy learning及此前神经补偿思想。
+The learner uses existing TD3. The paper explicitly does not depend on a particular RL algorithm and acknowledges concurrent independent residual policy learning and earlier neural-compensation ideas.
 
-**专业在哪里、改动多大。** 核心结构很小。专业性是让已知运动结构减少探索负担，让学习处理接触行为，并在这个接口上正确训练和执行。原文指出两部分经动力学耦合，需要优化整体回报，不能把它理解成两个目标严格独立求解；基线稳定也不自动被任意残差继承。
+**Technical substance and scale.** The core structure is small. Known motion structure reduces exploration burden, while learning handles contact behavior, with training/execution correctly defined at that interface. The paper notes that dynamics couple both components, requiring optimization of total return rather than two strictly independent objectives. Baseline stability is not automatically inherited by arbitrary residuals.
 
-**贡献怎样成立。** 贡献由实际训练效率和接触适应能力组织。对齐实物场景二者均20/20成功；错位时残差15/20，人工控制器2/20，学习出现轻推和纠偏行为。纯RL、环境变化、控制噪声和仿真初始化的比较，解释先验何时足够、学习何时起作用。它不需要再发明TD3，但也没有证明优于所有强接触反馈。“首次控制加学习”不是准确概括。
+**How the contribution is supported.** Practical training efficiency and contact adaptation organize the contribution. In aligned physical tasks both methods succeed 20/20; under misalignment the residual succeeds 15/20 and the hand-designed controller 2/20, with learned nudging and correction. Pure RL, environmental changes, control noise and simulation initialization explain when priors suffice and when learning matters. Reinventing TD3 is unnecessary, but the paper does not establish superiority over every strong contact-feedback method. “First control plus learning” is inaccurate.
 
-### R21：以物理建模和成熟优化形成可执行判据
+### R21: physical modeling and mature optimization produce executable criteria
 
-Chen等，T-RO2025，*Stability Criterion and Stability Enhancement for a Thruster-Assisted Underwater Hexapod Robot*，[原文](../literature/papers/reverse_analysis_samples/R21.pdf)，DOI10.1109/TRO.2024.3492374。本轮核PDF1–4、7–10、15–18，另回查PDF13指标定义；PDF10复看原图。
+Chen et al., T-RO2025, *Stability Criterion and Stability Enhancement for a Thruster-Assisted Underwater Hexapod Robot*, [original](../literature/papers/reverse_analysis_samples/R21.pdf), DOI10.1109/TRO.2024.3492374. Checked PDF1–4,7–10,15–18, rechecked metric definitions on PDF13 and the original figure on PDF10.
 
-**研究什么。** 机器人同时靠腿和推进器运动，接触又交替改变。怎样将流体、惯性、摩擦、关节转矩和推力对行走的影响，变成实际可判断、可调节的量？原文也比较作者此前只适于平地的方案，继续改进已有路线。
+**Research question.** The robot moves using both legs and thrusters while contacts alternate. How can the effects of fluid, inertia, friction, joint torque and thrust on walking become quantities that can be assessed and adjusted in practice? The paper also compares the authors' earlier flat-ground-only method, continuing an existing route.
 
-**继承与调整。** 力平衡、接触可行性、SLSQP/LP/QP都是已有工具。工作集中在C形腿和流体/推进器共同作用的模型、摩擦和驱动限制、交替支撑的近似处理，再把这些条件投影到可执行推力。先处理竖向推力区间，再扩展到六维推力/力矩集合，最后在集合内选推力或投影上一时刻推力。
+**Inheritance and changes.** Force balance, contact feasibility and SLSQP/LP/QP are established tools. Work centers on a model combining C-shaped legs with fluid/thruster effects, friction/actuation limits and approximate alternating support, then projects these conditions into executable thrust. It first derives a vertical thrust interval, extends to a six-dimensional force/moment set and finally selects thrust within the set or projects the preceding thrust.
 
-**尺度及组织。** 属于模型、判据与执行构造的成组工作；既不是只换应用，也不需要重造通用求解器。专业性是物理条件经明确模型与近似，变成可用执行选择。图2先给两级方案，方法建立范围，仿真分解摩擦/转矩/质量的影响，水池坡道及台阶检验实际能力。坡道12组、每组5次；作者说明实物37kg、一组主要仿真5kg及其原因。原文也承认合适常推力可以爬台阶，方法价值包括减少寻找常推力的试错。
+**Scale and organization.** This is a coordinated modeling, criterion and execution construction, beyond changing the application and without reinventing general solvers. Physical conditions become usable execution choices through explicit models/approximations. Fig.2 presents two levels; methods establish ranges; simulation separates friction/torque/mass effects; pool ramps and steps test practical capability. Ramp tests use twelve groups of five trials. The paper explains the 37kg physical robot versus a principal 5kg simulation setup. It also acknowledges that suitable constant thrust can climb steps; reducing trial and error in selecting constant thrust is part of the value.
 
-**独立判断边界。** “稳定概率”是爬行过程中判为稳定的计数比例，不是成功次数/试验次数。PDF17的约50%不能解释成一半爬坡成功，也不是独立全系统稳定证书。PDF10式(34)–(35)用有限方向极值点构造凸包；按其凸可行集设定，这是内近似，集合外不自动等于真实不可行。式(37)最小化顶点距离平方和，解为顶点均值，通常不等价于最大化到边界的最小距离。
+**Boundaries of independent judgment.** “Stability probability” is the fraction of counts judged stable during crawling, not successful trials divided by trials. The approximately 50% on PDF17 does not mean half the climbs succeeded or provide an independent full-system stability certificate. Eqs.(34)–(35) on PDF10 construct a convex hull from extrema in finitely many directions. Under the stated convex feasible-set setting, this is an inner approximation; being outside does not automatically mean true infeasibility. Eq.(37) minimizes the sum of squared distances to vertices, whose solution is the vertex mean; this is generally not equivalent to maximizing minimum distance to the boundary.
 
-已有[一般数学反例](../literature/top_venue_sample_math_checks.json)保留，本轮复核原版公式，没有把一般反例扩大为否定全篇实验。可以学习其物理—计算—执行关系，同时准确保留近似方向和论断强度。
+The existing [general mathematical counterexamples](../literature/top_venue_sample_math_checks.json) remain. This round rechecked original equations without extending general counterexamples into rejection of all experiments. The physical → computational → execution relationship can be learned while preserving approximation direction and claim strength accurately.
 
-## 3. 另外四篇：具体补充，而非强套同一种形成路径
+## 3. Four additional cases: specific supplements rather than one imposed formation path
 
-| 样本及本轮页码 | 实际设计和变化 | 专业之处与贡献边界 |
+| Sample and pages checked this round | Actual design and changes | Technical substance and contribution boundaries |
 |---|---|---|
-| R05，T-RO2018，[原文](../literature/papers/reverse_analysis_samples/R05.pdf)，PDF1–6；式(1)–(2)、(6)–(19)、(23)–(33)，表II | 相对Jacobian描述一臂持物、另一臂作业；由力/位置估计含变化刚度的阻抗与参考，再接带限制的自适应控制和力通道 | 估计实际改变被跟踪参考，各模块服务同一协作任务。5名被试的描画与传统阻抗对照支持整体能力。力残差D不是真实意图的独立测量；非奇异、初值和人体模型条件仍需保留 |
-| R03，TIE2018，[原文](../literature/papers/reverse_analysis_samples/R03.pdf)，PDF1–4、10；式(10)–(13) | 用过滤历史构造D、T，让可计算残差P=T−Dθ̂携带参数误差信息；沿Newton–Euler参数化加入有限时间更新及SVD约化 | 更快收敛需要具体的信息与更新设计，不只是调学习率；原文明确受误差驱动辨识启发。SVD处理冗余而不创造激励，运动学IE和动力学PE/约化条件分开。本轮未复证全部收敛论证 |
-| R17，TNNLS2021，[原文](../literature/papers/reverse_analysis_samples/R17.pdf)，PDF1–5、10；式(8)–(11)、(18)–(20) | 沿BLF控制处理饱和矛盾：设计全轴有定义、导数有界且在边界附近最强的反馈；改饱和近似使无饱和时辅助状态衰减；简化RBFNN | 围绕执行能力对函数、辅助系统和近似器协调修改。明确把误差限制视作软约束，不可实现时研究有界与恢复；PDF10实物例检验这一点。不是始终不越界保证，惯量已知等前提仍在 |
-| R15，Mechatronics2020，[原文](../literature/papers/reverse_analysis_samples/R15.pdf)，PDF2–5、8、11–12；式(19)、(23)–(24)、(30)–(36) | 迭代更新K/D及参考；最小零空间坐标和惯量加权逆满足J#ᵀMZ=0，使任务跟踪与关节受推柔顺分工，再补任务通道扰动 | 组合落实到动力学兼容关系。Sawyer纸板接触20轮学习和身体受推实验分别服务不同能力。参考也变化，不能把力降低全归于K/D；不是顶刊身份或任意时变扰动保证 |
+| R05, T-RO2018, [original](../literature/papers/reverse_analysis_samples/R05.pdf), PDF1–6; Eqs.(1)–(2),(6)–(19),(23)–(33), TableII | A relative Jacobian describes one arm holding and another operating. Force/position estimates produce impedance, including changing stiffness, and references, followed by constrained adaptive control and a force channel | Estimation actually changes the tracked reference; modules serve the same cooperative task. Tracing with five participants against conventional impedance supports overall capability. Force residual D is not an independent measurement of true intention; nonsingularity, initial conditions and human-model assumptions remain |
+| R03, TIE2018, [original](../literature/papers/reverse_analysis_samples/R03.pdf), PDF1–4,10; Eqs.(10)–(13) | Filtered history constructs D,T so computable residual P=T−Dθ̂ carries parameter-error information. Newton–Euler parameterization is extended by finite-time updates and SVD reduction | Faster convergence requires specific information/update design rather than tuning learning rates. The paper explicitly draws on error-driven identification. SVD removes redundancy but does not create excitation; kinematic IE and dynamic PE/reduction conditions remain distinct. Not all convergence arguments were reproved here |
+| R17, TNNLS2021, [original](../literature/papers/reverse_analysis_samples/R17.pdf), PDF1–5,10; Eqs.(8)–(11),(18)–(20) | BLF control addresses saturation through feedback defined on the whole axis, with bounded derivative and strongest near boundaries; a changed saturation approximation lets auxiliary states decay without saturation; RBFNN is simplified | Functions, auxiliary dynamics and approximation are coordinated around execution capability. Error limits are explicitly soft constraints; infeasible cases concern boundedness/recovery, tested physically on PDF10. This is not an always-within-bounds guarantee; assumptions such as known inertia remain |
+| R15, Mechatronics2020, [original](../literature/papers/reverse_analysis_samples/R15.pdf), PDF2–5,8,11–12; Eqs.(19),(23)–(24),(30)–(36) | K/D and references update iteratively. Minimal null-space coordinates and an inertia-weighted inverse satisfy J#ᵀMZ=0, dividing task tracking from joint compliance under pushes, with task-channel disturbance compensation | Combination is realized through dynamic compatibility. Twenty learning rounds of Sawyer/cardboard contact and body-push experiments serve distinct capabilities. References also change, so reduced force cannot all be attributed to K/D. This is neither a leading-journal identity nor an arbitrary-time-varying-disturbance guarantee |
 
-## 4. 从这些设计中理解贡献尺度与论文组织
+## 4. Contribution scale and paper organization learned from these designs
 
-用户提出的两种形成方式都有具体支撑：R01、R13、R17沿成熟主线修改关键结构；R05、R12、R15围绕明确任务组织不同机制；R11由人体适应规律正向迁移共同更新。R19既可理解为在反馈上加残差，也可理解为控制与学习重新分工，分类不应成为限制。
+Both formation routes proposed by the user have concrete support: R01, R13 and R17 modify key structures along mature routes; R05, R12 and R15 organize mechanisms around tasks; R11 transfers human adaptation patterns into joint updates. R19 can mean adding a residual to feedback or reallocating control/learning roles. Classification must not constrain design.
 
-这些论文的专业性各有落点：R01的共同相位，R13的径向性质及可训练条件，R12的人力参考/环境补偿分工，R15的动力学兼容，R21的可执行推力集合。它们让部件通过明确关系改变能力。关系有时简洁，有时需要较多推导，没有统一的新组件数量、算法改动量或提升百分比。
+Technical substance appears in different relationships: R01's shared phase, R13's radial properties/trainable conditions, R12's human-force-reference/environment-compensation division, R15's dynamic compatibility and R21's executable thrust set. These relationships let components change capabilities. Some are concise, others require extensive derivation; no universal new-component count, algorithm-change size or improvement percentage follows.
 
-论文包装确实重要，可以从具体写法理解其作用：
+Paper presentation matters, and specific writing shows how:
 
-- **R01把小改动表达在适当的能力层次。** 公式层是双变换系统；贡献层是可直接示教和同步泛化的阻抗技能；实验证据拆开运动与刚度。只写“将DMP用于p”会低估实际价值。
-- **R12让冲突决定叙述与指标。** 引言解释费力与接触表现的矛盾，式(5)给目标行为，方法安排分工，实验同时看误差与人的功，读者能追踪设计为何重要。
-- **R13用同一结构支撑有联系的贡献。** 先解释证书为何限制轨迹，再推结构；表示相容、收敛、位置限制和泛化围绕同一设计展开。它也没有要求所有案例都大幅获胜。
-- **R11与R19用行为对照解释机制。** 恒定/发散扰动、对齐/错位任务说明何时需要哪种调整，算法排名因而有具体含义。
-- **R21把多物理分析组织成执行选择。** 一维再到六维的叙述使成组工作可理解，实际任务检验其作用，近似和指标的限制仍应保留。
+- **R01 expresses a small change at the appropriate capability level.** The equation-level change is two transformation systems; the contribution is directly demonstrable, synchronously generalizable impedance skills; experiments separate motion/stiffness. Merely saying “apply DMP to p” understates its value.
+- **R12 lets the conflict determine narrative and metrics.** The introduction explains effort versus contact performance, Eq.(5) gives target behavior, methods assign roles and experiments measure both error and human work, making the design's importance traceable.
+- **R13 supports related contributions with one structure.** It first explains certificate-induced trajectory limitations, then derives the structure. Representation compatibility, convergence, position limits and generalization surround the same design. It does not require large wins in every case.
+- **R11 and R19 explain mechanisms through behavioral comparisons.** Constant/divergent disturbances and aligned/misaligned tasks show when each adjustment is needed, giving algorithm rankings concrete meaning.
+- **R21 organizes multiphysics analysis into execution choices.** Moving from one to six dimensions makes the coordinated work understandable; actual tasks test its role, while approximation/metric limits remain.
 
-这种包装把实际改进的层次、意义和支持证据组织清楚，能够显著提高说服力。它不要求把小改造写成全新范式，也不能由发表身份抹去证据缺口。某篇旧论文的有限对照或有疑点的定理，均不能自动成为今天的通用标准。
+Such presentation clarifies the level, meaning and evidence of actual improvements and can substantially strengthen persuasion. It neither requires portraying small changes as a new paradigm nor lets publication status erase evidence gaps. Limited comparators or questionable theorems in an old paper cannot automatically become universal standards today.
 
-## 5. 再对照项目失败：已确认的错误与仍未查清的原因
+## 5. Comparison with project failures: confirmed errors and unresolved causes
 
-依据为[失败记录](../project_records/research_failures_and_corrections.md)、保留实验，以及Git `db28365f33dc314ce8bfe83a23796dd18cf27f5b`中的旧决策记录和后验规划报告。本轮没有重跑控制实验，也不把所有方法失利归结成同一个原因。
+Sources are the [failure record](../project_records/research_failures_and_corrections.md), retained experiments, and old decisions/posterior-planning reports at Git `db28365f33dc314ce8bfe83a23796dd18cf27f5b`. This round reran no control experiments and does not assign one cause to all method failures.
 
-| 项目实际情况 | 具体论文对照 | 能支持的解释及避免方式 |
+| Actual project situation | Specific paper comparison | Supported explanation and prevention |
 |---|---|---|
-| 旧记录反复纠正“必须NEOC”、算法独占及先全面排除修复的要求 | R01明确小改造；R19复用TD3；R21用成熟优化器 | 额外门槛会排除正常方法来源，应深入研究已有方法怎样适配和改进。不能进一步编造“某个已优秀方案因此被具体淘汰”的历史 |
-| 过早转成Q3，又逐步漂向候选A；旧记录有撤回和用户纠正 | R12始终围绕人的负担与接触表现，R13围绕准确性与收敛 | 局部算法比较被用来改变问题重心，是有记录的层次错误。强工作存在，应继续追问原问题中值得改善的能力，不自动缩成某工具能赢的题目 |
-| 追加策略滚动和后验规划，尚无相对充分简单方法的稳定优势 | R12的分工来自目标动力学；R15的组合落实到解耦 | 借鉴和原型探索合法且有信息价值，但这些实例尚未建立“连接怎样改变重要任务取舍”的证据；不能仅凭流程完整就形成论文方法，也不由此禁止自然融合 |
-| 短历史直接PPO省略完整MHE/预瞄，CEM小公式也曾承接候选2名称 | R01的示教—表示—泛化—执行、R19的固定控制器—残差训练对象清楚 | 实验对象改变后仍用完整候选名，会积累错误判断。这是验证对象不一致，不是原候选2被证伪，应保留具体实现名称及省略条件 |
-| 两条历史未来力最多差约0.2806N，但同一K/D相对各自最好候选的两例平均损失仅约0.4334% | R11用偏置、位置发散及速度发散检查不同动作作用 | 信息差异已出现，重要控制改善仍未建立，认识到动作价值的联系还缺证据。这两例既不能否定历史信息，也不能直接立重要阻抗贡献 |
-| 扫描联合输出有小正结果，纯增益新批未稳定胜固定；修正模型联合对解析约0.201%、区间跨零 | R01分离运动/刚度作用；R19对齐时基线足够，错位时才显作用 | 需解释收益来自参考、前馈、增益还是其配合。小数字本身不决定贡献，当前尚未显示类似样本中清楚的能力改善 |
-| 节点根、策略质量和完整保证曾混淆，只计预测或等待旧计划也影响时效结论 | R13区分能量相容与最终轨迹；R21需区分可行近似与真实稳定 | 数值对象及执行接口须对准主张。接触约束实验后来发布对齐/后台改进已有约0.67%–0.78%局部收益，不能拿较弱执行代表整类在线方法 |
+| Old records repeatedly correct mandatory NEOC, algorithm exclusivity and requiring comprehensive exclusion of repairs first | R01 explicitly uses small modifications; R19 reuses TD3; R21 uses mature optimizers | Extra gates exclude normal method sources. Study how existing methods can be adapted/improved. Do not invent a history in which some already excellent specific method was rejected for this reason |
+| Premature shift to Q3 followed by drift toward candidate A; old records contain withdrawal and user correction | R12 stays focused on human burden/contact performance; R13 on accuracy/convergence | Using local algorithm comparisons to shift the question's focus is a documented level error. Strong prior work calls for deeper inquiry into worthwhile improvements within the original question, not automatic narrowing to a task where one tool can win |
+| Added policy rolling and posterior planning lack stable advantages over adequate simple methods | R12 divides roles from target dynamics; R15 realizes combinations through decoupling | Adaptation and prototypes are legitimate and informative, but these instances have not established how connections improve important task tradeoffs. Workflow completeness does not form a paper method; this also does not prohibit natural fusion |
+| Short-history direct PPO omitted complete MHE/preview; small CEM formulas also inherited candidate 2's name | R01 clearly defines demonstration → representation → generalization → execution; R19 defines a fixed controller/residual training object | Retaining the complete candidate name after changing the experimental object accumulates mistaken judgments. This is a validation-object mismatch, not falsification of original candidate 2. Preserve specific implementation names and omitted conditions |
+| Two histories produce up to about 0.2806N future-force difference, yet the same K/D has only about 0.4334% mean loss over two cases relative to each case's best candidate | R11 uses bias, position-divergent and velocity-divergent disturbances to test different action roles | Information differs, but important control improvement remains unestablished; the knowledge-to-action-value link lacks evidence. These two cases neither refute history information nor establish an important impedance contribution |
+| Joint scanning outputs have small positive results; a new gains-only cohort does not consistently beat fixed gains; corrected-model joint output improves about 0.201% over analytic control with an interval spanning zero | R01 separates motion/stiffness effects; R19's baseline suffices when aligned, while learning matters under misalignment | Explain whether benefit comes from references, feedforward, gains or their coordination. Small numbers alone do not decide contribution; a clear capability improvement like the samples has not yet appeared |
+| Nodal roots, policy quality and complete guarantees were confused; counting prediction only or waiting for old plans affects timeliness conclusions | R13 separates energy compatibility/final trajectories; R21 requires distinguishing feasible approximations/true stability | Numerical objects and execution interfaces must match claims. Later release-aligned/background improvements in constrained-contact tests yield about 0.67%–0.78% local benefit; weaker execution cannot represent all online methods |
 
-后验规划还有直接事实：新64例相对本来就能更新认识的冻结规划，额外逐例平均改善0.08363%；中位规划约668ms、构造另约162ms，报告性能未计等待。它支持该实例尚不能承担快速控制主方法；没有证据把小收益完全归因于“没有网络”“模型太简单”或“顶刊理解差”。这些都需具体分析，不能任选一种原因保住方案。
+Posterior planning adds direct evidence: across 64 new cases, additional mean paired improvement over a frozen planner already able to update knowledge is 0.08363%; median planning is about 668ms plus about 162ms construction, while reported performance omits waiting. This supports the conclusion that this instance cannot yet serve as the main rapid-control method. No evidence attributes all small benefits to absence of a network, an overly simple model or poor understanding of leading journals. These require specific analysis rather than choosing any explanation to protect the proposal.
 
-本轮对失败的理解分两层：**判断方式曾偏离样本展示的正常科研设计**，表现为过度防守、缩题和对象混淆；**具体原型也确实尚缺足够任务进展**，不能靠降低要求或重新命名消除。前者需纠正设计和判断方式，后者仍需实质方法改进及证据。完整B0未被这些局部实例整体裁决。
+Failure is understood at two levels: **judgment departed from normal research design illustrated by the samples**, through excessive defensiveness, narrowing and object confusion; **the specific prototypes also still lack sufficient task progress**, which lower standards or renaming cannot remove. Correct design/judgment at the first level; substantive method improvements and evidence remain necessary at the second. These local instances have not decided complete B0 as a whole.
 
-## 6. 后续确认与要求落实
+## 6. Subsequent confirmation and implementation in requirements
 
-可以学习的设计动作都有原文来源：像R13沿强主线追问表示/条件怎样限制能力；像R12从所需行为安排分工；像R01允许小改造并明确增加什么技能；像R19把成熟部件的组合落实到可辨认的任务行为。后续可据此研究项目，允许改造、迁移和自然融合，不预定必须走哪一种形成路径。
+Learnable design actions have original sources: follow a strong route to ask how representation/conditions limit capability as in R13; allocate roles from required behavior as in R12; permit small changes and identify the added skill as in R01; translate mature-component combinations into identifiable task behavior as in R19. Subsequent project work can use modification, transfer and natural fusion without prescribing one formation path.
 
-后续对话中，用户进一步确认：要学习的是如何构造方法，以及顶刊方法实际是什么样；成稿中方法从问题自然产生的叙事，不代表真实发现顺序。形成方法可以沿成熟主线改进，也可以围绕问题自然组合、改造不同机制；在借鉴、推导、实现与验证中，问题和方法可以共同成形。改进可以小，专业适配和实际进展才使其有研究价值。论文包装是把真实工作组织成清楚、有说服力贡献的重要工作。
+In subsequent discussion the user further confirmed that the goal is to learn how to construct methods and what leading-journal methods actually look like. A finished paper's narrative of methods arising naturally from the problem does not reveal the real discovery sequence. Method formation may improve a mature route or naturally combine/adapt mechanisms around a problem; problems and methods can co-evolve through adaptation, derivation, implementation and verification. Improvements may be small; technically sound adaptation and actual progress confer research value. Organizing real work into clear, persuasive contributions is an important part of paper preparation.
 
-用户随后明确要求将上述理解及逆向分析所得落实到科研各阶段的做法和判断，现已写入[长期要求](../project_records/long_term_requirements.md)。本报告保留具体例子、原文位置与分析边界，长期要求保存经确认的稳定认识；不把样本归纳变成统一录用清单。本次落实未指定项目新主方法或新增控制实验，具体续接由[HANDOFF](../project_records/HANDOFF.md)和用户最新任务给出。
+The user then explicitly required these understandings and reverse-analysis lessons to guide practices and judgments at each research stage; they are now in the [long-term requirements](../project_records/long_term_requirements.md). This report retains examples, source locations and analysis boundaries; the requirements retain confirmed stable understanding. Sample patterns do not become a uniform acceptance checklist. This update selects no new main method and adds no control experiment. Continuation follows the [handoff](../project_records/HANDOFF.md) and latest user task.

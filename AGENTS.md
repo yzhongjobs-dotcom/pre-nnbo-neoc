@@ -4,7 +4,7 @@ This is a long-term research project. The user authorizes committing and pushing
 completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
 
 1. Read `project_records/HANDOFF.md` to resume, then the current user request and
-   relevant parts of `project_records/long_term_requirements.md` and `project_records/decisions_and_changes.md`.
+   relevant parts of `project_records/long_term_requirements.md`.
    Older root handoffs and dated plans were consolidated; recover originals
    from Git only when needed. Do not repeatedly reread all history.
 2. Research context (not an instruction to start research on every turn): the
@@ -43,13 +43,13 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    retained merely to prove that work happened may be removed from the working
    tree after recording necessary lessons and a Git recovery point. Do not use
    archival completeness as a reason to preserve irrelevant material locally.
-7. For each completed logical change, update `project_records/decisions_and_changes.md` with
-   its reason, comparison version, evidence, scope and affected assumptions or
-   proofs; perform appropriate checks, then automatically run:
-   `python -X utf8 scripts/research_sync.py --message "research: <specific change and purpose>"`
-   Run before reporting completion and at the end of a turn that changes files.
-   No repeat upload permission is needed. If pushing fails, keep the local
-   commit, report the failure and retry. Never force-push or rewrite history.
+7. Use Git history for change tracking. Do not create separate change logs,
+   cleanup records, language-migration reports or relocation histories.
+   Keep scientific reasoning in the relevant research document, experimental
+   report or failure analysis. After checking each completed checkpoint,
+   automatically run `python -X utf8 scripts/research_sync.py --message "research: <specific change and purpose>"`.
+   No repeat upload permission is needed. If pushing fails, keep the local commit,
+   report the failure and retry. Never force-push or rewrite history.
 
 The synchronization helper runs at completed checkpoints, not arbitrary file
 writes. Preserve the user's notification and review preferences; report actual
@@ -57,17 +57,21 @@ changes plainly, without making the user read inventory dumps.
 
 ## Language and paths
 
-Keep approved requirements, handoffs, key decisions, failure lessons, scientific
-prose, experiment explanations and human-facing research indexes in Chinese.
-Read the Chinese project documents directly; do not substitute an English
-summary for the user's confirmed requirements. This language choice does not
-make any scientific claim exempt from evidence checking.
-Use English for working directory/file names, code documentation and technical
-tool instructions.
-Communicate with the user in Chinese unless they request otherwise. Maintain one
-working version, not parallel English and Chinese copies. Source papers and
-original data retain their language and contents. The frozen B0 directory and
-its internal names are exempt from path translation. Historical provenance paths
-and pinned Git URLs must retain their original spelling; resolve migrated local
-paths through `project_records/english_migration.json` when necessary.
-On Windows, run Python commands with `python -X utf8` when reading project files.
+Keep only these working documents in Chinese:
+- `research/research_question.md`
+- `research/field_state.md`
+- `research/optimal_impedance_question_and_methods.md`
+- `research/method_design.md`
+- `project_records/long_term_requirements.md`
+- `project_records/research_failures_and_corrections.md`
+
+Use English for all other editable documentation, reports, indexes, handoffs,
+technical appendices, proofs, comments, and operational instructions. Working
+paths use English. Preserve original papers, extracted source texts, raw data,
+the frozen snapshot, and literal historical identifiers in their original form.
+Language edits must preserve scientific content, equations,
+values, conditions, references and evidence boundaries. Small corrections to
+previously identified wording or reference defects are allowed.
+Communicate with the user in Chinese. Explain what each step did, how it was
+done, and its results when reporting progress or answering questions. Maintain
+one working language version per document. On Windows use `python -X utf8`.

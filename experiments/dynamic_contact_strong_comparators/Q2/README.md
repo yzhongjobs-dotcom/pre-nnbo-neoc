@@ -1,121 +1,121 @@
-> 既有局部验证记录。过时选题与续做安排已移除，原配置和数值结论保留。后续安排见[HANDOFF](../../../project_records/HANDOFF.md)。
+> Existing local validation. Obsolete topics/plans removed; original configurations/results remain. See [HANDOFF](../../../project_records/HANDOFF.md).
 
-# Q2 连续阶段与因果模型更新：结果与研究决定
+# Q2 continuous phases/causal-model updates: results and decisions
 
-2026-10-13。阶段验证已执行；完整目标未完成。
-本轮改变的重点是研究问题的解释，见 [当前问题与方法选择](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E9%97%AE%E9%A2%98%E6%9C%BA%E5%88%B6%E9%87%8D%E6%96%B0%E5%AF%B9%E9%BD%90_2026-10-13/00_%E7%A0%94%E7%A9%B6%E9%97%AE%E9%A2%98%E4%B8%8E%E6%96%B9%E6%B3%95%E9%80%89%E6%8B%A9_%E8%BF%AD%E4%BB%A3%E4%B8%AD.md)。
+2026-10-13.Stage validation executed; complete objective unfinished.
+The main revision concerned question interpretation; see [question/method choices](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E9%97%AE%E9%A2%98%E6%9C%BA%E5%88%B6%E9%87%8D%E6%96%B0%E5%AF%B9%E9%BD%90_2026-10-13/00_%E7%A0%94%E7%A9%B6%E9%97%AE%E9%A2%98%E4%B8%8E%E6%96%B9%E6%B3%95%E9%80%89%E6%8B%A9_%E8%BF%AD%E4%BB%A3%E4%B8%AD.md).
 
 ## Material Passport
 
 - Skill: academic-research-suite / experiment-agent，run + independent validation
 - Type: continuous local contact / same-information rival discrimination
-- Status: 已执行；独立方程积分、梯度、储能及静态目标核对完成
-- Scope: 局部软接触、两个实际增益/变化率与能量状态；非全维R15或真实组织
-- 样本最优参照是收敛局部非线性轨迹解，不声称全局最优。
+- Status: executed, with independent equations/integration, gradients, storage/static-target checks
+- Scope: local soft contact, two actual gains/rates and energy, not full R15/real tissue
+- Numerical references are converged local trajectories, not global optima.
 
-## 场景与同问题比较
+## Scenarios and same-problem comparisons
 
-4 s预载附近的接触，材料300→550 N/m缓变，两个平滑表面运动，
-实际状态和接触力由动力学计算。参数见 [协议](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E9%97%AE%E9%A2%98%E6%9C%BA%E5%88%B6%E9%87%8D%E6%96%B0%E5%AF%B9%E9%BD%90_2026-10-13/Q2_%E8%BF%9E%E7%BB%AD%E9%98%B6%E6%AE%B5/%E7%A0%94%E7%A9%B6%E5%A5%91%E7%BA%A6.md) 和各config。
-阶段本身不是预设刚度轨迹。位置、力、柔顺偏好、动作成本与限制共同固定。
+4s near-preload contact, material300→550N/m, two smooth surface motions;
+compute actual states/force from dynamics. See [protocol](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E9%97%AE%E9%A2%98%E6%9C%BA%E5%88%B6%E9%87%8D%E6%96%B0%E5%AF%B9%E9%BD%90_2026-10-13/Q2_%E8%BF%9E%E7%BB%AD%E9%98%B6%E6%AE%B5/%E7%A0%94%E7%A9%B6%E5%A5%91%E7%BA%A6.md) and configurations.
+Phases are not preset stiffness paths. Fix position, force, compliance preferences, action costs/bounds together.
 
-| 对照 | 累计代价 | 相对修复后的轨迹参照 |
+|Comparator|Accumulated cost|Gap from repaired reference|
 |---|---:|---:|
-| 调优固定目标 | 1.464683 | +25.63% |
-| 同信息提前静态调度 | 1.283045 | +10.05% |
-| 严精度、逐阶段保持可行的一步预测 | 1.200463 | +2.96% |
-| 低层解析动作约束的一步预测 | 1.191440 | +2.19% |
-| 轨迹参照（数值裕量修复） | 1.165898 | — |
+|Tuned fixed targets|1.464683|+25.63%|
+|Equal-information anticipatory schedule|1.283045|+10.05%|
+|Strict accuracy/whole-stage-feasible one-step|1.200463|+2.96%|
+|Low-level analytical constraints/one-step|1.191440|+2.19%|
+|Numerically guarded trajectory|1.165898|—|
 
-固定目标由多初值Powell优化；提前调度的预瞄长度/阻尼充分搜索，
-不是只挑三个固定增益与几个阻尼。静态目标由同一物理代价的驻点求得，
-与独立标量优化最大K差约9e-6。
+Tune fixed targets by multistart Powell; search schedule preview/damping thoroughly,
+not merely three gains/few dampings. Static targets solve common physical-cost stationarity,
+with maximum K difference about 9e-6 from independent scalar optimization.
 
-低层解析投影替代昂贵整阶段检查属于强对照修复，不是本项目新机制。
-它每个低层周期依实际状态落实增益率/能量允许动作；完整预测成本仍计时。
-其动作比125ms整阶段固定增益率的参照更丰富，因此负代价差如出现将
-首先指向参照参数化不足，不解读为“超过真实最优”。
+Analytical low-level projection replaces expensive stage checks as baseline repair, not our new mechanism.
+It enforces state-dependent rate/energy actions each low-level cycle; full prediction remains timed.
+Its actions exceed the flexibility of125ms fixed-rate reference segments, so negative gaps would
+first indicate restricted reference parameterization, not beyond-optimality.
 
-## 计算结论的限度
+## Timing limits
 
-整阶段反复可行性检查的预测对照累计约11.02 s，最长决策约1.77 s；
-换用低层解析接口后累计约1.78 s，最长决策约0.339 s。
-完整原型轨迹求解约28–32 s。准备/JIT、控制服务与物理仿真分开记录。
+Repeated whole-stage checking costs about 11.02s total, max decision about 1.77s;
+analytical interfaces reduce this to about 1.78s/max0.339s.
+Full prototype trajectory optimization about 28–32s; separate preparation/JIT, control service/physics.
 
-这些数字不能证明NEOC必须更快：oracle场景未来材料已知，基线可以预求解；
-原型性能不等于结构化RTI/硬件实现，求解延迟尚未注入闭环。
+These do not prove necessary NEOC speedups: oracle future materials permit baseline pre-solving;
+prototype timings differ from structured RTI/hardware, and latency is not injected into loops.
 
-## 连续时间与数值修复
+## Continuous-time numerical repairs
 
-[独立核对](audit.json) 发现原粗网格根虽然采样可行，却有约1.18e-8 W
-的连续方程能量功率限制越界。保留旧数据，在规划中统一加入3e-5归一化
-数值裕量。[修复结果](guarded_validation/results.json) 的两个初值均收敛到
-约1.165898，独立积分最小功率裕量约9.17e-9 W，能量高于原下界。
+[Independent audit](audit.json) finds sampled-feasible coarse roots violate continuous power limits by about 1.18e-8W.
+Retain old data and add common normalized planning guard3e-5.
+[Repaired results](guarded_validation/results.json) converge from two starts to
+about 1.165898, with independent minimum power margin about 9.17e-9W and energy above original bounds.
 
-独立DOP853与代价相对差约6.65e-8；储能恒等式最大误差约1.39e-17；
-三方向目标梯度最大误差约1.42e-9，约束方向误差约2.05e-8。
-解析动作投影的独立积分代价相对差约1.65e-6。
-这些是数值/采样核对，未建立严格区间全时域认证。
+Independent DOP853 relative cost difference about 6.65e-8, storage identity≤1.39e-17;
+three directional objective-gradient errors≤1.42e-9, constraints about 2.05e-8.
+Analytical-action projection independent relative cost difference about 1.65e-6.
+These are numerical/sample checks, not reliable full-horizon interval certification.
 
-## 去除未来材料信息后的判别
+## Removing future material information
 
-控制器只获得当前/过去材料观测，未来表面程序仍为所有方法共有的任务输入。
-实际材料继续变化；低层控制只使用当前真实状态，不接收未来材料。
-宽材料范围300→1000是留出条件，尾策略参数在300→550条件调好后冻结。
+Controllers receive current/past material observations; all still know future surface programs as task inputs.
+Material continues changing; low-level controls see only current actual states, not future material.
+300→1000 is a holdout range; tail policies tuned on300→550 remain frozen.
 
-| 材料范围 | 冻结初始材料的预测反馈 | 每次更新当前材料、未来冻结 | 用历史斜率预测材料 |
+|Material range|Frozen initial model|Current updates/frozen future|History-slope prediction|
 |---|---:|---:|---:|
 | 300→550 | 1.167293 | 1.170405 | 1.191166 |
 | 300→1000 | 1.589625 | 1.620307 | 1.584444 |
 
-材料更新没有带来稳定、显著的收益；趋势在宽范围组仅比冻结模型改善约0.326%。
-这不证明准确模型无价值：对照使用近似尾策略、局部动作优化及近似预测，
-模型误差、价值表示误差与求解误差可能相互补偿。它证明的是不能据此
-直接将“更新参数”设定为当前任务必要能力。
+Updates yield no stable significant gains; wide-range trend prediction improves frozen models only about 0.326%.
+This does not prove that accurate models lack value: the comparator uses approximate tail policies, local action optimization and approximate predictions,
+model, representation and solution errors can compensate. It shows these results cannot
+establish model updating as a necessary task capability.
 
-还用maxiter=8、ftol=1e-5、前次动作热启动加强廉价对照；
-部分组质量几乎保留，最长决策约77–146 ms。它们仍是原型观测值，
-不能预设强简单求解器都不满足实时性，也不能把虚拟时间质量当部署结果。
-全数据在 [因果对照](material_update_discriminator/results.json) 和
-[趋势修复](trend_discriminator/results.json)。
+Strengthen cheap controls with maxiter=8, ftol=1e-5 and prior-action warm starts;
+some retain quality with maximum 77–146ms decisions, still prototype observations.
+Do not presume all strong simple solvers miss real time, or call virtual-time quality deployment.
+See [causal controls](material_update_discriminator/results.json) and
+[trend repair](trend_discriminator/results.json).
 
-## 对NEOC的结构约束
+## Structural constraints on NEOC
 
-在本例固定节点、权重与参考下，材料只进入接触动力学和代价，
-增益率Hamiltonian的允许集/动作恢复不直接依赖材料theta。
-因此有限价值残差恰为F(Wa,theta)=A0(Wa)+A1(Wa)theta+A2theta²。
-cached-J chord可以缓存两个响应列，在线算一次线性项和二次项；
-必须作为与NEOC同等准备机会的强对照。
+For fixed nodes, weights/references, material enters only contact dynamics/cost;
+the rate Hamiltonian allowed set/action recovery does not directly depend on theta.
+Thus finite value residual F(Wa, theta)=A0(Wa)+A1(Wa)theta+A2theta² exactly.
+Cached-J chord can store two response columns and evaluate linear/quadratic terms online;
+include it as a strong comparator with equal preparation opportunities.
 
-[结构程序](prepared_residual_structure.py) 在任意权重下核对了此恒等式，
-误差约2.2e-16；缓存预测与显式chord差约1.7e-13。
-该权重并不是合格HJB根，未作critic质量或控制加速验证。
-结构本身不是独立新颖性，也不自动推广到全部eta、变动参考或状态约束边界。
+[Structure code](prepared_residual_structure.py) checks this at arbitrary weights,
+with error about 2.2e-16; cached/explicit chord differs about 1.7e-13.
+These weights are not qualified HJB roots; no critic-quality/control-acceleration test is implied.
+This structure is not standalone novelty or automatically valid for all η, changing references/state boundaries.
 
-## 结果适用范围
+## Scope
 
-本局部连续阶段中优化相对固定控制有收益，强简单控制接近优化，因果模型更新未出现稳定显著收益。结果仅针对所用模型、代价与扰动，不支持撤销B0或提出新的算法子题。
+Local continuous optimization improves fixed control; strong simple methods approximate it; causal-model gains are not stable/significant. Limited model, cost/disturbance evidence neither invalidates B0 nor creates an algorithmic subquestion.
 
-已知固定空间场中的位置变化是状态变化；模型估计修订才改变相应描述符。
+Position changes in known fixed spatial fields are state changes; model-estimate revisions alter descriptors.
 
-## 运行与回溯
+## Running and recovery
 
-- [物理模型](contact_stages.py)、[强调度与预测](strong_rivals.py)
-- [低层解析接口对照](projected_rival.py)、[独立方程核对](independent_audit.py)
-- [裕量修复](guarded_validation.py)、[因果信息消融](material_update_discriminator.py)
-- [历史趋势预测](trend_discriminator.py)、[准备结构核对](prepared_residual_structure.py)
+- [Physics](contact_stages.py),[strong schedules/prediction](strong_rivals.py)
+- [Analytical interface](projected_rival.py),[independent equations](independent_audit.py)
+- [Guard repair](guarded_validation.py),[causal ablation](material_update_discriminator.py)
+- [Trend prediction](trend_discriminator.py),[prepared structure](prepared_residual_structure.py)
 
-`strong_rivals/`、`projected_rival/`保存无数值裕量时期的结果；`guarded_validation/`保存裕量修复后的结果。首次pilot中间产物已移出工作区，原件可从Git回查。
+strong_rivals/, projected_rival/ retain preguard results; guarded_validation/ retains repaired results. First-pilot intermediates left the working tree but remain in Git.
 
-运行时使用独立新输出目录或副本；顺序为物理试验→强对照→独立核对→
-裕量修复→信息消融→趋势预测。参数与原始状态/动作保存于各结果目录。
+Use new outputs/copies; order: physics→strong controls→independent checks→
+guard repair→information ablation→trend prediction. Directories retain parameters/raw states/actions.
 
-## 已核的先例与边界
+## Checked precedents and boundaries
 
-- [Beber ICRA2024](https://arxiv.org/html/2309.14893v2)：已有组织表征、阻抗QP和能量机制。
-- [Rai NEOC](https://arxiv.org/html/2312.04733v1)：已有闭环参数灵敏度和多步处理。
-- [ENE](https://arxiv.org/html/2306.04830v1)：已有状态/预瞄与活动变化分段处理。
-- [参数预测校正，SIAM2012](https://doi.org/10.1137/110844349)：已有参数优化跟踪及收缩分析。
-- [多阶段MPC灵敏度，LCSS2018作者稿](https://jaschke.folk.ntnu.no/preprints/2018/Krishnamoorthy_LCSS_Path-following/PrimalDecompQP_L-CSS.pdf)：已有利用相邻参数避免反复完整求解。
+- [Beber ICRA2024](https://arxiv.org/html/2309.14893v2): tissue characterization, impedance QP/energy mechanisms already exist.
+- [Rai NEOC](https://arxiv.org/html/2312.04733v1): closed-loop parameter sensitivity/multistep treatment exist.
+- [ENE](https://arxiv.org/html/2306.04830v1): state/preview and piecewise active changes exist.
+- [Parameter prediction/correction, SIAM2012](https://doi.org/10.1137/110844349): parameter tracking/contraction analysis exist.
+- [Multistage MPC sensitivity, LCSS2018 author version](https://jaschke.folk.ntnu.no/preprints/2018/Krishnamoorthy_LCSS_Path-following/PrimalDecompQP_L-CSS.pdf): neighboring parameters already avoid repeated full solves.
 
-本次是有界机制核查，不是完整新颖性终审。
+This is a bounded mechanism check, not final novelty review.

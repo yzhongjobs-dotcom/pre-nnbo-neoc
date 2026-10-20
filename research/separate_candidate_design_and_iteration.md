@@ -1,140 +1,140 @@
-# 两候选分线设计与迭代
+# Separate design and iteration of the two candidates
 
-2026-10-19，起点`a25d887`。用户最新澄清：目标是给出解决原问题、达到顶刊创新与证据要求的方法；对照服务于设计。两候选分别实验、分别判断，不足则继续改进；不以补齐基线替代研究完成。本轮据此恢复研究，不恢复旧暂停状态或设置新的审批关卡。
+2026-10-19, starting from `a25d887`. The user's latest clarification is to develop methods that solve the original question with innovation and evidence sufficient for leading journals; comparisons support design. Experiment with and judge each candidate separately, and continue improving deficiencies. Completing baselines does not complete the research. Work resumed on this basis, without reinstating the old pause or introducing approval gates.
 
-## 1. 要形成的能力与设计依据
+## 1. Required capabilities and design sources
 
-任务仍是连续软组织扫描：新的接触信息到达后，快速更新适合当前环境、机器人状态和任务权衡的实际阻抗，改善力与运动的综合表现，并计入执行/计算。不是抽象整段采集规划，也不是只加速一个脱离控制的根。
+The task remains continuous soft-tissue scanning: as new contact information arrives, rapidly update actual impedance to suit the current environment, robot state and task tradeoff, improve combined force and motion performance, and account for execution and computation. The task is neither abstract whole-acquisition planning nor accelerating a root detached from control.
 
-设计来源按[定向文献](candidate_improvements_targeted_literature_and_design.md)核读：NNBO提供“非线性接触—性能权衡—反馈决策—参考执行”的主线；Jin E41提供直接以阻抗为决策变量、约束与能量处理；预瞄ENE提供状态/模型改变后的解复用；YOPO提供任务代价梯度引导和训练特权信息/部署受限观测的分工；Li E27提供随机地形预学习＋变阻抗反馈的本领域近邻。不是把这些模块名字相加就宣布贡献。
+Design sources were checked in the [targeted literature](candidate_improvements_targeted_literature_and_design.md): NNBO supplies the nonlinear-contact → performance-tradeoff → feedback-decision → reference-execution route; Jin E41 supplies direct impedance decisions, constraints and energy handling; preview ENE supplies solution reuse after state/model changes; YOPO supplies task-cost gradient guidance and the division between privileged training information and restricted deployment observations; Li E27 is an in-field learning neighbor combining random-terrain pretraining with variable-impedance feedback. Adding these module names together does not establish a contribution.
 
-当前具体调整是让**带延迟的局部环境认识、当前实际增益/储能、未来接触后果、可执行增益过渡**进入同一个决策对象。两候选承担不同计算分工，各自是否成立必须靠各自的控制/成本和机制证据。
+The specific adjustment is to include **delayed local environmental knowledge, current actual gains/stored energy, future contact consequences and executable gain transitions** in one decision object. The two candidates divide computation differently; each requires its own control/cost and mechanism evidence.
 
-## 2. 共同载体与边界
+## 2. Shared test model and boundaries
 
-复用此前修正的有限足迹接触模型与实际执行，不改旧数据。共同前端是约化的七参数非线性约束滚动窗估计，输入31点已测运动/延迟wrench，拟合局部log刚度、材料梯度、表面高度/斜率/速度、黏性时间、摩擦；上次估计传播为到达正则。它不是完整B0双区域MHE，也不是已标定组织模型。当前姿态已知，力觉延迟20ms、100Hz，估计20Hz；真值场与局部预测场有失配。
+Reuse the previously corrected finite-footprint contact model and actual execution, without changing old data. The shared front end is a reduced seven-parameter nonlinear constrained moving-window estimator. It takes 31 measured motion/delayed-wrench points and fits local log stiffness, material gradient, surface height/slope/velocity, viscous time and friction; the propagated previous estimate provides arrival regularization. This is neither complete B0 two-region MHE nor a calibrated tissue model. Current pose is known; force sensing has a 20ms delay at 100Hz, and estimation runs at 20Hz. The true field and local prediction field differ.
 
-目标增益经过实际变化率、边界与储能投影；网络/优化器都不能让K/D瞬跳。机器人积分1ms、真值65点足迹；优化模型240ms、4ms/33点，两段动作；学习代价240ms、2ms/33点。数值一致性/方向梯度与能量投影检查通过不等于组织模型正确、无源/力安全或全局最优。
+Target gains pass through actual rate limits, bounds and stored-energy projection; neither network nor optimizer can make K/D jump instantly. Robot integration uses 1ms and the true contact footprint has 65 points; optimization uses a 240ms horizon, 4ms/33 points and two action segments; learning cost uses 240ms and 2ms/33 points. Passing numerical-consistency, directional-gradient and energy-projection checks does not establish tissue-model correctness, passivity/force safety or global optimality.
 
-本轮采用两种互补实例：四增益＋法向补偿联合输出，以及只输出增益的学习版本，后者避免把参考/前馈收益归给K/D。论文基线保留其原有接口自由度，不限制成相同输出数量。
+This iteration uses two complementary instances: joint outputs of four gains plus normal compensation, and a learning version that outputs gains only. The latter avoids attributing reference/feedforward benefits to K/D. Paper baselines retain their original interface freedoms rather than being restricted to the same number of outputs.
 
-## 3. 候选1：接触预测下的可执行优化与邻近更新
+## 3. Candidate 1: executable optimization and neighboring updates with contact prediction
 
-### 3.1 数值实现与原候选的关系
+### 3.1 Relation between the numerical implementation and the original candidate
 
-本轮用参数化有限时域OCP检验模型路线的控制和复用，而不是先求一个高维critic节点根。**这是候选1的数值实现调整：暂以直接OCP最优性系统替代尚未实现的HJB critic根。** 原研究问题、估计—最优阻抗—快速更新关系保持；不称NNBO/HJB完整复现，不自动继承B0根认证证明。是否回接critic取决于其对实际控制/计算的作用，不为保留算法名强求。
+This iteration tests control and reuse in the model route using a parameterized finite-horizon OCP, rather than first solving a high-dimensional critic nodal root. **This changes candidate 1's numerical implementation: a direct OCP optimality system temporarily replaces the unimplemented HJB critic root.** The original research question and estimation → optimal impedance → rapid update relationship remain. This is not a complete NNBO/HJB reproduction and does not automatically inherit B0 root-certification proofs. Reconnecting the critic depends on its practical control/computation role, rather than preserving an algorithm name.
 
-令$c$包含当前机器人状态、实际增益/储能、估计的局部接触场、延迟感知初始化及任务参数；$a$为两个动作段的目标增益/补偿。优化对象为
+Let $c$ contain current robot state, actual gains/stored energy, the estimated local contact field, delayed-sensing initialization and task parameters; $a$ contains target gains/compensation for two action segments. The optimization is
 
 $$\min_{a\in[-1,1]^{10}}J(a;c),$$
 
-其中$J$由真实增益过渡形式、预测接触和延迟力反馈滚动积分，边界通过有界动作、实际执行层处理。它是局部有限时域问题，不声称全局最优或硬力安全。
+Here $J$ integrates actual gain-transition dynamics, predicted contact and delayed force feedback over the horizon; bounded actions and the actual execution layer handle limits. This is a local finite-horizon problem, with no claim of global optimality or hard force safety.
 
-### 3.2 第一版与失败后的改造
+### 3.2 First version and redesign after failure
 
-第一版在局部活跃集固定时以$F=\nabla_aJ$的条件
+The first version constructs sensitivity from $F=\nabla_aJ$, conditional on a locally fixed active set,
 
 $$H\,\delta a=-F_c\,\delta c$$
 
-构造灵敏度，辅以投影/模型代价比较和两步校正。非最优名义点和正则化使其只是数值近似，不能套精确解IFT保证。每四次刷新一次完整曲率/交叉导数，计入全部成本。
+with projection/model-cost comparisons and two correction steps. Nonoptimal nominal points and regularization make this a numerical approximation; exact-solution IFT guarantees do not apply. Full curvature/cross derivatives are refreshed every four updates, with all costs counted.
 
-实测第一版中位快，但刷新尾成本大，平均比普通热启动更慢；因此不保留“灵敏度必然加速”的说法。改为用已发生的参数变化计算方向残差
+Measurements showed a fast median but expensive refresh tails, making the first version slower on average than ordinary warm starts. The claim that sensitivity necessarily accelerates computation was therefore dropped. The revision computes a directional residual from the parameter change that has actually occurred,
 
 $$\Delta F=F(a_k;c_{k+1})-F(a_k;c_k),\qquad
 a_{\rm pred}=\Pi(a_k-B_k\Delta F),$$
 
-其中$B_k$为缓存逆曲率，用同一新模型下被接受的动作/梯度差作BFGS修正；正曲率、步长限制和代价拒绝防止盲用旧锚点。之后做少量投影校正。它复用成熟拟Newton/邻近更新机制，**不宣称新的通用求解器**；价值需要落实为扫描中的更及时决策及可比控制质量，而非仅更少迭代。
+where $B_k$ is cached inverse curvature, corrected by BFGS using accepted action/gradient differences under the same new model. Positive-curvature checks, step limits and cost rejection prevent blind reuse of an old anchor. A few projected corrections follow. This reuses established quasi-Newton/neighboring-update mechanisms and **does not claim a new general solver**. Its value must appear as more timely scanning decisions with comparable control quality, rather than fewer iterations alone.
 
-代价下降只对当前估计模型成立。首轮已经发现低当前力预测误差不保证动作梯度正确；模型失配、实际等待和强优化参照仍是本候选需要解决的边界。
+Cost decrease holds only for the current estimated model. The first iteration already showed that low current-force prediction error does not guarantee correct action gradients. Model mismatch, actual waiting and strong optimization references remain unresolved boundaries for this candidate.
 
-## 4. 候选2：任务代价引导的快速阻抗反馈
+## 4. Candidate 2: rapid impedance feedback guided by task cost
 
-64–64 tanh网络读取共同估计、当前运动/实际增益/储能与任务权重，产生阻抗目标。仿真真值只用于离线滚动代价及数值梯度，不作为部署输入。梯度通过接触、延迟反馈、增益变化率和储能投影，训练实际任务后果，不拟合理想刚度标签。这是YOPO训练分工的接触适配，不是PPO，也不是YOPO复现。
+A 64–64 tanh network takes the shared estimate, current motion/actual gains/stored energy and task weights, and produces impedance targets. Simulation ground truth is used only for offline rollout cost and numerical gradients, never as a deployment input. Gradients pass through contact, delayed feedback, gain rates and stored-energy projection to train actual task consequences, rather than fit ideal-stiffness labels. This adapts YOPO's training division to contact; it is neither PPO nor a YOPO reproduction.
 
-第一版联合输出四K/D＋补偿，使用24个训练场景固定/解析轨迹的3600个相关上下文、600步梯度训练。其相对初版论文适配对照有改善，但调优对照后优势缩小；还未证明学习、预瞄和阻抗分别贡献多少。
+The first version jointly outputs four K/D gains plus compensation. It uses 3600 correlated contexts from fixed/analytic trajectories in 24 training scenarios and 600 gradient steps. It improved over the first paper-adapted comparator, but the advantage shrank after comparator tuning. The separate contributions of learning, preview and impedance have not yet been established.
 
-第二版改为纯增益输出，保留同样实际执行；初值由可行增益建立，之后用任务梯度训练。训练场景扩为新seed9102的72例、5400个因果上下文；不把重复采样视为独立场景。加入任务权衡输入，并单独训练无MHE参数/预测输入、仅机器人状态及可得延迟力的同训练机制消融。消融是检验本设计的信息作用，不冒充E27或旧PPO。
+The second version outputs gains only, retaining the same actual execution. Feasible gains provide initialization, followed by task-gradient training. Training expands to 72 scenarios with new seed9102 and 5400 causal contexts; repeated samples are not independent scenarios. Task-tradeoff inputs are added. A separate ablation uses the same training mechanism with robot state and available delayed force only, omitting MHE parameters/predictions. It tests the information role in this design and does not stand in for E27 or the old PPO.
 
-## 5. 任务权衡为什么要研究，怎样避免挑有利设置
+## 5. Why study task tradeoffs, and how to avoid favorable-setting selection
 
-原设置力误差尺度0.3N、位置1.5mm、法向姿态权重$w=1$，对应位置/力平方权重比$Q/R=40000$；较偏重稳态力跟踪，充分直接力控制容易接近其优良表现。NNBO原文仿真使用$Q/R=500000,1000000$。因此预先保留$w=1$并补$w=12.5,25$，三组对应同一物理载体的三种权衡，分别报告，不删掉不利的原组。
+The original force-error scale is 0.3N, position scale 1.5mm and normal-pose weight $w=1$, giving a squared position/force weight ratio $Q/R=40000$. This emphasizes steady force tracking, where adequate direct force control can approach good performance. Original NNBO simulations use $Q/R=500000,1000000$. Accordingly, $w=1$ is retained in advance and $w=12.5,25$ added. These are three tradeoffs on the same physical test model, reported separately without removing the unfavorable original group.
 
-这是来自具体论文的数值机制范围，**不是临床扫描权重标定或新的任务要求**。目标力从原NNBO零目标改为3N也必须明确：扫描适配以$u=f-F_d$、漂移加入$F_d$，保持single critic和Newton参考结构；不是原论文任务的逐字复现。不同权重重新调优领域对照，不用原组参数制造优势。综合代价下降可能伴随更大力误差，不能写成力/运动同时改进。
+This is a numerical mechanism range from a specific paper, **not clinical scanning weight calibration or a new task requirement**. Changing the original NNBO zero target force to 3N must also be explicit: the scanning adaptation uses $u=f-F_d$ and adds $F_d$ to the drift, retaining a single critic and Newton reference structure. It is not a literal reproduction of the original task. In-field comparators are retuned for each weight rather than using original-group parameters to manufacture an advantage. Lower aggregate cost may accompany greater force error and cannot be described as simultaneous force/motion improvement.
 
-## 6. 顶刊贡献目前能否成立
+## 6. Is a leading-journal contribution currently established?
 
-当前是有具体来源、可执行关系和分线实验的方法迭代，尚非顶刊完成稿。需要判断的实际主张是：新接触信息是否改善阻抗决策；两种计算分工能否在实际执行条件下取得相对强已有能力的进展；这些进展在哪些任务/模型条件下可靠。
+This is method iteration with specific sources, executable relationships and separate experiments, rather than a finished leading-journal manuscript. The substantive claims to judge are whether new contact information improves impedance decisions; whether the two divisions of computation advance actual execution relative to strong existing capabilities; and under which task/model conditions these advances are reliable.
 
-尚不能以候选一时胜适配基线、网络很快、借鉴来源成熟、组件数量或数学包装宣布达标。领域原论文完整复现/公平任务适配、前端信息消融、强滚动优化、计算发布、泛化与平台证据各自支持对应判断。缺乏证据继续设计/快验；不把比较对象本身变成研究终点，也不因局部负结果直接裁决完整B0。
+A temporary win over an adapted baseline, fast network inference, mature sources, module counts or mathematical presentation cannot establish the target standard. Original-paper reproduction/fair task adaptation, front-end ablations, strong rolling optimization, computational release, generalization and platform evidence each support their corresponding judgments. Missing evidence calls for further design/quick verification. The comparator must not become the research endpoint, and local negatives must not directly decide complete B0.
 
-## 7. 后续实际迭代与当前判断
+## 7. Subsequent iteration and current judgment
 
-### 实际增益率与物理投影
+### Actual gain rates and physical projection
 
-目标增益实现的长饱和区已用32个相关训练状态核查：远端Kn目标的任务梯度全为零，直接率动作均非零。回到B0已有的实际增益率动作，并通过有界目标逆映射实现同一硬件增益/速率界与原能量投影，不赋予候选无界请求。两刚度通道进入储能功率、系数非负，率请求原已盒可行，因此能量投影只可能触及下界，可闭式求解；1000个随机状态、393个能量激活例与独立原二分投影最大率差约6.6e-6。实际plant仍使用原实现。
+The long saturation region in target-gain execution was checked on 32 correlated training states: all task gradients for distant Kn targets were zero, whereas direct rate actions had nonzero gradients. The implementation returns to B0's existing actual gain-rate action and uses a bounded-target inverse map to realize the same hardware gain/rate bounds and original energy projection, without allowing unbounded candidate requests. Both stiffness channels enter stored-energy power with nonnegative coefficients; rate requests are already box-feasible, so energy projection can only touch the lower bound and admits a closed form. Across 1000 random states, including 393 energy-active cases, the maximum rate difference from the independent original bisection projection is about 6.6e-6. The actual plant retains its original implementation.
 
-该调整同时改善优化与训练的动作表示，是忠实落实已有B0设计，而不是新发明增益率。闭式结构有专业计算作用，其数学等价本身不证明顶刊创新。
+This adjustment improves action representation for both optimization and training. It faithfully implements the existing B0 design rather than inventing gain rates. The closed form has practical computational value; mathematical equivalence alone does not establish leading-journal innovation.
 
-### 训练覆盖和预测执行一致性
+### Training coverage and prediction/execution consistency
 
-原72例固定轨迹的5400个上下文中，四实际增益极差均为零；仅给网络增益状态输入不足以学会增益过渡。补同72个物理场景中的真实受限变增益轨迹，合计10800上下文，四增益分别覆盖约1215、767、142、89的范围。独立训练有/无前端模型，避免用单模型删输入的分布外测试冒充消融。
+In the original 5400 contexts from fixed trajectories in 72 scenarios, all four actual gains had zero range. Gain-state inputs alone cannot teach transitions. Actual constrained variable-gain trajectories from those same 72 physical scenarios were added, giving 10800 contexts and approximate four-gain ranges of 1215, 767, 142 and 89. Models with and without front-end information are trained independently; deleting inputs from one model at test time would be an out-of-distribution test, not this ablation.
 
-此外，初版预测采用连续延迟力反馈，而实际控制还含100Hz采样和平滑。已对齐预测/训练中的采样、平滑与20ms延迟，仍明确前20ms感知队列用当前已到达力初始化的近似。编译AD与独立Numba接触滚动代价及方向差分核查；不是只把解释器慢当优化瓶颈。完整二阶大图编译曾超内存，现在线值/梯度编译，偶发曲率成本单独计算。
+The first prediction model also used continuous delayed-force feedback, while actual control included 100Hz sampling and smoothing. Prediction/training now align sampling, smoothing and the 20ms delay, while explicitly retaining the approximation that initializes the first 20ms sensing queue with the force currently received. Compiled AD was checked against independent Numba contact rollout costs and directional differences; interpreter slowness is not treated as the optimization bottleneck. Compiling the full large second-order graph exceeded memory; online value/gradient computation is now compiled, with occasional curvature costs counted separately.
 
-### 兼容模型试验不选为主线
+### Compatible-model tests were not selected as the main route
 
-基于已到达窗口，拟合低/高刚度但仍兼容已有wrench的局部模型，再用加权任务代价优化；另比最小观测残差单模型，避免把多初值拟合的改善都归给不确定性处理。6个验证场景仅有很小变化而耗时增加，未选为主要改进。它不规划未来观测，不恢复已撤回的后验规划问题，也不宣称可信统计后验。
+Using the received window, fit low/high-stiffness local models still compatible with the observed wrench, then optimize weighted task cost. Also compare a single model with minimum observation residual to avoid attributing all benefits of multistart fitting to uncertainty handling. Changes were small and computation increased in six validation scenarios, so this was not selected as the main improvement. It does not plan future observations, restore the withdrawn posterior-planning question or claim a credible statistical posterior.
 
-### 累积证据怎样改变下一步
+### How accumulated evidence changes the next step
 
-独立测试仍显示：快预测/小残差不能保证实际策略近最优，灵敏度复用未稳定优于充分普通求解，有/无前端学习差异尚不足以支持空间信息的主要贡献。原本3ms级前端与编译后的普通MPC可在本载体中较快运行，不能假定存在足以支撑论文的通用计算瓶颈。
+Independent tests still show that fast prediction/small residuals do not guarantee a near-optimal actual policy; sensitivity reuse does not consistently beat adequate ordinary solving; and learning differences with/without the front end are insufficient to support a main contribution from spatial information. The roughly 3ms front end and compiled ordinary MPC can already run quickly on this test model. A general computational bottleneck sufficient to support a paper cannot be assumed.
 
-同时回查B0式31–34，确认本轮载体未实现正定增益偏好Qg、增益率代价Rg、终端项及完整轨迹约束，参考固定，接触也非B0双区域Hertz。原问题与候选完整设计因此不能由本轮裁决；但也不能用“只是局部”保护当前实现继续小修。下一轮须**补齐原任务—估计—决策—执行关系，并据实际接口/公开原文核准载体**，而不是继续给这轮短时积分目标追加小模块或选择有利权重。
+Rechecking B0 Eqs.31–34 also confirmed that this test model omitted positive-definite gain preference Qg, gain-rate cost Rg, terminal terms and full trajectory constraints; its reference was fixed and its contact model was not B0 two-region Hertz. Thus this iteration cannot decide the original question or complete candidate designs, but “only local” must not shield the current implementation indefinitely. The next iteration must **restore the original task → estimation → decision → execution relationships and verify the test model against actual interfaces/public originals**, rather than append small modules to this short-horizon integral objective or select favorable weights.
 
-跨NNBO位置参考与四增益控制的比较应使用共同物理任务指标；控制器族内的Qg/Rg近最优性另以同族强优化核查，不能把某种参数表达的惩罚直接套到另一接口制造优势。已询问实际平台/控制频率与目标尺度，未答复不等于不存在；可继续独立形式化与公开基准工作，不凭空指定临床要求。尚未形成达到顶刊标准的完整方法结论。
+Comparisons between NNBO position references and four-gain control should use shared physical task metrics. Within-family Qg/Rg near-optimality should be checked against strong optimization in the same family; penalties for one parameterization must not be imposed on another interface to manufacture an advantage. Actual platform/control frequency and target scales have been requested; no reply does not mean none exist. Independent formalization and public-benchmark work can continue without inventing clinical requirements. A complete method meeting leading-journal standards has not yet been established.
 
-## 8. 从结果到下一轮设计，而不是继续包装当前原型
+## 8. Move from results to the next design, rather than repackage this prototype
 
-在当前简化载体的静态线性近似下，设环境斜率为$k$、法向位移误差为$e$、共同直接力反馈系数为$k_p$。平衡时$(1+k_p)(F-F_d)=-K e$，因此若只考虑当前力/位置二次指标，令$K_c=K/(1+k_p)$，可得
+For the static linear approximation of the current simplified test model, let $k$ be the environmental slope, $e$ normal displacement error and $k_p$ the shared direct-force-feedback coefficient. At equilibrium, $(1+k_p)(F-F_d)=-K e$. Thus, for current quadratic force/position criteria alone, defining $K_c=K/(1+k_p)$ gives
 
 $$J_{\rm static}=\Delta^2\frac{q_FK_c^2+q_z}{(k+K_c)^2},\qquad
 K_{\rm static}^{*}=\operatorname{clip}\!\left((1+k_p)\frac{q_z}{q_F k}\right).$$
 
-这不是新发现、B0最优解或新选题；只说明当前工程载体中为何静态结构法已经有能力，以及极端权衡下约束饱和会削弱参数信息的动作作用。已将该解析变阻抗作为原则性验证参照，不再只看固定或任意网络。中间权衡的兼容模型/最优单模型也另作验证，避免只测一个不敏感范围便总体裁决不确定性设计。
+This is neither a new discovery, the B0 optimum nor a new topic. It only explains why a static structured method is already capable on this engineering test model and why constraint saturation under extreme tradeoffs weakens the action role of parameter information. This analytic variable-impedance method is now a principled validation reference, rather than considering only fixed gains or arbitrary networks. Compatible-model/optimal-single-model tests at intermediate tradeoffs are also checked separately, avoiding an overall verdict on uncertainty design from one insensitive range.
 
-中间权衡6个验证例中，解析结构法接近普通优化，兼容集合的改善主要集中在一例、增加了计算；尚无证据支持为本载体增加这一模块。已有成熟结构应保留并深入改造，不能因它简单而排除；同时要避免将其已有能力包装为本项目新贡献。
+In six intermediate-tradeoff validation cases, the analytic structured method is close to ordinary optimization. Compatible-set improvements are concentrated mainly in one case and add computation; there is no evidence supporting this module on this test model. Mature structures should be retained and studied for adaptation rather than excluded because they are simple. Their existing capabilities must also not be presented as this project's new contribution.
 
-下一轮两候选分别落实：
+The next iteration implements the two candidates separately:
 
-- **模型路线：** 恢复完整B0任务指标、参考与可行轨迹关系，再决定采用critic根还是高性能直接OCP作为主要数值实现。普通优化本就够快时保留它，不虚构通用瓶颈；研究重点是新接触模型怎样改变动态阻抗及及时执行。解复用必须相对同一完整问题的普通求解体现实际作用，原B0正定Rg条件不能省去后再用奇异/饱和局部结果裁决它。
-- **学习路线：** 以有能力的物理/解析阻抗结构作锚，研究时变接触、参考和受限增益过渡下的实际修正；完整任务代价与边界状态覆盖进入训练。可借鉴成熟残差或价值结构，不能因“已有”否定，也不能预先认定加残差就有贡献。已有直接率NN可作实现起点，不能把本轮微小优势或仅一个权衡下的前端收益包装成普适能力。
+- **Model route:** restore full B0 task criteria, reference and feasible-trajectory relationships, then decide between a critic root and high-performance direct OCP as the main numerical implementation. Retain ordinary optimization when it is already fast enough and do not invent a general bottleneck. Study how new contact models change dynamic impedance and timely execution. Solution reuse must demonstrate practical value against ordinary solving of the same complete problem. Do not omit B0's positive-definite Rg and then use singular/saturated local results to decide its validity.
+- **Learning route:** anchor the method in capable physical/analytic impedance structures and study actual corrections under time-varying contact, references and constrained gain transitions. Include complete task cost and boundary-state coverage in training. Mature residual or value structures may be adapted; being established does not disqualify them, and adding a residual does not predetermine a contribution. The existing direct-rate NN can provide an implementation starting point, but this iteration's small advantage or front-end benefit under one tradeoff cannot be presented as universal capability.
 
-NNBO适配的反解失败已从贡献比较中隔离。深入追问的是原文零目标力、策略表达/反演范围和实际内环怎样迁移到当前任务；不能按算法名字判它已覆盖，也不能凭一个失败适配宣布它无能。上述下一设计尚未完成实现，后续依据验证继续修订，不将计划写成已取得的创新。
+Failed NNBO inversion adaptations have been isolated from contribution comparisons. Further analysis concerns how the original zero target force, policy representation/inversion range and actual inner loop transfer to this task. An algorithm name cannot establish coverage, and one failed adaptation cannot establish incapability. These next designs have not yet been implemented; revise them using subsequent evidence rather than present plans as achieved innovation.
 
-## 9. 回到NNBO式52后定位的适配失败
+## 9. Adaptation failure located by returning to NNBO Eq.52
 
-这不是“Newton迭代不够快”。对本轮声明的非零目标力偏移、二次critic和$x_e$，令$d=x_r-x_e>0$、$A=W_1$、$b=W_1(x_e-r)+W_2r/2$，反演方程成为
+This is not a case of Newton iterations being too slow. For this iteration's declared nonzero-force offset, quadratic critic and $x_e$, let $d=x_r-x_e>0$, $A=W_1$ and $b=W_1(x_e-r)+W_2r/2$. The inversion equation becomes
 
 $$S(d)=f-F_d+\frac{Ad+b}{B_ed^n}=0.$$
 
-当$A>0,b<0,n\ge1$，第二项有有限正上界：$n=1$时上确界为$A/B_e$；$n>1$时极值位于$d_p=-nb/[(n-1)A]$。因此若$f-F_d$小于该上界的负值，**正接触域内根根本不存在**。原文$F_d=0,f\ge0$对应不同的反演范围，不能把本次适配无根归给原NNBO。
+When $A>0,b<0,n\ge1$, the second term has a finite positive upper bound: for $n=1$ its supremum is $A/B_e$; for $n>1$ the extremum occurs at $d_p=-nb/[(n-1)A]$. Thus, if $f-F_d$ is below the negative of this upper bound, **no root exists in the positive-contact domain**. The original $F_d=0,f\ge0$ has a different inversion range; this adaptation's missing roots cannot be attributed to original NNBO.
 
-对w=1独立24场景逐步重放critic，最终权重与失败次数完全核对；4774次反解失败中4597次满足上述无根条件，见[诊断代码](../experiments/separate_candidate_validation/nnbo_adapter_diagnosis.py)和[逐例结果](../experiments/separate_candidate_validation/nnbo_inverse_range_diagnosis.json)。这是当前适配的失败原因，不是原论文被否定，也不是新通用定理。局部求根样例通过后就进入主测试，没有提前覆盖实际力误差范围，是本轮应纠正的执行问题。
+Stepwise critic replay over the independent 24 scenarios at w=1 exactly matched final weights and failure counts. Of 4774 inversion failures, 4597 satisfy the no-root condition above; see [diagnostic code](../experiments/separate_candidate_validation/nnbo_adapter_diagnosis.py) and [case results](../experiments/separate_candidate_validation/nnbo_inverse_range_diagnosis.json). This explains the current adaptation's failure; it neither refutes the original paper nor constitutes a new general theorem. Entering main tests after passing local root examples, without first covering the actual force-error range, was an execution error to correct.
 
-它给方法设计的具体要求是：非零持续接触任务不能仅移动一个力目标就沿用原策略表达/反演接口，需要同时设计有限时域目标、策略表达和实际执行。B0已有直接实际增益率通道和正定Rg的Hamiltonian，天然不依赖这次失败的力—位置反演；后续应真正落实这些关系。预测VIC也已有直接阻抗决策能力，因此不能把“取消反演”单列为创新，应以整条新信息—动态阻抗—执行的实际进展形成贡献。
+The concrete design requirement is that a nonzero sustained-contact task cannot reuse the original policy representation/inversion interface merely by shifting a force target. The finite-horizon objective, policy representation and actual execution must be designed together. B0 already has a direct actual-gain-rate channel and a Hamiltonian with positive-definite Rg, so it does not depend on this failed force–position inversion. These relationships must actually be implemented. Predictive VIC also already makes direct impedance decisions, so removing inversion alone is not innovation. The contribution must come from actual progress across the new-information → dynamic-impedance → execution chain.
 
-## 10. 用户澄清顺序后的任务仿真
+## 10. Task simulations after the user clarified the sequence
 
-用户明确：实验根据本研究问题和两候选设计，先各自写出方法代码并验证，再选择适合的外部比较；有则公平比较，没有则不强行加入。最新实现及实际结果转到[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)。本节不把原型名称改成完整B0成功。
+The user specified that experiments follow this research question and the two candidate designs: first implement and verify each method, then select suitable external comparisons. Compare fairly when suitable methods exist and do not force their inclusion otherwise. Latest implementations and actual results are in [dual-candidate task simulation](../experiments/dual_candidate_task_simulation/README.md). This section does not rename prototype work as complete B0 success.
 
-共同载体已换回B0柱面Hertz双区域合力/力矩，二维力矩接口、四实际增益和能量状态，补正定Qg/Rg、终端项及轨迹约束检查；去掉上一载体的额外直接力伺服。环境估计采用带表面常速度及窗口内固定偏置的联合滚动窗实例；不是完整逐样本随机状态MHE或真实组织标定。
+The shared test model returns to B0 cylindrical Hertz two-region resultant forces/moments, a two-dimensional force/moment interface, four actual gains and an energy state. Positive-definite Qg/Rg, terminal terms and trajectory-constraint checks are added, and the previous extra direct-force servo is removed. Environmental estimation uses a joint moving-window instance with constant surface velocity and a fixed bias within the window. It is neither complete per-sample stochastic-state MHE nor real-tissue calibration.
 
-候选1最初尝试全域二次基66项配置，四个时域设置均未得到合格根，不能声称无根或否定B0。随后**明确改用轨迹附近的二次HJB/iLQR价值表示**：后向递推得到价值梯度/Hessian和状态反馈；用新旧模型的方向残差及Riccati递推作邻近预测，少量校正后检查名义轨迹。这保留价值反馈与NEOC作用，但不再是B0固定节点根，原隐函数/认证证明不自动适用。曾用24次额外求解准备全参数差分，成本高，已改为方向递推；当前是Gauss–Newton近似邻近更新，非新通用求解器。
+Candidate 1 first tried a global quadratic basis with 66 terms; none of four horizon settings yielded a qualified root. This does not establish nonexistence or invalidate B0. It then **explicitly switched to a quadratic HJB/iLQR value representation near a trajectory**: backward recursion gives the value gradient/Hessian and state feedback; directional residuals between old/new models and Riccati recursion supply neighboring prediction, followed by a few corrections and nominal-trajectory checks. This retains value feedback and a NEOC role, but is no longer the B0 fixed-node root; the original implicit-function/certification proofs do not apply automatically. Preparing full-parameter differences with 24 extra solves was expensive and was replaced by directional recursion. The present Gauss–Newton approximate neighboring update is not a new general solver.
 
-候选2为共同估计/预瞄及机器人实际状态条件化的64–64网络，任务梯度离线训练600步；训练48物理场景3840相关上下文，三个种子另训。仿真真值只算代价，部署输入为可得估计；有/无前方材料信息各自训练。已修复查询时间戳传播和不激活能量分支的非有限梯度。
+Candidate 2 is a 64–64 network conditioned on the shared estimate/preview and actual robot state, trained offline for 600 task-gradient steps. Training uses 48 physical scenarios and 3840 correlated contexts, with three seeds trained separately. Simulation truth is used only for cost; deployment inputs are available estimates. Models with/without ahead-material information are trained separately. Query-timestamp propagation and nonfinite gradients in inactive energy branches have been fixed.
 
-分别完成24个未调参场景（四类各6例）的任务测试、预瞄消融、候选1邻近更新消融与同族较充分求解、候选2三种子；另8场景测变软和更快表面，计算等待实验独立单任务运行。实测软件时间包含前端、更新、缓存和发布，过期不继续查询失效时域。编译所有方法共用的标量Hertz核后重测，旧Python标量开销不作为算法难度。
+Separate task tests used 24 untuned scenarios, six in each of four categories, plus preview ablations, candidate 1 neighboring-update ablations and a more thoroughly solved same-family reference, and three seeds for candidate 2. Eight additional scenarios test softer material and faster surfaces. Computation-wait tests ran independently as single tasks. Measured software time includes the front end, updates, caching and release; expired horizons are not queried further. All methods were retimed after compiling the shared scalar Hertz kernel, so old Python scalar overhead is not treated as algorithmic difficulty.
 
-完成候选后选Jin TMECH2023多步预测变阻抗作匹配比较：源模型、参数化、软状态惩罚及能量罐重建，数值优化改L-BFGS；非零目标力、采样与硬件界是明确扫描适配，非原Panda实验复现。训练场景对两轴分别调Q/R，保留其两轴K/D自由度；无MHE不计无用开销。没有继续用失败NNBO适配作贡献证据。
+After completing the candidates, Jin TMECH2023 multistep predictive variable impedance was selected as a matching comparator. The source model, parameterization, soft-state penalties and energy tank were reconstructed, with numerical optimization changed to L-BFGS. Nonzero target force, sampling and hardware bounds are explicit scanning adaptations, rather than reproduction of the original Panda experiments. Q/R was tuned separately for both axes on training scenarios, retaining its two-axis K/D freedoms. Without MHE, it is not charged unused MHE overhead. The failed NNBO adaptation is no longer used as contribution evidence.
 
-结果并不支持获胜：候选1力RMSE约0.00854N、候选2三种子均值0.00646N，Jin适配约0.00399N；切向误差亦以Jin较小，两候选法向位移误差略小。首版消融错误删除已成为当前材料的信息，其26.86%/6.17%撤回。改为匹配当前Fn/Ft的均匀模型、重训消融网络，在新seed16501的24场景重测：空间参数化使候选1完整代价逐例改善2.43%（区间[1.45%,3.43%]），候选2固定种子为3.74%（区间[-0.17%,8.92%]，不确定）；不能将空间建模整体作用全部归于时间提前。NEOC开/关差异区间跨零、且当前更新更慢。完整原始数据、分项、成本、区间和局限见[结果](../experiments/dual_candidate_task_simulation/results.md)。后续据这些失败继续改方法，不以增加比较数量、低增益偏好代价或“跑完流程”包装达标。
+Results do not support a win: candidate 1 force RMSE is about 0.00854N, the candidate 2 three-seed mean 0.00646N and the Jin adaptation about 0.00399N. Jin also has smaller tangential error; both candidates have slightly smaller normal-displacement error. The first ablation incorrectly removed information already belonging to current material, so its 26.86%/6.17% claims were withdrawn. Replacing it with a uniform model matched to current Fn/Ft and retraining the ablation network, a new seed16501 cohort of 24 scenarios gives a candidate 1 full-cost paired improvement of 2.43% (interval [1.45%,3.43%]); candidate 2 at a fixed seed gives 3.74% (interval [-0.17%,8.92%], uncertain). The overall spatial-modeling effect cannot all be attributed to temporal anticipation. NEOC on/off differences span zero, and current updates are slower. Full original data, components, costs, intervals and limitations are in the [results](../experiments/dual_candidate_task_simulation/results.md). Continue improving methods from these failures; extra comparisons, low gain-preference cost or completing the workflow cannot establish the target standard.

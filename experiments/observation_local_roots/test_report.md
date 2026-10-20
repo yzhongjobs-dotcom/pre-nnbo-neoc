@@ -1,37 +1,37 @@
-> 既有局部验证记录。过时选题与续做安排已移除，原配置和数值结论保留。后续安排见[HANDOFF](../../project_records/HANDOFF.md)。
+> Existing local validation. Obsolete topics/plans were removed; original configurations/results remain. See[HANDOFF](../../project_records/HANDOFF.md).
 
-# R15 小型可行性测试
+# R15 small feasibility tests
 
 ## Material Passport
 
 - Origin Skill: academic-research-suite / experiment-agent
 - Origin Mode: run + reproducibility check
 - Origin Date: 2026-10-12
-- Verification Status: VERIFIED，仅指固定种子的数值结果独立重跑完全一致，计时不要求一致
+- Verification Status: VERIFIED means identical independently rerun fixed-seed numerical results, not identical timing
 - Version Label: quick_probe_v1
 - Type: simulation / algebraic feedback check
 - Status: completed
 - Python: 3.10.11；NumPy: 1.26.4；SciPy: 1.13.1
-- 运行命令：`python -X utf8 run_quick_checks.py`，在本目录运行。报告为保留结果说明，旧汇总脚本未留在工作区。
-- 最后一次脚本用时：5.65 秒，退出码 0。
+- Run `python -X utf8 run_quick_checks.py`here. This retained report describes results; old summary code is outside the working tree.
+- Latest run5.65seconds, exit0.
 
-## 目的和结论范围
+## Purpose and scope
 
-用户授权用仿真或理论做一个简单可行性测试。本次测试两个局部机制，不重写论文，也不以新玩具模型代替 R15 的柱面机器人主线。
+The user authorized a simple feasibility test using simulation or theory. These tests examine two local mechanisms without rewriting the paper or replacing the R15 cylindrical-robot main line with a new toy model.
 
-**结果支持空间力矩信息及小变化下直接接受候选的可行基础，但没有证明整套 R15 端到端加速、真实组织效果或具体平台 PublishOK。**
+**Results support ideal spatial-moment information and small-change direct acceptance, not completeR15 acceleration, real tissue or platformPublishOK.**
 
-两个测试彼此独立，估计结果没有接入后面的控制根。接触测试采用正文模型内部的理想法向一阶矩，控制测试采用附录 M.3 的单状态例子。它们没有完整机器人、真实传感器、表面/偏置状态、能量账本或 MHE—控制闭环。
+Tests are independent; estimates do not feed control roots. Contact uses ideal normal first moments; control uses appendixM.3's scalar example. No full robot, sensors, surface/bias states, energy orMHE/control loop.
 
-## 测试 A：力矩是否帮助提前分辨前方材料
+## TestA: can moments distinguish forward materials earlier?
 
-来源为当前正文式（9）—（11）和附录 D.1。用跨区域半椭圆载荷的闭式积分合成法向力 F 和理想法向载荷一阶矩 m1，取 R=30 mm、L=20 mm、a=3 mm、E0*=30 kPa、Ef*=45 kPa、边界 b=0.5 mm。12 个扫描位置从 -2 mm 到 -0.2 mm，均在中心越界之前。
+Use main(9)–(11)/appendixD.1 closed half-ellipse integrals forF, m1: R=30mm, L=20mm, a=3mm, E0*=30kPa, Ef*=45kPa, b=0.5mm.12 positions−2→−0.2mm all precede center crossing.
 
-对同一历史和相同法向噪声，用加权有界非线性最小二乘分别拟合 F-history 和 F+m1-history。前者不是单点弱阈值基线。估计 Ef 与 b；其余几何、当前模量、表面和偏置已知。每种场景 100 次配对试验，随机种子固定。
+FitF-history andF+m1-history by weighted bounded nonlinear least squares with common history/force noise, not weak single-threshold baselines. EstimateEf, b; other geometry, current modulus, surface/bias are known.100 paired fixed-seed trials per condition.
 
-噪声假设：nominal 的 σF=0.003 N、σm=2×10^-6 N·m；higher 的 σF=0.01 N、σm=8×10^-6 N·m。宽度失配场景的真值仍为 a=3 mm，拟合模型使用 1.05a。噪声和参数是本次人工设置，不声称符合真实传感器。
+Noise: nominalσF=0.003N,σm=2×10^-6N·m; higherσF=0.01N,σm=8×10^-6N·m. Width mismatch uses truea=3mm, fitted1.05a. Artificial assumptions, not real-sensor calibration.
 
-| 场景 | 方法 | 边界 RMSE（mm） | 前方模量 RMSE（%） |
+|Condition|Method|BoundaryRMSE/mm|ForwardmodulusRMSE/%|
 |---|---|---:|---:|
 | nominal_noise | F_history | 0.2105 | 5.801 |
 | nominal_noise | F+M_history | 0.0484 | 1.068 |
@@ -40,28 +40,28 @@
 | width_5percent_mismatch | F_history | 1.6006 | 41.073 |
 | width_5percent_mismatch | F+M_history | 0.3230 | 2.790 |
 
-所有 600 次拟合数值结束成功，不代表所有估计准确。标定噪声场景中，F+m1 的边界 RMSE 由约 0.210 mm 降为 0.048 mm。宽度仅错 5% 时，F+m1 的边界误差仍升至约 0.323 mm，主要是系统偏差。
+All 600 fits terminated successfully; this does not mean all estimates were accurate. In the calibrated-noise scenario, the F+m1 boundary RMSE fell from about 0.210 mm to 0.048 mm. A width error of only 5% still raised F+m1 boundary error to about 0.323 mm, mainly systematic bias.
 
-**解释：力矩信息在这个理想空间模型中确有用，但模型/几何失配可能比随机噪声更重要。** 标准腕部俯仰力矩还含切向牵引力臂和坐标变换，本次没有验证能否在未知摩擦条件下可靠分离 m1，也没有验证所有参数的联合可辨识性。生成与拟合共用同一接触近似，因此匹配场景仅是模型内部检查。
+**Moment information helps this ideal model, but model/geometry mismatch may dominate random noise.** Wrist moments also include traction/transform effects; reliable m1 separation with unknown friction and joint identifiability are untested. Matched simulation/fitting checks only internal approximation consistency.
 
-## 测试 B：预测候选是否必须进一步 Newton
+## TestB: must predicted candidates receiveNewton correction?
 
-复用附录 M.3 的归一化例子：z_dot=u，u≥-0.7，T=1，运行代价 η²z²+u²，critic V=(1-t)Wz²。固定配置点 (t,z)=(0,1)，有限根为
+Use appendixM.3: z_dot=u, u≥−0.7, T=1, runningη²z²+u², criticV=(1-t)Wz², node(t, z)=(0,1), finite root
 
 ```text
 F(Z,η)=(-W+η²+u²+2Wu, 2u+2W-λ, λ(u+0.7))=0
 Z=(W,u,λ)
 ```
 
-锚点 ηa=0.8，非活动分支 W*=(-1+sqrt(1+4η²))/2、u*=-W*、λ*=0。ANEOC 预先计算根灵敏度；chord 缓存锚点 Jacobian 的 LU 分解；一次 Newton 使用新参数残差。
+Anchorηa=0.8, inactiveW*=(-1+sqrt(1+4η²))/2, u*=−W*,λ*=0.ANEOC prepares sensitivities; chord cachesLU; oneNewton uses new residuals.
 
-本例 F_Z 在旧根处不直接依赖新 η，因此 chord 与一次 Newton 数学相同。这不是所有问题中的等价结论。另加入按该结构消元的 structured_chord 和同样简化的 structured_ANEOC，避免靠小矩阵库调用开销制造加速。
+HereF_Z at the old root does not directly depend on newη, so chord/Newton coincide, not universally. Add eliminated`structured_chord`and`structured_ANEOC`to avoid small-matrix call-overhead advantages.
 
-### 共用解析筛选
+### Common analytical screen
 
-仅在非活动参数分支、0≤W≤0.7、u=-W、λ=0 时接受。实际反馈恢复为 u(t)=-(1-t)Wz(t)，z(t)=exp[-W(t-t²/2)]，从 z0=1 出发始终满足动作下界。
+Accept only inactive parameters,0≤W≤0.7, u=−W,λ=0.Recoveredu(t)=−(1-t)Wz(t), z(t)=exp[-W(t-t²/2)]fromz0=1 always respects the lower bound.
 
-标量残差 B=η²-W-W² 给出
+ScalarB=η²−W−W² gives
 
 ```text
 |W-W*| = |B|/(1+W+W*) ≤ |B|/(1+W)
@@ -69,15 +69,15 @@ Z=(W,u,λ)
 L_J=2U/3+2η²/3+2U²/15，U=0.7
 ```
 
-最后的界来自对成本关于 W 的导数积分作显式上界。所有候选采用同一检查，预算 0.001。精确根只用于事后核对；不进入筛选算法。实际根误差与代价差均未超过这些界。
+The final cost bound explicitly integrates derivatives inW. All share0.001budget; exact roots are retrospective only. Actual root/cost errors remain below bounds.
 
-**这只是单状态问题相对于有限根反馈的解析误差与动作可行筛选，不是完整的连续 HJB 近最优认证。**
+**This screens scalar finite-root-feedback errors/action feasibility, not full continuousHJB near-optimality.**
 
-### 小变化和变大后的表现
+### Small and larger changes
 
-每个半径使用同一组 2,000 个均匀随机描述符查询。
+Each radius uses identical2,000uniform descriptor queries.
 
-| 相对锚点变化范围 | 方法 | 直接通过 | 通过率 |
+|Anchor-relative range|Method|Directpasses|Passrate|
 |---|---|---:|---:|
 | ±0.02 | ANEOC | 2000/2000 | 100.00% |
 | ±0.02 | cached_chord | 2000/2000 | 100.00% |
@@ -89,15 +89,15 @@ L_J=2U/3+2η²/3+2U²/15，U=0.7
 | ±0.20 | cached_chord | 431/2000 | 21.55% |
 | ±0.20 | one_Newton | 431/2000 | 21.55% |
 
-Δη=0.02 时，ANEOC 根误差约 8.27×10^-5，相对有限根反馈的实际代价差约 4.47×10^-6，解析代价上界约 7.54×10^-5，不用校正就通过 0.001 的预算。Δη=0.08 时解析上界约 0.001247，拒绝直接接受，即便实际代价差仍较小。这说明保守界会影响可用区间，拒绝不等于实际策略一定不好。
+AtΔη=0.02, rooterror≈8.27×10^-5, costgap≈4.47×10^-6, bound≈7.54×10^-5: passes0.001without correction. At0.08, bound≈0.001247 rejects despite small actual error. Conservative rejection does not prove poor actual policies.
 
-Δη=0.4 跨越该例的活动分支，当前筛选拒绝，不能继续沿用原分支保证。没有据此实现恢复或保证恢复成功。
+Δη=0.4 crosses active branches and is rejected; old guarantees cannot continue. Recovery is not implemented/guaranteed.
 
-### 同等筛选下的耗时
+### Equal-screen timing
 
-每次执行候选生成加同一个解析检查，3,000 个相同小变化查询，7 批交错顺序测量，表中为批均值的中位数（μs/查询）。同机两次运行如下。
+Generate/screen3,000identical small queries in7interleaved batches; report median batchmeanμs/query for two runs.
 
-| 实现 | 第一次 | 复现运行 |
+|Implementation|Firstrun|Reproduction|
 |---|---:|---:|
 | ANEOC | 6.886 | 7.493 |
 | cached_chord | 19.335 | 20.912 |
@@ -105,31 +105,31 @@ L_J=2U/3+2η²/3+2U²/15，U=0.7
 | structured_ANEOC | 6.704 | 6.843 |
 | structured_chord | 7.240 | 7.558 |
 
-通用矩阵实现中预测较快；结构化 chord 消除了大部分差距。剩余微秒差受 Python、函数调用和桌面调度影响，未做显著性分析或实时最坏界，不能据此声称强基线下已证明加速。灵敏度增量准备成本另存在 results.json；公共初始根求解未计入，完整认证、状态恢复、MHE、通信与执行也未计入。
+Generic prediction is faster; structured chord removes most differences. Remaining microseconds reflectPython/calls/scheduling, without significance/WCET analysis, not established strong-baseline acceleration. `results.json`separately records incremental sensitivity preparation; common roots, full certification, state recovery, MHE, communication/execution are excluded.
 
-### 一个比预测误差更重要的发现
+### More important than prediction error
 
-当 η=0.82 时，连续标量最优值可独立计算为 η tanh(η)，且对应最优动作满足限制。有限 critic 根反馈相对这个最优值的实际代价差约 **0.005133**，远大于本次 ANEOC 的额外预测误差 **0.00000447**。
+Atη=0.82, continuous scalar optimum is independentlyηtanh(η), with feasible optimal actions. Finitecritic feedback differs by**0.005133**, far above ANEOC extra error**0.00000447**.
 
-因此，通过“预测误差预算 0.001”并不意味着总近最优误差也小于 0.001。即使重新精确求根，也仍有这份 critic/configuration 差距。参数较大时无约束连续解会先违反动作约束，脚本不再把它当作约束最优值比较。
+Passing0.001prediction budgets does not make total near-optimality error<0.001.Exact roots retain critic/configuration gaps. At larger parameters unconstrained optima violate actions and are no longer compared as constrained optima.
 
-## 实现与复现检查
+## Implementation/reproduction checks
 
-- 解析灵敏度与闭式根中心差分核对通过。
-- 96 点 Gauss 积分与独立自适应积分的成本核对通过。
-- 候选的实际误差没有超过解析上界。
-- 两个结构化实现与对应矩阵实现输出一致。
-- 固定种子重跑的根误差、通过计数、感知汇总和设置完全一致。计时自然变化，保留两次记录。
-- 初次开发检查发现“非活动配置根”不保证无约束连续最优动作可行，已修正比较范围；未把该失败输出作为结果。
+- Analytical sensitivities agree with closed-root central differences.
+-96-pointGauss costs agree with independent adaptive integration.
+- Actual candidate errors stay below analytical bounds.
+- Structured/matrix counterparts agree.
+- Fixed-seed errors, acceptance, sensing summaries/settings repeat exactly; retain varying timing records.
+- Initial checks found inactive collocation roots need not imply unconstrained continuous-optimal feasibility; comparison ranges were corrected and failed outputs excluded.
 
-## 适用边界
+## Limits
 
-理想观测、小根预测与有限critic质量是不同层次；完整MHE、实际多维阻抗和整条控制路线尚未验证。本报告不设置后续研究优先级。
+Ideal sensing, local predictions and finitecritic accuracy are separate levels. FullMHE, multidimensional impedance and complete route remain unvalidated. This report sets no future priorities.
 
-## 文件
+## Files
 
-- [运行脚本](run_quick_checks.py)、[汇总/复现检查脚本](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/summarize_results.py)。
-- [最后一次结果](results.json)、[第一次完整运行结果](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/results_run1.json)、[运行日志](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/run_log.txt)。
-- [根步长结果](root_steps.csv)、[筛选通过统计](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/acceptance.csv)。
-- [全部感知试验](sensing_trials.csv)、[感知汇总](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/sensing_summary.csv)。
-- [复现记录](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/reproducibility.json)。
+- [Driver](run_quick_checks.py),[summary/reproduction](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/summarize_results.py).
+- [Latest results](results.json),[first results](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/results_run1.json),[log](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/run_log.txt).
+- [Root steps](root_steps.csv),[acceptance](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/acceptance.csv).
+- [Sensing trials](sensing_trials.csv),[sensing summary](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/sensing_summary.csv).
+- [Reproduction record](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81_2026-10-12/reproducibility.json).

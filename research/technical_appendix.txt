@@ -1,552 +1,552 @@
-R15：接触估计、最优阻抗与 ANEOC——补充推导
-对应：method_design.md
+R15: contact estimation, optimal impedance and ANEOC: supplementary derivations
+Companion document: method_design.md
 
-范围
-本附录支撑正文完整方法。A—C 给出接触关系、空间积分与导数；D—F 给出辨识、在线求解和不确定性的依据；G 给出接触模型与估计的验证要求。H—M 给出阻抗动力学与能量、HJB 与有限维根、认证预测与按需校正、闭环发布条件及补充数值核对。
-完整认证证明见同目录 theoretical_proofs.txt，以下简称“认证证明”。其第 1—2 项对应 J，第 3—5 项对应 L，第 6 项对应 I.5，第 7 项对应 K，第 8 项对应 K.4 和 M。本附录的 Z^* 与认证证明的 Z_N^* 均指同一个有限维根；物理量与归一化量按固定尺度换算。
-均匀柱面关系、跨区域有效模型、有限维 HJB 根、连续最优控制及真实组织闭环是不同层次。以下解析结论针对明确写出的模型和局部条件；数值核对不替代真实接触、闭环性能和实时性验证。
-文献编号与正文一致。所有数值优化的变量、残差与容差应按固定参考尺度归一化；不能直接比较 N、N·m、m 和 Pa 的数值大小。
+Scope
+This appendix supports the complete method in the main text. A–C derive contact relations, spatial integrals and derivatives; D–F support identification, online solution and uncertainty treatment; G specifies contact-model and estimation validation. H–M cover impedance dynamics and energy, HJB and finite-dimensional roots, certified prediction and on-demand correction, closed-loop release conditions and supplementary numerical checks.
+The complete certification proofs are in theoretical_proofs.txt in this directory, referred to below as the certification proofs. Items 1–2 correspond to J, 3–5 to L, 6 to I.5, 7 to K, and 8 to K.4 and M. Z^* here and Z_N^* in those proofs denote the same finite-dimensional root; physical and normalized quantities are converted using fixed scales.
+Homogeneous cylindrical relations, a cross-region effective model, finite-dimensional HJB roots, continuous optimal control and real-tissue closed-loop operation are different levels. The analytical statements below apply to the specified models and local conditions. Numerical checks do not replace validation of real contact, closed-loop performance or real-time execution.
+Reference numbers follow the main text. All numerical optimization variables, residuals and tolerances must use fixed reference scales; numerical magnitudes in N, N·m, m and Pa cannot be compared directly.
 
-A. 均匀柱面接触与压入参考
+A. Homogeneous cylindrical contact and indentation reference
 
-A.1 载荷、压力与单位
-局部右手坐标为 x：扫描方向，y：圆柱轴向，z：组织对探头的法向力方向。R、L、a 均为长度。
-P=F_n/L 的单位为 N/m；E* 的单位为 Pa；q_n=Lp_H 的单位为 N/m。
-柱面 Hertz 解为
+A.1 Load, pressure and units
+The local right-handed coordinates are x along scanning, y along the cylinder axis, and z along the normal force exerted by tissue on the probe. R, L and a are lengths.
+P=F_n/L has units N/m; E* has units Pa; q_n=Lp_H has units N/m.
+The cylindrical Hertz solution is
   p_H(x)=E*/(2R) sqrt(a²-x²)，|x|≤a，
   P=∫p_H dx=πE*a²/(4R)，F_n=πLE*a²/(4R)。
-因此 a²=4PR/(πE*)，与正文式（4）一致。[3]
-刚性圆柱接触各向同性组织时 E*=E_t/(1-ν_t²)。只辨识 E* 不要求把 E_t 和 ν_t 分别识别出来。
+Thus a²=4PR/(πE*), consistent with main-text equation (4). [3]
+For a rigid cylinder contacting isotropic tissue, E*=E_t/(1-ν_t²). Identifying E* does not require separate identification of E_t and ν_t.
 
-A.2 为什么压入量必须带参考
-二维半空间的远场位移含对数项，不能直接照搬球面 Hertz 的压入关系。
-取固定横向距离 ℓ=ℓ_ref>a，以接触中心和两侧参考位置平均值之间的相对法向位移定义 δ。由柱面半空间位移解，[3] 得
+A.2 Why indentation needs a reference
+Far-field displacement in a two-dimensional half-space contains a logarithmic term; the spherical Hertz indentation relation cannot be copied directly.
+Fix a lateral distance ℓ=ℓ_ref>a and define δ as the normal displacement of the contact center relative to the mean displacement at the two reference positions. The cylindrical half-space displacement solution [3] gives
   δ=Ψ(a)
    ={ℓ²-ℓ sqrt(ℓ²-a²)+a² ln[(ℓ+sqrt(ℓ²-a²))/a]}/(2R)。
-它规定的是位移差的基准，不是把组织实际支承边界设为两个固定点，也不是有限厚度层的精确解。实施时探头位姿、标定参考表面及 γ 必须对应同一个位移基准；仅有机器人绝对位置不能自动给出 δ。
-γ 描述该基准的法向运动，d 为相对标定基准的探头压入位置，故 δ=d-γ。ℓ 为标定后固定的几何参考，b 为待估的材料分界位置，二者无关。
+This defines a displacement-difference reference; it neither fixes the actual tissue support boundary at two points nor gives an exact finite-thickness-layer solution. Probe pose, calibrated reference surface and γ must use the same displacement reference. Absolute robot position alone does not determine δ.
+γ describes normal motion of that reference, and d is probe indentation position relative to the calibrated reference, so δ=d-γ. ℓ is a fixed calibrated geometric reference; b is the material-boundary position to estimate. They are unrelated.
 
-避免 ℓ² 与 ℓ sqrt(ℓ²-a²) 相减的数值抵消，可计算
+To avoid cancellation in subtracting ℓ sqrt(ℓ²-a²) from ℓ², evaluate
   Ψ(a)=a²/(2R){ℓ/[ℓ+sqrt(ℓ²-a²)]+ln[(ℓ+sqrt(ℓ²-a²))/a]}。
-直接求导得
+Direct differentiation gives
   Ψ'(a)=a/R ln[(ℓ+sqrt(ℓ²-a²))/a]>0，0<a<ℓ。
-因此在所用区间 [a_min,a_max]⊂(0,ℓ) 内，Ψ 严格单调，
+Hence Ψ is strictly increasing on the chosen interval [a_min,a_max]⊂(0,ℓ), with
   δ_min=Ψ(a_min)，δ_max=Ψ(a_max)，a_δ=1/Ψ'(a)。
-这是半宽求解唯一性及其局部可微性的依据。
-当 ℓ/a≫1 时，
+This establishes uniqueness and local differentiability of the half-width solution.
+For ℓ/a≫1,
   Ψ(a)=a²/(2R){ln(2ℓ/a)+1/2+O(a²/ℓ²)}。
-a²/(2R) 是接触内的几何高度差尺度，不是本位移基准下的完整 δ。
+a²/(2R) is a geometric height-difference scale within contact, not the complete δ under this displacement reference.
 
-B. 跨区域载荷、合力与力矩
+B. Cross-region loads, resultant forces and moments
 
-B.1 空间模型的性质
-正文选定
+B.1 Nature of the spatial model
+The main text chooses
   q_n(x)=C E*(s+x;b) g(x)，C=L/(2R)，g(x)=sqrt(a²-x²)，
   a=Ψ^-1(d-γ)，
-以及沿扫描方向的两区域常参数场。
-第 i 个时刻的空间足迹为 C_i=[s_i-a_i,s_i+a_i]，边界在足迹坐标中的位置为 r_i=b-s_i。沿 +x 扫描时，r_i=a_i 对应前缘 s_i+a_i 首次接触边界；0<r_i<a_i 时中心尚未到达边界而前方材料已贡献载荷；-a_i<r_i≤0 时中心已经越过边界但足迹仍混合；r_i≤-a_i 时全部足迹进入前方区域。这些几何关系说明信息何时出现，不规定算法必须在哪个位置前完成。
-该式假定两侧共用接触宽度与 Hertz 形状，局部模量改变载荷幅值。均匀极限严格退化到 A.1；异质区域的弹性位移一般存在非局部耦合，因此此式不是异质半空间接触方程的精确解。正模量与较小对比度本身也不能证明它具有某个确定的误差阶。
-此处 θ 为该工作范围内的有效接触参数。要把估计结果进一步解释为真实组织的材料常数，需要独立的材料标定与跨区域接触验证。用同一公式生成和拟合数据，只能检查反演实现，不能验证这一空间近似。
-该空间参数化直接用于 MHE 和未来接触预测；其输入、参数和积分权重不在两处重新定义。
+with a two-region piecewise-constant parameter field along scanning.
+At sample i the footprint is C_i=[s_i-a_i,s_i+a_i], with boundary coordinate r_i=b-s_i. Scanning along +x, r_i=a_i is first boundary contact by the leading edge s_i+a_i; for 0<r_i<a_i, material ahead contributes load before the center reaches the boundary; for -a_i<r_i≤0, the center has crossed while the footprint remains mixed; for r_i≤-a_i, the whole footprint is in the forward region. These relations locate information availability, not a required algorithm-completion position.
+The expression assumes a shared contact width and Hertz shape on both sides, with local modulus scaling load amplitude. Its homogeneous limit exactly recovers A.1. Elastic displacement in heterogeneous regions generally has nonlocal coupling, so this is not an exact heterogeneous-half-space contact solution. Positive moduli and small contrast alone do not establish a specific approximation-error order.
+Here θ denotes effective contact parameters over this operating range. Interpreting estimates as true tissue material constants requires independent material calibration and cross-region contact validation. Generating and fitting data with the same formula checks inversion implementation, not the spatial approximation.
+The same spatial parameterization directly supplies MHE and future-contact prediction; its inputs, parameters and integration weights are not redefined between them.
 
-B.2 闭式积分
-记 r=b-s，I_0=πa²/2，I_2=πa⁴/8。部分覆盖 |r|<a 时，令 w=sqrt(a²-r²)，t=arccos(r/a)，则
+B.2 Closed-form integrals
+Write r=b-s, I_0=πa²/2 and I_2=πa⁴/8. For partial coverage |r|<a, let w=sqrt(a²-r²) and t=arccos(r/a). Then
   I_f  = (a²t-rw)/2，
   I_1f = w³/3，
   I_2f = a⁴t/8+rw(a²-2r²)/8。
-这些分别是 ∫_r^a g dx、∫_r^a xg dx、∫_r^a x²g dx。
-当 r≥a 时三者均为 0；当 r≤-a 时分别为 I_0、0、I_2。总足迹的一阶矩为 0。
-令 ΔE=E_f*-E_0*，则
+These are respectively ∫_r^a g dx, ∫_r^a xg dx and ∫_r^a x²g dx.
+All three are 0 for r≥a; for r≤-a they are I_0, 0 and I_2. The first moment of the complete footprint is 0.
+Let ΔE=E_f*-E_0*. Then
   F_n=C[E_0*I_0+ΔE I_f]，
   m_1=CΔE I_1f。
-E_0*,E_f*>0 且 a>0 时 F_n>0；但载荷非负并不单独证明某个三维连续体能量模型或完整闭环被动性。
+E_0*,E_f*>0 and a>0 imply F_n>0. Nonnegative load alone does not establish a three-dimensional continuum energy model or full closed-loop passivity.
 
-B.3 切向分布及均匀极限
-固定滑动方向 σ=sgn(v)，取
+B.3 Tangential distribution and homogeneous limit
+Fix the sliding direction σ=sgn(v) and take
   q_t(x)=-σ μ(s+x;b)q_n(x)-v k_d(s+x;b)g(x)/I_0。
-这里第二项是本文的分布式等效黏性阻力假设；k_d 的单位 N·s/m 对应给定 L 的合力系数。
-由于 ∫g/I_0 dx=1，积分得
+The second term is the assumed distributed equivalent viscous resistance; k_d in N·s/m is a resultant-force coefficient for the specified L.
+Since ∫g/I_0 dx=1, integration gives
   F_t=-σ(μ_0N_0+μ_fN_f)-v[(1-α)k_d,0+αk_d,f]，
   N_0=CE_0*(I_0-I_f)，N_f=CE_f*I_f，α=I_f/I_0。
-参数均匀时，F_t=-σμF_n-k_dv。
-在本局部模型的均匀相对滑动速度 v 下，
+For homogeneous parameters, F_t=-σμF_n-k_dv.
+Under the uniform relative sliding velocity v of this local model,
   F_t v=-|v|(μ_0N_0+μ_fN_f)
         -v²[(1-α)k_d,0+αk_d,f]≤0。
-这只是切向阻力的耗散关系，不包含组织参考运动的外部功率，也不构成阻抗控制器稳定性证明。
+This is only a tangential-resistance dissipation relation. It omits external power from tissue-reference motion and is not an impedance-controller stability proof.
 
-T-RO III-A 的球形几何相关修正项不能原样用于柱面。[2] 正文使用小斜率下的切向合力结构；圆柱精确轮廓为
+The spherical-geometry correction in T-RO III-A cannot be transferred unchanged to a cylinder. [2] The main text uses the small-slope tangential-resultant structure; the exact cylindrical profile is
   z_c=R-sqrt(R²-x²)=x²/(2R)+O(x⁴/R³)。
-这给出轮廓截断的几何误差阶，不给出所有接触/摩擦近似的总误差阶。尤其法向与切向变形耦合的误差仍需验证。
+This specifies geometric profile-truncation error, not the total error order of all contact/friction approximations. Normal–tangential deformation coupling still needs validation.
 
-B.4 力矩、传感器变换与符号
-接触参考点为圆柱截面最低点，微元位置为 (x,0,z_c)，微元力为 (q_t,0,q_n)dx，故
+B.4 Moments, sensor transforms and signs
+The contact reference is the lowest point of the cylinder cross-section. An element at (x,0,z_c) carries force (q_t,0,q_n)dx, hence
   dM_y=(z_c q_t-xq_n)dx。
-将正文的小斜率轮廓代入，得到完整闭式观测：
+Substituting the main-text small-slope profile gives the complete closed-form observation:
   M_y=-CΔE I_1f
       -σ C/(2R)[μ_0E_0*(I_2-I_2f)+μ_fE_f*I_2f]
       -v/(2R I_0)[k_d,0(I_2-I_2f)+k_d,f I_2f]。
-即使材料均匀，切向载荷也可能在该参考点产生力矩。不能直接令 m_1=-M_y；只有扣除切向力矩项后才得到法向一阶矩。
+Tangential load can produce a moment about this reference even in homogeneous material. Thus m_1=-M_y cannot be assumed; subtract the tangential-moment contribution to recover the normal first moment.
 
-设 ^B T_P,i 为机器人正运动学给出的探头位姿，^P T_C 为标定的探头到接触参考点变换。由
+Let ^B T_P,i be the forward-kinematic probe pose and ^P T_C the calibrated probe-to-contact-reference transform. From
   ^B p_c,i=trans(^B T_P,i ^P T_C)
-得到接触参考点位置。局部扫描坐标系在一个 MHE 窗口内固定；其原点为 ^B p_o，基向量 e_x、e_z 用基坐标表示。按正文的正压入符号，
+obtain the contact-reference position. The local scanning frame is fixed within each MHE window; its origin is ^B p_o and its basis vectors e_x,e_z are expressed in the base frame. Under the positive-indentation convention of the main text,
   s_i=e_x^T(^B p_c,i-^B p_o)，
   d_i=-e_z^T(^B p_c,i-^B p_o)，
   v_i=(s_i-s_(i-1))/h。
-该差分必须使用同步时间戳；噪声较大时可在预处理阶段采用具有已知相位延迟的局部速度估计，并把该延迟纳入时间对齐。显著的切向组织运动会使 s_i 不再是材料坐标，属于正文所列适用边界。
+This difference must use synchronized timestamps. For noisy data, preprocessing may use a local velocity estimate with known phase delay, included in time alignment. Significant tangential tissue motion makes s_i cease to be a material coordinate, outside the stated scope.
 
-传感器读数先进行约定符号下的重力和惯性补偿。若 r_SC 为传感器原点指向接触参考点的向量、用传感器坐标表达，R_CS 将传感器坐标转为接触坐标，则
+First compensate sensor readings for gravity and inertia under the chosen sign convention. If r_SC points from sensor origin to contact reference in sensor coordinates and R_CS rotates sensor coordinates to contact coordinates, then
   F_C=R_CS F_S，
   M_C=R_CS(M_S-r_SC×F_S)。
-随后提取 y=(F_C,z,F_C,x,M_C,y)^T，与 H_H=(F_n,F_t,M_y)^T 比较。补偿后的符号应标定为组织施加给探头的力。
-本文在局部直线扫描中建模这三个分量；不以六维传感器的存在声称六个分量均具有独立参数信息。
+Extract y=(F_C,z,F_C,x,M_C,y)^T and compare with H_H=(F_n,F_t,M_y)^T. Calibrate compensated signs as forces exerted by tissue on the probe.
+These three components are modeled for local straight scanning. A six-dimensional sensor does not imply independent parameter information in all six components.
 
-C. 导数、半宽求解与接触动力学
+C. Derivatives, half-width solution and contact dynamics
 
-C.1 积分的解析导数
-在 |r|<a 内，按偏导中保持另一自变量固定计算：
+C.1 Analytical integral derivatives
+For |r|<a, take each partial derivative holding the other independent variable fixed:
   ∂_r I_f=-w，        ∂_a I_f=a t；
   ∂_r I_1f=-r w，     ∂_a I_1f=a w；
   ∂_r I_2f=-r²w，     ∂_a I_2f=(a/2)(a²t+rw)；
   ∂_a I_0=πa，        ∂_a I_2=πa³/2。
-又有 r_s=-1、r_b=1、a_δ=1/Ψ'(a)，因此
+Also r_s=-1, r_b=1 and a_δ=1/Ψ'(a), so
   F_n,δ=C[E_0*πa+ΔE a t]/Ψ'(a)，
   F_n,s=CΔE w，F_n,b=-CΔE w，
   F_n,E0=C(I_0-I_f)，F_n,Ef=C I_f。
-因 t∈(0,π)，E_0*π+ΔE t=E_0*(π-t)+E_f*t>0，故 F_n,δ>0。
-在两端完全覆盖区，使用相应均匀区域公式。
-其余输出导数对 B.3—B.4 的闭式表达使用乘积和商法则即可；α 的导数必须包括分母 I_0 对 a 的变化。固定 v 符号时，
+Since t∈(0,π), E_0*π+ΔE t=E_0*(π-t)+E_f*t>0, hence F_n,δ>0.
+Use the corresponding homogeneous-region formulas in the two complete-coverage regions.
+Other output derivatives follow by product and quotient rules applied to B.3–B.4. Derivatives of α must include the dependence of denominator I_0 on a. For a fixed sign of v,
   F_t,v=-[(1-α)k_d,0+αk_d,f]，
   M_y,v=-[k_d,0(I_2-I_2f)+k_d,f I_2f]/(2R I_0)。
 
-C.2 光滑性
-在 a>0、|r|<a 或任一完全覆盖的开区间中，以上函数光滑。
-拼接到 r=±a 时，I_f、I_1f、I_2f 及其一阶导数连续，但部分二阶导数含 1/sqrt(a²-r²)，不能宣称跨边缘具有统一有界的二阶导数。
-因此一阶链式求导可以按连续拼接的模型计算；经典二阶 Taylor 余项和基于二阶正则性的求解结论应限制在相应光滑邻域。
-v=0 的摩擦符号变化不属于本文固定方向滑动窗口。
+C.2 Smoothness
+The functions are smooth for a>0 within |r|<a or either open complete-coverage interval.
+At r=±a, I_f, I_1f, I_2f and their first derivatives join continuously, but some second derivatives contain 1/sqrt(a²-r²). Uniformly bounded second derivatives across the edges cannot be claimed.
+First-order chain differentiation may therefore use the continuously joined model. Classical second-order Taylor remainders and conclusions requiring second-order regularity must be restricted to the corresponding smooth neighborhoods.
+Friction-sign changes at v=0 are outside the fixed-direction sliding window considered here.
 
-C.3 标量求解
-每次接触模型计算在 [a_min,a_max] 上解 Ψ(a)-δ=0。因为 Ψ 单调，端点异号时根唯一。
-保持夹根区间 [l,u]，先尝试 Newton 候选
+C.3 Scalar solution
+Each contact evaluation solves Ψ(a)-δ=0 on [a_min,a_max]. Monotonicity gives a unique root when endpoint signs differ.
+Maintain a bracket [l,u] and first try the Newton candidate
   a_N=a-[Ψ(a)-δ]/Ψ'(a)。
-若候选不位于区间的固定中央部分，例如 [l+0.1(u-l),u-0.1(u-l)]，则改取中点；用 Ψ 的符号更新区间。此策略每步均缩小区间，并保留真实根。
-停止时同时报告半宽区间及压入残差。若区间中 Ψ'≥m_Ψ>0，
+If it lies outside a fixed central portion, for example [l+0.1(u-l),u-0.1(u-l)], use the midpoint. Update the bracket using the sign of Ψ. Every step contracts the interval while retaining the true root.
+At termination report both the half-width interval and indentation residual. If Ψ'≥m_Ψ>0 throughout the interval,
   |a_num-a*|≤|Ψ(a_num)-δ|/m_Ψ。
-该误差可通过 C.1 的导数上界传播到 H_H。选择 a_min>0、a_max<ℓ 避免端点退化。模型评估只含这一维求根与闭式积分。
+C.1 derivative bounds propagate this error to H_H. Choose a_min>0 and a_max<ℓ to avoid endpoint degeneracy. Model evaluation needs only this scalar root and closed-form integrals.
 
-C.4 力状态的链式关系
-在参数和滑动方向固定的均匀区域，
+C.4 Chain rule for force states
+In a homogeneous region with fixed parameters and sliding direction,
   F_n=πLE*a²/(4R)，F_t=-σμF_n-k_dv，M_y=a²F_t/(8R)。
-结合 a_dot=(d_dot-γ_dot)/Ψ'(a)，直接得到
+Combining a_dot=(d_dot-γ_dot)/Ψ'(a) gives
   F_n_dot=[πLE*a/(2RΨ'(a))](d_dot-γ_dot)，
   F_t_dot=-σμF_n_dot-k_dv_dot，
   M_y_dot=a a_dot F_t/(4R)+a²F_t_dot/(8R)。
-这就是正文式（6c），也是柱面模型对应于 T-RO 力状态导数的显式形式。
+This is main-text equation (6c), the cylindrical-model counterpart of the T-RO force-state derivative.
 
-固定窗口材料场时，δ=d-γ、ds/dt=v；跨区域接触还需加入空间项，统一写成
+For a fixed material field within a window, δ=d-γ and ds/dt=v. Cross-region contact additionally requires the spatial term, yielding
   dF_n/dt=F_n,δ(dδ/dt)+F_n,s(ds/dt)，
   dH_H/dt=H_H,δ(dδ/dt)+H_H,s v+H_H,v(dv/dt)。
-材料边界通过 r=b-s 进入 F_n,s，已经计入扫描引起的参数空间变化。
-若实际材料参数本身在同一窗口内显著随时间改变，则必须计入 H_H,ϑ ϑdot；当前窗口内常参数假设不涵盖这种变化。估计器更新数值不应被直接当作真实材料时间导数。
-机器人 Jacobian、力旋量和力矩参考点须一致；若接触坐标系旋转，还需坐标变换的时间导数。正文限定的局部固定坐标段不产生该额外项。
+The boundary enters F_n,s through r=b-s, already accounting for scan-induced spatial parameter variation.
+If material parameters themselves vary substantially in time within a window, include H_H,ϑ ϑdot. The current constant-parameter-window assumption excludes this variation. Numerical estimator updates must not be treated directly as true material time derivatives.
+Robot Jacobian, wrench and moment reference must agree. A rotating contact frame also requires time derivatives of coordinate transforms; the locally fixed frame assumed here produces no such additional term.
 
-D. 为什么能估计，以及哪些信息不可缺少
+D. Why estimation is possible and which information is indispensable
 
-D.1 法向变化幅度与位置的可辨识例子
-在 a、E_0* 已知，法向一阶矩已从完整力矩中分离，且 |r|<a、ΔE≠0 时，令
+D.1 An identifiable example for magnitude and position of a normal-property change
+Assume a and E_0* are known, the normal first moment has been separated from total moment, |r|<a and ΔE≠0. Let
   ΔF_n=F_n-CE_0*I_0=CΔE I_f，
   ρ=m_1/ΔF_n=I_1f/I_f。
-由 C.1，
+By C.1,
   dρ/dr=w(ρ-r)/I_f>0。
-理由是 ρ 是 (r,a) 内 x 在正权 g(x) 下的均值，严格大于 r。
-因此给定 a 后，比例 ρ 唯一确定部分覆盖区内的 r，再由
+Indeed, ρ is the mean of x on (r,a) under positive weight g(x), hence strictly exceeds r.
+For given a, the ratio ρ therefore uniquely determines r within partial coverage; then
   ΔE=ΔF_n/(C I_f)
-恢复变化幅度。也可直接检查 Jacobian：
+recovers the change magnitude. The Jacobian can also be checked directly:
   det[∂(ΔF_n,m_1)/∂(ΔE,r)]
     =C²ΔE w(I_1f-rI_f)≠0。
-这证明本文空间模型中存在可区分幅度与位置的情形，不证明同时未知表面、偏置和全部摩擦参数时单次观测也足够。
-ΔE=0 时这组法向信号不定位边界；r 接近 a 时前方贡献趋于零，噪声敏感性显著增大。若摩擦参数仍变化，其他观测可能含边界信息，不能从“法向不可见”推出全部观测不可见。
+This establishes distinguishable magnitude/position cases in this spatial model, not sufficiency of a single observation when surface, bias and all friction parameters are simultaneously unknown.
+For ΔE=0 these normal signals do not locate the boundary; as r approaches a, forward contribution vanishes and noise sensitivity grows sharply. Other observations may still locate friction changes: invisibility in normal signals does not imply invisibility in all observations.
 
-D.2 摩擦参数的激励
-若 E_0*、E_f*、b、a_i 已知，切向力可写成线性回归
+D.2 Excitation of friction parameters
+If E_0*, E_f*, b and a_i are known, write tangential force as the linear regression
   -F_t,i =
   [σ_iN_0,i, σ_iN_f,i, v_i(1-α_i), v_iα_i]
   [μ_0, μ_f, k_d,0, k_d,f]^T。
-堆叠回归矩阵满列秩是这四个参数在无噪声回归中的唯一辨识条件。
-若 a 和非零 v 均固定，则 N_0=CE_0*I_0(1-α)、N_f=CE_f*I_0α，前后两组对应列成比例；仅改变覆盖比例不能分别确定 μ 与 k_d。需要足够的载荷/速度回归量变化及两侧有效覆盖。力矩增加观测，但不能凭观测数量替代实际联合 Jacobian 的秩检查。
-当前区域的可靠历史标定有助于约束 θ_0，但参数先验不等同于新数据中的辨识信息。
+Full column rank of the stacked regression matrix is necessary and sufficient for unique noiseless identification of these four parameters.
+With fixed a and nonzero v, N_0=CE_0*I_0(1-α) and N_f=CE_f*I_0α, making the corresponding column pairs proportional. Coverage variation alone cannot separate μ from k_d. Sufficient load/velocity-regressor variation and effective coverage of both sides are needed. Moments add observations but do not replace checking the actual joint Jacobian rank.
+Reliable historical calibration of the current region constrains θ_0; parameter priors are not identification information supplied by new data.
 
-D.3 表面运动与偏置
-未知 γ 会改变 a，未知 β 会直接改变观测，两者可能与材料变化相互混淆。
-在给定的局部表面运动参数化下，对归一化的堆叠观测记材料 Jacobian 为 J_θ、干扰 Jacobian 为 J_n，可用
+D.3 Surface motion and bias
+Unknown γ changes a; unknown β directly changes observations. Both can confound material changes.
+Under the specified local surface-motion parameterization, let J_θ and J_n be material and nuisance Jacobians of normalized stacked observations. Use
   J_eff=(I-J_n J_n^†)J_θ
-检查材料的一阶变化中有多少不能被允许的干扰变化解释。
-如果每个时刻的三个偏置都可以完全自由变化，J_n 即可覆盖全部观测方向，J_eff=0。正文通过标定的初始状态及 Q 中声明的短时变化统计限制这些变化；所以实际估计精度依赖这些假设，不能宣称无条件联合可辨识。
-带先验的正定优化 Hessian 只说明局部正则化问题可确定，不说明数据本身辨识了全部参数。应将数据贡献、表面运动假设和参数先验贡献分别解释。
+to check which first-order material variations cannot be explained by allowed nuisance changes.
+If all three biases can vary freely at every instant, J_n spans every observation direction and J_eff=0. The main text limits these variations through calibrated initial states and the short-time statistics stated in Q. Estimation accuracy thus depends on these assumptions; unconditional joint identifiability cannot be claimed.
+A positive-definite regularized Hessian only establishes a locally determined regularized problem, not data identification of all parameters. Explain data, surface-motion assumptions and parameter-prior contributions separately.
 
-E. MHE 的数学问题与在线求解
+E. Mathematical MHE problem and online solution
 
-E.1 变量、时序及存在性
-ϑ=(E_0*,μ_0,k_d,0,E_f*,μ_f,k_d,f,b)，共 7 个变量；
-z_i=(γ_i,γdot_i,β_i^T)^T，共 5 个变量。
-N 个观测窗口的联合变量维数为 7+5N；其观测残差有 N 项、状态推进残差有 N-1 项。z_j 是第一个观测时刻的状态。
-P 是窗口起点状态先验协方差，Λ 是材料/边界先验精度；Q 描述相邻状态的短时变化，R_y 描述有效随机观测误差。它们必须对应一致的单位与采样周期。
-几何已标定、变量域非空紧致、δ 限定于 [Ψ(a_min),Ψ(a_max)] 时，H_H 连续，正文目标连续，因而精确约束问题存在全局最小值。此结论不提供唯一性，也不意味着 SQP 找到全局解。
+E.1 Variables, timing and existence
+ϑ=(E_0*,μ_0,k_d,0,E_f*,μ_f,k_d,f,b) has 7 variables;
+z_i=(γ_i,γdot_i,β_i^T)^T has 5 variables.
+For N observations, the joint variable dimension is 7+5N, with N observation-residual terms and N-1 state-propagation terms. z_j is the state at the first observation.
+P is the window-start state-prior covariance; Λ is material/boundary prior precision; Q describes short-time adjacent-state variation; R_y describes effective random observation error. Units and sampling periods must be consistent.
+With calibrated geometry, a nonempty compact variable domain and δ restricted to [Ψ(a_min),Ψ(a_max)], H_H and the objective are continuous, so the exact constrained problem has a global minimizer. This establishes neither uniqueness nor global convergence of SQP.
 
-E.2 实际迭代
-窗口移位后，以保留时刻的上一解作热启动，新状态按 A 推进；起点先验按估计传播更新。θ_0 的到达均值和协方差来自过渡前的均匀区域或上一窗口，MHE 在该协方差允许的范围内修正它；θ_f 和 b 使用较宽的物理先验并由新窗口数据更新。不能把上一时刻估计当成零不确定性的已知真值，也不能把 θ_0 与 θ_f 都作为缺少到达信息的自由变量后仍声称参数变化可辨识。
-首次进入过渡窗口时，b 的初值位于观测到接触变化的位置范围。给定该候选 b、压入初值且 I_f>0，可由
+E.2 Practical iteration
+After shifting the window, warm-start retained times from the previous solution and propagate the new state with A; update the start prior by estimate propagation. The arrival mean/covariance for θ_0 comes from the pretransition homogeneous region or previous window, and MHE adjusts it within that covariance. Wider physical priors initialize θ_f and b, then new-window data update them. Previous estimates are not zero-uncertainty truth; treating both θ_0 and θ_f as free without arrival information cannot justify identifiability of parameter changes.
+At the first transition window, initialize b within the observed contact-change range. Given this candidate b, initial indentation and I_f>0,
   E_f,init*=E_0*+[F_n-CE_0*I_0]/(C I_f)
-获得与变化信号相容的初始模量并投影到物理边界；摩擦参数由历史及窗口回归初始化。这只是初值构造，不是带未知 γ、β 时的一步精确反演。
-若两侧所有参数初始化完全相同，模型对 b 的灵敏度可能为零，因此不能把这种初值视为已具备边界信息。
+gives an initial modulus consistent with the change signal; project it to physical bounds. Initialize friction from history and window regression. This constructs an initial guess, not exact one-step inversion with unknown γ and β.
+Identical initialization of all parameters on both sides may give zero sensitivity to b; such an initialization does not already contain boundary information.
 
-每次迭代执行：
-  计算全部 δ_i，按 C.3 解 a_i；
-  按 B.2—B.4 计算 H_H 和 C.1 的链式导数；
-  堆叠白化残差和约束，构造 SQP 子问题；
-  用带约束违反项的 merit 函数回溯接受步长；
-  在新候选点重新计算接触响应，直至达到停止准则。
-接触积分及其导数的计算量随 N 线性增长；外层线性代数成本依赖稀疏实现和迭代次数，不能据此声称整个 MHE 也是 O(N)。
+At each iteration:
+  Compute all δ_i and solve a_i using C.3;
+  Evaluate H_H using B.2–B.4 and chain derivatives using C.1;
+  Stack whitened residuals and constraints and construct an SQP subproblem;
+  Backtrack using a merit function including constraint violation;
+  Reevaluate contact at the candidate point until stopping criteria hold.
+Contact integrals and derivatives scale linearly with N; outer linear algebra depends on sparsity and iteration count, so this does not establish O(N) cost for all MHE.
 
-E.3 局部收敛和停止
-在同一光滑区间的局部解附近，若活动约束满足线性独立约束资格、严格互补及二阶充分条件，并满足相应 Hessian 近似和全局化要求，才可应用经典局部 SQP 收敛结论。跨足迹边缘时不直接使用二阶光滑结论。
-在线报告归一化可行性残差 ε_feas、KKT 站立性/互补残差 ε_stat，以及接触求根误差 ε_a。数值阈值须低于允许的接触预测误差尺度。未达到准则的迭代点不能被写成已经收敛的局部最优解。
-有限窗口、热启动和低维闭式模型提供计算途径，但没有给出固定迭代次数或固定样本数保证。MHE 文献 [4] 支撑约束有限窗口估计框架，其稳定性定理仍有自身假设，不能直接作为本模型全部参数估计收敛的证明。
+E.3 Local convergence and stopping
+Classical local SQP convergence requires a solution within one smooth region, linear independence of active constraints, strict complementarity, second-order sufficiency, appropriate Hessian approximations and globalization. Second-order smoothness conclusions do not directly extend across footprint edges.
+Report normalized feasibility ε_feas, KKT stationarity/complementarity ε_stat and contact-root error ε_a online. Numerical thresholds must be below allowed contact-prediction error scales. Iterates failing the criteria are not converged local optima.
+Finite windows, warm starts and low-dimensional closed forms provide a computational approach, not fixed iteration/sample-count guarantees. MHE reference [4] supports constrained finite-window estimation; its stability results retain their own assumptions and do not prove convergence of all parameters in this model.
 
-F. 局部不确定性及预测误差
+F. Local uncertainty and prediction error
 
-F.1 联合协方差
-将正文 J_k 写成 ||r(𝒵)||²，r 包括按协方差白化的观测、推进及先验残差。以 (1/2)||r||² 对应 Gaussian 负对数后验的局部二次近似，J_r=∂r/∂𝒵。
-在无活动约束且 J_r 满列秩时，
+F.1 Joint covariance
+Write the main-text J_k as ||r(𝒵)||², including covariance-whitened observations, propagation and prior residuals. Use the local quadratic approximation of (1/2)||r||² as a Gaussian negative log posterior, with J_r=∂r/∂𝒵.
+With no active constraints and full-column-rank J_r,
   Σ_𝒵≈(J_r^T J_r)^-1。
-若以固定活动约束的切空间基 T 参数化局部自由方向，则
+For local free directions parameterized by a tangent basis T of fixed active constraints,
   Σ_ζ≈S T(T^T J_r^T J_r T)^-1 T^T S^T，
-其中 S 提取 ζ=(ϑ,z_k)。该表达要求约化信息矩阵可逆。
-这是局部 Gauss–Newton/Laplace 近似；有活动不等式时只是固定活动面的近似，不是截断后验的精确协方差。若正则化来自非统计惩罚，其逆矩阵只能称局部曲率指标。
-数值阻尼不能被解释成新增的真实信息。参数主要由先验确定、信息矩阵病态或存在其他拟合分支时，应据实说明局部协方差的局限。
-由线性映射 Δθ=θ_f-θ_0，
+where S selects ζ=(ϑ,z_k). The reduced information matrix must be invertible.
+This is a local Gauss–Newton/Laplace approximation. Active inequalities restrict it to a fixed face; it is not the exact covariance of a truncated posterior. If regularization is nonstatistical, its inverse is only a local curvature indicator.
+Numerical damping cannot be interpreted as new real information. Report the limitations of the local covariance when parameters are mainly prior-determined, the information matrix is ill-conditioned or other fitting branches exist.
+From the linear map Δθ=θ_f-θ_0,
   Σ_Δθ=D_ΔΣ_ζD_Δ^T，
-包含两侧交叉协方差项；不能直接把两侧方差相加并忽略相关性。
+including cross-covariances between sides. Adding marginal variances while ignoring correlation is invalid.
 
-F.2 模型失配
-R_y 可描述经标定的随机误差；系统性接触近似偏差不会因增加权重协方差而消失。
-在零残差基准、固定局部自由方向和小扰动下，若固定参数处的白化残差受到外部扰动 δr_ext，
+F.2 Model mismatch
+R_y can represent calibrated random error; increasing covariance weights does not remove systematic contact-approximation bias.
+At a zero-residual reference with fixed local free directions and small perturbations, if the whitened residual at fixed parameters changes externally by δr_ext,
   δξ≈-(J_red^T J_red)^-1 J_red^T δr_ext，
-其中 J_red 为白化残差对自由坐标的 Jacobian。取范数，
+where J_red is the whitened-residual Jacobian in free coordinates. Taking norms gives
   ||δξ||≲||δr_ext||/σ_min(J_red)。
-该式说明信息弱时模型偏差会被放大；不是任意非线性残差下的全局误差界。非零残差基准的严格最优点灵敏度需要完整 Lagrangian Hessian 与约束导数，不能只用 Gauss–Newton 矩阵。
-真实跨区域模型误差须由独立数据或可信参考接触求解获得；不能用同一个空间近似自身证明其误差很小。
+Weak information amplifies model bias. This is not a global bound for arbitrary nonlinear residuals. Exact optimizer sensitivity at nonzero residual requires the full Lagrangian Hessian and constraint derivatives, not only Gauss–Newton curvature.
+True cross-region model error requires independent data or a credible reference contact solver. The spatial approximation cannot certify its own small error.
 
-F.3 未来接触预测
-固定材料场，预测 ℓ_p 个采样步后的状态为
+F.3 Future-contact prediction
+For a fixed material field, the state predicted ℓ_p sampling steps ahead is
   z_hat,k+ℓp=A^ℓp z_hat,k。
-若过程噪声按正文假设独立，其额外状态协方差为
+If process noise is independent as assumed in the main text, its additional state covariance is
   Q_pred=Σ_(j=0)^(ℓp-1) A^j Q(A^j)^T。
-令 B_ℓp=blkdiag(I_7,A^ℓp)，则
+Let B_ℓp=blkdiag(I_7,A^ℓp). Then
   Σ_ζ,pred≈B_ℓpΣ_ζ,kB_ℓp^T+blkdiag(0_(7×7),Q_pred)。
-给定候选运动、以物理输出 G(ζ_pred)=H_H(d-γ_pred,s,v;ϑ) 计算
+For candidate motion, use the physical output G(ζ_pred)=H_H(d-γ_pred,s,v;ϑ) to compute
   Σ_W≈G_ζΣ_ζ,predG_ζ^T。
-β 不进入 G；G 对偏置的直接导数为零。候选运动本身不确定时需另计其传播误差。
-这只传播所声明随机不确定性的局部近似。接触模型系统偏差另行报告，不能把上述协方差当作真实力必然落入的全局范围。
+β does not enter G, so its direct derivative is zero. Uncertain candidate motion requires separate propagation of its error.
+This propagates only a local approximation to the stated random uncertainty. Report systematic contact-model bias separately; covariance is not a global guaranteed range for true force.
 
-G. 工作范围、数值核对与实际可行性
+G. Operating range, numerical checks and practical feasibility
 
-G.1 工作范围如何确定
-柱面近似须在目标 R、L、载荷和扫描速度下检验：均匀材料的力—压入关系、滑动阻力以及跨区域的力与力矩是否达到任务所需精度。有限厚度/端部效应、非弹性响应和未观测组织切向运动计入真实模型失配。
-关键是用独立的跨区域观测检验 B.1，而不是仅在均匀区域拟合后便认为跨区域模型已成立。模型允许误差应由后续阻抗任务所需预测精度确定，不应为使拟合“通过”而任意放宽。
-这是一条明确的柱面有效接触模型路线；其精度不足时不能宣称当前参数反演已经解决真实组织上的研究问题。
+G.1 Establishing the operating range
+Validate the cylindrical approximation for target R, L, loads and scanning velocities: homogeneous force–indentation behavior, sliding resistance and cross-region forces/moments must meet task accuracy. Finite-thickness/end effects, inelasticity and unobserved tangential tissue motion contribute real mismatch.
+Independent cross-region observations must test B.1; homogeneous fitting alone does not validate it. Allowed model error follows downstream impedance-task prediction requirements, rather than being relaxed arbitrarily to pass fitting.
+This is a specific cylindrical effective-contact-model route. Insufficient accuracy means current parameter inversion has not solved the real-tissue research question.
 
-G.2 已执行的合成代数核对
-取 R=0.03 m、L=0.02 m、ℓ_ref=0.02 m、a=0.003 m、r=0.0007 m、
-E_0*=30000 Pa、E_f*=45000 Pa。以 SciPy 数值积分独立核对 B.2 三个积分，以中心差分核对 Ψ'，再按 D.1 从 ΔF_n 与 m_1 反演 r 和 E_f*。
-所得：
+G.2 Completed synthetic algebraic checks
+Take R=0.03 m, L=0.02 m, ℓ_ref=0.02 m, a=0.003 m and r=0.0007 m,
+with E_0*=30000 Pa and E_f*=45000 Pa. Independently integrate the three B.2 integrals using SciPy, check Ψ' by central differences, then invert r and E_f* from ΔF_n and m_1 using D.1.
+Results:
   δ=4.6311580425628733×10^-4 m；
   F_n=0.1663106581871727 N；
   m_1=4.137548425362805×10^-5 N·m；
-  三个积分的相对差分别为 3.40×10^-16、2.00×10^-16、8.30×10^-16；
-  Ψ' 的中心差分相对差为 3.61×10^-12，差分步长 10^-8 m；
-  r 反演绝对误差为 1.03×10^-17 m；
-  E_f* 反演相对误差为 2.26×10^-15。
-数值积分的绝对/相对容差分别为 10^-25、10^-11，标量反演的区间为 [-a+10^-6,a-10^-6] m。
-另取 μ_0=0.2、μ_f=0.35、k_d,0=1.2 N·s/m、k_d,f=2 N·s/m、v=0.008 m/s，在 r∈[-0.9a,0.9a] 上均匀选取 19 点，分别积分两侧牵引的力矩。B.4 闭式与独立积分的最大绝对差为 1.75×10^-18 N·m。以 10^-9 m 步长对 a、r 作中心差分，核对 C.1 的三个积分导数；按 max(|解析导数|,10^-20) 归一化 a 导数、按 max(|解析导数|,10^-12) 归一化 r 导数，最大差为 4.56×10^-9。
-这些结果核对解析积分、压入导数和理想反演的一致性；不是组织实验、完整含噪 MHE 试验或精度/实时性证据。
+  Relative differences for the three integrals: 3.40×10^-16, 2.00×10^-16 and 8.30×10^-16;
+  Relative central-difference error for Ψ': 3.61×10^-12, with step 10^-8 m;
+  Absolute r-inversion error: 1.03×10^-17 m;
+  Relative E_f*-inversion error: 2.26×10^-15.
+Quadrature absolute/relative tolerances are 10^-25 and 10^-11; the scalar inversion interval is [-a+10^-6,a-10^-6] m.
+Also take μ_0=0.2, μ_f=0.35, k_d,0=1.2 N·s/m, k_d,f=2 N·s/m and v=0.008 m/s. At 19 equally spaced points in r∈[-0.9a,0.9a], integrate traction moments separately on each side. The maximum absolute B.4 closed-form/quadrature difference is 1.75×10^-18 N·m. Check the three C.1 integral derivatives by central differences in a,r with step 10^-9 m. Normalize a derivatives by max(|analytical derivative|,10^-20) and r derivatives by max(|analytical derivative|,10^-12); the largest difference is 4.56×10^-9.
+These check consistency of analytical integrals, indentation derivatives and ideal inversion. They are not tissue experiments, full noisy-MHE tests or accuracy/real-time evidence.
 
-G.3 计算时间与目前能够得出的结论
-实际延迟应包含数据积累、同步、全部 MHE 迭代、参数提取和模型传递；后续算法加入后还需计入阻抗求解与执行。应同时报告估计/预测误差和延迟随接触变化速度的表现。
-本文不规定必须在前缘至中心的某个位置截止之前完成，但“接触变化后快速调整”的目标仍要求实际延迟与任务变化尺度相容。仅报告一次接触函数评估很快不够。
-现有推导给出均匀柱面关系、选定空间近似下的观测积分、非退化辨识例子及可实施的局部 MHE 公式流。跨区域近似在真实组织上的误差、完整 MHE 的运行时间及其精度尚需独立验证；这些不能由代数核对替代。
+G.3 Timing and presently supported conclusions
+Actual latency includes data accumulation, synchronization, all MHE iterations, parameter extraction and model transfer; subsequent algorithms add impedance solution and execution. Report estimation/prediction error and latency versus contact-change speed together.
+No mandatory leading-edge-to-center completion position is imposed, but rapid adjustment after contact changes still requires latency compatible with task timescales. Fast single contact-function evaluation is insufficient.
+The derivations establish homogeneous cylindrical relations, observation integrals under a selected spatial approximation, nondegenerate identification examples and implementable local MHE equations. Real-tissue cross-region approximation error, full-MHE runtime and accuracy still require independent validation, beyond algebraic checks.
 
-H. 机器人—接触—阻抗状态空间与能量
+H. Robot–contact–impedance state space and energy
 
-H.1 坐标、作用力及状态的闭合
-设机器人关节数为 n_r，q_r,w_r∈R^{n_r}。在固定接触坐标段，取
+H.1 Coordinates, forces and state closure
+For a robot with n_r joints and q_r,w_r∈R^{n_r}, within a fixed contact-frame segment take
   ξ(q_r)=(p_c,x,p_c,y,p_c,z,ϑ_1,ϑ_2,ϑ_3)^T，J_ξ=∂ξ/∂q_r。
-后三项是姿态的一个固定光滑局部坐标图，不是任意旋转下可直接相减的全局角度。图的工作域与探头姿态标定范围一并固定。前三项相对第 3 节同一个原点取值，故 s=p_c,x、d=-p_c,z。d 与物理法向 +z 的符号不能混用。
-控制器广义作用力 f_ξ 与 ξ_dot 功率共轭：
+The final three entries use a fixed smooth local orientation chart, not globally subtractable angles under arbitrary rotations. Fix its operating domain with the calibrated probe-pose range. The first three entries use the section 3 origin, so s=p_c,x and d=-p_c,z. Do not mix d with the physical +z normal convention.
+Controller generalized force f_ξ is power-conjugate to ξ_dot:
   w_r^T J_ξ^T f_ξ=(J_ξw_r)^T f_ξ。
-J_c 则将 w_r 映射为同一接触参考点的物理线速度和角速度，故
+J_c maps w_r to physical linear/angular velocity at the same contact reference, hence
   w_r^T J_c^T 𝒲_c^(6)=(J_cw_r)^T𝒲_c^(6)。
-局部姿态坐标的 Jacobian 与物理角速度 Jacobian 一般不相同。控制器使用 J_ξ^T，接触旋量使用 J_c^T；无需把局部姿态广义力误叫作物理力矩。
+The local-orientation-coordinate Jacobian generally differs from the physical-angular-velocity Jacobian. Use J_ξ^T for control and J_c^T for contact wrench; local orientation generalized force need not be called a physical torque.
 
-在固定描述符 η 下，γ(t)=γ_0+tγdot_0；参考 ξ_d(t)、F_d(t) 是固定阶数多项式。由 q_r,w_r 得 δ,s,v，再按 A—C 求 a 和 𝒲_c。将正文式（28）的 τ_imp 代入式（24），即得到 a_r；其右端只含 (t,q_r,w_r,g_a,η)，没有未求出的加速度。正文式（30）因而闭合。
-M_r 正定且各项在局部域内局部 Lipschitz 时，对局部 Lipschitz 反馈或分段连续有界动作可应用相应 ODE 局部存在唯一性结论。H_H 在接触拼接处 C^1，并不意味着 F 的全部高阶导数也有界。此处 ODE 的闭合性不依赖全局二阶光滑性。
+For fixed η, γ(t)=γ_0+tγdot_0; ξ_d(t) and F_d(t) are fixed-degree polynomials. Compute δ,s,v from q_r,w_r, then a and 𝒲_c using A–C. Substituting main-text τ_imp from (28) into (24) yields a_r depending only on (t,q_r,w_r,g_a,η), with no unresolved acceleration. Equation (30) is therefore closed.
+Positive-definite M_r and locally Lipschitz terms permit the corresponding local ODE existence/uniqueness results for locally Lipschitz feedback or bounded piecewise-continuous actions. H_H being C^1 at contact joins does not imply bounded higher derivatives of F. ODE closure here does not require global second-order smoothness.
 
-状态维数为 2n_r+5，其中四个实际增益和一个能量状态均不能用 critic 权重替代。η 的维数为 9+7(p_r+1)：两侧材料 6 项、边界 1 项、表面运动 2 项，以及六维位姿与一维目标力的参考系数。参考固定阶数、T 与各尺度在整个根族中保持不变。Σ_ζ 不进入名义动力学，也不作为另一套自由状态；它在 L.1 中提供参数误差信息。
+State dimension is 2n_r+5; four actual gains and one energy state cannot be replaced by critic weights. Descriptor dimension is 9+7(p_r+1): 6 material entries, 1 boundary, 2 surface-motion entries and polynomial coefficients for six-dimensional pose plus one force target. Reference degree, T and scales stay fixed across the root family. Σ_ζ is not part of nominal dynamics or another free state; L.1 uses it for parameter-error information.
 
-H.2 接触输出导数及其对控制的相对作用
-记 a_r 为关节加速度，J_d=∂d/∂q_r。固定 η 时，
+H.2 Contact-output derivatives and relative control influence
+Let a_r be joint acceleration and J_d=∂d/∂q_r. For fixed η,
   δ_dot=J_dw_r-γdot_0，s_dot=J_sw_r，
   v_dot=J_sa_r+(D_qJ_s[w_r])w_r。
-故
+Thus
   𝒲_c_dot=H_H,δ(J_dw_r-γdot_0)+H_H,s J_sw_r
            +H_H,v[J_sa_r+(D_qJ_s[w_r])w_r]。
-这给出正文式（23）在闭合机器人动力学中的具体右端。
-如果另设独立力状态 y_c 并积分同一个右端，必须满足 y_c(0)=H_H(0)；连续精确积分时 d(y_c-H_H)/dt=0。额外状态只复制代数关系，数值积分却可能出现漂移，故本文使用代数输出。
-对纯法向力，u_g 不直接出现在 F_n 或 F_n_dot 中。一般要经过增益、加速度再影响力；在某些状态（例如相关位姿误差和速度误差均为零）该控制作用还会退化。因此，不能写一个与 u_g 无关的一阶力导数不等式，就声称通过限幅 u_g 保证了法向力边界。正文保留整条轨迹上的物理约束，并限定内部 HJB 近似的适用域。
+This supplies the explicit right-hand side of main-text (23) within closed robot dynamics.
+If an independent force state y_c integrates the same right-hand side, require y_c(0)=H_H(0); exact continuous integration gives d(y_c-H_H)/dt=0. It duplicates the algebraic relation but may drift numerically, so this method uses algebraic outputs.
+u_g appears directly in neither F_n nor F_n_dot. Its force effect generally passes through gains and acceleration and can degenerate, for example when relevant pose/velocity errors vanish. An inequality for a first-order force derivative independent of u_g cannot prove normal-force bounds by clipping u_g. Physical constraints remain trajectory-wide, and the internal HJB approximation has a restricted domain.
 
-H.3 增益和能量动作约束的显式排列
-正文式（31）可按以下固定顺序排列，共 17 行：
+H.3 Explicit gain/energy action constraints
+Main-text (31) has the following fixed order of 17 rows:
   A_u=col(I_4,-I_4,-I_4,I_4,p_g^T)，
   b_u=col(rbar_g,rbar_g,α_g(g_a-g_min),α_g(g_max-g_a),
           χP_D+α_E(E_T-E_T,min))。
-当 g_min≤g_a≤g_max、E_T≥E_T,min 时，u_g=0 可行。若
+For g_min≤g_a≤g_max and E_T≥E_T,min, u_g=0 is feasible. If
   d(g_a-g_min)/dt≥-α_g(g_a-g_min)，
   d(g_max-g_a)/dt≥-α_g(g_max-g_a)，
   d(E_T-E_T,min)/dt≥-α_E(E_T-E_T,min)，
-分别乘对应的指数积分因子，得到各分量在连续执行期间非负。这是增益与能量不越界的直接证明。
-能量账本不设置人为回充值或离散重置。有限预测时域上，若 |P_D|≤Pbar_D、||p_g||≤pbar、||u_g||≤rbar，则
+multiplication by the corresponding exponential integrating factors preserves nonnegativity of each component during continuous execution. This directly proves gain/energy bound invariance.
+The energy ledger has no artificial recharge or discrete reset. Over a finite prediction horizon, if |P_D|≤Pbar_D, ||p_g||≤pbar and ||u_g||≤rbar, then
   E_T(t)≤E_T(0)+T(χPbar_D+pbar rbar)。
-可据此设置 critic 的有限能量计算范围；该计算范围的上端不是额外宣称的不变物理边界。
+This can define a finite critic energy-computation range; its upper limit is not an additionally claimed invariant physical bound.
 
-H.4 能量恒等式
-设 M_r 对称正定，选取满足 w_r^T(M_r_dot-2C_r)w_r=0 的动力学表示，重力补偿与力矩实现准确。记 v_ξ=J_ξw_r，e_dot=v_ξ-ξd_dot，则
+H.4 Energy identity
+Assume symmetric positive-definite M_r, a dynamics representation satisfying w_r^T(M_r_dot-2C_r)w_r=0, and accurate gravity compensation/torque execution. With v_ξ=J_ξw_r and e_dot=v_ξ-ξd_dot,
   d(1/2 w_r^TM_rw_r)/dt
     =v_ξ^T(f_d-Ke-De_dot)-w_r^TB_rw_r+(J_cw_r)^T𝒲_c^(6)，
   d(1/2 e^TKe)/dt=e^TKe_dot+P_K。
-利用 v_ξ=e_dot+ξd_dot 合并：
+Combining terms using v_ξ=e_dot+ξd_dot gives
   d(S_kin+S_K)/dt=(J_cw_r)^T𝒲_c^(6)
         +v_ξ^Tf_d-ξd_dot^T(Ke+De_dot)-P_D+P_K。
-再加 E_T_dot=χP_D-P_K，得到正文式（48）。由于 K≻0、M_r≻0、E_T≥E_T,min>0，储能有下界。积分得
+Adding E_T_dot=χP_D-P_K yields main-text (48). Storage is lower-bounded because K≻0, M_r≻0 and E_T≥E_T,min>0. Integration gives
   S(t_1)-S(t_0)≤∫[(J_cw_r)^T𝒲_c^(6)+P_ref]dt。
-该不等式针对机器人和控制器的接触/参考供给端口，不要求把异质接触近似解释成某个已证明的弹性势能。若 ξd_dot=0 且 f_d=0，则 P_ref=0；非零前馈即使参考静止，也可能做功，不能省略 v_ξ^Tf_d。
-实际额外力矩 Δτ 产生 w_r^TΔτ；若采用测量耗散更新能量，则用相同实际误差和实际增益计算 P_D。未建模伺服误差不能在上述名义恒等式中被自动抵消。
+This inequality concerns robot/controller contact and reference supply ports; it does not require a proven elastic potential for the heterogeneous contact approximation. If ξd_dot=0 and f_d=0, then P_ref=0. Nonzero feedforward can supply power even with stationary reference, so v_ξ^Tf_d cannot be omitted.
+Additional actual torque Δτ contributes w_r^TΔτ. If measured dissipation updates energy, compute P_D from the same actual errors and gains. Unmodeled servo errors do not automatically cancel in the nominal identity.
 
-H.5 参考更新、表面更新与证据边界
-每次滚动窗口重写多项式系数时，参考在物理时间上应保持位置连续，通常同时保持速度连续；T 的滑动仅改变局部时间原点。若 ξ_d 跳变而 q_r,g_a 不变，则弹性储能跳变量为
+H.5 Reference/surface updates and evidence boundaries
+When receding windows rewrite polynomial coefficients, reference position should remain continuous in physical time, usually with continuous velocity too; sliding T changes only the local time origin. If ξ_d jumps while q_r,g_a remain fixed, elastic storage jumps by
   ΔS_K=1/2 e_+^T K e_+-1/2 e_-^T K e_-。
-该项属于参考端供给，不能借切换描述符忽略。本文执行连续扫描参考，不通过任意参考跳变产生阻抗变化。γ 的估计更新改变模型预测，不重置机器人、增益或能量账本。
-式（48）不能推出组织被动、跟踪误差趋零、未知模型下的接触安全或滚动问题递归可行。上述主张需要各自额外证据。本文给出的结论是指定执行接口下的能量恒等式及动作约束的不变性。
+This is reference-port supply and cannot be ignored by switching descriptors. Scanning references are continuous here; arbitrary reference jumps do not generate impedance changes. Updating γ estimates changes predictions, without resetting robot, gains or energy ledger.
+Equation (48) proves neither tissue passivity, vanishing tracking errors, contact safety under unknown models nor recursive feasibility. Each requires separate evidence. The supported conclusions are the specified execution-interface energy identity and action-constraint invariance.
 
-I. 有限时域 HJB、single critic 与根的含义
+I. Finite-horizon HJB, single critic and root interpretation
 
-I.1 可行性与 HJB 适用域
-对每个 η，允许轨迹须在整个 [t,T] 上满足正文式（30）—（32）。不存在这种轨迹的状态不属于有限值可行域。对可行域内部的可微价值函数，动态规划对短时间 dt 给出
+I.1 Feasibility and HJB domain
+For each η, allowed trajectories satisfy main-text (30)–(32) over the entire [t,T]. States with no such trajectory lie outside the finite-value feasible domain. For differentiable interior value functions, short-time dynamic programming gives
   V(t,x)=inf_u{ℓ(t,x,u)dt+V(t+dt,x+f dt)}+o(dt)。
-Taylor 展开并令 dt→0，得到 V_t+min_u(ℓ+V_x^Tf)=0 和终端条件 V(T,x)=Φ(x)。这就是正文式（35）。
-在活动物理状态边界，需要相应可行方向与状态约束边界解释，内部 PDE 本身不是边界条件。本文所求局部根用于一个共同轨迹邻域：接触、力、位姿和力矩约束保持严格正裕量，而动作、增益率和能量约束可活动。域的正裕量由独立轨迹核对确定。若该局部条件不能成立，不能将内部配置点方程的收敛当作完整状态约束问题已解决。
-这不是用检查代替全局最优性证明。本文仅把有限根称为 HJB 的局部近似，并用 I.5 的条件性残差结论说明何时能进一步约束性能损失。也不以有限时域终端代价假设一个未构造的稳定终端控制器。
+Taylor expansion and dt→0 yield V_t+min_u(ℓ+V_x^Tf)=0 with V(T,x)=Φ(x), main-text (35).
+Active physical state boundaries need feasible-direction and state-constraint boundary interpretations; the interior PDE is not itself a boundary condition. The local root applies in a common trajectory neighborhood with strictly positive contact/force/pose/torque margins, while action, gain-rate and energy constraints may activate. Independent trajectory checks establish these margins. Without this local condition, converged interior collocation equations do not solve the full state-constrained problem.
+This does not replace global optimality proof with checking. The finite root is called only a local HJB approximation; I.5 supplies conditional residual results bounding performance loss. No unconstructed stabilizing terminal controller is assumed from a finite-horizon terminal cost.
 
-I.2 具体基、节点与初始化
-给定固定整数 p≥2，可采用归一化变量 y=(t/T,bar x_1,...,bar x_nx) 的总次数多项式
-  φ_α(y)=∏_{j=0}^{nx} y_j^{α_j}，α_j 为非负整数，Σα_j≤p，
+I.2 Explicit basis, nodes and initialization
+For fixed integer p≥2, use total-degree polynomials of normalized y=(t/T,bar x_1,...,bar x_nx):
+  φ_α(y)=∏_{j=0}^{nx} y_j^{α_j}, with nonnegative integers α_j and Σα_j≤p,
   n_W=binomial(nx+1+p,p)，ψ_α=(1-t/T)φ_α。
-按总次数、再按字典序固定基的顺序，解析求导。x_c 与 S_x 为固定物理尺度，不随每次估计平移。由于 Φ(x;η) 是在终点 T 定义的函数，其显式 t 偏导为零；η 导数则必须包含 γ(T;η)、F_d(T;η) 和 ξ_d(T;η) 的影响。
-在指定紧工作域内生成多于 n_W 个候选节点，剔除 t=T、无接触及非标定状态，按基评估矩阵的列主元 QR 选择 n_W 个独立节点。记录选定的物理坐标、基次序和尺度后冻结；η 更新时不得重新选点来改善当前残差。节点集须在该局部参数邻域内仍处于允许计算域。基评估矩阵满秩不等价于 F_Z 可逆，后者独立检查。
-首次可取 W^0=0，以 p_i=∇Φ 初始化每个节点的动作，由式（37）求其唯一极小值并取相容的非负 KKT 乘子。乘子不唯一意味着节点活动约束独立性不足，应在离线工作域选择中识别，不能以任意一个乘子宣称正则。以所得 Z^0 运行式（40）；只在获得合格局部根和独立误差核对后用于在线 continuation。此初值规则提供可复现起点，不保证 Newton 从任意初值全局收敛。
-多项式阶数、参考阶数、节点域、T、容差和实际机器人模型是部署时固定的数值输入。给定这些量方程全部确定；其具体取值必须由任务精度和计算预算选择，本文不虚构已完成的高维实例。不能从四维动作推断整个 critic 求解只有四维。
+Order the basis by total degree then lexicographically and differentiate analytically. x_c and S_x are fixed physical scales, not shifted with each estimate. Since Φ(x;η) is defined at T, its explicit t derivative is zero; η derivatives must include γ(T;η), F_d(T;η) and ξ_d(T;η).
+Generate more than n_W candidate nodes in the specified compact domain, remove t=T, no-contact and uncalibrated states, and select n_W independent nodes with column-pivoted QR of the basis-evaluation matrix. Freeze physical coordinates, basis order and scales; do not reselect nodes after η updates to reduce residuals. Nodes must remain in the allowed computation domain throughout the local parameter neighborhood. Full basis-matrix rank does not imply invertible F_Z; check it separately.
+Initially take W^0=0 if desired, initialize each node with p_i=∇Φ, solve the unique action minimizer from (37), and choose consistent nonnegative KKT multipliers. Nonunique multipliers signal insufficient active-constraint independence and must be identified offline; an arbitrary multiplier does not establish regularity. Run (40) from Z^0 and use online continuation only after obtaining a qualified local root and independent error checks. This gives a reproducible start, not global Newton convergence from arbitrary starts.
+Polynomial degree, reference degree, node domain, T, tolerances and actual robot model are fixed deployment inputs. They determine all equations; choose values from task accuracy and computation budget, without inventing a completed high-dimensional instance. Four action dimensions do not make the complete critic solution four-dimensional.
 
-I.3 动作恢复及 KKT
-在给定 (t,x,W,η) 下，令 c=G_g^T∇V_N，求
+I.3 Action recovery and KKT
+For given (t,x,W,η), let c=G_g^T∇V_N and solve
   min_u u^TR_gu+c^Tu，A_uu≤b_u。
-R_g≻0，集合闭、有界且非空，故动作存在且唯一。内部解由 2R_gu+c=0 得到；约束解满足
+R_g≻0 and a closed, bounded, nonempty set give a unique action. Interior actions satisfy 2R_gu+c=0; constrained actions satisfy
   2R_gu+c+A_u^Tλ=0，s=b_u-A_uu≥0，λ≥0，λ⊙s=0。
-这些条件在该凸二次问题中充分；可直接用四维活动集求解器计算动作。它是 Hamiltonian 的代数求解，不是另一种接触模型或另一个控制优化目标。
-若活动行集合为 𝒜，局部动作与乘子满足
+These conditions are sufficient for this convex quadratic problem. A four-dimensional active-set solver can recover actions directly. This algebraically minimizes the Hamiltonian; it introduces neither another contact model nor another control objective.
+For active rows 𝒜, local actions/multipliers satisfy
   [2R_g  A_𝒜^T; A_𝒜  0][u;λ_𝒜]=[-c;b_𝒜]。
-R_g≻0 且 A_𝒜 满行秩时该矩阵可逆。在活动集不变且数据光滑的邻域中，动作和乘子是光滑函数。重复活动行、零乘子与零松弛同时出现时不能直接使用此结论。
+This matrix is invertible when R_g≻0 and A_𝒜 has full row rank. Actions/multipliers are smooth with fixed active set and smooth data. Repeated active rows or simultaneous zero multipliers/slacks invalidate direct use of this conclusion.
 
-I.4 有限根不是权重优化的 KKT
-正文 F 的第一块是 n_W 个 HJB 配置残差，其余两块是各节点动作极小化的 KKT 条件。W 是价值函数表示的系数；没有另外定义 min_W J_W，因此不能把 F=0 称作某个权重目标的全部最优性条件。Z^* 的星号沿用正文符号，表示接受的局部 HJB–KKT 根及其 Hamiltonian 最优动作。
-即使每个动作二次问题严格凸，非线性配置方程也可能有多个根或没有所需根。假定某一接受根存在且 F_Z 可逆才有局部唯一根分支。不同描述符下 cold solve 若收敛到别的根，不能直接与延拓根比较时间并声称同解加速。
-还可把完整根的正则性化成一个具体检查。若各节点活动行独立且严格互补，先在局部消去 u_i(W)、λ_i(W)。因为动作集合不依赖 W，活动约束的微分满足 A_𝒜 ∂_Wu_i=0，而 ∂_{u_i}𝓑_i=-λ_𝒜^T A_𝒜，故动作变化对 Bellman 残差的附加项为零。消元后的 n_W×n_W Jacobian 各行为
+I.4 The finite root is not the KKT system of weight optimization
+The first F block contains n_W HJB collocation residuals; the other two contain nodewise action-minimization KKT conditions. W represents the value function; no separate min_W J_W is defined. Thus F=0 is not the complete optimality system of a weight objective. The main-text star in Z^* denotes an accepted local HJB–KKT root and its Hamiltonian-optimal actions.
+Strictly convex action subproblems do not prevent multiple nonlinear collocation roots or absence of the desired root. A locally unique branch requires an accepted root and invertible F_Z. A cold solve converging to another root at a different descriptor cannot establish same-solution acceleration against continuation.
+Root regularity admits a concrete check. With independent nodewise active rows and strict complementarity, eliminate u_i(W),λ_i(W) locally. Since the action set does not depend on W, A_𝒜 ∂_Wu_i=0, while ∂_{u_i}𝓑_i=-λ_𝒜^T A_𝒜. Hence action variation contributes zero extra Bellman derivative. Rows of the reduced n_W×n_W Jacobian are
   L_i=ψ_t,i^T+(f_0,i+G_i u_i)^T J_ψ,i^T。
-在上述节点 KKT 条件下，F_Z 的可逆性等价于 L 的可逆性，这是对节点 KKT 块作 Schur 消元的结果。它给出需要检查的具体矩阵，也说明基评估矩阵满秩为何不足：L 评估的是基沿闭环方向的微分，而非基值。该等价关系在根及同一光滑活动分支上使用，不免除首次求根和域内逼近检查。
-不采用原 NNBO 对任意权重逐点收敛的直接继承。单时刻特征外积秩有限，不能仅由瞬时残差小证明所有权重确定；本文使用固定方程的 Jacobian 正则性与残差检查。
+Under those nodewise KKT conditions, F_Z is invertible exactly when L is, by Schur elimination. This identifies the matrix to check and explains why full basis-evaluation rank is insufficient: L evaluates closed-loop directional basis derivatives rather than basis values. Use this equivalence at roots on the same smooth active branch; initial solution and domain approximation checks remain necessary.
+No direct inheritance of original NNBO pointwise convergence for arbitrary weights is assumed. Instantaneous feature outer products have limited rank; small instantaneous residuals do not identify every weight. This method checks the fixed-system Jacobian and residuals.
 
-I.5 局部 near-optimality 与两类误差
-固定 (t_a,x_a,η,T) 和事先声明的比较域 D。V_D^* 对满足同一名义动力学、动作及状态约束并在 [t_a,T] 内留在 D 的控制取代价下确界。候选策略 π_p 与有限根策略 π_* 须分别认证属于该比较类。
-令 U_*=V_N(t,x;W^*(η),η)，定义
+I.5 Local near-optimality and two error classes
+Fix (t_a,x_a,η,T) and a declared comparison domain D. V_D^* is the cost infimum over controls obeying the same nominal dynamics, action/state constraints and remaining in D on [t_a,T]. Certify candidate π_p and finite-root policy π_* separately as members of this class.
+Let U_*=V_N(t,x;W^*(η),η) and define
   r_*=∂tU_*+min_{u∈U(t,x;η)}{ℓ+∇U_*^Tf}。
-若 U_* 的链式法则有效，且整个 D 上 |r_*|≤ε_B，则沿任意可行比较控制，ℓ+dU_*/dt≥-ε_B；沿 π_* 则 ℓ+dU_*/dt=r_*。正文的表示精确满足 U_*(T,x)=Φ(x)，积分并取 inf 得
+If the chain rule holds for U_* and |r_*|≤ε_B throughout D, every feasible comparison control satisfies ℓ+dU_*/dt≥-ε_B, while π_* satisfies ℓ+dU_*/dt=r_*. The representation exactly enforces U_*(T,x)=Φ(x). Integrate and take inf to obtain
   0≤J(π_*)-V_D^*≤2(T-t_a)ε_B=:ε_conf。
-在 L 的轨迹误差界 ρ_x 及代价 Lipschitz 界下，令
+Using the L trajectory bound ρ_x and cost Lipschitz bounds, let
   ε_pred=L_Φρ_x(T)
       +∫[ (L_ℓx+L_ℓu L_πx)ρ_x(t)+L_ℓu L_πZρ_Z ]dt，
-积分区间为 [t_a,T]，则 |J(π_p)-J(π_*)|≤ε_pred。因此
+Integrating over [t_a,T] yields |J(π_p)-J(π_*)|≤ε_pred. Therefore
   J(π_p)-V_D^*=[J(π_p)-J(π_*)]+[J(π_*)-V_D^*]，
   0≤J(π_p)-V_D^*≤ε_pred+ε_conf。
-第一差值可以为负。该性能证书要求完整剩余时域的两条策略可行性，且残差覆盖全部比较轨迹。
-精确 W^* 未知时，使用已知 W_b 及 ||W^*-W_b||≤e_W,b。由同一动作下 Bellman 表达式对 W 的线性依赖，令 B_W≥sup_{D,u∈U}||ψ_t+J_ψ f||，得到 |r_*-r_b|≤B_W e_W,b。对 r_b 的独立验证点、可靠求值误差 ε_r,l、覆盖半径 d_fill 和 Lipschitz 常数 L_B，可取
+The first difference can be negative. This certificate needs feasibility of both policies over the complete remaining horizon and residual coverage of every comparison trajectory.
+If W^* is unknown, use known W_b with ||W^*-W_b||≤e_W,b. Bellman expressions are linear in W at a common action. For B_W≥sup_{D,u∈U}||ψ_t+J_ψ f||, |r_*-r_b|≤B_W e_W,b. Independent validation points for r_b, reliable evaluation error ε_r,l, fill radius d_fill and Lipschitz constant L_B permit
   ε_B=max_l(|rtilde_b,l|+ε_r,l)+L_B d_fill+B_W e_W,b。
-上述域界和覆盖半径均须核验，配置点残差本身不替代它们。数值执行另计 J_exec-J(π_p)；真实模型的最优值属于不同基准。完整推导与尺度条件见认证证明第 6 项。
+Verify all domain bounds and coverage radii; collocation residuals alone do not replace them. Account separately for J_exec-J(π_p). True-model optimal value is a different benchmark. See certification proof 6 for derivation and scales.
 
-J. 完整根的导数与 ANEOC 预测误差
+J. Complete-root derivatives and ANEOC prediction error
 
-J.1 逐块 Jacobian
-在固定节点处记 Ψ_i=J_ψ(t_i,x_i)，f_i=f_0,i+G_g,i u_i，s_i=b_i-A_i u_i。对正文式（38）—（39）直接求偏导得
+J.1 Block Jacobians
+At fixed nodes let Ψ_i=J_ψ(t_i,x_i), f_i=f_0,i+G_g,i u_i and s_i=b_i-A_i u_i. Direct differentiation of main-text (38)–(39) gives
   ∂_W 𝓑_i=ψ_t,i^T+f_i^T Ψ_i^T，
   ∂_{u_i}𝓑_i=(2R_gu_i+G_i^Tp_i)^T，∂_{λ_i}𝓑_i=0，
   ∂_W 𝓢_i=G_i^T Ψ_i^T，∂_{u_i}𝓢_i=2R_g，∂_{λ_i}𝓢_i=A_i^T，
   ∂_{u_i}(λ_i⊙s_i)=-diag(λ_i)A_i，
   ∂_{λ_i}(λ_i⊙s_i)=diag(s_i)，∂_W(λ_i⊙s_i)=0。
-不同节点仅通过共享 W 耦合。F_Z 为方阵，但不具有离散轨迹 KKT 自动带来的三对角结构；文献 [7] 的 O(T) 轨迹复杂度不能直接移植。
+Nodes couple only through shared W. F_Z is square but lacks the automatically tridiagonal structure of a discretized trajectory KKT system; reference [7]'s O(T) trajectory complexity cannot be transferred directly.
 
-固定 Z 对任意描述符分量 η_l 求导，记 p_{i,l}=∂_{η_l}∇Φ(x_i;η)，则
+At fixed Z, differentiate in descriptor component η_l and write p_{i,l}=∂_{η_l}∇Φ(x_i;η). Then
   ∂_l𝓑_i=∂_lℓ_0,i+p_{i,l}^Tf_i
              +p_i^T(∂_lf_0,i+∂_lG_i u_i)，
   ∂_l𝓢_i=(∂_lG_i)^Tp_i+G_i^Tp_{i,l}+(∂_lA_i)^Tλ_i，
   ∂_l(λ_i⊙s_i)=diag(λ_i)[∂_lb_i-(∂_lA_i)u_i]。
-R_g、ψ、尺度和节点固定，故无其参数导数。G_i、A_i、b_i 通过参考误差 e、P_D、p_g 依赖 η，即使 action 只积分增益也不能遗漏这些导数。
-例如固定 (t,x) 时，γ_0 和 γdot_0 的接触导数为
+R_g,ψ, scales and nodes are fixed and have no parameter derivatives. G_i,A_i,b_i depend on η through reference error e, P_D and p_g; these derivatives remain necessary even when actions only integrate gains.
+For example, at fixed (t,x), contact derivatives in γ_0 and γdot_0 are
   ∂_{γ_0}H_H=-H_H,δ，∂_{γdot_0}H_H=-t H_H,δ。
-其余材料和边界导数由 C.1 与 B.3—B.4 给出。在线采用解析微分或与这些关系一致的自动微分；半宽隐式求根的导数用 a_δ=1/Ψ'(a)，不对迭代停止次数求导。
+C.1 and B.3–B.4 give material/boundary derivatives. Use analytical or consistent automatic differentiation online. Differentiate the implicit half-width relation using a_δ=1/Ψ'(a), not its numerical stopping-iteration count.
 
-J.2 隐式函数与活动集条件
-在根 (Z_0,η_0) 的邻域中，假设：
+J.2 Implicit functions and active-set conditions
+In a neighborhood of root (Z_0,η_0), assume:
   (i) F∈C^1，F(Z_0,η_0)=0；
-  (ii) F_Z(Z_0,η_0) 可逆；
-  (iii) λ_i,s_i 非负且严格互补，即每个分量恰有一项为正。
-隐式函数定理给出局部唯一 C^1 根映射 Z^*(η)。正乘子和正松弛在足够小邻域保持符号，互补乘积方程维持原活动集，因而该根仍对应节点的凸 Hamiltonian 极小值。
-对 F(Z^*(η),η)=0 使用链式法则，得到
+  (ii) F_Z(Z_0,η_0) is invertible;
+  (iii) λ_i,s_i are nonnegative and strictly complementary: exactly one entry in each pair is positive.
+The implicit-function theorem yields a locally unique C^1 root map Z^*(η). Positive multipliers/slacks retain signs in a sufficiently small neighborhood; complementarity products retain the active set, so roots still represent nodewise convex Hamiltonian minima.
+Applying the chain rule to F(Z^*(η),η)=0 gives
   F_Z C_η=-F_η。
-λ=s=0 的退化分量会令互补块相应导数行全零；此时当前光滑根理论不能成立。动作活动行独立性保证节点 KKT 正则，但整个 F_Z 的可逆性仍须独立验证。
-若 F∈C^2，且邻域内逆有界，则 Z^*∈C^2。在单位参数方向 h 上，令 C_h=C_η h，对隐式方程再求导：
+A degenerate λ=s=0 pair makes its complementarity derivative row zero, invalidating this smooth-root theory. Independent active rows ensure nodewise KKT regularity; invertibility of the complete F_Z still needs separate verification.
+For F∈C^2 with a bounded inverse nearby, Z^*∈C^2. Along unit parameter direction h, let C_h=C_η h and differentiate the implicit equation again:
   F_Z D²Z^*[h,h]
     =-F_ZZ[C_h,C_h]-2F_Zη[C_h,h]-F_ηη[h,h]。
-这给出二阶根变化的可计算方程。若 ||F_Z^-1||≤κ、||C_η||≤c，且三类二阶偏导上界为 L_ZZ,L_Zη,L_ηη，则
+This gives a computable second-root-variation equation. If ||F_Z^-1||≤κ, ||C_η||≤c, and second-partial bounds are L_ZZ,L_Zη,L_ηη, then
   ||D²Z^*||≤κ(L_ZZ c²+2L_Zη c+L_ηη)=M_Z。
-该界要求真正有界的导数，不能仅由 F∈C^1 推出。
-对数值锚点可直接构造局部证书：取 B_Z={Z:||Z-Zbar||≤r_Z}、P_cert={η:||η-ηbar||≤r_η} 和固定近似逆 R_c。若在直积域内
+This requires genuinely bounded derivatives, not merely F∈C^1.
+For numerical anchors construct a local certificate with B_Z={Z:||Z-Zbar||≤r_Z}, P_cert={η:||η-ηbar||≤r_η} and fixed approximate inverse R_c. If throughout the product domain
   ||I-R_cF_Z||≤q_c<1，sup_{η∈P_cert}||R_cF(Zbar,η)||≤β，
   β+q_c r_Z<r_Z，
-并有正的活动乘子、非活动松弛和模型光滑裕量，则每个参数在 B_Z 中存在唯一相容根，且 ||F_Z^{-1}||≤||R_c||/(1-q_c)。证明使用映射 Z-R_cF 的压缩性，完整条件见认证证明第 1 项。该域认证只针对根方程。
+and active multipliers, inactive slacks and model-smoothness margins are positive, every parameter has a unique compatible root in B_Z, with ||F_Z^{-1}||≤||R_c||/(1-q_c). This follows by contraction of Z-R_cF; complete conditions are in certification proof 1. This certifies roots only.
 
-J.3 接触光滑性与参数步长
-H_H 在每个开覆盖区间光滑，在 r=±a 处只有正文已证明的一阶连续性。完整 F 的二阶界须覆盖配置节点 (t_i,x_i) 的求值，以及 Φ(x_i;η)、∇Φ(x_i;η) 在终端 T 的求值；各求值位置在整个参数域内保持所用光滑分支。还需固定滑动方向并保持质量矩阵和姿态坐标有效。真实轨迹的局部 Lipschitz 条件按 L 单独检查。
-每次参数更新核验 P_cert、互补及接触裕量。原证书不覆盖时，结束对原平滑预测界的使用，按 K.5 重新认证或求解。
+J.3 Contact smoothness and parameter steps
+H_H is smooth within open coverage regions; at r=±a only the stated first-order continuity is established. Second-order F bounds must cover node evaluations (t_i,x_i) and terminal evaluations Φ(x_i;η),∇Φ(x_i;η) at T, preserving the selected smooth branch throughout the parameter domain. Also fix sliding direction and maintain valid mass matrix/orientation charts. Check real-trajectory local Lipschitz conditions separately under L.
+Check P_cert, complementarity and contact margins at each parameter update. Outside the original certificate, stop using its smooth prediction bound and recertify or solve under K.5.
 
-J.4 理想与非精确预测
-设参数线段位于上述邻域，Taylor 积分余项给出
+J.4 Ideal and inexact prediction
+If the parameter segment stays in the neighborhood, the integral Taylor remainder gives
   Z^*(η+Δη)=Z^*(η)+C_ηΔη
           +∫_0^1(1-s)D²Z^*(η+sΔη)[Δη,Δη]ds。
-故理想预测误差≤M_Z||Δη||²/2。令
+Thus ideal prediction error is ≤M_Z||Δη||²/2. Let
   e_0=||Zhat-Z^*(η)||，ε_C=||Chat-C_η||，
-计入预测运算误差 ||e_p||≤ε_p，对 Z_pred=Zhat+ChatΔη+e_p 有
+Including arithmetic error ||e_p||≤ε_p, Z_pred=Zhat+ChatΔη+e_p satisfies
   ||Z_pred-Z^*(η+Δη)||≤e_0+ε_C||Δη||+M_Z||Δη||²/2+ε_p。
-这就是正文式（43）的非精确误差预算。
-若 Chat 由数值点 Zhat 处的 Jhat Chat=-Fηhat+R_C 得到，则
+This is the inexact budget in main-text (43).
+If Chat solves Jhat Chat=-Fηhat+R_C at numerical Zhat, then
   ||Chat-C_η||≤||Jhat^-1||[||R_C||
         +||Fηhat-Fη*||+||Jhat-J*|| ||C_η||]。
-因此旧根偏差、导数误差和线性求解残差都会进入预测误差。e_0 可用 K.3 的认证残差界取得；数值导数与运算误差的可计算展开见认证证明第 2 项。所有范数在固定归一化变量下解释。
+Old-root error, derivative error and linear-solve residual all contribute. K.3 supplies a certified residual bound for e_0; certification proof 2 expands derivative/arithmetic errors. All norms use fixed normalization.
 
-K. 按需校正、根误差与锚点管理
+K. On-demand correction, root error and anchor management
 
-K.1 精确 Newton 的局部界
-固定新描述符，记 Z_* 为目标根，J=F_Z。取包含迭代点、根及其连线的凸邻域，假设 ||J(Z)^-1||≤κ、||J(Z)-J(Y)||≤L_J||Z-Y||。全步 Newton 给出
+K.1 Local exact-Newton bound
+At fixed new descriptor, let target root be Z_* and J=F_Z. In a convex neighborhood containing iterate, root and their segment, assume ||J(Z)^-1||≤κ and ||J(Z)-J(Y)||≤L_J||Z-Y||. Full Newton gives
   Z_+-Z_*=J(Z)^-1∫_0^1[J(Z)-J(Z_*+s(Z-Z_*))](Z-Z_*)ds，
-从而
+Hence
   e_+≤κL_J e²/2，e=||Z-Z_*||。
-在 J.2 的认证域内，若初点误差≤E_0、||Z^0-Zbar||+2E_0<r_Z，且 κL_J E_0/2<1，则逐步误差界保证迭代留域并收敛。此时可在候选根精度不足时启用正文式（44）；校正后仍按式（45）检查发布条件。
-阻尼回溯在远处用于减少 merit 值，不保证从任意点找到正确根。局部满足上述条件且采用允许全步的 Armijo 回溯时，最终可接受 α=1；二次误差式只用于这时的全步校正。
+Within the J.2 certificate, initial error ≤E_0, ||Z^0-Zbar||+2E_0<r_Z and κL_J E_0/2<1 ensure iterates stay inside and converge. Invoke main-text (44) when candidate root accuracy is insufficient, then still check release conditions (45).
+Far-field damping reduces merit, without guaranteeing the correct root from arbitrary starts. Under the local conditions and Armijo backtracking allowing full steps, α=1 is eventually accepted; quadratic error bounds apply only to such full corrections.
 
-K.2 非精确线性求解与回溯
-以 m(Z)=1/2||F(Z)||²，精确方向 Jd=-F 满足
+K.2 Inexact linear solution and backtracking
+For m(Z)=1/2||F(Z)||², exact direction Jd=-F satisfies
   ∇m(Z)^T d=F^TJd=-||F||²。
-可从 α=1 开始每次减半，直到
+Start at α=1 and halve until
   m(Z+αd)≤m(Z)-c_A α||F(Z)||²，0<c_A<1/2，
-且模型评估有效。正文的非负性与互补性在最终接受时检查，不能只凭 m 下降发布动作。
-若线性求解满足 Jd=-F+r_lin，则全步界变为
+and model evaluation remains valid. Check nonnegativity and complementarity at final acceptance; decreasing m alone cannot authorize action release.
+For Jd=-F+r_lin, the full-step bound becomes
   e_+≤κL_J e²/2+κ||r_lin||。
-要保持二次收敛，需要 r_lin 随 e² 缩小；固定线性容差仅给出有限误差底限。接触求根误差和浮点误差同样限制最终残差精度。
+Quadratic convergence requires r_lin to decrease with e². Fixed solve tolerances leave an error floor; contact-root and floating-point errors also limit attainable residuals.
 
-K.3 从认证残差到根误差
-在 J.2 的共同认证域内，Z∈B_Z、η∈P_cert 时，固定点压缩关系给出
+K.3 Certified residual-to-root error
+Within the common J.2 certificate, Z∈B_Z and η∈P_cert give the fixed-point bound
   ||Z-Z^*(η)||≤||R_cF(Z,η)||/(1-q_c)。
-若数值函数误差≤ε_F,eval，则使用 (||R_cFtilde||+||R_c||ε_F,eval)/(1-q_c) 的可靠上界。可与 J.4 的预测界取较小值；该计算不要求将候选先校正至固定小残差。新锚点须重新认证其根包络、分支裕量和灵敏度。
+For function-evaluation error ≤ε_F,eval, use a reliable upper bound on (||R_cFtilde||+||R_c||ε_F,eval)/(1-q_c). Take the smaller of this and J.4's prediction bound if useful; no prior correction to a fixed small residual is required. A new anchor needs recertified root enclosure, branch margins and sensitivity.
 
-K.4 对普通 warm start 的一阶比较
-由 F(Z_k,η_k)=0，在固定旧根处
+K.4 First-order comparison with ordinary warm starts
+Since F(Z_k,η_k)=0, at the fixed old root
   F(Z_k,η_k+Δη)=F_η Δη+O(||Δη||²)，
   F_Z(Z_k,η_k+Δη)=F_Z(Z_k,η_k)+O(||Δη||)。
-普通 warm start 在新参数下做一次 Newton：
+One ordinary warm-start Newton step at the new parameter gives
   Z_ws,1=Z_k-F_Z(Z_k,η_k+Δη)^-1F(Z_k,η_k+Δη)
         =Z_k+C_ηΔη+O(||Δη||²)。
-因此两者的一阶方向相同；cached-J chord 也可能具有二阶根误差。准备好灵敏度后的 ANEOC 查询是矩阵向量乘法，优势需与基线残差评估、线性求解及双方认证成本一起比较。令 P_i 为额外准备成本、S_i,l 为含校正与认证的每次服务成本，则 Q 次查询的优势条件为 Σ_l(S_B,l-S_A,l)>P_A-P_B。延迟还需计入未完成准备与资源等待。完整成本模型及计算等价情形见认证证明第 8 项。
+Thus both have the same first-order direction; cached-J chord can also have second-order root error. A prepared ANEOC query is a matrix–vector product, but benefits depend on baseline residual/solve costs and both certification costs. With extra preparation P_i and per-query service S_i,l including correction/certification, advantage over Q queries requires Σ_l(S_B,l-S_A,l)>P_A-P_B. Latency includes unfinished preparation and resource waits. See proof 8 for full costs and equivalence cases.
 
-K.5 多步预测与发布/恢复条件
-逐步预测时，根误差上界递推为 E_{k+1}≤E_k+ε_C,k||Δη_k||+M_Z||Δη_k||²/2+ε_p,k。冻结锚点灵敏度时，ε_C,k≤ε_C,a+M_Z||η_k-η_a||；正文采用直接从锚点预测，其每次误差按式（43）计算。
-候选满足正文式（45）及其动作、轨迹、性能完整条件时 publish；根精度不足且 K.1 收敛域及求解精度条件通过时 correct；原锚点不再适合后续查询且新记录通过 J.2 时 re-anchor；原配置/分支不受证书覆盖时 re-solve 并重新认证。发布与重锚分别管理，重锚后的误差仍保留其认证非零上界。
-精确有限根的域内逼近误差或轨迹不可行，不因 corrector 收敛自动消除。具体触发条件、非精确收敛与恢复边界见认证证明第 7 项。已有策略仅在其证书仍覆盖当前运行时继续执行；其他期间依赖已有独立 supervisor 的经验证进入条件。
+K.5 Multistep prediction and release/recovery conditions
+Stepwise prediction obeys E_{k+1}≤E_k+ε_C,k||Δη_k||+M_Z||Δη_k||²/2+ε_p,k. With frozen anchor sensitivity, ε_C,k≤ε_C,a+M_Z||η_k-η_a||. The main text predicts directly from anchors, using (43) for each query.
+Publish when (45) and complete action/trajectory/performance conditions hold; correct if root accuracy is insufficient and K.1 convergence/solve-accuracy conditions hold; re-anchor if the old anchor no longer suits future queries and the new record passes J.2; re-solve and recertify if configuration/branch coverage fails. Release and re-anchoring are separate, and re-anchored error retains its certified nonzero bound.
+Corrector convergence does not remove finite-root domain approximation error or trajectory infeasibility. Proof 7 details triggers, inexact convergence and recovery limits. Continue an existing policy only while its certificate covers current operation; otherwise rely on verified entry conditions of an independent existing supervisor.
 
-L. 参数误差、策略误差与实际执行
+L. Parameter error, policy error and actual execution
 
-L.1 MHE 到描述符、根与策略
-固定参考系数时，η 的随机分量由 ζ 的线性提取矩阵 D_η 得到，
+L.1 From MHE to descriptor, root and policy
+For fixed reference coefficients, a linear selector D_η maps ζ to random descriptor components:
   Σ_η≈D_ηΣ_ζD_η^T。
-参考来自另一不确定输入时须另计其协方差与交叉项。式（26）用两侧参数而不是独立的 θ_f、Δθ 两份互不相关数据，因此保留 MHE 的相关性。
-在正则分支，
+Uncertain externally supplied references require their own covariance/cross-terms. Equation (26) uses the two sides' parameters, not independent copies θ_f and Δθ, retaining MHE correlation.
+On a regular branch,
   Σ_Z≈C_ηΣ_ηC_η^T，Σ_W≈Π_WΣ_ZΠ_W^T。
-这些是估计随机误差的局部一阶传播，不能据此宣称真实根位于某个必然包含集合。数值根误差和接触模型系统偏差分别计入。
-对 π_N(t,x;Π_W Z^*(η),η)，总参数导数为
+These are local first-order propagation of random estimation errors, not guaranteed true-root enclosures. Numerical root error and systematic contact bias are separate.
+For π_N(t,x;Π_W Z^*(η),η), the total parameter derivative is
   D_ηπ_N=∂_ηπ_N+∂_Wπ_N Π_WC_η。
-第一项来自模型、终端代价、动作通道与约束的直接参数依赖；只传播 W 而忽略第一项一般错误。固定活动集时，将 I.3 的动作 KKT 方程微分即可求两项。参数实际改变了最优控制问题，而机器人当前状态改变的是同一反馈律的取值。
+The first term directly captures model, terminal-cost, action-channel and constraint dependence. Propagating only W is generally wrong. Differentiate I.3 action KKT equations on fixed active sets to obtain both terms. Parameter changes alter the OCP; current robot-state changes evaluate the same feedback law at a different state.
 
-L.2 根误差到动作误差
-在相同 (t,x,η) 下，允许动作集合相同。设两个 critic 的线性项分别为 c_1,c_2，相应极小动作为 u_1,u_2。由两个凸最优性变分不等式相加，
+L.2 From root to action error
+At common (t,x,η), the allowed action set is the same. Let two critics have linear terms c_1,c_2 and minimizing actions u_1,u_2. Adding their convex variational inequalities gives
   2λ_min(R_g)||u_1-u_2||²≤||c_1-c_2|| ||u_1-u_2||。
-因此
+Therefore
   ||u_1-u_2||≤||G_g|| ||J_ψ|| ||W_1-W_2||/[2λ_min(R_g)]。
-将固定物理权重提取尺度 E_W=Π_WD_Z 计入，可取 L_πZ≥sup||G_g^T J_ψ^TE_W||/[2λ_min(R_g)]，从而 ||π_p-π_*||≤L_πZρ_Z。该式不要求两动作活动集相同。若数值动作可行且有原始—对偶差上界 δ_Q，则其动作误差≤sqrt(δ_Q/λ_min(R_g))。跨参数比较还需 L.1 的直接参数作用；完整推导见认证证明第 3 项。
-真实最优策略误差另含价值梯度逼近误差；F=0 只消除节点方程误差，不自动消除基截断误差。I.5 给出另一条有条件的累计代价界，不要求凭空宣称已知梯度误差上界。
+Including physical weight-extraction scale E_W=Π_WD_Z, take L_πZ≥sup||G_g^T J_ψ^TE_W||/[2λ_min(R_g)], giving ||π_p-π_*||≤L_πZρ_Z, without requiring identical active sets. A feasible numerical action with primal–dual gap ≤δ_Q has action error ≤sqrt(δ_Q/λ_min(R_g)). Cross-parameter comparisons also need L.1 direct effects; see proof 3.
+True-optimal policy error additionally includes value-gradient approximation error. F=0 removes node-equation error, not basis truncation. I.5 supplies a separate conditional cumulative-cost bound without inventing a known gradient-error bound.
 
-L.3 候选轨迹管、连续可行性与阻抗误差
-从发布时的状态与相位，以候选策略生成连续分段 C¹ 曲线 y(t)，认证缺陷 ||y_dot-f_p(t,y)||≤r_num(t)。设两闭环向量场分别有状态 Lipschitz 常数 L_p、L_*，||G_g||≤Gbar。定义
+L.3 Candidate trajectory tubes, continuous feasibility and impedance error
+From release state/phase, generate a continuous piecewise-C¹ candidate curve y(t) and certify defect ||y_dot-f_p(t,y)||≤r_num(t). Let the two closed-loop fields have state Lipschitz constants L_p,L_* and ||G_g||≤Gbar. Define
   E_L[a,b](t)=exp(L(t-t_a))a+∫_{t_a}^t exp(L(t-s))b(s)ds，
   β_p=E_{L_p}[a_p,r_num]，
   β_*=E_{L_*}[a_*,r_num+Gbar L_πZρ_Z]。
-若这些界严格小于候选中心的认证球管半径，且管内闭环适定，则首次离管论证保证完整区间上的存在唯一性与 ||x_p-y||≤β_p、||x_*-y||≤β_*。同初值的两策略轨迹差满足
+If these bounds are strictly below the candidate-centered certified tube radius and closed-loop dynamics are well-posed inside, a first-exit argument gives full-interval existence/uniqueness and ||x_p-y||≤β_p, ||x_*-y||≤β_*. The two same-initial-state trajectories satisfy
   ||x_p-x_*||≤ρ_x=E_{L_*}[0,Gbar L_πZρ_Z]。
-实际增益是状态子向量，故 ||g_p-g_*||≤ρ_x；也可使用增益率积分的更紧界。刚度、阻尼矩阵差按其对角元计算，见认证证明第 3—4 项。
-对候选自身的可行性，将原式（32）拆成 h_j≥0。若 htilde_jl 为中心曲线网格值，求值误差≤ε_eval,jl、中心曲线约束时间变化界为 M_jl、状态 Lipschitz 界为 L_h,jl，且 βbar_p,l≥sup_{[t_l,t_{l+1}]}β_p，则
-  下界 h_lower,jl=htilde_jl-ε_eval,jl-M_jl(t_{l+1}-t_l)-L_h,jl βbar_p,l。
-全部 h_lower,jl≥m_j 时，候选在整个区间满足 h_j≥m_j。这就是正文式（45）的名义候选下界；不用再叠加候选—参考误差 ρ_x。参考可行性需要时另以 β_* 检查。完整证明、动作/能量边界及采样区间处理见认证证明第 5 项。
+Actual gains form a state subvector, so ||g_p-g_*||≤ρ_x; tighter rate-integration bounds are possible. Compute stiffness/damping matrix errors from diagonal entries; see proofs 3–4.
+For candidate feasibility, split original (32) into h_j≥0. Let htilde_jl be center-curve grid values, evaluation errors ≤ε_eval,jl, center-curve time-variation bounds M_jl, state Lipschitz bounds L_h,jl and βbar_p,l≥sup_{[t_l,t_{l+1}]}β_p. Then
+  Lower bound h_lower,jl=htilde_jl-ε_eval,jl-M_jl(t_{l+1}-t_l)-L_h,jl βbar_p,l.
+If every h_lower,jl≥m_j, the candidate satisfies h_j≥m_j throughout. This is the nominal candidate bound in (45); do not add candidate/reference error ρ_x again. Check reference feasibility with β_* when needed. Proof 5 covers actions, energy boundaries and sampling intervals.
 
-L.4 模型、采样和执行误差
-设理想候选闭环在所比较邻域中对状态的 Lipschitz 常数为 L_f，实际闭环相对它的加性向量场误差≤dbar，其中包含参数误差、接触近似、力矩跟踪、采样保持以及动作求解误差。令 τ=t-t_a。对 t_a 时刻的初始误差 e_x,0，Gronwall 不等式给出
+L.4 Model, sampling and execution error
+Suppose the ideal candidate field has state Lipschitz constant L_f in the compared neighborhood and actual additive field error ≤dbar, including parameter/contact error, torque tracking, sample hold and action solution. Let τ=t-t_a. For initial error e_x,0 at t_a, Gronwall gives
   ||x_actual(t)-x_nom(t)||≤exp(L_f τ)e_x,0
                  +(exp(L_f τ)-1)dbar/L_f。
-L_f=0 时第二项取 τ dbar。若输出 h_j 还直接依赖真实参数，||Δη||≤ε_η，则名义裕量至少还需覆盖
+For L_f=0 the second term is τ dbar. If h_j directly depends on true parameters and ||Δη||≤ε_η, nominal margins must additionally cover
   L_h,j ε_x(t)+L_hη,j ε_η
-才可推出对应实际约束非负。此处的 dbar 和 ε_η 必须由标定/误差证据给出；MHE 协方差不能自动替代确定界。
-使用零阶保持动作时，g_a 按实际周期积分；E_T 要根据该周期实际增益变化和运动核算。连续 barrier 条件在一个采样点成立并不保证整周期成立。可按 L.3 的同类导数裕量验证一个执行周期，并缩小 h_c 以满足给定误差预算；若将离散采样约束直接加入 Hamiltonian，则必须同步重建根族，不能把事后截断结果仍称同一最优动作。
-执行扩展可直接用包含上述扰动的候选中心包络 β_e 替换 L.3 的 β_p；输出的直接参数误差与额外输出偏差也从约束裕量中扣除。发布证书须覆盖当前状态、参数与时间区间；过期或条件失效时按 K.5 处理。
+to imply nonnegative actual constraints. Calibration/error evidence must supply dbar and ε_η; MHE covariance does not automatically provide deterministic bounds.
+With zero-order hold, integrate g_a at the actual period and compute E_T from actual motion/gain changes over that period. A barrier condition at one instant does not guarantee the whole period. Verify the period using L.3-type derivative margins and reduce h_c to meet error budgets. Adding discrete sampling constraints to the Hamiltonian requires rebuilding the root family; post-hoc clipping is not the same optimal action.
+For execution, replace β_p in L.3 by an enclosure β_e including those disturbances, and subtract direct parameter/output errors from constraint margins. Release certificates must cover current state, parameters and interval; expiry or failure invokes K.5.
 
-L.5 哪些量属于待实例化设置
-实现须记录机器人模型和实际力矩接口、接触坐标与姿态工作域、控制/估计周期、T、参考系数、增益与速率界、接触及力矩限制、B_r、χ、E_T 初值和下界、代价权重、归一化尺度、critic 阶数、固定节点、残差与误差容差。它们均有定义明确的物理或数值角色；没有该平台的数据时不填写假数值。
-本文已闭合的是数学问题与计算/执行关系；尚未完成的是针对指定平台的全维根实例、域内逼近质量、带噪 MHE—控制闭环与真实运行时间验证。不能把下面的低维核对写成这些工作已经完成。
+L.5 Settings still requiring instantiation
+Record robot model/actual torque interface, contact frame/orientation domain, control/estimation periods, T, reference coefficients, gain/rate bounds, contact/torque limits, B_r,χ, initial/lower E_T, cost weights, normalization, critic degree, fixed nodes and residual/error tolerances. Each has a defined physical/numerical role; do not invent platform values.
+The mathematical problem and computation/execution relationships are closed. Full-dimensional platform roots, domain approximation quality, noisy MHE–control loops and measured runtime remain unvalidated. The low-dimensional checks below do not complete them.
 
-M. 已执行的补充数值核对与后续公平比较
+M. Completed supplementary numerical checks and future fair comparisons
 
-M.1 柱面接触 Jacobian 和时间链式关系
-采用 G.2 的 R=0.03、L=0.02、ℓ_ref=0.02、a=0.003、b=0.0007、s=0，
+M.1 Cylindrical-contact Jacobian and time chain rule
+Use G.2 settings R=0.03, L=0.02, ℓ_ref=0.02, a=0.003, b=0.0007 and s=0,
   θ_0=(30000,0.2,1.2)，θ_f=(45000,0.35,2)，v=0.008。
-设 z_c=(δ,s,v)，δ=Ψ(a)。以闭式积分的解析导数计算 ∂H_H/∂z_c，独立中心差分步长依次为 (10^-9 m,10^-9 m,10^-7 m/s)，每次重新解 Ψ(a)=δ。相对 Frobenius 差
+with z_c=(δ,s,v), δ=Ψ(a). Compute ∂H_H/∂z_c analytically and check independent central differences with steps (10^-9 m,10^-9 m,10^-7 m/s), resolving Ψ(a)=δ each time. Relative Frobenius difference:
   ||J_analytic-J_FD||/||J_analytic||=1.95348×10^-11。
-再取局部方向 zc_dot=(0.0002 m/s,0.008 m/s,-0.03 m/s²)，用时间步长 10^-6 s 的中心差分对比 J_analytic zc_dot，得到相对差 1.34491×10^-10。
-这核对的是同一柱面输出的状态导数与正文式（23）链式关系，未模拟机器人闭环，也未加入真实传感噪声。
+For local direction zc_dot=(0.0002 m/s,0.008 m/s,-0.03 m/s²), compare J_analytic zc_dot with time central differences at 10^-6 s; relative difference is 1.34491×10^-10.
+This checks state derivatives and the main-text (23) chain rule for the same cylindrical output, without robot-loop simulation or real sensor noise.
 
-M.2 能量收支核对
-为核对恒等式中的符号，取单位惯量、J_ξ=J_c=I_6、C_r=0 的代数实例：
+M.2 Energy-balance checks
+To check identity signs, use unit inertia, J_ξ=J_c=I_6 and C_r=0 in an algebraic example:
   e=(.002,-.001,.003,.02,-.01,.015)，
   ξd_dot=(.008,0,.001,.001,0,0)，
   e_dot=(.001,-.002,.003,.002,-.001,.001)，w_r=e_dot+ξd_dot，
@@ -554,45 +554,45 @@ M.2 能量收支核对
   u_g=(5,-8,1,-2)，diag K_dot=(5,0,-8,0,0,0)，
   f_d=(0,0,-.3,0,0,0)，𝒲_c^(6)=(-.05,0,.25,0,10^-4,0)，
   B_r=.2 I_6，χ=.3。
-分别计算动能、弹性能、能量账本的导数，再与正文式（48）的接触功率、参考功率和耗散比较，绝对差为 1.30104×10^-18（相应功率单位）。该实例将坐标尺度固定，仅核对恒等式，不是六自由度机器人动力学验证。
+Compute kinetic, elastic and ledger derivatives separately and compare with contact/reference power and dissipation in (48). Absolute difference is 1.30104×10^-18 in corresponding power units. Fixed coordinate scales make this an identity check, not six-DOF robot-dynamics validation.
 
-另在归一化变量下核对正文完整四维 Hamiltonian 的动作与约束排列。取 R_g=diag(.2,.3,.4,.5)，g_a=1_4、g_min=.2·1_4、g_max=2·1_4、rbar_g=.5·1_4、α_g=1，p_g=(.5,.3,0,0)^T，能量行右端为 .005。令 ∇_gV=(-.3,-.24,.1,-.1)^T、∂_EV=.2，故 c=∇_gV-p_g∂_EV。按 H.3 的 17 行构造 A、b，独立用 SLSQP（ftol=10^-14）和活动集线性方程求解，只有第 17 行能量约束活动，动作均为
+Also check the complete four-dimensional Hamiltonian actions/constraint ordering in normalized coordinates. Set R_g=diag(.2,.3,.4,.5), g_a=1_4, g_min=.2·1_4, g_max=2·1_4, rbar_g=.5·1_4, α_g=1, p_g=(.5,.3,0,0)^T and energy-row right-hand side .005. Set ∇_gV=(-.3,-.24,.1,-.1)^T, ∂_EV=.2, hence c=∇_gV-p_g∂_EV. Build A,b from H.3's 17 rows and independently solve with SLSQP (ftol=10^-14) and active-set linear equations. Only energy row 17 is active; both actions are
   u=(-.0403225806,.0838709677,-.125,.1)^T。
-活动集解的站立性无穷范数为 0，最小松弛为 -8.67×10^-19，互补乘积无穷范数为 7.22×10^-19，乘子均非负；微小负松弛为浮点误差。
-再核对 J.1 的单节点 Jacobian 块：取三个共享权重、九维测试状态，NumPy default_rng(15) 依次生成标准正态的 J_ψ（3×9）、ψ_t（3 项）和 f_0（9 项）；G 的第 5—8 行为 I_4、第 9 行为 -p_g^T、其余为零。令 W=0，∇Φ 的第 5—8 项和第 9 项分别取上述 ∇_gV 和 ∂_EV，ℓ_0=.1。用同一动作及乘子构造一个 22×24 的节点导数块（完整根通过共享权重堆叠节点形成方阵），以 10^-6 中心差分逐列核对，Frobenius 相对差为 1.33067×10^-11。这是导数排列测试，不是九维机器人最优根试验。
+The active-set solution has stationarity infinity norm 0, minimum slack -8.67×10^-19 and complementarity infinity norm 7.22×10^-19, with nonnegative multipliers. Tiny negative slack is floating-point error.
+Check J.1's single-node block using three shared weights and nine test states. NumPy default_rng(15) sequentially draws standard-normal J_ψ (3×9), ψ_t (3 entries) and f_0 (9 entries). G rows 5–8 are I_4, row 9 is -p_g^T, others zero. Set W=0; ∇Φ entries 5–8 and 9 are the above ∇_gV and ∂_EV, with ℓ_0=.1. The same actions/multipliers define a 22×24 block; shared weights make the stacked full root square. Columnwise central differences at 10^-6 give relative Frobenius difference 1.33067×10^-11. This checks derivative ordering, not a nine-dimensional robot-optimal-root experiment.
 
-M.3 一个带动作约束的有限维 HJB–KKT 根
-为单独检验根导数、活动乘子、预测阶数和 corrector，取归一化增益偏差 z 的积分系统
+M.3 A finite-dimensional action-constrained HJB–KKT root
+To isolate root derivatives, active multipliers, prediction order and correction, use the normalized gain-deviation integrator
   z_dot=u，u≥-U，U=0.7，T=1，
   ℓ=η²z²+u²，Φ=0，V_N=(1-t)Wz²。
-在固定配置点 (t,z)=(0,1) 求根，Z=(W,u,λ)：
+At fixed node (t,z)=(0,1), solve for Z=(W,u,λ):
   F(Z,η)=(-W+η²+u²+2Wu, 2u+2W-λ, λ(u+U))^T=0，
   u+U≥0，λ≥0。
-这与正文的配置残差、Hamiltonian 站立性及互补乘积具有相同结构，但它只有一个增益状态，没有机器人和组织动力学，不能作为完整 R15 的性能实验。
+This shares the main-text collocation, Hamiltonian stationarity and complementarity structure, but has one gain state and no robot/tissue dynamics; it is not a complete R15 performance experiment.
 
-该根有可独立求出的分支：
-  W=(-1+sqrt(1+4η²))/2，u=-W，λ=0，当 W<U；
-  W=(η²+U²)/(1+2U)，u=-U，λ=2(W-U)，当 W>U。
-两分支交界 η²=U+U² 不满足严格互补。本次分别在 η_0=0.8 的非活动分支与 η_0=1.4 的活动分支核对，不跨越交界。
-解析 Jacobian 为
+Its independently solvable branches are:
+  W=(-1+sqrt(1+4η²))/2, u=-W, λ=0, when W<U;
+  W=(η²+U²)/(1+2U), u=-U, λ=2(W-U), when W>U.
+The junction η²=U+U² is not strictly complementary. Check the inactive η_0=0.8 and active η_0=1.4 branches separately without crossing it.
+The analytical Jacobian is
   F_Z=[-1+2u, 2u+2W, 0;
         2,      2,   -1;
         0,      λ,   u+U]，F_η=(2η,0,0)^T。
-用线性方程计算 C=-F_Z^-1F_η，对照闭式根的 η 中心差分（步长 10^-6），相对差分别为 1.88198×10^-11、1.45708×10^-10。两个基点的 Jacobian 二范数条件数分别为 14.4505、15.0286。
+Compute C=-F_Z^-1F_η by linear solution and compare with central differences of the closed-form root at η-step 10^-6. Relative differences are 1.88198×10^-11 and 1.45708×10^-10; Jacobian 2-norm condition numbers are 14.4505 and 15.0286.
 
-预测/一次全步 Newton 的二范数根误差：
-  η_0     Δη       预测误差           一次校正误差
+Prediction/one-full-Newton-step root errors in 2-norm:
+  η_0     Δη       Prediction error   One-correction error
   0.8     .020     8.27272×10^-5      2.51953×10^-9
   0.8     .010     2.08665×10^-5      1.61724×10^-10
   0.8     .005     5.24000×10^-6      1.02441×10^-11
-  1.4     .020     3.72678×10^-4      0（浮点结果）
+  1.4     .020     3.72678×10^-4      0 (floating-point result)
   1.4     .010     9.31695×10^-5      4.00297×10^-16
-  1.4     .005     2.32924×10^-5      0（浮点结果）
-步长减半时预测误差约缩为 1/4；非活动分支一次校正误差约缩为 1/16，与 J—K 的局部阶数一致。活动分支的等式化根对 W、λ 为仿射，因此一次 Newton 即恢复浮点精度；这不是一般非线性根的有限步收敛保证。
-以 ||F||_∞<10^-13 停止，ANEOC/普通旧根 warm start 的校正步数在非活动分支为 2/3，活动分支为 1/1；最终残差均≤2.23×10^-16。没有在这个实例上计时，也没有据此宣称 ANEOC 总计算更快。
+  1.4     .005     2.32924×10^-5      0 (floating-point result)
+Halving the step reduces prediction error by about 1/4 and inactive-branch single-correction error by about 1/16, consistent with the local orders in J–K. On the active branch the equality-reduced root is affine in W,λ, so one Newton step recovers floating-point accuracy. This is not a finite-step convergence guarantee for general nonlinear roots.
+Stopping at ||F||_∞<10^-13, ANEOC/ordinary old-root warm starts take 2/3 corrections on the inactive branch and 1/1 on the active branch; all final residuals are ≤2.23×10^-16. No timing was performed and no lower total ANEOC cost is claimed.
 
-M.4 可复现的根核对代码
-以下代码在 Python 3.10、NumPy 1.26.4、SciPy 1.13.1 环境完成；根核对本身只需 NumPy。代码写在附录中，避免另建与正文脱离的算法版本。
+M.4 Reproducible root-check code
+The following ran with Python 3.10, NumPy 1.26.4 and SciPy 1.13.1; the root check itself needs only NumPy. Keeping code here avoids an algorithm version disconnected from the main text.
 
     import numpy as np
     U = 0.7
@@ -631,9 +631,9 @@ M.4 可复现的根核对代码
             print(h, np.linalg.norm(pred-exact(eta+h)),
                   np.linalg.norm(one-exact(eta+h)), kp, kw)
 
-M.5 真实方法的计算比较与完成标准
-后续全维比较使用同一个 F、节点、基、时域、约束和尺度，以同等发布精度比较 ANEOC、cached-J chord 与一次 Newton；完整 cold/warm solve 作补充。记录每次候选的认证根误差、域内 Bellman 残差、轨迹裕量、ε_J、直接发布是否通过及恢复次数，并保存锚点、数据可用和准备完成的时间戳。
-分别报告 Jacobian 评估、分解、灵敏度多右端求解、预测、校正、发布认证和执行延迟。均允许相同硬件及结构化求解优化，后台准备计入总成本，事件后关键路径另报。按固定查询序列报告平均值、分位数、最坏观测值及未完成事件；只有同等精度与可行性通过的结果才进行成功发布耗时比较。成本条件见认证证明第 8 项。
-闭环验证再接入含噪 MHE 和实际增益动态，报告材料变化后估计、根更新与实际阻抗响应的全过程。若中心到达前完成，可作为更强观测结果；基本判据是延迟与接触变化尺度相容。M.1—M.4 仅完成数学实现核对，尚不能回答全维 HJB 是否足够精确、真实组织模型是否准确及实际闭环是否实时。
+M.5 Full-method computation comparisons and completion criteria
+Future full-dimensional comparisons use identical F, nodes, basis, horizon, constraints and scales, comparing ANEOC, cached-J chord and one Newton step at equal release accuracy; full cold/warm solves supplement them. Record certified root error, domain Bellman residual, trajectory margins, ε_J, direct-release acceptance and recovery counts, retaining anchor/data/preparation-completion timestamps.
+Report Jacobian evaluation, factorization, multi-right-hand-side sensitivities, prediction, correction, release certification and execution delay separately. Give equal hardware/structured-solver optimization, include background preparation in total cost, and report post-event critical paths separately. For fixed query sequences report means, quantiles, worst observed values and unfinished events. Compare successful-release latency only at equal passed accuracy/feasibility. See proof 8 for cost conditions.
+Closed-loop validation must add noisy MHE and actual gain dynamics, reporting estimation, root updates and actual impedance response after material changes. Completion before center arrival is stronger evidence if achieved; the basic criterion is latency compatible with contact timescales. M.1–M.4 only check mathematical implementation and do not establish full-dimensional HJB accuracy, real-tissue model accuracy or real-time closed-loop execution.
 
-附录结束。
+End of appendix.

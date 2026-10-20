@@ -1,55 +1,55 @@
-# 两候选分线设计、快验与迭代
+# Separate candidate design, rapid validation and iteration
 
-2026-10-19；起点`a25d887`。用户最新要求以形成顶刊级方法为目标，两候选独立设计/实验，不足则继续优化；领域比较服务于设计，不成为先做完全部基线的审批关卡。本目录与[方法设计及迭代](../../research/separate_candidate_design_and_iteration.md)对应。
+2026-10-19; start`a25d887`. The user requests independent candidate design/tests toward leading-journal methods, with improvements where needed. Comparisons serve design, not an all-baselines-first approval gate. See[design/iteration](../../research/separate_candidate_design_and_iteration.md).
 
-**状态：约化方法原型，有真实数值迭代；尚未证明顶刊级贡献，也没有完整实现B0。** 对照含NNBO及Jin预测VIC的明确扫描适配，均非整篇论文精确复现。结果不能写成完整NNBO、E41、B0或原候选的整体成败。
+**Reduced prototypes with actual numerical iteration; neither leading-journal contribution nor full B0 is established.** NNBO/Jin predictiveVIC comparators are explicit scan adaptations, not complete reproductions. Do not generalize to wholeNNBO, E41, B0 or candidate success/failure.
 
-## 当前两条路线
+## Current routes
 
-- 候选1：共同约化MHE → 接触预测OCP → 邻近解/曲率复用与校正 → 实际增益率执行。暂以直接OCP替代尚未实现的HJB critic根；与充分普通热启动预测优化单独比较，不自动继承B0认证。兼容模型加权版本另做了快验，收益不足且更慢，未选为主改进。
-- 候选2：共同约化MHE＋当前运动/实际增益/储能/任务信息 → 网络 → 实际增益率。仿真任务代价梯度训练；部署不读真实材料或未来。另独立训练仅机器人状态及已到达力信息的版本，检验前端作用。
+- Candidate 1: shared reducedMHE→contact-predictiveOCP→neighboring/curvature reuse and correction→actual gain rates. DirectOCP temporarily replaces unimplementedHJB roots; compare sufficient ordinary warmMPC separately, without B0 certificates. Compatible-model weighting was tested, slower with insufficient benefit, and not selected.
+- Candidate 2: shared reducedMHE plus motion/actual gains/energy/task inputs→network→actual gain rates. Simulation task-gradient training; deployment reads no material truth/future. Independently train state/arrived-force-only ablations.
 
-共同真值为此前修正的有限足迹foundation模型，不是B0柱面Hertz双区域模型或标定组织；力矩不是完整6D应力模型。共同MHE是局部七参数滚动窗拟合，非B0全状态/偏置MHE。初始表面基准已知，此后不读真值。
+Shared ground truth is the previously corrected finite-footprint foundation model, not B0 cylindrical Hertz two-region contact or calibrated tissue; moments are not a complete 6D stress model. Shared MHE is a local seven-parameter moving-window fit, not B0 full-state/bias MHE. The initial surface reference is known; no ground truth is read thereafter.
 
-## 迭代与为什么改
+## Iterations and reasons
 
-| 阶段 | 发现与调整 | 保留的边界 |
+|Stage|Finding/revision|Boundary|
 |---|---|---|
-| 目标增益＋灵敏度 | 密集曲率/交叉导数刷新尾成本大，平均未稳定快于普通热启动；改方向残差与缓存曲率 | 成熟拟Newton/ENE机制的实现，不称新通用求解器 |
-| 联合NN首版 | 真正任务梯度NN完成训练，但对照充分调优后优势缩小 | 联合补偿收益不能归给K/D |
-| 纯增益/任务权重 | 保留原w=1，并用NNBO原Q/R两组数值对应w=12.5、25；各组重调论文适配对照 | 是数值权衡范围，非临床目标标定；三组不得视作独立72例 |
-| 实际增益率 | 32个训练状态中远目标Kn梯度全为零，速率参数化均非零；回到B0已定义的率动作 | 这是修复偏离B0的实现，不包装成新发现；同一目标边界、速率及能量执行 |
-| 状态覆盖 | 原5400个上下文四增益范围为零；补同72个材料场中的随机变增益轨迹，合计10800上下文 | 72个物理场景，非144独立场景或10800独立试验；无真值输入 |
-| 反馈与导数 | 对齐100Hz采样/平滑、20ms延迟，代价梯度改编译AD并独立核查 | 未来感知队列前20ms仍用当前已到力初始化；不是完整历史精确预测或实时认证 |
-| 投影结构 | 两个非负刚度功率系数使率动作的能量投影可闭式求解；与原二分投影1000例核对（393激活） | 最大率差约6.6e-6，实际plant仍走原独立投影；闭式等价不等于新颖性成立 |
+|Target gains/sensitivity|Expensive curvature/cross-derivative refresh tails without stable warm-start speed benefits; use directional residuals/cached curvature|Established quasi-Newton/ENE implementation, not new general solver|
+|Initial joint NN|Task-gradientNN trained, but stronger comparator tuning reduced benefits|Joint compensation gains are not K/D gains|
+|Pure gains/task weights|Retainw=1, addNNBOQ/R-relatedw=12.5,25 and retune each comparator|Numerical tradeoffs, not clinical calibration or72 independent cases|
+|Actual gain rates|Far-targetKn gradients zero on32 states; rate gradients nonzero; return to B0 rate actions|Repair of B0 deviation, not new discovery; common bounds/rates/energy|
+|State coverage|5400 contexts had zero range for all four gains; add varying-gain trajectories on same72 fields, total10800|72 physical scenarios, not144 or10800 independent trials; no truth inputs|
+|Feedback/derivatives|Align100Hz sampling/smoothing,20ms delay, and compiledAD with independent checks|First20ms future queue still initialized from arrived force, not exact full-history prediction/real-time certification|
+|Projection|Two nonnegative stiffness-power coefficients allow closed-form rate projection; check 1000 cases,393 active|Maximum rate difference6.6e-6; plant retains independent original projection; equivalence is not novelty|
 
-最终学习模型`candidate2_sampled_ad*.pt`为混合上下文、2000固定梯度步的独立有/无前端模型，使用采样/滤波一致的二分投影AD训练核。随后闭式投影是等价计算实现；`compile_model.py --bisection`可重建训练版本。中间模型/结果保留以复核上述正负变化，不以它们做测试集挑优。
+Final`candidate2_sampled_ad*.pt`models train with/without front ends independently for2000 fixed steps on mixed contexts using sampling-consistent bisectionAD. Later closed-form projection is equivalent;`compile_model.py --bisection`rebuilds training kernels. Retain intermediate positive/negative results, not test-based selection.
 
-## 比较与划分
+## Comparisons and splits
 
-训练：seed9101的12例固定辅助调优/24例早期上下文；新seed9102的72场景固定及变增益轨迹。对照在训练seed9101的6场景调优，验证seed9201用于改动。独立seed9401、24场景，各w分别报告；同场景共享噪声。协议见`independent_protocol.json`。没有在测试结果上选择每例最优版本或删掉w=1。
+Training: seed 9101,12 fixed-tuning/24 early-context cases; newseed9102,72 fixed/varying-gain scenarios. Comparator tuning uses6 trainingseed9101 cases; seed 9201 supports design changes. Independentseed9401 has24 scenarios, reported perw with shared noise. See`independent_protocol.json`. Do not select per-test winners or deletew=1.
 
-`nnbo_adapted`保留HC预辨识、single critic和Newton位置参考；为非零Fd=3N作显式漂移/控制偏移，并用局部ARE初始化、声明的位置内环。原文目标力为零、完整参数辨识/机器人执行尚未精确复现，因此结论只到该适配实例。
+`nnbo_adapted`retainsHC preidentification, single critic and Newton references, explicitly shifts drift/control forFd=3N, uses localARE initialization/declared position loops. Original zero-force/full identification/robot execution are not exactly reproduced; scope is this adaptation.
 
-**运行核查进一步发现该NNBO适配未通过：** 独立w=1场景的参考反解失败次数中位88/600、最高572/600；较高权重也有失败例。局部方程/独立求根一致不保证整条非零目标力参考关系可实现。该基线结果已从贡献比较中隔离，不使用看似较大的改善比例声称超过NNBO原文；须修复任务匹配/策略表达与执行再作主比较。
+**The NNBO adaptation fails verification:** independentw=1 median 88/600 inversion failures, maximum 572/600, and failures at higher weights. Local equation/root agreement does not ensure full-trajectory nonzero-target feasibility. Isolate this baseline from contribution comparisons; large apparent gains cannot establish superiority. Repair task/policy/execution matching first.
 
-`nnbo_adapter_diagnosis.py`已逐步重放全部critic并推导反演值域：4774次失败中4597次是当前偏移＋二次critic在正接触域无根，而非迭代不足。见方法设计§9；这不适用于原文零目标力范围，不能当成原论文缺陷或候选创新证明。
+`nnbo_adapter_diagnosis.py`replays all critics and derives inverse ranges:4597/4774 failures lack positive-contact roots under this shift/quadratic critic, not insufficient iterations. See design§9. This does not apply to the original zero-force range or prove candidate novelty.
 
-`mpvic_os_adapted`落实E41均匀加速度、增益作为输入的OS盒约束QP，在法向轴用精确二维活跃集枚举；切向用共享强servo，执行层用共同速率/能量接口。不是其MS控制器、原tank或全实验复现。`rate_mpc`是同一当前任务下普通热启动长迭代参照，不冠以E41全篇复现。
+`mpvic_os_adapted` implements E41 constant acceleration, impedance gains as inputs and an OS box-constrained QP, with exact two-dimensional active-set enumeration on the normal axis. The tangential axis uses a shared strong servo; execution uses the shared rate/energy interface. This is not its MS controller, original tank or full experimental reproduction. `rate_mpc` is an ordinary warm-started, long-iteration reference on this same task, not a reproduction of all E41.
 
-主要独立测试先报告设计频率下的零发布等待性能（模型12.5Hz、廉价反馈/网络100Hz）；这是各原型设计，不据此声称MPC不能更快。另做同为100Hz请求、实测计算等待发布的核查，非实时认证。未使用MHE的对照/消融不计无用估计开销，虽为诊断仍生成该轨迹。实际计时需单任务运行；并发训练期间耗时只能作开发诊断。
+Main tests use zero wait/design frequencies: model12.5Hz, cheap feedback/network100Hz, not inherentMPC speed limits. Separately check 100Hz requests/measured releases, without certification. Comparators/ablations not usingMHE pay no useless overhead, though diagnostics generate estimates. Timing requires single-task runs; concurrent-training measurements are developmental only.
 
-区间仅反映该次固定训练/实现的24场景差异，不含训练种子、实物误差或模型族外泛化；逐项探索区间未作多重比较校正。seed9401已用于本轮归纳，后续据这些结果改造的新版本应另取未见场景，不重复称这批为新的盲测。
+Intervals reflect24-case variation for fixed training/implementation, not seed/hardware/out-of-family uncertainty; exploratory intervals lack multiple-comparison adjustment. Since seed 9401 informed this iteration, new revisions need unseen scenarios rather than relabeling this cohort blind.
 
-## 必须明确的B0差异
+## Explicit B0 differences
 
-当前积分指标是力、切向/法向运动、速度和输入努力；**尚未加入B0式33正定增益偏好Qg、增益率代价Rg及终端项**。全轨迹硬力/位姿等约束、机器人完整动力学、严格正增益下界及Hertz双区域前端也未完整实现。因此不能从本轮近似或饱和动作推出B0结论，亦不能以本轮数值差证明原问题无价值。这些关系须补回完整方法；跨不同控制接口的比较还需区分共同物理任务指标与控制器族内的增益偏好指标。
+Current costs include force, tangential/normal motion, velocity/effort;**B0(33)positive-definiteQg/Rg and terminal terms are absent**. Full hard trajectory constraints, robot dynamics, strict positive gain bounds and two-region Hertz fronts are incomplete. Approximate/saturated outcomes neither decide B0 nor invalidate the question. Restore these relationships; cross-interface comparisons separate common physical objectives from family-specific gain preferences.
 
-当前结果是方法迭代和载体适配证据；最后还需与真实任务/接口核准。平台信息已询问，未收到时不假定不存在平台，不自行指定临床阈值。
+These are iteration/carrier-adaptation results requiring real-interface/task validation. Platform information was requested; no reply does not imply no platform or justify invented clinical thresholds.
 
-## 复现
+## Reproduction
 
-Python/库版本见`environment.json`。先在CPU上重建预测核，生成物留在指定临时目录，不把二进制当源码：
+Versions are in`environment.json`. Rebuild CPU prediction kernels into designated temporary directories, not binaries as source:
 
 ```bash
 python experiments/separate_candidate_validation/compile_model.py --rates --path /tmp/impedance_rate_fast
@@ -57,12 +57,12 @@ python experiments/separate_candidate_validation/compile_model.py --rates --true
 python experiments/separate_candidate_validation/checks.py
 ```
 
-`experiment.py --help`提供任务权重、方法、种子、频率、计时发布和新输出名；拒绝覆盖已有结果。模型与真值训练核必须分开，manifest会核查用途，禁止把训练真值核接入在线模型优化。编译时完整二阶大图曾超出内存，已改只编译在线值/梯度，偶发曲率另计；这不是运行时失败或机器人证据。
+`experiment.py --help`offers weights, methods, seeds, frequencies, timing and new output names, rejecting overwrites. Separate model/truth training kernels; manifests check purpose and prohibit truth kernels in online optimization. Full second-order graph compilation exhausted memory; online value/gradient compilation plus separately charged occasional curvature replaced it. This is not runtime/hardware evidence.
 
-训练重跑示例（使用同份数据与固定预算，耗时/日志不要求逐位一致）：
+Training example uses identical data/fixed budget; timing/logs need not be bitwise:
 
 ```bash
 python experiments/separate_candidate_validation/learning.py --data mixed72_contexts.npz --iterations 2000 --rates --compiled /tmp/impedance_training_sampled/prediction.so --output replay_new.pt
 ```
 
-无前端版本另加`--no-front`。`summary.py`只归纳已存在结果，不触发训练/新实验。所有旧实验与冻结快照保持原样。
+Add`--no-front`for ablations. `summary.py`only summarizes existing outputs, without training/new experiments. Earlier experiments/frozen snapshots remain unchanged.

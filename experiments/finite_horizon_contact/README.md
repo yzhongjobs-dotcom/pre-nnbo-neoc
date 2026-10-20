@@ -1,122 +1,122 @@
-> 既有局部验证记录。过时选题与续做安排已移除，原配置和数值结论保留。后续安排见[HANDOFF](../../project_records/HANDOFF.md)。
+> Existing local validation. Obsolete topics/plans were removed; original configurations/results remain. Current plans:[HANDOFF](../../project_records/HANDOFF.md).
 
-# R15 快速验证修复与实际闭环结果
+# R15 rapid-validation repairs and actual closed-loop results
 
 ## Material Passport
 
 - Origin Skill: academic-research-suite / experiment-agent
 - Origin Mode: carrier repair + numerical validation + reproducibility
-- Origin Date: 2026-10-13（工作开始于 2026-10-12）
-- Verification Status: REPRODUCED，两次结果、候选哈希及 9 个原始 CSV 完全一致；耗时单独保留
+- Origin Date:2026-10-13(work began2026-10-12)
+- Verification Status: REPRODUCED; two results, candidate hashes and9 original CSVs match exactly; timing retained separately
 - Status: LOCAL_FINITE_HORIZON_CONTACT_COMPARISON
-- 本轮不改正文、附录、八项证明或既有失败记录。
-- 主运行约 188.1 / 188.9 s；两次进程正常结束；结果范围如下。
+- Main text, appendix, eight proofs and existing failures were unchanged at this experiment checkpoint.
+- Main runs≈188.1/188.9s, both exit normally; scope follows.
 
-## 1. 局部结果
+## 1. Local results
 
-用户要求自主修复快速验证中的实现、设置和载体问题；只有证据反推出核心设计或必要性不足，才讨论调整 idea。按此要求，本轮**没有停在初始根失败**，完成了有限时域载体修复、独立策略质量核对和 NEOC 的实际接触闭环。
+The user authorized autonomous fixes to implementations, settings/carriers, discussing core changes only where evidence supports them. Work **continued beyond initial root failure**, repairing finite-horizon carriers, checking policy quality independently and executingNEOC contact loops.
 
-该载体得到三项结果：
+Three findings:
 
-1. 模量增加 50% 的主要任务中，一阶 NEOC 直接更新保持约束，但代价比可靠完整求解高约 29%；一次 Newton 的差距只有约 0.8%。
-2. 增加 5% 时直接更新很准确，但固定刚度已达到完整求解的相同表现。
-3. 主要任务中预先固定的刚度 150 仅比独立优化参照高约 0.15%。精确优化本身尚未带来有意义的必要收益；全局误差检查也吃掉大部分候选生成的加速。
+1. At50% modulus increase, directNEOC preserves constraints but costs≈29% more than reliable full solving; oneNewton gap≈0.8%.
+2. At5% increase, direct prediction is accurate, but fixed stiffness matches full solving.
+3. Preset stiffness150 is only≈0.15% above independent optimization. Meaningful necessity of exact optimization is unestablished, and global checks consume most generation speed gains.
 
-这些结果限定该单次变化、单刚度载体的预测范围和收益，不能据此否定持续缓变场景、撤销B0问题或决定是否投入整个项目。空间预瞄控制收益未在该测试中比较。
+These limit this one-change/one-stiffness carrier, not continuous slow variation, B0 or project investment. Spatial-preview benefits are not compared.
 
-## 2. 修复了哪些根因
+## 2. Repaired causes
 
-| 旧问题 | 本轮处理 | 限制 |
+|Old issue|Repair|Limit|
 |---|---|---|
-| 原 NNBO 无限时域目标在持续接触中的含义未闭合 | 回到 R15 已有的 1.5 s 有限时域任务和终端代价 | 不声称修复或否定原论文全部理论 |
-| 三项二次 critic 精确插值节点，却不能表达域内价值 | 使用固定网格的单价值函数表示和半拉格朗日 Bellman 方程 | 是数值验证载体，不是已冻结正文的精确配置点实现 |
-| 未获得合格共同根 | 因时间方向三角结构，用逆时间 Bellman 求出唯一离散根，再求根灵敏度 | 离散根唯一不等于连续 HJB 精确最优 |
-| 初期均匀网格策略受数值扩散影响 | 对慢法向速度/实际压入区集中分辨率，并细化时间 | 保留粗网格负结果；没有按方法分别调权重 |
-| 只用同一个求解器评价自身策略 | 加入独立、带解析梯度的约束直接轨迹优化 | 该优化给出可行局部解，不冒充全局最优证明 |
+|Infinite-horizon NNBO meaning under sustained contact incomplete|Use existingR15 1.5s horizon/terminal cost|No whole-paper repair/rejection|
+|Three-term critic interpolates nodes but not domain values|Fixed-grid single value/semi-LagrangianBellman|Validation carrier, not frozen main collocation implementation|
+|No qualified common root|Backward triangularBellman gives unique discrete root/sensitivity|Discrete uniqueness is not exact continuous optimality|
+|Uniform-grid diffusion|Concentrate normal-velocity/indentation resolution, refine time|Retain coarse failures; no method-specific weights|
+|Self-evaluation by one solver|Independent constrained shooting/analytical gradients|Feasible local reference, not global proof|
 
-最终离散共同根残差为 0.0，方向灵敏度与独立微扰根的相对差约 0.228%。NEOC 全程零在线 Newton；终端代价的直接参数影响保持精确，不把末端条件也线性预测掉。
+Final root residual0.0; sensitivity versus perturbed roots differs≈0.228%.NEOC uses zero onlineNewton. Exact terminal parameter dependence is retained, not predicted linearly.
 
-## 3. 物理场景与简化边界
+## 3. Physical setting and simplifications
 
-仍是原定 30→45 kPa 的柱面软→硬扫描，R=30 mm、L=20 mm、接触初始半宽 3 mm、速度 8 mm/s、路径 -6→6 mm、总时长 1.5 s。目标法向力约 0.141372 N（见冻结配置/源码），是合成模型尺度，不是临床建议。
+Original30→45kPa soft-to-hard cylinder scan: R=30mm, L=20mm, initial half-width3mm, speed8mm/s, path−6→6mm, duration1.5s, target≈0.141372N. Synthetic scales, not clinical advice; see configuration/source.
 
-保留法向惯性、实际刚度状态及其变化率、原柱面空间接触核、增益/速率约束和能量账本。阻尼固定为 8 Ns/m，本轮不优化切向或姿态，也未完整验证原四维阻抗动作。
+Retain normal inertia, actual stiffness/rate, cylindrical spatial contact, gain/rate bounds and energy. Damping fixed8Ns/m; no tangential/orientation optimization or full four-action validation.
 
-根状态为 (压入量、法向速度、实际刚度)。只在能量约束不激活的当前包络内消去能量的价值维度：即便忽略所有阻尼回收，能量下界仍为 0.019678 J，高于 0.001 J；实际轨迹另外核对能量。没有重置能量或将增益瞬时跳变。
+Root state:(indentation, normal velocity, actual stiffness). Eliminate energy's value dimension only in the inactive envelope: even ignoring recovery, energy≥0.019678J>0.001J. Check actual energy separately; no resets/instant gain jumps.
 
-价值函数 V=Φ(η)+W 的固定节点表示，终端 W=0；参数变化时 Φ 的直接变化与 critic 灵敏度同时处理。半拉格朗日下一状态价值为分段线性插值；每段二次动作代价的极小值枚举后取全局最小，连续动作是刚度变化率，不是手写增益轨迹。
+Use fixed-nodeV=Φ(η)+W, terminalW=0, handling directΦ changes and critic sensitivity together. Next-value interpolation is piecewise linear; enumerate quadratic segment minima to obtain global action minima. Actions are stiffness rates, not handwritten gain paths.
 
-网格边缘会截断**价值查询**，不截断物理运动。实际 RK4 轨迹始终在声明域内；下述细化与独立参照用于核对截断/离散影响，但不构成所有状态下的连续证明。该网格方程分段光滑，本次只测软→硬方向灵敏度，不冒充正文的全域 C²/PublishOK 认证。
+Grid boundaries truncate **value queries**, not physics. ActualRK4 paths remain in-domain; refinement/independent references check truncation/discretization without all-state proofs. Piecewise equations and one soft-to-hard sensitivity are not whole-domainC²/PublishOK certification.
 
-## 4. 共同根策略质量
+## 4. Common-root policy quality
 
-独立直接优化用 30 个真实刚度节点、显式增益/变化率约束和真实物理 RK4 积分；解析梯度的独立方向差分相对误差为 2.22e-08，求解成功，最大变化率约 127.777，低于 500 的限制。
+Independent optimization uses30 actual stiffness nodes, explicit gain/rate constraints and physicalRK4.Analytical directional error2.22e-08, successful solve, maximum rate127.777<500.
 
-| 网格/时间 | 布局 | 物理闭环代价 | 相对直接优化参照 |
+|Grid/time|Layout|Physicalclosed-loopcost|Gapfromdirectreference|
 |---|---|---:|---:|
-| 17×17 / 100步 | 均匀 | 0.135257 | 29.194% |
-| 33×33 / 200步 | 集中于实际工作域 | 0.105810 | 1.066% |
-| 49×49 / 200步 | 集中于实际工作域 | 0.104691 | -0.002% |
+|17×17/100steps|Uniform|0.135257|29.194%|
+|33×33/200steps|Operating-domainfocus|0.105810|1.066%|
+|49×49/200steps|Operating-domainfocus|0.104691|-0.002%|
 
-直接优化代价为 0.104693408，最终 Bellman 策略约 0.104691，二者只差约 0.0021%。微小负差并不证明 Bellman 更优，参照的动作时间表示与运行代价积分规则稍有不同。采用它们的一致性作为快速质量核对，而非连续问题全局最优证书。
+Directcost0.104693408 versusBellman≈0.104691 differs≈0.0021%. A tiny negative gap does not prove better optimality; action-time representations/integration differ slightly. Use agreement as rapid quality checking, not global certification.
 
-## 5. 同一因果接触历史与前方估计
+## 5. Common causal history and forward estimates
 
-两种方法共用旧策略运行的真实模型轨迹。法向力相对旧均匀模型超过 0.5%Fd 后，收集 12 个间隔 5 ms 的原始法向力/俯仰力矩样本。完整力矩含已知切向牵引力臂，拟合器没有读取生成数据的真值。
+Both use actual-model history under old policy. After normal-force deviation>0.5%Fd, collect12 raw normal-force/pitch-moment samples5ms apart. Moments include known tangential lever effects; fitting reads no generating truth.
 
-在 t=0.455 s 得到前方模量 45000.0 Pa、边界约 0 m；中心到边界约还有 0.295 s。这里无噪声且几何、表面与切向参数已知，是有限历史拟合，不是完整 MHE 或真实组织验证。
+At t=0.455s, estimate45000.0Pa/boundary≈0m, with≈0.295s until center arrival. Noiseless known geometry, surface/tangential parameters make this finite-history fitting, not full MHE/real tissue.
 
-## 6. 真正执行的参数更新与闭环对照
+## 6. Executed updates and loops
 
-共同锚点对应均匀材料；新描述符来自相同拟合输出。所有方法更新同一个离散根，采用相同代价、动作恢复、物理积分、增益与能量检查。
+The common anchor is homogeneous; new descriptors share fitted outputs. All update identical discrete roots, costs, actions, integrators, gain/energy checks.
 
-| 方法 | 闭环代价 | 相对完整求解增加 | 力 RMSE N | 采样约束 |
+|Method|Loopcost|Increaseoverfullsolve|ForceRMSE/N|Samplechecks|
 |---|---:|---:|---:|---|
-| NEOC | 0.135109 | 29.06% | 0.011932 | 通过 |
-| cached_chord | 0.119520 | 14.16% | 0.008887 | 通过 |
-| one_Newton | 0.105545 | 0.82% | 0.011280 | 通过 |
-| full_backward_solve | 0.104691 | 0.00% | 0.010916 | 通过 |
-| 固定刚度 150 | 0.104846 | 0.15% | 0.010825 | 通过 |
+|NEOC|0.135109|29.06%|0.011932|Pass|
+|cached_chord|0.119520|14.16%|0.008887|Pass|
+|one_Newton|0.105545|0.82%|0.011280|Pass|
+|full_backward_solve|0.104691|0.00%|0.010916|Pass|
+|Fixedstiffness150|0.104846|0.15%|0.010825|Pass|
 
-NEOC 保持了接触与约束，但代价增加 29.06%，未满足原任务 5% 的策略损失预算。这里并非估计误差造成：拟合误差接近浮点精度。方向导数核对也支持局部切线实现；50% 变化超出了一阶近似在本任务里的有效性能范围。没有用 Newton 修复 NEOC 后仍记作成功。
+NEOC retains contact/constraints but29.06% cost increase fails the 5%loss budget. Estimation is nearly floating-point exact, and derivative checks support local tangents;50% exceeds useful first-order performance range. NoNewton repair is relabeledNEOC success.
 
-所有闭环策略质量对照采用**理想零更新延迟**，为了先隔离策略误差。下面真实 Python 计算时延另列，没有悄悄插入人为延迟让基线变差，也没有把离线轨迹宣称为实时部署结果。
+All quality comparisons assume **ideal zero update latency** to isolate policy error. ActualPython times follow separately; no artificial delay weakens baselines and offline trajectories are not real-time deployment.
 
-## 7. 成本比较不能只看预测乘法
+## 7. Costs beyond prediction multiplication
 
-| 方法 | 两次候选生成 s | 两次模型准备+生成+独立全局检查+采样 rollout s |
+|Method|Two candidategenerationtimes/s|Two modelprep/generation/globalcheck/sampledrollouttimes/s|
 |---|---:|---:|
 | NEOC | 0.072 / 0.065 | 10.910 / 10.500 |
 | cached_chord | 11.964 / 10.916 | 22.743 / 23.234 |
 | one_Newton | 10.408 / 12.301 | 22.270 / 23.785 |
 | full_backward_solve | 10.574 / 9.992 | 22.573 / 21.236 |
 
-NEOC 候选生成确实很快，但全局残差检查占主导。完整逆时间求解可以在构造每层根时复用已计算的极小值，不应强迫它另做同样的完整残差扫描来弱化基线。允许这一结构融合后，完整求解为 11.931/11.277 s，NEOC 端到端只减少约 8.6%/6.9%，达不到本轮 30% 的投入判据。
+NEOC generation is fast, but global residual checks dominate. Backward solving reuses layer minima; do not force duplicate residual sweeps. With valid fusion, fullsolves11.931/11.277s andNEOC end-to-end reductions≈8.6%/6.9%, below the 30%diagnostic criterion.
 
-NEOC 额外灵敏度准备耗时约 27.444 s，也单独计入。本轮只有一个新描述符事件，没有证据把准备成本摊到虚构的无限次查询；若后续主张多次复用，基线也应允许缓存及同等预计算。
+ExtraNEOC sensitivity preparation≈27.444s is separate. One descriptor event does not justify amortization over imaginary infinite queries. Future reuse must also allow baseline caching/precomputation.
 
-这个原型有约 778 万个 critic 网格系数，计算量不代表正文的特定低维配置实例。所有带全局检查的更新耗时都超过实际扫描剩余时长，故**未验证实时性**。若改成离线误差包络或局部证书，可改变成本，但尚未实现，不能把它的假想收益计入当前结果。
+About7.78million critic coefficients do not represent the specified low-dimensional main-text instance. All globally checked updates exceed remaining scan time:**real time unvalidated**. Unimplemented offline/local certificates have no credit in current results.
 
-非扩张的离散 Bellman 算子给出根误差界 E≤Σ_k||F_k||∞、离散 MDP 贪心策略差界≤2E；NEOC 的该全局界约 189.622，远不能认证本轮小代价预算。这个界针对投影网格模型，不是物理 ODE 的近最优证书，不能把“采样约束通过”写成 PublishOK 通过。
+Nonexpansive discreteBellman givesE≤Σ_k||F_k||∞ and greedyMDPgap≤2E.NEOC global bound≈189.622 cannot certify small budgets. This is projected-grid, not physicalODE near-optimality; sample checks are notPublishOK.
 
-## 8. 小变化是否有效
+## 8. Small changes
 
-模量只增加 5% 时，NEOC 代价为 0.001685543，完整求解为 0.001685127，额外损失约 0.0247%，约束通过。这支持局部直接更新机制，而非所有幅度变化。
+At5% modulus increase, NEOCcost0.001685543 versusfull0.001685127, gap≈0.0247%, constraints pass. This supports local prediction, not arbitrary amplitudes.
 
-但此时固定刚度的代价也为 0.001685127，与完整求解相同。主要 50% 任务中固定刚度也只比独立参照高 0.146%。因此，本任务还不能证明“必须实时求最优阻抗”具有足够实际收益。
+Fixed stiffness also gives0.001685127. At50% it is only0.146%above independent reference. This task does not establish sufficient practical necessity for real-time optimal impedance.
 
-## 9. 保留用途与结论层次
+## 9. Reuse and conclusion levels
 
-本载体可用于检查critic/策略质量、普通Newton与灵敏度预测及全链成本。它不支持大幅变化后一次NEOC就近最优；小变化例子中固定增益已足够，尚未建立重要优化收益。
+Reuse critic/policy checks, Newton/sensitivity comparisons and complete cost accounting. Large-change single-step near-optimality is unsupported; fixed gains suffice in small cases and important optimization benefits remain unestablished.
 
-这些结论限制本实例。此前“先证明更新必要才允许预瞄比较”的安排不再生效；不由本报告指定后续问题或要求先证伪所有简单方法。保留数值工具和有效正负结果，后续由用户任务及HANDOFF决定。
+These are instance limits. Earlier necessity-before-preview ordering is withdrawn; this report sets neither future questions nor mandatory falsification of every simple control. Retain tools/valid outcomes; user requests/HANDOFF govern.
 
-## 10. 文件
+## 10. Files
 
-- [主运行脚本](run_repaired_validation.py)、[Bellman 载体](bellman_carrier.py)、[独立优化参照](independent_reference.py)。
-- [配置](config.json)、[完整结果](results.json)、[首次结果](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/results_run1.json)、[复现检查](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/reproducibility.json)。
-- [共同传感历史](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/common_wrench_history.csv)、[独立优化轨迹](independent_shooting_trace.csv)、[刚度节点](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/independent_shooting_knots.csv)。
-- `trace_NEOC.csv`、`trace_cached_chord.csv`、`trace_one_Newton.csv`、`trace_full_backward_solve.csv`、`trace_fixed_gain.csv` 为完整物理轨迹。
-- [首次日志](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/run_log.txt)、[复现日志](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/run_log_reproduction.txt)、[整理脚本](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/summarize_repaired_validation.py)。
+- [Driver](run_repaired_validation.py),[Bellmancarrier](bellman_carrier.py),[independentreference](independent_reference.py).
+- [Configuration](config.json),[results](results.json),[first run](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/results_run1.json),[reproduction](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/reproducibility.json).
+- [Shared sensor history](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/common_wrench_history.csv),[independenttrajectory](independent_shooting_trace.csv),[gain knots](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/independent_shooting_knots.csv).
+- `trace_NEOC.csv`,`trace_cached_chord.csv`,`trace_one_Newton.csv`,`trace_full_backward_solve.csv`,`trace_fixed_gain.csv`retain full trajectories.
+- [First log](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/run_log.txt),[reproduction log](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/run_log_reproduction.txt),[summary script](https://github.com/zyanzhi90-dot/pre-nnbo-neoc/blob/b3046ce04a99d1896beaf6b7d57d4c10cb85dc5c/03_%E5%AE%9E%E9%AA%8C%E4%B8%8E%E5%90%8E%E7%BB%AD%E5%B7%A5%E4%BD%9C/%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81%E4%BF%AE%E5%A4%8D%E4%B8%8E%E9%97%AD%E7%8E%AF_2026-10-12/summarize_repaired_validation.py).
 
-本目录执行 `python -X utf8 run_repaired_validation.py`。依赖 NumPy/SciPy，实验规模和成本已在配置中声明。旧失败目录和当前三份理论文件保持原样。
+Run `python -X utf8 run_repaired_validation.py`here with NumPy/SciPy. Configuration declares scale/costs. Old failure directories/three theory originals were unchanged at this experiment checkpoint.

@@ -1,39 +1,39 @@
-> 既有局部验证记录。过时选题与续做安排已移除，原配置和数值结论保留。后续安排见[HANDOFF](../../project_records/HANDOFF.md)。
+> Existing local validation. Obsolete topics/plans were removed; original configurations/results remain. See [HANDOFF](../../project_records/HANDOFF.md).
 
-# 候选修订 1：约束激活下的价值根跟踪
+# Candidate revision1: value-root tracking under constraint activation
 
-2026-10-13。**待检验候选，不替换原方法正文；尚未认定顶刊级或独立新颖。** 来源是原光滑 KKT 根在弱活动约束处的实际条件失效，见 [最小测试](results.json)。
+2026-10-13. **Untested candidate revision, not a replacement main method or established leading-journal/independent novelty.** Motivated by actual smooth-KKT condition failure at weakly active constraints; see [minimal test](results.json).
 
-## 1. 研究问题与方法为何需要调整
+## 1. Why revise the question/method?
 
-环境参数慢，不代表约束活动状态不变。最优增益率可能从速率上界、能量边界释放，也可能反向进入边界。原方法直接对 critic、动作与互补乘子组成的完整根求导；在乘子与约束松弛同时为零时，该光滑互补根可能奇异，原隐式灵敏度与 C² 邻域假设不能直接覆盖。
+Slow parameters do not imply fixed active sets. Optimal gain rates may leave/enter rate or energy bounds. Differentiating the complete critic/action/multiplier root fails at potentially singular simultaneous zero multipliers/slacks; original implicit-sensitivity/C² neighborhoods need not cover these points.
 
-已有 ENE 可以分段处理活动集变化，半光滑 KKT/临界锥方法也属于强候选；不能称它们已经失败。待检验的问题是：**能否借助实际阻抗动作的强凸 Hamiltonian 结构，直接跟踪一个更稳定的价值系数根，在部分约束激活变化下仍保留预测精度与动作可行性，并节省相对这些强方案的维护成本？**
+Existing ENE handles piecewise active changes, and semismooth KKT/critical-cone methods remain strong candidates, not failed alternatives. Ask: **Can strongly convex impedance Hamiltonians support a more regular value-coefficient root, retain prediction accuracy/action feasibility through some activations, and reduce maintenance cost against these strong methods?**
 
-## 2. 最小机制调整
+## 2. Minimal mechanism revision
 
-原执行接口保持增益率动作、实际增益与能量账本。将动作/乘子从外层根中消去：
+Retain gain-rate actions, actual gains and energy accounting. Eliminate actions/multipliers from the outer root:
 
 \[
 m_x(p)=\min_{u\in\mathcal U(t,x)}(u^TR_gu+p^Tu),\qquad
 p=G_g^T\nabla_xV_W.
 \]
 
-用已最小化的 HJB 配置方程与终端条件建立只含 critic 系数的根 \(\widetilde F(W,\eta)=0\)，对 W 做 NEOC。
+Use minimized HJB collocation/terminal equations to define critic-only \(\widetilde F(W,\eta)=0\), and apply NEOC to W.
 
-低层执行恢复
+Low-level action recovery is
 
 \[
 u_W=\Pi_{\mathcal U(t,x)}^{R_g}\!left(-\tfrac12R_g^{-1}G_g^T\nabla_xV_W\right).
 \]
 
-这是原 Hamiltonian 动作恢复，不是对预测结果新增验收流程。每周期用真实状态、实际增益和能量生成允许动作；参数邻域内不需要逐候选残差/rollout 验收。重锚由事前误差预算/范围管理决定。
+This is original Hamiltonian recovery, not an added prediction-acceptance pipeline. Current state/gains/energy determine allowed actions each cycle. Covered parameter neighborhoods require no candidate-residual/rollout acceptance; predeclared errors/ranges manage anchors.
 
-当前理论范围先限于：变化参数为材料/模型参数，参考、动作代价与当前状态下的允许动作集合不随该参数改变；状态与时间变化仍由策略执行接口处理。若参考系数、允许集合或 Rg 本身随 η 改变，必须另做集合扰动与 Lipschitz 条件，不能直接沿用以下结论。
+Initially restrict changes to material/model parameters, with references, action cost and same-state allowed sets independent of them. State/time variation remains in execution. Parameter-dependent references, sets or Rg require separate set-perturbation/Lipschitz arguments.
 
-## 3. 可直接推导的条件性理论
+## 3. Direct conditional theory
 
-假设 U 为非空闭凸集，Rg 正定；配置域内集合有界，其他系数与基函数具备需要的光滑性。强凸极小值唯一，
+Assume nonempty closed convex U, positive-definite Rg, bounded sets over collocation domains and sufficiently smooth coefficients/bases. Strong convexity gives unique minimizers,
 
 \[
 \nabla_pm_x(p)=u_W,
@@ -42,9 +42,9 @@ u_W=\Pi_{\mathcal U(t,x)}^{R_g}\!left(-\tfrac12R_g^{-1}G_g^T\nabla_xV_W\right).
 \le\tfrac12\|R_g^{-1/2}(p_1-p_2)\|.
 \]
 
-因此最小化值对 p 为 C¹ 且导数 Lipschitz；不要求动作映射在每个约束切换点可微。配置根可为 C¹,¹，即使不是 C²。**这一光滑性/投影性质是已有数学工具，本身不作为新贡献。**
+so minimized values are C¹ in p with Lipschitz derivatives, without differentiable actions at every switch. Roots may be C¹,¹ rather than C². **These established smoothness/projection tools are not themselves new contributions.**
 
-若在整个配置根邻域仍有 \(\|\widetilde F_W^{-1}\|\le\kappa\)、\(\|\widetilde F_\eta\|\le B\)，且联合导数 Lipschitz 常数为 L，则局部根图的灵敏度可取
+If \(\|\widetilde F_W^{-1}\|\le\kappa\),\(\|\widetilde F_\eta\|\le B\) throughout the neighborhood and joint derivatives have Lipschitz L, root sensitivity admits
 
 \[
 C=-\widetilde F_W^{-1}\widetilde F_\eta,\quad
@@ -52,51 +52,51 @@ C=-\widetilde F_W^{-1}\widetilde F_\eta,\quad
 \operatorname{Lip}(C)\le M=\kappa L(1+c)^2.
 \]
 
-此界限要求根图和连接路径均在给定邻域内，可由局部 C¹ 隐式函数与导数差估计获得。理想锚点/灵敏度下
+This requires the root graph/connecting paths inside the neighborhood and follows local C¹ implicit functions/derivative differences. For ideal anchors/sensitivities,
 
 \[
 \|W^*(\eta_a+\Delta\eta)-W_a-C_a\Delta\eta\|
 \le\tfrac12 M\|\Delta\eta\|^2.
 \]
 
-再加锚点、灵敏度、数值、参数估计误差，复用原多步误差记账。恢复动作的误差通过上述投影 Lipschitz 界传递，允许低层动作活动集变化。对任何 W，恢复动作都在 U 内；在原实际状态方程及连续执行假设下，增益和能量边界仍由式（31）维持。
+Add anchor, sensitivity, numerical and estimation errors with original multistep accounting. Projection Lipschitz bounds propagate action errors through active changes. Every recovered action lies in U; original continuous dynamics/(31) preserve gain/energy boundaries.
 
-**不自动保证：** critic 的域内质量、外层根始终正则、物理状态/接触约束、时变任务全局最优、数值实现误差或总计算优势。消元也不能修复不良基函数、缺少节点或动力学误差。原正文状态边界问题仍保留。
+**Not automatic:** critic domain accuracy, outer-root regularity, physical/contact feasibility, time-varying global optimality, numerical accuracy or total speed. Elimination cannot repair bad bases, missing nodes or model error. Original state-boundary issues remain.
 
-### 3.1 跨活动变化的 Hamiltonian 性能误差
+### 3.1 Hamiltonian performance through active changes
 
-同一真实状态与允许集合下，令真实线性项为 p、预测项为 p̂，恢复动作分别为 u(p)、u(p̂)。强凸二次项与闭凸集合的共轭光滑性给出
+At common actual state/U, let linear terms be p, p̂ and recovered actions u(p), u(p̂). Strong-convex quadratic/closed-convex conjugacy gives
 
 \[
 0\le H_p(u(\hat p))-H_p(u(p))
 \le\tfrac14\|R_g^{-1/2}(\hat p-p)\|^2.
 \]
 
-证明：φ(u)=uᵀRg u+I_U(u)，其共轭在 Rg 度量下导数 Lipschitz；上式左边恰为 φ* 在 −p、−p̂ 之间的 Bregman 余项。该已有强凸工具不需要保持活动集不变。
+Proof:φ(u)=uᵀRg u+I_U(u) has conjugate with Lipschitz derivative in the Rg metric; the left side is its Bregman remainder between−p,−p̂. Fixed active sets are unnecessary.
 
-若 \(\|R_g^{-1/2}G_g^T\nabla\phi\|\le L_p\)，则 critic 根预测误差 εW 转成 Hamiltonian 差≤Lp²εW²/4。理想一阶价值根预测 εW≤M||Δη||²/2 时，额外 Hamiltonian 差≤Lp²M²||Δη||⁴/16。**四阶是对参数预测引起的局部额外误差，不包含配置误差、参数估计误差和环境变化时的总任务代价。**
+If \(\|R_g^{-1/2}G_g^T\nabla\phi\|\le L_p\), critic error εW gives Hamiltonian gap≤Lp²εW²/4. Ideal εW≤M||Δη||²/2 yields gap≤Lp²M²||Δη||⁴/16. **Fourth order concerns local prediction-induced excess only, not configuration/estimation error or total changing-environment task cost.**
 
-若使用同一冻结参数问题且轨迹可行、留在验证域，有限 critic 的 HJB/终端残差界分别为 ρ、τ，则与该问题连续最优值的差可通过验证恒等式界为 2(Tρ+τ)+∫额外 Hamiltonian 差。实际 η(t) 变化时，必须另计 ∂ηV·ηdot 的积分以及模型/估计/执行误差；不得将冻结问题的四阶余项解释为整个时变任务四阶最优性。
+For a common frozen problem with feasible in-domain trajectories and HJB/terminal residual boundsρ,τ, verification bounds continuous-optimal gap by2(Tρ+τ)+∫extra Hamiltonian gap. Time-varying η(t) additionally needs ∫∂ηV·ηdot plus model/estimation/execution errors; frozen fourth-order remainders are not whole-task fourth-order optimality.
 
-## 4. 已做的可证伪测试
+## 4. Completed falsifiable tests
 
-单节点 Hamiltonian 根
+Single-node Hamiltonian root
 
 \[
 F(w,\theta)=1-2\theta w+\min_{|u|\le0.4}(u^2+2wu)=0.
 \]
 
-临界 θ=1.05，完整三变量互补 KKT Jacobian 秩为 2、最小奇异值≈9.9×10⁻¹⁷；消元后 Fw=−2.9，整个测试域的绝对值下界为 2.6。w 的一阶导数连续，二阶导数跨界跳变，直接显示 C¹,¹ 足够而 C² 不成立。
+At critical θ=1.05, the complete3-variable KKT Jacobian has rank2 and minimum singular value≈9.9×10⁻¹⁷; reduced Fw=−2.9, with absolute lower bound2.6 over the test domain. First w derivatives are continuous; second derivatives jump, showing C¹,¹ without C².
 
-| 路径 | 查询/锚点 | 最大 critic 根误差 | 预设界 | 未投影动作预测违反次数 | 值更新后恢复动作违反次数 |
+| Path | Queries/anchors | Maximum critic-root error | Preset bound | Unprojected action violations | Recovered value-update violations |
 |---|---:|---:|---:|---:|---:|
-| 从受限到释放 | 301/4 | 0.001873 | 0.002 | 0 | 0 |
-| 从自由到受限 | 301/4 | 0.001619 | 0.002 | 23 | 0 |
+| Bound to release | 301/4 | 0.001873 | 0.002 | 0 | 0 |
+| Free to constrained | 301/4 | 0.001619 | 0.002 | 23 | 0 |
 
-对投影后的直接动作 NEOC，释放路径最大动作误差≈0.00680；值根更新后恢复约0.00153。进入边界的路径，两种投影预测等价，明确保留这个没有优势的结果。对四个初始状态，与独立可解析的真实约束标量策略代价比较，最坏额外代价≤2.63×10⁻⁶。这里的 critic 是有限单节点载体，性能核对不等于原 R15 全维证明。
+Projected direct-action NEOC has release-path error≈0.00680, versus≈0.00153 after value updates. Entering bounds gives equivalent projected predictors, a retained no-advantage result. Four initial states versus independently analytical constrained scalar-policy cost give worst excess≤2.63×10⁻⁶. Single-node validation is not full R15 proof.
 
-随后 [多节点测试](multinode.py) 使用16个配置节点及平滑导数-cardinal cubic critic，跨同一临界参数，121查询/9锚点，最大导数误差≤0.002。离开节点后，独立真实策略代价核对最坏差约2.79×10⁻⁸，配置本身最大差约4.01×10⁻⁹；约化根条件数最大约14.34，完整互补根临界处仍奇异。**本多节点日程中，投影动作预测与价值预测的最大动作误差相同**，所以目前有根正则性和可行性的支持，不能认定普遍性能优势。它仍是标量力动作问题，未实现原四维增益率与能量 HJB。
+The [multinode test](multinode.py) uses16 nodes, a smooth-derivative cardinal-cubic critic,121 queries/9 anchors, and maximum derivative error≤0.002 across the same critical parameter. Off-node independent true-policy cost differences reach2.79×10⁻⁸, configuration differences4.01×10⁻⁹; reduced condition number≤14.34, while full complementarity remains singular. **Projected-action and value predictors have equal maximum action error here.** This supports regularity/feasibility, not general performance advantage. It remains scalar force control, not four-gain-rate/energy HJB.
 
-## 5. 候选状态
+## 5. Candidate status
 
-本文件只保留条件性理论候选及已做检验。它未合入B0，不构成新的研究主线或默认续做任务；是否采用由后续问题—方法共同审查决定。
+Retain conditional theory/completed checks only. This is not merged into B0, a new main research line or default continuation task. Future question/method review determines adoption.
