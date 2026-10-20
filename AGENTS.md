@@ -3,8 +3,8 @@
 This is a long-term research project. The user authorizes committing and pushing
 completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
 
-1. Read `项目记录/HANDOFF.md` to resume, then the current user request and
-   relevant parts of `项目记录/长期要求.md` and `项目记录/研究决策与变更.md`.
+1. Read `project_records/HANDOFF.md` to resume, then the current user request and
+   relevant parts of `project_records/long_term_requirements.md` and `project_records/decisions_and_changes.md`.
    Older root handoffs and dated plans were consolidated; recover originals
    from Git only when needed. Do not repeatedly reread all history.
 2. Current scope: the user explicitly corrected the drift toward abstract
@@ -15,7 +15,7 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    Candidate A and its tests remain contextual evidence, not the current selected
    replacement question. Any substantive problem revision must state its basis
    and impact clearly. See HANDOFF for the latest evidence and next work.
-3. Follow `项目记录/长期要求.md` for the approved goal, research workflow
+3. Follow `project_records/long_term_requirements.md` for the approved goal, research workflow
    and stage-specific judgment standards. Co-refine important questions, prior
    limitations and complete methods through interleaved literature analysis,
    design and quick task-relevant verification. Actively propose and implement
@@ -36,13 +36,13 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    Co-refinement may adjust an inaccurate question without requiring strict
    falsification, provided the reasons support that level of change.
 5. Preserve `00_基线快照_2026-10-14/` byte-for-byte. The three working core
-   documents now live under `研究/`; B0 contents and equations were preserved.
+   documents now live under `research/`; B0 contents and equations were preserved.
    They may change in future based on research evidence, with explicit deltas.
 6. Keep useful reproducible source/configuration/primary results together. Files
    retained merely to prove that work happened may be removed from the working
    tree after recording necessary lessons and a Git recovery point. Do not use
    archival completeness as a reason to preserve irrelevant material locally.
-7. For each completed logical change, update `项目记录/研究决策与变更.md` with
+7. For each completed logical change, update `project_records/decisions_and_changes.md` with
    its reason, comparison version, evidence, scope and affected assumptions or
    proofs; perform appropriate checks, then automatically run:
    `python -X utf8 scripts/research_sync.py --message "research: <specific change and purpose>"`
@@ -53,3 +53,16 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
 The synchronization helper runs at completed checkpoints, not arbitrary file
 writes. Preserve the user's notification and review preferences; report actual
 changes plainly, without making the user read inventory dumps.
+
+## Language and paths
+
+Use English for operational documentation, handoffs, requirements, decision
+records, code documentation, and new directory/file names. Keep scientific prose
+and experiment explanations in Chinese, including generated experiment reports.
+Communicate with the user in Chinese unless they request otherwise. Maintain one
+working version, not parallel English and Chinese copies. Source papers and
+original data retain their language and contents. The frozen B0 directory and
+its internal names are exempt from path translation. Historical provenance paths
+and pinned Git URLs must retain their original spelling; resolve migrated local
+paths through `project_records/english_migration.json` when necessary.
+On Windows, run Python commands with `python -X utf8` when reading project files.
