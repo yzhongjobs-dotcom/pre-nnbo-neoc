@@ -239,3 +239,52 @@ reports summarised in the JSON files:
 - Jin was anchored to B1, with an estimator gain correction.
 - Xue's numerical model limited its gain grid.
 - The learned policy used evolution strategies instead of DRL.
+
+## Candidate methods on the same cells (40 test scenes; J / RMSE N / fraction of scenes with peak > 7 N)
+
+Both candidates use only causal signals (force, encoder, command, scan position), are tuned or trained on
+the train split only, and are run once on test. Details, equations and failed attempts are in each
+module's docstring and in `candidate1_log.md` / `candidate2_log.md`; numbers are in the JSON files.
+
+| Method | T3 spine, 0.5 s push, 1 mm | T1 ladder r = 30, 1 mm |
+|---|---|---|
+| B1 best fixed | 0.570 / 0.31 / 0.03 | 0.247 / 0.16 / 0.03 |
+| EtR-A (best causal baseline) | 0.407 / 0.27 / 0.10 | 0.077 / 0.13 / 0 |
+| B3b truth-k oracle, 0.1 s | 0.120 / 0.15 / 0 | 0.062 / 0.11 / 0 |
+| B3b truth-k oracle, 0 s | 0.109 / 0.15 / 0 | 0.022 / 0.07 / 0 |
+| **C1** moving-window estimate of stiffness and surface motion + OCP over D, KPF, u_ff (`candidate1_model.py`) | **0.142 / 0.16 / 0.03** | **0.021 / 0.07 / 0** |
+| **C2** student MLP distilled from a truth-stiffness teacher (DAgger, expectile loss) + ES on task cost, 3 seeds (`candidate2_learned.py`) | **0.255 ± 0.012 / 0.23 / 0.03** | **0.039 ± 0.001 / 0.09 / 0** |
+
+Paired 95 % CIs of ΔJ:
+- C1 vs B1: T3 −0.43 (−0.87, −0.19), T1 −0.23 (−0.55, −0.05). C1 vs EtR-A: T3 −0.26 (−0.40, −0.15), T1 −0.06 (−0.09, −0.04).
+- C1 vs B3b 0.1 s: T3 +0.022 (+0.004, +0.048), T1 −0.042 (−0.064, −0.023).
+- C2 vs B1: T3 −0.32 (−0.75, −0.07), T1 −0.21 (−0.53, −0.03). C2 vs EtR-A: T3 −0.15 (−0.26, −0.06), T1 −0.04 (−0.07, −0.02).
+
+Ablations (same tuning or training budget):
+
+| Ablation | T3 J | T1 J |
+|---|---|---|
+| C1 estimator without surface-motion terms | 10.0 (no train-feasible setting) | 4.27 |
+| C1 gains only (u_ff = 0) | 0.341 | 0.076 |
+| C1 neighbouring/quasi-Newton update instead of ordinary solve | 0.210 | 0.021 |
+| C1 +0.1 s latency on the stiffness estimate | 0.129 | 0.068 |
+| C1 whole update every 40 ms | 0.275 | 0.166 |
+| C2 no teacher (ES only) | 0.329 | 0.069 |
+| C2 teacher only (no task-cost stage) | 0.302 | 0.042 |
+| C2 gains only | 0.279 | 0.041 |
+| C2 no force history | 0.823 | 0.277 |
+| C2 decision every 0.096 s | 0.500 | 0.113 |
+
+What the candidates show:
+- Prompt causal use of contact information closes most of the T3 gap at the sourced push speed
+  (C1 about 95 %, C2 about 50 % of the EtR-A to oracle gap).
+- The identified mechanism is separating patient surface motion from stiffness change. Without it the
+  estimated bone stiffness is biased by about ×0.45 (the confound that also limits Jin and EtR-A), and bone
+  entry is detected after 368 ms instead of 48 ms. Feedforward of the estimated drift gives about half of
+  C1's gain over B1; gains alone still beat EtR-A on T3.
+- Parts that do not carry the result: the neighbouring update (no gain in quality or time with four decision
+  variables), and C2's task-cost ES stage (small gain; most of C2's value comes from the privileged teacher).
+- Open negatives: at the fast 0.25 s push both candidates are worse than B1 in J (C1 25.5 with 2 of 40
+  scenes diverging after contact loss, although it wins 35 of 40 scenes; C2 7.0; B1 2.27). On soft
+  homogeneous tissue C1 is slightly worse than B1 (RMSE 0.04 vs 0.025 N). C1's stiff start prior
+  (v2, k0 = 3e4) fixes a stiff homogeneous failure but has not been re-run on test.
