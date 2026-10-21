@@ -6,6 +6,7 @@ Retained materials serve environment estimation, both candidate designs, reasona
 
 | Resource | Subsequent use | Required boundary |
 |---|---|---|
+| [Realistic scan task](realistic_scan_task/README.md) | Planar 3R arm, viscoelastic B0 footprint contact, F/T noise/delay, three representative tasks, tolerance-based score, headroom check against fixed impedance and force PI | First benign tasks only; no candidate ported yet; synthetic parameters |
 | [NNBO source reproduction](nnbo_source_reproduction/README.md) | Critic equations, exploration and Newton position inversion | Minimal mechanism, without complete identification/robot experiments; not B0 four gains |
 | [Finite-horizon contact](finite_horizon_contact/README.md) | Cylindrical contact, Bellman carrier and independent trajectories; dependency of slow-variation tests | Single K rate/fixed D, not the full-dimensional B0 critic |
 | [Continuous slow variation](continuous_slow_variation_updates/README.md) | Sensitivity/re-anchoring, cost accounting and slow/small-step instances | Retain both original failures and exploratory groups, not favorable selection |

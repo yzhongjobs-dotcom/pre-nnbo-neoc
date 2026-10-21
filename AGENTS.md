@@ -48,7 +48,10 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    Keep scientific reasoning in the relevant research document, experimental
    report or failure analysis. After checking each completed checkpoint,
    automatically run `python -X utf8 scripts/research_sync.py --message "research: <specific change and purpose>"`.
-   No repeat upload permission is needed. If pushing fails, keep the local commit,
+   No repeat upload permission is needed. Before starting work, update with
+   `git pull --rebase origin main`; the helper also fetches the baseline tag in
+   shallow clones and replays local commits on top of commits other agents
+   (Codex, Claude Code) pushed meanwhile, stopping on conflicts. If pushing fails, keep the local commit,
    report the failure and retry. Never force-push or rewrite history.
 
 The synchronization helper runs at completed checkpoints, not arbitrary file
