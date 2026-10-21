@@ -207,3 +207,35 @@ information (result 3), with a latency budget of about 0.1 s (result 2).
 
 `python gate.py PC125` (all cells) or `python gate.py PC125 0,1` (selected
 cells). Requires numpy, scipy and numba.
+
+## Baselines on the two sourced cells (40 test scenes; J / RMSE N / fraction of scenes with peak > 7 N)
+
+| Method | T3 spine, cough-speed push (0.5 s), 1 mm | T1 ladder r = 30, 1 mm | Notes |
+|---|---|---|---|
+| B1 best fixed (complete family) | 0.570 / 0.31 / 0.03 | 0.247 / 0.16 / 0.03 | `gate.py` |
+| B3b truth-k oracle, 0.1 s | 0.120 / 0.15 / 0 | 0.062 / 0.11 / 0 | upper reference, not causal |
+| EtR-A: lock-in stiffness estimate + rule | 0.407 / 0.27 / 0.10 | 0.077 / 0.13 / 0 | `baselines_adaptive.py`; ΔJ vs B1 CI includes 0 in both cells |
+| EtR-A with Haninger damping rule | 0.410 / 0.30 / 0.05 | 0.174 / 0.16 / 0.08 | |
+| Duan RAS2018 adaptive damping | 6.20 / 1.06 / 0.68 | 2.59 / 0.62 / 0.38 | exactly a fixed PI admittance with K = KPF = 0 |
+| Song RA-L2025 NAIPC (mapped) | 0.99 / 0.44 / 0.03 | 0.55 / 0.32 / 0.03 | |
+| Jin TMECH2023 MPC-VIC, one-step | 0.549 / 0.32 / 0.03 | 0.200 / 0.15 / 0.03 | `baselines_mpc.py`; anchored to B1 gains |
+| Jin MPC-VIC, multi-step | 0.604 / 0.35 / 0.05 | 0.123 / 0.14 / 0.03 | literal (unanchored) version: 16.7 / 4.06 J |
+| Xue RAS2025 MPVIC | 7.76 / 1.28 / 0.85 | 1.36 / 0.55 / 0.20 | HC model undefined once pushes exceed the assumed surface |
+| E27-style learned VIC (ES, 3 seeds) | 0.47 ± 0.07 J, 0.32 N | 0.57 ± 0.39 J, 0.18 N | `baselines_learned.py`; learned near-constant gains |
+
+What the baselines show:
+- Field adaptive methods, mapped faithfully onto the same plant and tuning budget, do
+  not beat the complete fixed controller. Their published advantages rest on weaker
+  fixed baselines.
+- A simple causal estimate-then-rule (dither-based stiffness estimate) recovers most
+  of the oracle value on the ladder (J 0.077 vs oracle 0.062), but only a small part on
+  the spine task with patient motion (0.41 vs 0.12). Its estimate lags by about
+  70-100 ms at ridge entry, and patient motion corrupts it.
+- So the remaining room for a method is causal, prompt use of contact information
+  while the tissue moves. That is the T3 gap between EtR-A and the oracle.
+
+Fidelity caveats for each mapping are in each module's docstring and in the agents'
+reports summarised in the JSON files:
+- Jin was anchored to B1, with an estimator gain correction.
+- Xue's numerical model limited its gain grid.
+- The learned policy used evolution strategies instead of DRL.
