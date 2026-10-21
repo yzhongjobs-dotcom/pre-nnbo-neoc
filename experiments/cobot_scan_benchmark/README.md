@@ -288,3 +288,29 @@ What the candidates show:
   scenes diverging after contact loss, although it wins 35 of 40 scenes; C2 7.0; B1 2.27). On soft
   homogeneous tissue C1 is slightly worse than B1 (RMSE 0.04 vs 0.025 N). C1's stiff start prior
   (v2, k0 = 3e4) fixes a stiff homogeneous failure but has not been re-run on test.
+
+## Candidate 1 v2: safety supervisor, checked on a fresh test cohort (seed 4000, never used before)
+
+`candidate1_v2.py` wraps the unchanged estimator and OCP in a supervisor tied to the traced fast-push failure
+(push on bone read as drift → over-retraction → contact loss → stale estimator, wrong contact anchor and
+integrator windup → impacts): Simplex-style fallback to the cell's B1 gains on contact loss, bumpless removal
+of the loss-time integral, estimator freeze and post-contact reset, |vs| ≤ 0.1 m/s, and a stiff start prior
+k0 = 3e4. Supervisor tuned on train (49 configurations) with a rule that T3/T1 train J must not exceed v1.
+
+| Cell (fresh, 40 scenes) | C1v2 | C1v1 | B1 | EtR-A | B3b 0.1 s |
+|---|---|---|---|---|---|
+| T3 0.5 s, 1 mm | 0.153 / 0.17 / 0.03 | 3.25 (1 runaway, start prior) | 0.638 / 0.32 / 0.05 | 0.397 / 0.27 / 0.03 | 0.141 / 0.17 / 0 |
+| T1 r30, 1 mm | 0.022 / 0.07 / 0 | 0.022 | 0.205 / 0.15 / 0.03 | 0.071 / 0.12 / 0 | 0.056 / 0.10 / 0 |
+| T3 0.25 s, 1 mm | 2.13 / 0.60 / 0.55 | 5.65 (2 runaways) | 2.26 / 0.67 / 0.73 | 6.49 / 0.95 / 0.68 | 1.41 / 0.47 / 0.43 |
+| T3 0.25 s, 4 mm | 2.95 / 0.68 / 0.53 | – | 3.41 / 0.77 / 0.78 | 4.78 / 0.88 / 0.78 | 1.44 / 0.48 / 0.43 |
+| T3 0.5 s, 4 mm | 0.739 / 0.33 / 0.10 | – | 0.666 / 0.33 / 0.05 | 0.390 / 0.28 / 0.05 | 0.153 / 0.17 / 0 |
+| T1 r30, 4 mm | 0.038 / 0.09 / 0 | – | 0.215 / 0.16 / 0.03 | 0.130 / 0.17 / 0 | 0.089 / 0.13 / 0 |
+
+- Sourced cells reproduce on fresh scenes: ΔJ vs B1 T3 −0.48 (−0.98, −0.16), T1 −0.18 (−0.41, −0.04);
+  vs EtR-A T3 −0.24 (−0.38, −0.14). C1v2 is within noise of the 0.1 s oracle on T3.
+- Fast push: no runaways; fewer scenes above 7 N than B1 (−0.18 (−0.30, −0.08) at 1 mm, −0.25 at 4 mm), but
+  ΔJ vs B1 includes 0. A robustness result, not a performance win.
+- Negative: T3 0.5 s with 4 mm breathing is not better than B1 and is worse than EtR-A (+0.35 (+0.03, +0.79)),
+  with more contact loss. Soft homogeneous accuracy is still slightly worse than B1. The fallback is B1 itself.
+- The v1 fresh runaway shows the original v1 test number depended on the start prior; v2 fixes it.
+Details in `candidate1_v2_log.md` and `candidate1_v2_results.json`.
