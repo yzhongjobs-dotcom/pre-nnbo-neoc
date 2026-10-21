@@ -64,6 +64,20 @@ merged protocol and its first gate.
   - Bone-like ridges with partial aperture coverage and an optional bump.
   - Breathing, plus patient push/retract events.
   - Contact stiffness at 4 N: 30 kPa gives 1.15 N/mm, 1 MPa gives 18.4 N/mm.
+- **Sources for latency.** Web sources were reached only through search
+  excerpts (marked [x]); local texts were read in full.
+  - UR servoj: a lag set mainly by lookahead_time (0.03-0.2 s; 0.01 s from SW
+    5.26), whose larger values "introduce a higher delay" [x].
+  - UR10e forum measurement: servoj at 2 ms with lookahead 0.03 gives about
+    34 ms of cross-correlation delay; sync() gives 4-6 ms (UR Client Library
+    issue #86).
+  - Wang 2024: about 20 ms, first-order in form (F09:353-362).
+  - Mathiassen 2016 (UR5 ultrasound): 125 Hz loop, about 16.6 Hz force
+    bandwidth [x].
+  - No servo identification of xArm was found.
+  - Nominal used here: 1 cycle of dead time plus a 19 ms lag, which is at the
+    low (conservative) end of these sources.
+  - Sweep: dead time 1-2 cycles, lag 10-60 ms.
 - **Kinematic arm.** The stiff servo does not deflect under contact force.
 - **Policy interface.** A policy may read time, filtered force, commanded and
   encoder positions. Truth columns (contact stiffness) are for oracles only.
@@ -77,6 +91,18 @@ merged protocol and its first gate.
 | T2 push | Benchmark, non-inferiority / false adaptation | Homogeneous soft (10-40 kPa) or stiff (0.5-1.5 MPa), 1-3 push/retract events of **amp** 3-8 mm with **ramp** 0.15-0.5 s, 8 s |
 | T3 spine | Headline scanning task | Soft 10-40 kPa, spinous-process ridges at 25-35 mm pitch, width 8-20 mm, **ratio** 10-30, speed 10-20 mm/s, breathing 2-5 mm, 1-2 patient events (**amp**, **ramp**) at random times, 10 s |
 | N1 homog | Negative control | Homogeneous 10 kPa-2 MPa with breathing, 6 s |
+
+Sources for patient motion:
+- **Breathing.**
+  - Chest surface 4-12 mm at 0.2-0.34 Hz (Shafiq & Veluvolu 2014 [x]).
+  - Abdominal surface AP 2.5-13.9 mm (Fahmi 2018 [x]).
+  - Spine target in prone position AP 3.4 ± 1.6 mm (Mizonobe 2023 [x]).
+  - Moreira's 0.2 Hz / 5 mm test case (F10:875-880).
+- **Cough.** The contraction phase lasts 0.5 ± 0.2 s; abdominal-wall
+  displacement is up to 18 ± 8 mm (Jourdan 2022, dynamic MRI [x]).
+  - So our 0.5 s ramp has a source, and the 0.25 s ramp is a fast case.
+- **Not sourced.** Flinch or posture-shift speeds were not found; they are
+  engineering choices.
 
 Unsourced choices are treated as dose variables and swept:
 - ridge geometry and the 10-30x modulus ratio (they come from the research
