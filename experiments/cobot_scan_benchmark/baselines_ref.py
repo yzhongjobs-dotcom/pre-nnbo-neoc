@@ -19,3 +19,43 @@ class TruthK:
             if k>=300.: self.k=k        # hold last contact stiffness during contact loss
         k=self.k
         return (self.M,max(self.Dmin,k/self.wI),0.,self.ki,self.cP/k)
+
+class TruthKPreview(TruthK):
+    """Oracle with spatial preview: the stiffness the footprint will meet `preview` s ahead
+    at the current indentation (uses the scene p; oracle only). preview <= 0 falls back to
+    the delayed TruthK."""
+    def __init__(self,p,preview,wI,cP,ki,Dmin=20.,M=0.3):
+        super().__init__(0.,wI,cP,ki,Dmin,M); self.p=np.asarray(p,float); self.preview=preview
+    def __call__(self,o):
+        import plant as P
+        n=o.n
+        if n>0:
+            x=o.x[n-1]+self.p[5]*self.preview; d=o.log[n-1,6]
+            k=P.k_eff(x,d,self.p) if d>0 else 0.
+            if k>=300.: self.k=max(k,o.k_true[n-1]) if self.preview>0 else k
+        k=self.k
+        return (self.M,max(self.Dmin,k/self.wI),0.,self.ki,self.cP/k)
+
+def d_star(x,p):
+    """static indentation giving FD at footprint centre x (elastic part)."""
+    import plant as P
+    lo,hi=1e-7,0.03
+    for _ in range(40):
+        mid=0.5*(lo+hi)
+        if P.footprint(x,mid,p)[0]>P.FD: hi=mid
+        else: lo=mid
+    return 0.5*(lo+hi)
+
+class TruthKFF(TruthK):
+    """TruthK gains plus a stiffness-map feedforward on the command: u_ff = d*(x + v*preview) - d*(x0),
+    the change of the indentation needed for FD (oracle; knows the stiffness map, not the surface motion)."""
+    def __init__(self,p,preview,lat,wI,cP,ki,Dmin=20.,M=0.3,ff_gain=1.0):
+        super().__init__(lat,wI,cP,ki,Dmin,M); self.p=np.asarray(p,float); self.preview=preview; self.fg=ff_gain
+        import plant as P; self.d0=d_star(P.X0,self.p)
+    def __call__(self,o):
+        g=list(super().__call__(o))
+        x=o.x[o.n-1] if o.n>0 else self.p[5]*0
+        if o.n==0:
+            import plant as P; x=P.X0
+        u=self.fg*(d_star(x+self.p[5]*self.preview,self.p)-self.d0)
+        return tuple(g)+(u,)

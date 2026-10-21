@@ -157,9 +157,51 @@ Pass rule:
 Results are in `gate_PC125.json` and `gate_PC125.log` and are summarised
 below once complete.
 
-## Results
+## Results (PC125, 40 test scenes per cell; RMSE N / mean peak N / fraction of scenes with peak > 7 N)
 
-(pending)
+| Cell | B1 best fixed | B2 per-scene fixed | B3b truth-k, 0 s | B3b, 0.1 s | B3b, 0.2 s | J: B1 → B3b 0.1 s (paired 95 % CI of difference) |
+|---|---|---|---|---|---|---|
+| T3, push ramp 0.25 s, breathing 1 mm | 0.67 / 7.8 / 0.65 | 0.50 / 7.0 / 0.40 | 0.39 / 6.9 / 0.30 | 0.41 / 6.9 / 0.30 | 0.78 / 8.8 / 0.47 | 2.27 → 1.08 (-1.67, -0.79) |
+| T3, 0.25 s, 4 mm | 0.74 / 8.1 / 0.68 | 0.51 / 7.0 / 0.38 | 0.39 / 6.9 / 0.30 | 0.41 / 7.0 / 0.30 | 0.71 / 9.6 / 0.53 | 2.93 → 1.09 (-2.89, -1.13) |
+| T3, 0.5 s (cough contraction), 1 mm | 0.31 / 5.5 / 0.03 | 0.19 / 4.9 / 0.00 | 0.15 / 4.8 / 0.00 | 0.15 / 4.8 / 0.00 | 0.30 / 5.3 / 0.03 | 0.57 → 0.12 (-0.91, -0.20) |
+| T3, 0.5 s, 4 mm | 0.32 / 5.5 / 0.03 | 0.19 / 4.9 / 0.00 | 0.15 / 4.8 / 0.00 | 0.16 / 4.8 / 0.00 | 0.32 / 5.3 / 0.03 | 0.60 → 0.13 (-0.95, -0.21) |
+| T1 ladder r = 30, 1 mm | 0.16 / 4.8 / 0.03 | 0.11 / 4.6 / 0.00 | 0.07 / 4.3 / 0.00 | 0.11 / 4.4 / 0.00 | 0.13 / 4.7 / 0.05 | 0.25 → 0.06 (-0.50, -0.02) |
+| T1 ladder r = 30, 4 mm | 0.18 / 4.8 / 0.03 | 0.13 / 4.6 / 0.00 | 0.08 / 4.4 / 0.00 | 0.13 / 4.5 / 0.00 | 0.16 / 4.8 / 0.07 | 0.27 → 0.09 (-0.51, -0.01) |
+
+B1 gains are in `gate_PC125.json`. All six cells settle on M ≈ 1-1.7 kg, D 73-180 N s/m,
+ki up to its bound, and KPF ≈ 1e-4 m/N.
+
+The strict gate fails in all six cells, for one of two reasons:
+- With the sourced 0.5 s ramp and on the ladders, B1 already meets every physical
+  criterion.
+- With the fast 0.25 s ramp, B3b also has 30 % of scenes above 7 N. Most of
+  those peaks occur where bone edges and pushes coincide.
+
+What the gate shows:
+1. **Known contact stiffness has real but bounded value.** With the
+   gains-only oracle, J falls by a factor of 2.7-4.7 and every CI excludes
+   zero. In physical units this halves force RMSE (0.31 → 0.15 N at cough
+   speed) and clears peak violations. At sourced patient-motion speed, however,
+   both controllers are already inside the 0.5 N band. Failure-level headroom
+   appears only with the faster, unsourced 0.25 s pushes, where B1 has 65-68 %
+   of scenes above 7 N against 30 % for the oracle.
+2. **Timeliness decides it.** With 0.2 s of information delay, the same oracle
+   is no better than the best fixed controller, and is worse at the 0.25 s ramp.
+   The usable latency budget is about 0.1 s.
+3. **On ladders, time variation of the gains adds little.** The per-scene
+   fixed controller already matches the oracle at 0.1 s. A stiffness-map
+   feedforward on the command is the stronger lever: an extra probe
+   (`baselines_ref.TruthKFF`, 40 test scenes) lowered T1 RMSE from
+   0.106 N (gains only) to 0.055 N with 0.05 s preview, against 0.155 N for B1.
+   The same feedforward does not change the T3 push peaks.
+4. **Spatial preview of the gains alone does not help.** Switching to stiff
+   gains earlier only hurts soft-tissue tracking: T3 RMSE 0.39 → 0.53 N with
+   0.4 s preview.
+
+These are oracle upper bounds; causal methods will recover only part of them.
+For the paper, a gains-only claim is bounded by result 1. The data point
+towards updating the gains and the command reference together from contact
+information (result 3), with a latency budget of about 0.1 s (result 2).
 
 ## Reproduce
 

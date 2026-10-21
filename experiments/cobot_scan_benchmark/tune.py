@@ -36,7 +36,7 @@ def best_fixed(train,plat='PC125',seed0=0,refine=200):
     feasible, plain minimum J is used and reported)."""
     res=evaluate(train,FIXED_GRID,plat,seed0); Jm=J(res).mean(0); feas=feasible(res)
     order=np.argsort(np.where(feas,Jm,Jm+1e6))
-    lo=np.log(P.GMIN+np.array([0,0,1,0.1,1e-6])); hi=np.log(P.GMAX+np.array([0,0,1,0.1,1e-6]))
+    lo=np.log(P.GMIN[:5]+np.array([0,0,1,0.1,1e-6])); hi=np.log(P.GMAX[:5]+np.array([0,0,1,0.1,1e-6]))
     def obj(z):
         g=np.exp(np.clip(z,lo,hi))-np.array([0,0,1,0.1,1e-6])
         r=evaluate(train,[tuple(g)],plat,seed0); j=float(np.mean([row[0]['J'] for row in r]))

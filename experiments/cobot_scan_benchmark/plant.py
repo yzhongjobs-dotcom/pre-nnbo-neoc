@@ -25,7 +25,8 @@ import numpy as np
 from numba import njit
 
 R=0.03; L=0.04; LREF=0.03; FD=4.0; X0=0.42
-GMIN=np.array([0.25,20.,0.,0.,0.]); GMAX=np.array([3.0,2500.,1000.,30.,1e-3])
+GMIN=np.array([0.25,20.,0.,0.,0.,-0.02]); GMAX=np.array([3.0,2500.,1000.,30.,1e-3,0.02])
+# g = (M, D, K, ki, KPF, u_ff); u_ff is an optional command offset [m] (reference/feedforward action)
 # parameter vector p
 # 0 E_soft, 1 mu, 2 A_resp, 3 f_resp, 4 phase_resp, 5 speed,
 # 6 n_ridges, 7 ridge pitch, 8 ridge half-width, 9 first ridge centre (x - X0),
@@ -114,7 +115,7 @@ def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog):
     """advance nticks control periods (NC plant steps each) with gains g; returns new nlog
     (negative on divergence). noise: (n,2) standard normals per 1 kHz F/T sample."""
     alpha=0.4; tauS=0.3; lam=0.3; ns=p[14]; v=p[5]
-    M=g[0]; D=g[1]; K=g[2]; ki=g[3]; KPF=g[4]
+    M=g[0]; D=g[1]; K=g[2]; ki=g[3]; KPF=g[4]; uff=g[5]
     Tc=NC*DT; NFT=max(int(round(1e-3/DT)),1); afc=1.0-math.exp(-2*math.pi*fc*1e-3)
     fn=0.; ft=0.
     for tick in range(nticks):
@@ -149,7 +150,7 @@ def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog):
                 vn=min(max(vn,-VMAX),VMAX)
                 s[3]+=0.5*(s[4]+vn)*Tc; s[4]=vn
                 for q in range(ndel): s[13+q]=s[14+q]
-                s[13+ndel]=s[3]+KPF*ef
+                s[13+ndel]=s[3]+KPF*ef+uff
                 if nlog<log.shape[0]:
                     log[nlog,0]=t; log[nlog,1]=s[1]; log[nlog,2]=s[2]; log[nlog,3]=fn; log[nlog,4]=ft
                     log[nlog,5]=s[6]; log[nlog,6]=d; log[nlog,7]=modulus(s[1],p); log[nlog,8]=k_eff(s[1],d,p)
@@ -196,6 +197,10 @@ class Obs:
     @property
     def k_true(self): return self.log[:self.n,8]
 
+def _pad(g):
+    g=np.asarray(g,float)
+    return np.concatenate([g,np.zeros(6-len(g))]) if len(g)<6 else g
+
 def episode(p,policy,T=10.0,platform='PC125',seed=0,update=None,dt=5e-4):
     """policy: either a fixed gain vector (array-like, 5) or an object with
     .reset(platform_dict) and .__call__(obs)->gains, called every `update` s
@@ -206,13 +211,13 @@ def episode(p,policy,T=10.0,platform='PC125',seed=0,update=None,dt=5e-4):
     noise=np.random.default_rng(seed).standard_normal((int(T*1000)+10,2))
     args=(NC,int(pl['ndel']),float(pl['tau_a']),float(pl['fc']),float(pl['VMAX']),dt,noise)
     if not callable(policy):
-        g=np.clip(np.asarray(policy,float),GMIN,GMAX)
+        g=np.clip(_pad(policy),GMIN,GMAX)
         n=advance(s,p,g,nt,*args,log,0)
         return None if n<0 else log[:n]
     policy.reset(pl)
     per=max(int(round((update or pl['Tc'])/pl['Tc'])),1); n=0
     while n<nt:
-        g=np.clip(np.asarray(policy(Obs(log,n)),float),GMIN,GMAX)
+        g=np.clip(_pad(policy(Obs(log,n))),GMIN,GMAX)
         n=advance(s,p,g,min(per,nt-n),*args,log,n)
         if n<0: return None
     return log[:n]
