@@ -1,5 +1,13 @@
 # Cobot scanning benchmark: task protocol and headroom gate
 
+**Current C1 repair (2026-10-22):** [three-task results and primary data](contact_update_results/README.md),
+[controller](contact_update.py), [frozen evaluation](evaluate_contact_update.py).
+The original seed-7200 tasks are reused; no scenario expansion or further
+simple-controller tuning. Stiff-motion RMSE falls from 1.372 to 0.291 N with
+no sampled low-contact episodes in the 20 stiff scenes, at the cost of higher
+static-stiffness error (0.060 to 0.087 N). See the report for the estimator
+ablation, peaks, recovery, timing and comparison limits. C2 is unchanged.
+
 **Chinese experiment section:** [setup, literature-grounded metrics, existing results and missing experiments](../../research/paper_experiments_draft.md).
 The section now maps 12 original papers' questions/tasks/metrics, separates physical
 outcomes from decision quality and runtime, and includes the newly synchronized

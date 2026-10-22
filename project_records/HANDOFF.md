@@ -2,7 +2,45 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
-**Paper-style overview (Chinese):** `research/paper_draft_zh.md` lays out field status, problem, C1, C2, contributions and results in journal structure, with 【待补】 placeholders for missing baselines, fixes and theory. Keep it in sync when results change.
+**Latest checkpoint: C1 stiff-motion repair, original three tasks only.**
+The user explicitly stopped additional simple-controller tuning and scenario
+expansion. This supersedes the wider experiment plan below. Retain three tasks
+and a few representative literature methods; concentrate on repairing C1 and
+reporting the added capability. No further baseline tuning or scene expansion
+is authorized by the old plan. The extra tuning process had already ended when
+the stop was checked; no such Python process remained. Unverified comparator
+prototypes were removed, not reported as reproductions or evidence of novelty.
+
+New C1 source: `experiments/cobot_scan_benchmark/contact_update.py`; frozen
+configuration, primary trajectories and report: `contact_update_results/`.
+It profiles a cubic force-drift polynomial out of the stiffness regression,
+uses three local OCP iterations, and replaces B1 fallback with stiffness-based
+recovery and command-state compensation. The local identifiability condition
+and the exact meaning of equivalent drift are in method document section 2.7.
+This is an implemented change, not just a new description. C2 is unchanged.
+
+Same seed-7200 tasks, 40 scenes each, plus one estimator ablation on the same
+T2/T3 scenes; no new task family, fresh cohort, neural training or test retuning.
+RMSE N (T1 / T2-soft / T2-stiff / T3): original C1 v2
+0.060 / 0.057 / 1.372 / 0.147; repaired C1
+0.087 / 0.068 / 0.291 / 0.142. On 20 stiff T2 scenes, scenes below 0.5 N fall
+from 6 to 0, worst sampled peak from 22.228 to 6.779 N, and two-event recovery
+rate from 80% to 100%. Restoring the old estimator while retaining the new
+recovery/three solve iterations gives 0.531 N and 13.230 N worst peak, so the
+estimator replacement adds a measurable repair benefit. It does not isolate
+cubic degree from the projection operation.
+
+Do not conceal the cost: T1 RMSE worsens and its worst sampled peak rises from
+5.327 to 7.584 N. T3 mean RMSE change is not statistically resolved. The new
+capability is stiff-motion contact retention with lower impact in this cohort,
+not uniform improvement, physical source recovery, global force safety or
+near-optimality. Software P99 call times T1/T2/T3 are 0.501/0.628/0.368 ms;
+physical communications are excluded. The literature rows retain historical
+T3-selected T2 settings, whereas C1 repair used T2 development examples; do not
+present this as an equally retuned ranking or the original papers' limits.
+DOSMAC/Cao/Wang faithful comparisons and full stability remain incomplete.
+
+**Paper-style overview (Chinese):** `research/paper_draft_zh.md` presents the current field, question, implemented C1 repair, unchanged C2 and three-task results, including static-accuracy regression and incomplete closest-prior comparisons. Keep it in sync when results change.
 
 **Confirmed by the user (2026-10-22): refined question, contribution framing and baseline set.**
 The refined question is in `research/research_question.md`; contributions, candidate fixes
