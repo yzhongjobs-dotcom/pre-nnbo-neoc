@@ -111,6 +111,7 @@ environment position (Liu TCST2021, E45) and joint reference-plus-impedance plan
 impedance" is not by itself a contribution. The ablation finding (gain comes from the
 motion/stiffness separation plus reference compensation) is a mechanism result inside
 the current question, not grounds to replace it.
+Question/method wording gap: the question says "update stiffness and damping", but in both current implementations the admittance stiffness K is fixed at 0 and the actions are D, K_PF and u_ff; most of C1's gain comes from motion estimation plus u_ff. Resolve with the user (reword the question or make the method adapt K).
 Known gaps: C1 fails sustained stiff push/retract (T2 1.372 vs Haninger 0.433 N) and its
 "near-optimal" claim is unsupported (local reference gaps up to 199%); C2 is not
 significantly better than EtR-A on T3 (0.210 vs 0.230 N). The evaluated C1/C2 are reduced
