@@ -14,12 +14,12 @@ B0路线为：柱面有限接触足迹 → Fn/Ft/My与MHE → 环境描述符η 
 
 ## 当前范围与未验证内容
 
-- 两套候选共用环境估计/空间预瞄思路，分别探索模型优化更新与仿真离线学习生成阻抗，见[方法说明](optimal_impedance_question_and_methods.md)。
-- “最优”必须明确任务代价、信息、约束和控制策略类；学习输出、自洽节点根或局部数值解不能自动称为最优。
-- 已在二维合成Hertz任务中接通带噪滚动估计、预瞄、四实际增益闭环，并完成两候选各自实验；完整逐样本随机状态MHE及真实机器人收益仍未验证。几何提前量不等于可用预瞄时间，局部数值收益不等于领域优势。
+- 两候选的原始构想与当前实际实现见[方法说明](optimal_impedance_question_and_methods.md)（第2.5节）。当前实现运行在[协作臂扫描基准](../experiments/cobot_scan_benchmark/README.md)上：C1为“滑动窗口联合估计刚度与表面运动 + 短时域直接优化 D/K_PF/u_ff + 接触丢失监督”，C2为“因果历史 + 锁相估计的残差网络，教师蒸馏加进化微调”；结果见[中文仿真章节](paper_experiments_final_zh.md)。
+- “最优”必须明确任务代价、信息、约束和控制策略类；学习输出、局部数值解不能自动称为最优。C1当前局部参考差距最大199%，“近最优”尚无支撑。
+- 当前证据：C1在刚度变化与组合扫描中误差为最强现有方法的56%–64%，但硬组织持续推拉失败；C2未显著超过“在线估计+规则”。消融显示收益主要来自分开估计组织运动与刚度并补偿参考，这是本问题之内的机理结论，不自动构成换题依据。
 - 原问题有应用与已有研究依据，但相对领域充分已有能力的具体重要进展尚待建立；局部简化实验不足以给完整构想下成败结论。
 - 材料、速度、传感器与内环尺度、参考和平台接口仍需核实。不把这些不确定性预先固定成新选题。
 
 此前转向“有限资源下整段有效采集”的候选A缺乏充分改题依据，已退出当前主线。相关错误和少量可用认识见[失败复盘](../project_records/research_failures_and_corrections.md)，原文件由Git保留。
 
-用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)，原问题保持。最新代码、任务/机制/泛化/计算发布实验见[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)，表示改造及边界见[分线设计§10](separate_candidate_design_and_iteration.md#10-task-simulations-after-the-user-clarified-the-sequence)与[HANDOFF](../project_records/HANDOFF.md)；不将平面数值实例当完整B0或实物结论。
+用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)，原问题保持。当前进度与下一步见[HANDOFF](../project_records/HANDOFF.md)最上方检查点；此前的[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)为二维历史实例。
