@@ -1,0 +1,654 @@
+                                                                                                                                                                                    1
+
+
+
+
+                                            Learning Variable Impedance Control for Contact
+                                                             Sensitive Tasks
+                                                                        Miroslav Bogdanovic1 , Majid Khadiv1 and Ludovic Righetti1,2
+
+
+
+
+                                            Abstract—Reinforcement learning algorithms have shown                  that affords efficient learning of policies robust to contact
+                                         great success in solving different problems ranging from playing          uncertainties.
+                                         video games to robotics. However, they struggle to solve delicate            It was shown that position control with fixed pre-tuned gains
+                                         robotic problems, especially those involving contact interactions.
+                                         Though in principle a policy directly outputting joint torques            can have better learning performance than pure torque outputs
+arXiv:1907.07500v2 [cs.RO] 14 Jul 2020
+
+
+
+
+                                         should be able to learn to perform these tasks, in practice               [1], and such policies have been successfully transferred to
+                                         we see that it has difficulty to robustly solve the problem               physical robots interacting with the environment [2]. These
+                                         without any given structure in the action space. In this paper,           results are achieved by guiding properly the exploration us-
+                                         we investigate how the choice of action space can give robust             ing desired position and stabilizing the system around that
+                                         performance in presence of contact uncertainties. We propose
+                                         learning a policy giving as output impedance and desired position         using pre-tuned feedback gains. However, previous work has
+                                         in joint space and compare the performance of that approach to            demonstrated the importance of some form of force control
+                                         torque and position control under different contact uncertainties.        when learning interaction tasks, either explicitly [3] or by
+                                         Furthermore, we propose an additional reward term designed to             learning time-varying control gains [4], [5], [6], [7], state-
+                                         regularize these variable impedance control policies, giving them         varying feedforward and feedback gains [8], or unified motion
+                                         interpretability and facilitating their transfer to real systems. We
+                                         present extensive experiments in simulation of both floating and          and gains varying strategy [9], [10], [11].
+                                         fixed-base systems in tasks involving contact uncertainties, as              Recent results [11], [12] suggest that learning impedance
+                                         well as results for running the learned policies on a real system         schedules in task space can significantly speed up learning
+                                         (accompanying videos can be seen here).                                   of manipulation tasks. The operational space representation
+                                           Index Terms—Reinforcement Learning; Compliance and                      used in those works has the advantage of abstracting the
+                                         Impedance Control; Motion Control.                                        robot kinematics, but with the potential drawback of fixing
+                                                                                                                   the redundancy resolution scheme which can limit the range
+                                                                                                                   of possible behaviors. Indeed, the ability to vary nullspace res-
+                                                               I. INTRODUCTION                                     olution schemes is critical to enable the concurrent execution
+                                                                                                                   of several tasks necessary to achieve complex behaviors, e.g.
+                                         M       ANY interesting robotic applications necessitate com-
+                                                 plex physical interactions with the environment. During
+                                         locomotion, intermittent contacts and force modulation enable
+                                                                                                                   avoiding an obstacle while reaching for an object or taking
+                                                                                                                   a step while maintaining balance [13], [14]. One can also
+                                                                                                                   argue that methods that require solving an inverse problem
+                                         the robot to keep balance and move forward. Multi-contact
+                                                                                                                   suffer from numerical instability near singularity, or rule out a
+                                         interactions are also central to the efficient manipulation of
+                                                                                                                   significant space of possible motions achievable without pre-
+                                         objects. Establishing and breaking contact is especially hard
+                                                                                                                   defining a task-space. Moreover, there is evidence that the best
+                                         because it causes a switch in the dynamics of the system
+                                                                                                                   choice for a task-space may vary across and within tasks [15].
+                                         which can rapidly lead to failures if not controlled properly.
+                                                                                                                   For these reasons, in this paper we focus on joint space policy
+                                         Unforeseen changes in the contacts location and properties
+                                                                                                                   learning despite potential training speedup that can be achieved
+                                         (friction, stiffness, etc) can also dramatically degrade the
+                                                                                                                   by doing the same in a predefined task space.
+                                         robot behavior and remain a fundamental challenge in robotic
+                                                                                                                      The main goal of this paper is to investigate the effect of
+                                         manipulation and locomotion.
+                                                                                                                   policy parametrization on reinforcement learning for robotic
+                                            Deep reinforcement learning has shown a lot of promise
+                                                                                                                   tasks involving complex contact interactions and hard impacts.
+                                         in recent years for robotic applications. However, in an effort
+                                                                                                                   We provide empirical evidence that control policies concur-
+                                         to learn end-to-end policies the focus has often been on the
+                                                                                                                   rently generating desired positions and joint impedance tend
+                                         complexity in the observation part of the task, specifically
+                                                                                                                   to produce more robust behaviors. We present both extensive
+                                         vision, and not necessarily on the physical interaction part
+                                                                                                                   numerical simulations and real hardware experiments. In par-
+                                         of the problem. One important aspect, that we investigate in
+                                                                                                                   ticular, we find that the resulting policies are robust to various
+                                         the paper, relates to the choice of a policy parametrization
+                                                                                                                   types of contact uncertainties (friction, stiffness and contact
+                                                                                                                   location). Additionally, we propose a reward term regularizing
+                                           This work was supported by New York University, the European Unions
+                                         Horizon 2020 research and innovation program (grant agreement No 780684   these variable gain policies and giving them interpretability,
+                                         and European Research Councils grant No 637935) and a Google Faculty      allowing for direct transfer to a real robot. We perform an
+                                         Research Award.                                                           extensive analysis on two very different systems: a single-
+                                           1 Max-Planck Institute for Intelligent Systems, Tübingen, Germany
+                                         {mbogdanovic, mkhadiv, lrighetti}@tue.mpg.de                              leg hopper (floating-base) creating intermittent contacts with
+                                           2 Tandon School of Engineering, New York University, USA                hard impacts on the ground and a manipulator (fixed-base)
+2
+
+
+
+performing a delicate force control task. In both cases we show        On the other side, achieving a desired behavior in interaction
+that variable gain control outperforms a wide range of learned      with the environment becomes more difficult, especially when
+fixed gain or direct torque control policies, especially in the     uncertainties are present, even when the gains are well tuned
+presence of contact uncertainty.                                    for the specific task. The policy can to some extent control
+                                                                    the interaction with the environment by changing desired joint
+      II. CONTROL POLICY PARAMETRIZATION                            positions, but as we will see later, finding such solutions
+   In this work, we compare several ways to parameterize            becomes increasingly difficult.
+control policies when using reinforcement learning in robotics        Variable gain PD control. The last parametrization is a PD
+tasks. For each examined control parametrization we represent       controller with variable gains, i.e. the policy modulates both
+the policy with a neural network. The inputs of the network         the desired position and impedance of each joint (Figure 1(c)).
+stay the same in each case (the state of the system, ξ), while      The control law is written as
+the output corresponds to the parameters of the individual
+controller (torque, desired positions, gain parameters, etc).                   τ = Kp (ξ)(qdes (ξ) − q) − Kd (ξ)q̇              (3)
+Based on these parameters the controller produces the torque,
+                                                                    Note: In our experiments, we use a single output to control
+τ , that is then applied to the system. We now present each of
+                                                                    both Kp and Kd by imposing a fixed relationship between
+the controller parametrization that will be examined.
+                                                                    damping and stiffness, similar to the scaling of critical damp-
+  Direct torque control. In the first parametrization, the          ing. The neural network outputs the Kp gain and Kd is varied
+neural network directly outputs desired torque commands             with the square root of that value.
+(Figure 1(a)) and the resulting control law is simply:                 In contrast to the previous two controllers, we have intro-
+                                                                    duced an extra degree of freedom (the gain modulation) for
+                           τ = τ (ξ)                         (1)
+                                                                    each joint. In theory, this added degree of freedom allows
+This parametrization imposes no structure, which provides           for an explicit separation between the feedforward path, i.e.
+some benefits. As there is no imposed structure, any control        the desired behavior encoded in the desired position, and the
+that is a function of the variables present in the state can        feedback path, i.e. the response to unforeseen events encoded
+be expressed using this parametrization, given that the neural      in the feedback gain.
+network is capable of approximating it. Additionally, such             This parametrization will preserve the ease of exploration
+control parametrization may have a more direct control of           characteristic of PD control with fixed gains. Moreover, with
+interaction forces than position controllers and may provide        additional control dimensions to use, the functions the policy
+benefits in that respect, at least in static contact situations.    needs to learn may become even simpler than in the pure
+   However, having no imposed structure also has several            position control case. Finally, key to contact sensitive tasks
+downsides. With this parametrization, the function to be            we are particularly interested in, the policy has finer control
+learned may be unnecessarily complex. For example, for a            over contact interactions with the environment. Robustness
+motion task, the policy needs to learn something akin to PD         to environment uncertainty might be easier to encode in the
+control as well as a part that generates desired positions, all     feedback path while preserving the feedforward one to encode
+inside one function. This representation does not explicitly        the ideal, unperturbed, behavior.
+separate the feedback (how to correct from errors) from the            An obvious drawback is that we doubled the size of the
+feedforward (what is the desired behavior) pathways. Further,       action space the policy is acting in. But, as we will see later,
+small variations in commanded torques can lead to very              this rarely causes loss in learning performance.
+different movements and therefore to different task costs. This
+                                                                       Remark: Both fixed and variable gain PD control we discuss
+will also raise issues for generating meaningful exploration,
+                                                                    in this work are different than the ones commonly used in
+which might be more difficult than doing the same in the space
+                                                                    robotics, where the control follows a predefined time-based
+of desired joint positions.
+                                                                    trajectory [2]. All controllers we examine are state-based
+   Fixed gain PD control. The second parametrization con-           without any notion of time, and as such are capable of handling
+siders a PD controller with fixed gains. In this case, the policy   uncertainty in contact location and time.
+outputs desired joint positions and torques are computed using
+a PD controller with some pre-defined gains (Figure 1(b)). The
+control law is then                                                             III. EVALUATION PROCEDURE
+                                                                       Evaluation goals. In our evaluations we focus on setups
+                τ = Kp (qdes (ξ) − q) − Kd q̇                (2)
+                                                                    where proper interaction with the environment is crucial for
+Again, there are positive and negative aspects to such a            task success. In contact sensitive problems, planning and
+parametrization. It is often easier to find solutions in this       optimization-based approaches often struggle and reinforce-
+setup [1], due to a simpler action space to explore and a           ment learning has the potential to generate solutions which
+policy easier to encode. Indeed, small variations in desired        cannot be easily found otherwise.
+positions lead to small variations in task execution, at least in      A central aspect of this work is to evaluate how controller
+contact-free motions. It is in fact, as we will also see in our     parametrizations influence task performance in presence of
+experiments later, the best choice for tasks involving only free    different contact uncertainties in the environment. This is an
+space motions.                                                      important aspect in order to generate motions that can transfer
+                                                                                                                                    3
+
+
+
+
+                                     Fig. 1: Structures for the three control policies used.
+
+
+                                                                    IV. CONTROLLING A FLOATING-BASE SYSTEM
+
+                                                                  A. Task description
+
+                                                                     Setup. The first setup we use in our evaluations consists of
+                                                                  a floating-base robot hopper with a two degrees of freedom
+                                                                  leg [18] and a solid surface beneath it. We restrict the base to
+                                                                  only move along the Z-axis which eliminates the falling down
+                                                                  effect while still capturing the base motion and intermittent
+         (a)                  (b)                  (c)            contacts during continuous jumping.
+Fig. 2: Evaluation environments used: A floating-base system:        Task. The task is to achieve stable periodic hopping mo-
+a hopper jumping on a surface in simulation (a) and on real       tions. We penalize hard impacts on the ground, as it is not
+hardware (b); A fixed-base system: a manipulator interacting      something that would be acceptable on the real system. We
+with the environment in simulation (c).                           are interested in motions where the system smoothly lands
+                                                                  and pushes off, without any discontinuities in its velocity. To
+to real physical systems. To be able to successfully transfer     produce policies that are robust to contact switch uncertainty
+policies from simulation to real systems we need to find          we randomly change ground surface height during episode ex-
+solutions that are capable of handling variation in critical      ecution in a range between −5 cm and 5 cm. This corresponds
+environment parameters. Therefore, the parametrization best       to ground variations of 31% of the total hopper height in the
+able to find solutions in such cases is more likely to produce    fully stretched configuration (32 cm).
+good results when applied on the physical system.                    We set the state of the system to consist of the joint positions
+                                                                  and velocities for the two leg joints as well as position and
+                                                                  velocity of the base. We do not explicitly provide to the system
+   Evaluation environments. To study these aspects, we use
+                                                                  any information about contact.
+two different environments, a single leg hopper which is a
+floating-base system and a manipulator fixed to the ground.          Reward function design. To generate hopping motions we
+We seek to show that our results are consistent across two very   intentionally keep the reward function as simple as possible.
+different environments, with contact interactions of completely   The main part of the reward is based on the height of the robot
+different nature. The manipulation task requires fine interac-    base at every timestep, with an increase for values that cannot
+tion while the hopping task requires soft, reactive landing and   be reached without leaving the ground. This term, on its own,
+quick force exertion. Both contain movements that alternate       is enough to produce consistent hopping motions. However,
+between free-space motions and contact interaction phases.        regardless of the controller design, policies trained on such a
+The simulations are implemented in the PyBullet simulator         reward produce exactly the excessive impacts on the ground
+[16]. We also show direct transfer of the learned policy for      we are looking to avoid. In order to prevent impact forces
+the hopping environment to the real system.                       that can produce damage on the real system we penalize large
+                                                                  forces applied to the robot. Finally, to avoid high frequency
+   Reinforcement learning algorithm. For training the con-        control command we introduce a torque smoothness penalty.
+trol policies we use Deep Deterministic Policy Gradient              Even though in this case we are dealing with a comparably
+(DDPG, [17]). We chose an off-policy algorithm to reduce          simple system, this reward design creates a challenging learn-
+the issue of local minima, especially present here arising from   ing problem. It is relatively easy for policies to get stuck in
+combination of learning to control in joint space, disconti-      a local minima where the system is just held upright with its
+nuities in the dynamics arising from contact interaction, and     leg fully extended and not reach any hopping motion in their
+complex, multi-part reward functions. However, we do not          exploration. The addition of the large force penalty makes the
+make use of any particularities of DDPG in our approach. We       problem even more difficult as initial hopping motions found
+therefore expect that the results we present here will remain     during training are bound to result in penalty for bad landings
+consistent when using other learning algorithms.                  larger than the reward received for jumping.
+4
+
+
+
+                                                             (a) Final training scores (all variants)                              one, a result of more of those policies converging to adequate
+                                       1.5                                                                                         solutions as well as doing so faster.
+Episode reward (×103 )
+
+
+
+
+                                       1.0
+                                                                                                                                      Being more likely to converge is important, as it allows us
+                                                                                                                                   to find policies we can use in a limited number of training
+                                       0.5
+                                                                                                                                   runs. However, at the end we are always going to pick the
+                                       0.0                                                                                         best performing policy to deploy on the real system. We
+                            −0.5                                         Direct torque control                                     are therefore interested in understanding how good the best
+                                                                         Fixed gain PD control                                     policies are. In Figure 3(c) we show the individual final
+                            −1.0                                         Variable gain PD control
+                                                                                                                                   performances from the previous experiment for all the policies
+                                                   1.0       2.0   3.0    4.0    5.0       6.0   7.0    8.0       9.0   10.0       above a score of 1000. Here we can see that it is not only
+                                                             Control / Kp gain value for fixed gain control                        the case that the variable gain policies are more likely to
+                                                                   (b) Average learning curves                                     converge or that they do so faster on average, but that they
+                                       1.5
+                                                   Direct torque control                                                           find solutions strictly better than any that are found with the
+Episode reward (×103 )
+
+
+
+
+                                                   Fixed gain PD control (Kp = 5)
+                                       1.0         Variable gain PD control
+                                                                                                                                   fixed gain parametrization.
+                                                                                                                                      Qualitative analysis. In Figure 4 we show sample of be-
+                                       0.5
+                                                                                                                                   havior of the best performing variable gain policy. Examining
+                                                                                                                                   the gain profiles, we can note that they go to lowest possible
+                                       0.0
+                                                                                                                                   value in advance of making contact, before spiking up to allow
+                                                                                                                                   the system to first slow down, and then push itself off the
+                            −0.5
+                                             0           1         2         3         4          5           6         7      8   ground. The torque values stay close to zero except during
+                                                                         Training episodes (×103 )                                 landing and push-off when they go to maximum values that
+                                                 (c) Final training scores (only those > 1000 shown)                               can be exerted. The contact interaction is such that the impact
+                                       1.5                                                                                         is absorbed and the force is smoothly applied to first slow
+              Episode reward (×103 )
+
+
+
+
+                                                                                                                                   down and then accelerate the system upwards, without losing
+                                       1.4
+                                                                                                                                   contact at any point.
+                                       1.3
+
+                                       1.2                                                                                         C. Experiments on the real system
+                                       1.1                                                                                            Transferring policies to real systems. When learning in
+                                       1.0
+                                                                                                                                   simulation the policies can learn to exploit idealized rigid-body
+                                             Fixed gain PD control (Kp = 5)                      Variable gain PD control          dynamics. Indeed, simulations do not include robot flexibility
+                                                                                                                                   or difficult to model dynamic effects such as Coulomb friction,
+Fig. 3: Results for training in simulation on the hopping                                                                          drive train dynamics, etc. Furthermore, they typically assume
+environment: (a) Final training scores for all controller                                                                          infinite bandwidth control authority, without any delays, which
+parametrizations. For the fixed gain policy results are shown                                                                      is known to be an issue to compute optimal policies [19],
+for a wide range of gain values; (b) Averaged learning curves                                                                      [2]. As a result, optimized policies can quickly change control
+for the three controller parametrizations. Results are averaged                                                                    outputs which results in very good behavior in simulation but
+over 100 training instances for each parametrization; (c) Closer                                                                   excites the dynamics of the real robot in problematic ways,
+look at the best performing policies at the end of the training                                                                    for example creating unwanted and possibly destabilizing
+(only those with score greater than 1000).                                                                                         oscillations in the motion. This is an effect that we observed
+B. Simulation results                                                                                                              in our initial experiments.
+                                                                                                                                      An approach often taken in sim-to-real research is to ran-
+   Quantitative comparison. We run several training in-
+                                                                                                                                   domize robot parameters in the simulation to capture various
+stances for each of the three controller parametrization. For
+                                                                                                                                   types of unmodeled dynamics [20]. However, there is no
+fixed gains control we examine performance over a range of
+                                                                                                                                   guarantee that this randomization will capture the unmodeled
+different gains. In Figure 3(a) we show final scores at the end
+                                                                                                                                   dynamics of interest since the simulation does not explicitly
+of each training. We can see that direct torque control policies
+                                                                                                                                   capture this dynamics. Further, dynamic randomization might
+completely fail to achieve the task. For fixed gain control we
+                                                                                                                                   prevent finding appropriate solutions that could transfer to the
+can observe a drop in performance when gains are too low and
+                                                                                                                                   real robot by generating samples that do not apply to the
+when they are too high, with a medium value of Kp = 5.0
+                                                                                                                                   real robot. In this paper, we explore a different approach that
+having the best average performance.
+                                                                                                                                   exploits our control parametrization.
+   For reliably comparing fixed and variable gain control
+on this task we repeat the experiment using 100 training                                                                              Trajectory tracking reward term. To address the afore-
+instances for each controller parametrization, using the best                                                                      mentioned issue, we introduce an additional reward term
+performing gain value for fixed gains control. In Figure 3(b)                                                                      during learning of the policies in simulation, which aims to
+we present learning curves averaged over all the experiments                                                                       force the policy to generate desired positions that can be
+for each controller parametrization. We can see that average                                                                       effectively tracked. The reward term penalizes the difference
+performance of variable gain control exceeds that of fixed gain                                                                    between the desired position given by the policy at time step
+                                                                                                                                                                                                5
+
+
+
+ 1.0
+
+ 0.5
+
+ 0.0
+                                                                                                                                                                     Hip desired position
+ 0.0
+                                                                                                                                                                     Knee desired position
+−2.5
+  10
+                                                                                                                                                                                 Hip gain
+     5                                                                                                                                                                           Knee gain
+
+ 2.5
+                                                                                                                                                                        Hip torque [Nm]
+ 0.0
+                                                                                                                                                                        Knee torque [Nm]
+−2.5
+  50
+                                                                                                                                                                         Ground force [N]
+     0
+               0.0                   0.2                     0.4                 0.6                         0.8                      1.0                     1.2                   1.4
+                                                                                             Time[s]
+
+Fig. 4: Example of a learned behavior of the variable gain policy in simulation. The gains are at minimum just before landing
+and then increase quickly to enable push-off.
+
+               a) Variable gain control without trajectory tracking reward term                                b) Variable gain control with trajectory tracking reward term
+ 2                                                                       Hip position           0                                                                      Hip position
+                                                                                actual                                                                                             actual
+ 0                                                                              desired         2                                                                                  desired
+ 0                                                                     Knee position            4                                                                            Knee position
+                                                                                actual                                                                                             actual
+ 2                                                                              desired                                                                                            desired
+                                                                                                6
+10                                                                                             10
+                                                                              Hip gain                                                                                           Hip gain
+ 5                                                                            Knee gain         5                                                                                Knee gain
+
+         0.0    c) Fixed0.2            0.4
+                          gain control without       0.6 tracking reward
+                                               trajectory          0.8   term 1.0                      0.0                                with trajectory0.6tracking reward
+                                                                                                                          0.2gain control0.4
+                                                                                                                   d) Fixed                                             0.8 term       1.0
+ 0                                         Time[s]                                             2                                              Time[s]
+                                                                         Hip position                                                                                        Hip position
+                                                                                  actual                                                                                            actual
+−2                                                                                desired                                                                                           desired
+                                                                                               0
+                                                                           Knee position       0                                                                             Knee position
+ 2
+                                                                                 actual                                                                                            actual
+                                                                                 desired     −2                                                                                    desired
+ 0
+         0.0            0.2            0.4             0.6           0.8               1.0             0.0               0.2            0.4             0.6            0.8                1.0
+                                             Time[s]                                                                                          Time[s]
+
+
+Fig. 5: Effect of introduction of the trajectory tracking reward term on outputs of fixed and variable gain policies: (a), (b)
+Comparing the effect on resulting trajectory and gains for the variable gain policy; (c), (d) Comparing the effect on resulting
+trajectory in the case of fixed gain policy.
+    t
+t, qdes and the actual position achieved in the next time step                                    We should note the difference between this term and a term
+t + 1, q t+1 as follows:                                                                       penalizing desired positions that move away from the current
+                                     t                        2                                state of the system. In the second case any desired position
+                           rtt = −k qdes − q t+1                                               different than the current one receives some penalty and the
+   With this reward term, we favor desired joint positions                                     system is incentivized not to move. With the reward term
+that can be tracked by the closed loop system in simulation.                                   we propose here if the position is reached in the next time
+Without such a reward term, the variable gain policy can                                       step, zero penalty is given. Even in the case when the desired
+make a choice between various desired position and gain pairs                                  position is not reached, penalty is only given on the remaining
+that results in the same applied torque at each time step.                                     distance to it. Only the desired values that cannot be reached
+For example, instead of generating desired positions that can                                  are penalized, all motions where the trajectory can be tracked
+be meaningfully executed, it can just give desired position                                    receive zero penalty.
+values far from the actual robot trajectory with smaller gains                                    In order to evaluate the effect of this addition to the reward
+to achieve the same torques and therefore the same behavior.                                   on the resulting policies, we repeat the training process de-
+However, this would lead to behaviors that could be very sensi-                                scribed previously with the trajectory tracking penalty enabled
+tive to variations in the dynamics. As an additional benefit, this                             for both fixed and variable gain policies. We find that the best
+term forces the policy output to remain interpretable as desired                               scoring policies for both these controller parametrizations still
+position and feedback gains, clearly separating feedback and                                   generate hopping with similar performance.
+feedforward control paths.                                                                        The outputs of both policies, with and without trajectory
+6
+
+
+
+                                                                                        in the way we described to the real system is very robust.
+                                                                                        Out of the 6 policies we evaluated all succeeded in reasonable
+                                                                                        jumping performance, for many consecutive jumps, on the first
+                                                                                        try. The achieved jump heights are presented in Figure 7.
+                                                                                           Importantly, the variable gain policy outperforms all of the
+                                                                                        fixed gain ones, i.e. it is the policy that saw the least decrease
+                                                                                        in performance. Moreover, the resulting jumping height is
+                                                                                        higher than what was demonstrated using model-based control
+                                                                                        in [18]. It is in fact the highest jumping we were able to
+                     (a)            (b)         (c)        (d)           (e)            generate on this platform to date. Also, even though its gains
+Fig. 6: Example of a variable gain policy behavior on the
+                                                                                        can, and do, go as high as Kp = 10.0 it shows none of the
+real system: (a) Push-off position on the ground; (b) Pushing
+                                                                                        instability present in the fixed gain policies with those same
+off the ground; (c) Reaching maximum height; (d) Getting
+                                                                                        gain values. The reason for this being that it increases the
+into position in preparation for the landing; (e) Landing and
+                                                                                        gains to maximum values only when necessary (e.g. during
+starting the cycle again.
+                                                                                        push-off). Indeed, the maximum admissible gains in contact
+                  0.75                                                                  will always be larger than during the flying phase due to
+                                                                                        the changing reflected inertia at the joints in loaded/unloaded
+                                                                                        conditions.
+Jump height [m]
+
+
+
+
+                  0.70
+
+
+                                                                                             V. CONTROLLING A FIXED-BASE SYSTEM
+                  0.65
+                                                                  Ground offset         A. Task description
+                                                                       +5cm
+                                                                       baseline
+                                                                                           Setup. We use a simulation of a 7 degree of freedom KUKA
+                  0.60                                                                  LWR manipulator (Figure 2(a)). In all the simulations, gravity
+                                                                       -5cm
+                                                                                        is compensated with a feedforward term, which is the default
+                         Kp = 2.0    Kp = 3.0   Kp = 4.0   Kp = 5.0     Variable gain
+                                                                                        behavior on the real robot.
+Fig. 7: Jumping heights for fixed and variable gain policies
+                                                                                           Task. The task we are interested in consists of doing a
+deployed on the real system. We use three ground positions
+                                                                                        circular motion with the endeffector touching a table in front
+where the baseline is the normal ground height and the other
+                                                                                        of it, while applying a desired constant vertical force. This
+two (−5 cm, 5 cm) are the ends of the range over which the
+                                                                                        task is relevant for many applications that require sliding
+policies are trained.
+                                                                                        contacts, such as cleaning a surface, using a tool on an object,
+tracking reward, are shown in Figure 5. We can see that before                          etc. Tasks involving sliding contacts are especially difficult
+adding this penalty term the variable gain policy gives desired                         to optimize in general. The task is designed such that the
+position output far from the current trajectory when realizing                          robot starts from a random initial position. It should be able
+the force needed to push off from the ground. However, when                             to reach the table, establish a safe contact and exert a desired
+training with this new reward term the desired positions for                            vertical force. We consider three types of uncertainties for
+both joints track the actual trajectory more closely. We can                            the table: stiffness (i.e. how soft is the contact), friction,
+see that this also results in interpretable gain results – going                        and height. These uncertainties are relevant for real-world
+as low as possible before contact and then spiking up to realize                        applications as changes in contact properties and location can
+the force that is needed. On the other hand the output of                               easily destabilize controllers and lead to failures. Moreover
+the fixed gains policy practically does not change at all (the                          contact stiffness and friction cannot be known precisely before
+plots differ as a result of the opposite knee orientation found                         interaction in an unknown environment.
+between the two solutions). When gains are fixed, the only                                 For this task, the states of the system consist in the positions
+manner to control a desired contact force is to go off the                              and velocities of all 7 joints of the arm, as well as the total
+trajectory with the desired position values. On the other hand,                         force measured by the endeffector.
+the resulting force can be controlled by varying the gains in
+                                                                                           Reward function design. To learn a policy for achieving
+the other parametrization.
+                                                                                        the desired task we define a reward function consisting of
+   Evaluating policies on the real system. We evaluated the                             several parts (1-5). We use two terms to drive the circular
+best performing policies in simulation for each gain value for                          motion along a desired trajectory: (1) the current distance from
+the fixed gain controller and the one best performing variable                          the endeffector to the closest point on the circle and (2) the
+gain policy. Torque control did not produce any sensible policy                         difference between the current velocity vector and the desired
+worth evaluating on the real system. For the fixed gain policies,                       tangential velocity on the closest point on the trajectory so as
+having position gain values of Kp = 1.0 was insufficient for                            to achieve a motion with constant angular velocity. The three
+hopping so that is omitted from the following comparison.                               other terms are: (3) a reward based on the orientation of the
+Gain values of Kp = 6.0 and higher resulted in unstable                                 endeffector, (4) a constant reward for any interaction between
+behavior so those are omitted as well.                                                  the endeffector and the table and a further reward based on the
+  Apart from this, the transfer of policies trained in simulation                       difference with desired contact force and (5) a penalty term
+                                                                                                                                       7
+
+
+
+for any interaction between the table and any part of the robot       from varying the desired position with a high frequency. In
+other than the endeffector.                                           other words, the policy is incentivized to change the desired
+    While the reward function might seem complex, each term           position in a way that is consistent with the system dynamics
+directly encodes one aspect of the task and we pay particular         and constraints (as much as it does not degrade achieving
+attention not to incentivize any specific behavior in solving         the desired task). As a side benefit, the trajectory tracking
+it. The apparent complexity is precisely the result of this, as       term also gives interpretability to the output of the policy,
+we use multiple terms to define the circular motion along the         i.e. the sequence of desired positions over time can be seen
+trajectory, instead of simply having one specific point to track,     as the desired feasible trajectory and the multiplier to the
+explicitly to ensure time-invariance of the resulting policies.       error replicates the feedback gains. As a result, if we have
+                                                                      a variable gain policy, we can find a desired trajectory and an
+B. Simulation results                                                 optimal set of feedback gains for that desired trajectory. This
+   Quantitative comparison. We examine the robustness of              interpretability can yield insight about the optimal impedance
+our approach to variability present in the environment. We            modulation for contact-rich tasks, which is still an open
+consider in three separate simulations uncertainties on table         problem in the field.
+height, friction, and stiffness. For each of the three variables
+we define a possible range of values and uniformly sample                Action space parametrization alternatives. When propos-
+a new environment in each episode during training. We vary            ing any new structure in the action space of the policy, in
+the table height in a 20 cm range from 0.8 m to 1.0 m and             addition to standard considerations on the control side, we
+Coulomb friction coefficients in a range from 0 (no friction)         suggest to take into account two additional factors from the
+to 1. We also vary the rigidity of the surface (which can easily      learning perspective. First, good exploration is critical for fast
+influence the stability of a controller) with stiffness values        convergence and to avoid getting stuck in undesired local
+from 50 N/m to 500 N/m.                                               minima. This is where position control based policies come
+   We perform each policy training for a fixed, predefined            ahead of direct torque control, but they in no way completely
+number of episodes. For each controller we repeat the training        solve the problem and there is further research to pursue in that
+6 times, with different circular trajectories to track. In Figure 8   area. Second, if we entirely decouple the feedback path from
+we present the combined results, showing the mean and stan-           the feedforward one (e.g. τ = τf f (ξ) − Kp (ξ)x − Kd (ξ)ẋ),
+dard deviation for the learning curves across these individual        the learned policy may realize the entire control through a
+trainings.                                                            single term, mostly ignoring the other one (our experiments
+   We can see that variable gain control outperforms both             with such control law formulations resulted in precisely that
+of the other two parametrizations. Splitting the control into         type of behavior). This would also strip the control law terms
+motion and impedance parts makes it crucially easier for a            of any physical meaning we tried to impose. When using any
+good behavior to be found. One control term can handle the            such control law in a policy learning setting, where the same
+circular motion, while the other, depending on the experiment,        behavior can be produced by different combinations of control
+can manage contact location uncertainty or compensate for             terms, there needs to be something incentivizing one choice
+unknown friction of the surface.                                      over another. Only then can the individual terms have the
+                                                                      intended physical meaning, giving us the interpretability we
+   Qualitative analysis on contact transition. Further com-           desire.
+parison between different cases in Figure 8 reveals that the
+performance gap between the variable gain policies and the               Stability of variable impedance policy. Varying impedance
+other two (fixed gains and direct torque) is more obvious when        as a function of state can cause instability of the control. As
+there is uncertainty in the contact location. Since the dynamics      discussed in [21], reasonable varying stiffness profiles show
+of the system changes before and after contact, transition            no destabilization tendencies. In this paper, first we found a
+between the two modes (i.e. free motion vs. in-contact) has           range of joint stiffness and damping that does not cause any
+a critical impact on the task achievement. Hence, the policy          instability on the real system for a wide range of motions. Then
+that is able to tolerate uncertainty in the mode transition can       we let the policy find a state-dependent impedance within this
+outperform other ones drastically. To investigate qualitatively       range. With this strategy, we never experienced any instability
+the behaviour of different policies in this case, we plotted          when we applied the learned policy directly on the real robot.
+the corresponding normal interaction forces (Figure 9) for a
+representative experiment. We can clearly see that the applied                            VII. CONCLUSION
+force from variable gain policy is smooth without loosing
+contact. On the other hand, direct torque control looses contact         In this paper, we have investigated the effect of action
+frequently and the fixed gains policy generates forces with           space representation on the performance and robustness in
+high frequency oscillations. The variable gain policy leads to        contact-rich tasks in the presence of uncertainties. On both a
+smoother contact forces which could be realistically applied          floating-base hopping task and a fixed-base table wiping one
+on a real robot.                                                      we demonstrate that variable impedance control allows us to
+                                                                      find better performing policies and to do so more reliably. Ad-
+                     VI. D ISCUSSION                                  ditionally, we showed how we can use a regularization term to
+  Trajectory tracking term. The trajectory tracking term was          impose the original physical meaning to desired trajectory and
+crucial in our sim-to-real transfer, as it prevents the policy        impedance, giving interpretability to these policies. Finally, we
+8
+
+
+
+                                                    a) Table height variation                             b) Surface friction variation                                 c) Surface stiffness variation
+                               8
+
+                               7
+Episode reward (×103 )
+
+
+
+
+                               6
+
+                               5
+
+                               4
+
+                               3
+                                                                                                                                                                                            Direct torque control
+                               2                                                                                                                                                            Fixed gain PD control
+                                                                                                                                                                                            Varible gain PD control
+                               1
+                                        0.0   2.5      5.0     7.5    10.0      12.5   15.0   0.0   2.5       5.0       7.5      10.0     12.5   15.0   0.0       2.5        5.0     7.5     10.0        12.5   15.0
+                                                                                                             Training episodes (×103 )
+
+Fig. 8: Robustness evaluations for the fixed-base setup. Results for environments with varying table height (a), table surface
+friction (b), and table surface stiffness (c).
+
+                                   50
+                                                                                                                                                                                             Direct torque control
+                                                                                                                                                                                             Desired force
+                                    0
+           Interaction force [N]
+
+
+
+
+                                   50
+                                                                                                                                                                                            Fixed gain PD control
+                                                                                                                                                                                            Desired force
+                                    0
+
+                                   50
+                                                                                                                                                                                           Varible gain PD control
+                                                                                                                                                                                           Desired force
+                                    0
+                                              0                                    2                                  4                                       6                                       8
+                                                                                                                     Time [s]
+
+                                              Fig. 9: Table force interactions during circle tracking task for learned policies for different controllers.
+
+demonstrated how the policies can then directly be deployed                                                             [11] R. Martı́n-Martı́n, M. A. Lee, R. Gardner, S. Savarese, J. Bohg, and
+on a real system, preserving performance and robustness.                                                                     A. Garg, “Variable impedance control in end-effector space: An action
+                                                                                                                             space for reinforcement learning in contact-rich tasks,” arXiv preprint
+                                                                                                                             arXiv:1906.08880, 2019.
+                                                                                                                        [12] P. Varin, L. Grossman, and S. Kuindersma, “A comparison of action
+                                                                R EFERENCES                                                  spaces for learning manipulation tasks,” in 2019 IEEE/RSJ International
+ [1] X. B. Peng and M. van de Panne, “Learning locomotion skills using                                                       Conference on Intelligent Robots and Systems (IROS), pp. 6015–6021,
+     deeprl: Does the choice of action space matter?,” in Proceedings of                                                     Nov 2019.
+     the ACM SIGGRAPH/Eurographics Symposium on Computer Animation,                                                     [13] L. Saab, O. E. Ramos, F. Keith, N. Mansard, P. Soueres, and J.-Y.
+     p. 12, ACM, 2017.                                                                                                       Fourquet, “Dynamic whole-body motion generation under rigid contacts
+ [2] J. Hwangbo, J. Lee, A. Dosovitskiy, D. Bellicoso, V. Tsounis, V. Koltun,                                                and other unilateral constraints,” IEEE Transactions on Robotics, vol. 29,
+     and M. Hutter, “Learning agile and dynamic motor skills for legged                                                      no. 2, pp. 346–362, 2013.
+     robots,” Science Robotics, vol. 4, no. 26, p. eaau5872, 2019.                                                      [14] A. Herzog, N. Rotella, S. Mason, F. Grimminger, S. Schaal, and
+ [3] M. Kalakrishnan, L. Righetti, P. Pastor, and S. Schaal, “Learning                                                       L. Righetti, “Momentum control with hierarchical inverse dynamics
+     force control policies for compliant manipulation,” in 2011 IEEE/RSJ                                                    on a torque-controlled humanoid,” Autonomous Robots, vol. 40, no. 3,
+     International Conference on Intelligent Robots and Systems, pp. 4639–                                                   pp. 473–491, 2016.
+     4644, IEEE, 2011.                                                                                                  [15] J. Silvério, L. Rozo, S. Calinon, and D. G. Caldwell, “Learning biman-
+ [4] J. Buchli, F. Stulp, E. Theodorou, and S. Schaal, “Learning variable                                                    ual end-effector poses from demonstrations using task-parameterized
+     impedance control,” The International Journal of Robotics Research,                                                     dynamical systems,” in 2015 IEEE/RSJ International Conference on
+     vol. 30, no. 7, pp. 820–833, 2011.                                                                                      Intelligent Robots and Systems (IROS), pp. 464–470, IEEE, 2015.
+ [5] F. Stulp, J. Buchli, A. Ellmer, M. Mistry, E. A. Theodorou, and S. Schaal,                                         [16] E. Coumans and Y. Bai, “Pybullet, a python module for physics sim-
+     “Model-free reinforcement learning of impedance control in stochastic                                                   ulation for games, robotics and machine learning,” GitHub repository,
+     environments,” IEEE Transactions on Autonomous Mental Development,                                                      2016.
+     vol. 4, no. 4, pp. 330–341, 2012.                                                                                  [17] T. P. Lillicrap, J. J. Hunt, A. Pritzel, N. Heess, T. Erez, Y. Tassa,
+                                                                                                                             D. Silver, and D. Wierstra, “Continuous control with deep reinforcement
+ [6] K. Kronander and A. Billard, “Learning compliant manipulation through
+                                                                                                                             learning,” CoRR, vol. abs/1509.02971, 2015.
+     kinesthetic and tactile human-robot interaction,” IEEE transactions on
+                                                                                                                        [18] F. Grimminger, A. Meduri, M. Khadiv, J. Viereck, M. Wüthrich,
+     haptics, vol. 7, no. 3, pp. 367–380, 2013.
+                                                                                                                             M. Naveau, V. Berenz, S. Heim, F. Widmaier, T. Flayols, J. Fiene,
+ [7] J. Luo, E. Solowjow, C. Wen, J. A. Ojea, A. M. Agogino, A. Tamar,
+                                                                                                                             A. Badri-Spröwitz, and L. Righetti, “An open torque-controlled modular
+     and P. Abbeel, “Reinforcement learning on variable impedance controller
+                                                                                                                             robot architecture for legged locomotion research,” IEEE Robotics and
+     for high-precision robotic assembly,” arXiv preprint arXiv:1903.01066,
+                                                                                                                             Automation Letters, 2020. Early access.
+     2019.
+                                                                                                                        [19] R. Grandia, F. Farshidian, A. Dosovitskiy, R. Ranftl, and M. Hutter,
+ [8] E. Gribovskaya, A. Kheddar, and A. Billard, “Motion learning and
+                                                                                                                             “Frequency-aware model predictive control,” IEEE Robotics and Au-
+     adaptive impedance for robot control during physical interaction with
+                                                                                                                             tomation Letters, vol. 4, no. 2, pp. 1517–1524, 2019.
+     humans,” in 2011 IEEE International Conference on Robotics and
+                                                                                                                        [20] X. B. Peng, M. Andrychowicz, W. Zaremba, and P. Abbeel, “Sim-to-real
+     Automation, pp. 4326–4332, IEEE, 2011.
+                                                                                                                             transfer of robotic control with dynamics randomization,” in 2018 IEEE
+ [9] S. M. Khansari-Zadeh and O. Khatib, “Learning potential functions
+                                                                                                                             international conference on robotics and automation (ICRA), pp. 1–8,
+     from human demonstrations with encapsulated dynamic and compliant
+                                                                                                                             IEEE, 2018.
+     behaviors,” Autonomous Robots, vol. 41, no. 1, pp. 45–69, 2017.
+                                                                                                                        [21] K. Kronander and A. Billard, “Stability considerations for variable
+[10] J. Viereck, J. Kozolinsky, A. Herzog, and L. Righetti, “Learning a
+                                                                                                                             impedance control,” IEEE Transactions on Robotics, vol. 32, no. 5,
+     structured neural network policy for a hopping task,” IEEE Robotics
+                                                                                                                             pp. 1298–1305, 2016.
+     and Automation Letters, vol. 3, no. 4, pp. 4092–4099, 2018.
+

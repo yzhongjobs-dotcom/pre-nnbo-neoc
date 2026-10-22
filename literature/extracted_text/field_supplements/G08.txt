@@ -1,0 +1,1930 @@
+                                                                 Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+                                                            Contents lists available at ScienceDirect
+
+
+                                                               Artiﬁcial Intelligence
+                                                                   www.elsevier.com/locate/artint
+
+
+
+
+Q-Learning-based model predictive variable impedance
+control for physical human-robot collaboration ✩
+Loris Roveda a,∗ , Andrea Testa b , Asad Ali Shahid a , Francesco Braghin b ,
+Dario Piga a
+a
+  Istituto Dalle Molle di studi sull’Intelligenza Artiﬁciale (IDSIA), Scuola Universitaria Professionale della Svizzera Italiana (SUPSI), Università
+della Svizzera italiana (USI), via la Santa 1, 6962, Lugano, Switzerland
+b
+  Politecnico di Milano, Department of Mechanical Engineering, via La Masa 1, 20156, Milano, Italy
+
+
+
+a r t i c l e             i n f o                           a b s t r a c t
+
+Article history:                                            Physical human-robot collaboration is increasingly required in many contexts (such as
+Received 21 September 2021                                  industrial and rehabilitation applications). The robot needs to interact with the human
+Received in revised form 18 July 2022                       to perform the target task while relieving the user from the workload. To do that, the
+Accepted 6 August 2022
+                                                            robot should be able to recognize the human’s intentions and guarantee safe and adaptive
+Available online 11 August 2022
+                                                            behavior along the intended motion directions. The robot-control strategies with such
+Keywords:                                                   attributes are particularly demanded in the industrial ﬁeld, where the operator guides
+Physical human-robot collaboration                          the robot manually to manipulate heavy parts (e.g., while teaching a speciﬁc task). With
+Industry 4.0                                                this aim, this work proposes a Q-Learning-based Model Predictive Variable Impedance
+Machine learning                                            Control (Q-LMPVIC) to assist the operators in a physical human-robot collaboration (pHRC)
+Model-based reinforcement learning control                  tasks. A Cartesian impedance control loop is designed to implement a decoupled compliant
+Neural networks                                             robot dynamics. The impedance control parameters (i.e., setpoint and damping parameters)
+Q-Learning
+                                                            are then optimized online in order to maximize the performance of the pHRC. For
+Stability
+                                                            this purpose, an ensemble of neural networks is designed to learn the modeling of
+Variable impedance control
+                                                            the human-robot interaction dynamics while capturing the associated uncertainties. The
+                                                            derived modeling is then exploited by the model predictive controller (MPC), enhanced
+                                                            with the stability guarantees by means of Lyapunov constraints. The MPC is solved
+                                                            by making use of a Q-Learning method that, in its online implementation, uses an
+                                                            actor-critic algorithm to approximate the exact solution. Indeed, the Q-learning method
+                                                            provides an accurate and highly eﬃcient solution (in terms of computational time and
+                                                            resources). The proposed approach has been validated through experimental tests, in
+                                                            which a Franka EMIKA panda robot has been used as a test platform. Each user was
+                                                            asked to interact with the robot along the controlled vertical z Cartesian direction.
+                                                            The proposed controller has been compared with a model-based reinforcement learning
+                                                            variable impedance controller (MBRLC) previously developed by some of the authors in
+                                                            order to evaluate the performance. As highlighted in the achieved results, the proposed
+                                                            controller is able to improve the pHRC performance. Additionally, two industrial tasks (a
+                                                            collaborative assembly and a collaborative deposition task) have been demonstrated to
+                                                            prove the applicability of the proposed solution in real industrial scenarios.
+                                                              © 2022 The Author(s). Published by Elsevier B.V. This is an open access article under the
+                                                                                            CC BY license (http://creativecommons.org/licenses/by/4.0/).
+
+
+
+
+    ✩
+        This paper is part of the Special Issue: “Risk-aware Autonomous Systems: Theory and Practice”.
+    * Corresponding author.
+    E-mail addresses: loris.roveda@idsia.ch (L. Roveda), andrea8.testa@mail.polimi.it (A. Testa), asadali.shahid@idsia.ch (A.A. Shahid),
+francesco.braghin@polimi.it (F. Braghin), dario.piga@supsi.ch (D. Piga).
+
+https://doi.org/10.1016/j.artint.2022.103771
+0004-3702/© 2022 The Author(s). Published by Elsevier B.V. This is an open access article under the CC BY license
+(http://creativecommons.org/licenses/by/4.0/).
+L. Roveda, A. Testa, A.A. Shahid et al.                                                          Artiﬁcial Intelligence 312 (2022) 103771
+
+
+1. Introduction
+
+1.1. Context
+
+    To meet customers needs, which are becoming more and more oriented on tailor-made products, companies are updat-
+ing their production processes by means of new ﬂexible and agile tools [1]. In this context, collaborative robotics plays a key
+role [2], providing powerful solutions to assist the operators in the execution of different activities, such as co-manipulation
+[3,4], task’s knowledge transfer to the robotic system [5,6], easy programmable and deployable applications [7], etc. Physical
+human-robot collaboration (pHRC) is currently one of the most investigated topics [8]. In fact, pHRC is nowadays demanded
+in many ﬁelds of applications, both for collaborative robots [9] and exoskeletons [10]. However, many open issues in the
+state of the art are still to be overcome, in particular considering safety/stability guarantees in the human-robot inter-
+action, human-robot dynamics modeling, human’s intention recognition (for active assistance/empowering purposes), and
+computation eﬃciency (for real-time control adaptation and optimization).
+    To tackle the above mentioned issues within the pHRC scenario, this paper proposes a Q-Learning-based Model Predictive
+Variable Impedance Control (Q-LMPVIC) to assist the operator while physically interacting with a collaborative robot. Based
+on Cartesian impedance control (providing to the controlled manipulator a compliant and decoupled behavior in the Carte-
+sian space), an MPC is designed in order to online optimize its parameters (i.e., setpoint and damping parameters) to assist
+the user along the detected intended motion direction(s), maximizing the collaboration performance. The MPC exploits a
+learned human-robot interaction dynamics model, obtained by means of an ensemble of neural networks. Therefore, the
+lack of sophisticated analytical models for the human-robot interaction dynamics is overcome, employing a method that is
+capable to capture the complexity and uncertainties of such a dynamics. An MPC objective function is designed in order to
+minimize the user’s effort during the collaboration with the robot. Indeed, the user’s intention of motion can be detected,
+making it possible to assist him/her along the intended direction(s) of motion. The designed MPC is also enhanced with
+stability guarantees by means of Lyapunov constraints. In such a way, safety/stability issues are tackled by the proposed
+methodology. The MPC is then (online) solved making use of a Q-Learning method, exploiting an actor-critic algorithm to
+approximate its exact solution. The obtained solution is accurate and highly eﬃcient, being able to tackle the issue related
+to computation eﬃciency that might compromise the implementation of the controller for real applications.
+    In the following Section, the state of the art related to the pHRC control is addressed, to highlight the open issues in the
+ﬁeld and the solutions provided by the proposed approach.
+
+1.2. Related work
+
+    Among other strategies [11,12], physical human-robot collaboration (pHRC) is commonly enabled by implementing a low-
+level impedance controller [13], that provides the robot with a safe and compliant behavior, suitable for interacting with the
+surrounding environment (including human subjects [14]). The impedance control parameters (i.e., mass/inertia, stiffness,
+damping, and setpoint) are then tuned/adapted by means of high-level control strategies during the execution of a task
+[15], e.g., to achieve human-like adaptability skills [16,17], to maximize the human-robot collaboration performance [18], etc.
+Such high-level control strategies can be designed using the analytical models of the human-environment interaction [19].
+However, the solutions realized through these methods are limited by the speciﬁc modeling adapted and the impossibility
+of the models to capture the complex interaction dynamics. Therefore, machine learning (ML)-based approaches have been
+investigated to implement ﬂexible controllers. Two types of ML-based solutions are available in the state of the art: model-
+based ML approaches [20], and model-free ML approaches [21]. Model-based ML approaches provide powerful algorithms for
+control tuning purposes that are capable of capturing the complex and uncertain interaction dynamics. The main drawback
+of such strategies consists in the limited variation of task conditions that can be faced by the proposed controllers. In order
+to be effective, the adopted models should accurately represent the target scenario, losing generalizability [22]. Model-free
+approaches, on the other hand, allow to achieve acceptable results in a wide set of scenarios by exploiting an autonomous
+tuning through trial-and-error. However, the tuning procedures are costly (both in terms of the computational resources and
+the time), requiring a vast amount of trails to achieve the target performance [4].
+    Many efforts are, therefore, put into the development of combined solutions exploiting the advantages of both model-
+based and model-free ML solutions. In [23] is implemented a systematic approach to optimize the gains of an admittance
+controller online, without any prior knowledge of the target position or other task characteristics. A fuzzy Q-Learning algo-
+rithm is used to regulate damping so that the robot trajectory approaches the minimum jerk and the cooperation becomes
+more effective. The partitioning of the robot state with fuzzy sets is an eﬃcient method to deal with the curse of dimen-
+sionality of continuous space. However, it requires a number of parameters to be manually tuned and it works selecting a
+deterministic action from a small set using fuzzy Q values to obtain a quicker convergence. According to [24], restricting
+the search for optimal action to the agent’s action set or a restricted set of Q values, it is a myopic idea. Herein, their
+proposal is to employ genetic algorithm as stochastic optimizer for action selection at each stage of Fuzzy Q-Learning-based
+controller. The associated increase in computational burden is mitigated by the improvement in performance. In [25], a
+Gaussian Process (GP) model is learned as an approximation of the dynamical system, which is then used to predict the
+long-term state evolution for internal simulation. The impedance controller parameters are then optimized exploiting the
+learned modeling. However, this computation can take minutes, which is not suitable for a real-time implementation of
+
+                                                               2
+L. Roveda, A. Testa, A.A. Shahid et al.                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+the controller in industrial applications. Thus, while the suggested approach is able to provide an accurate enough model
+of the interaction dynamics, it becomes slow for a large amount of data and it can only be used with few loss functions.
+In addition, model-based approaches generally perform better under an assumption of smooth and continuous dynamics,
+which is far from what it is observed in human-robot collaboration tasks [20]. Due to the above described reasons, other
+authors have focused on approximating the human-robot interaction with simpliﬁed models deﬁned a priori. [26], based
+on the research in [27], shows how the humans’ central nervous system follows a latent desired trajectory regulated by an
+impedance control scheme. In the paper, the authors model the dynamics of a human arm using this approach, estimat-
+ing the impedance parameters and the desired trajectory with GPs. Instead, [28] exploits a theoretical study on the arm
+movements of two operators involved in a dyadic manipulation task. The resultant interaction model is able to estimate
+the interaction force during the reaching movement as a function of the measured force applied by the human. With these
+strategies, it is possible to design variable impedance controllers that can be used in real-time. However, these methods are
+not able to capture the real non-linear dynamics of the human-robot interaction. In [29], it is proposed a novel framework
+that exploits electromyography (EMG) and dynamic manipulability measurements of the human arm to provide the robot
+with the information about the human motor behavior and task requirements. Through this information, the robot can
+adapt its behavior by a phase-dependent regulation of trajectories, force and impedance (i.e., self-complying/stiffening), to
+provide a human-like complementary assistive response. This method proves to be intuitive and effective, but it requires a
+special measurement system to be implemented, and it adapts only the impedance control stiffness in a predeﬁned range.
+In addition to this, some parameters have to be speciﬁed oﬄine to deﬁne the task and the expected behavior from the
+robot. In [30], the motion intention of the human is deﬁned as the desired trajectory in the employed human limb model,
+which is estimated by radial basis function neural networks (RBFNN). The estimated motion intention is integrated into
+impedance control to make the robot “actively” following its human partner. However, for small data-sets, one RBFNN could
+suffer from over-ﬁtting, generating errors in the estimation of the setpoint. Moreover, no other impedance parameters are
+adapted to obtain a compliant behavior. [20] focused on estimating the non-linear dynamics of the human-robot interaction.
+An ensemble of Artiﬁcial Neural Networks (ANNs) is used to learn the interaction dynamics model to design a Model-Based
+Reinforcement Learning (MBRL) variable impedance controller for pHRC. ANNs are trained oﬄine to embed the HRC dynam-
+ics. As before, with less data, the problem of over-ﬁtting of one ANN may recur; the proposed approach uses an ensemble of
+ﬁve ANNs to overcome this issue while allowing to capture the uncertainties of the real HRC dynamics, thus improving the
+modeling performance for prediction purposes. The trained model is then kept updated during the execution of a collabo-
+rative task. This model is used by a Model Predictive Controller (MPC) with Cross Entropy Method (CEM) for the real-time
+optimization (i.e., the computation is performed at each control step) of the impedance control parameters (i.e., damping
+and stiffness parameters), considering as an objective the minimization of the human effort during the HRC task execution
+(i.e., minimizing the force applied by the human to the robot). However, the proposed approach has some drawbacks. The
+impedance control setpoint update law is predeﬁned, and its optimization is not considered. Furthermore, the number of
+samples and iterations in the CEM is limited by the requirement to conclude the computation within a speciﬁed time (i.e.,
+enforced by the control frequency). Moreover, no constrains are deﬁned within the MPC to enforce stability. The perfor-
+mance of the controller is strictly dependent on the weights used in the cost function and on the setpoint update function,
+without any theoretical guarantee of stability.
+     As highlighted in the above discussion, one of the major open issues in the design of pHRC controllers is related to
+the stability guarantees. Stability can be imposed by including an appropriately designed terminal cost and/or terminal
+constraints in the control problem deﬁnition [31], but it can also be inherited by the Control Lyapunov Functions (CLFs). CLFs
+are commonly used to synthesize the stabilizing controllers [32]. However, despite their optimization-based formulation,
+they often fail to achieve the long-term optimal behavior. This deﬁciency arises due to the fact that the cost of these
+optimization problems fails to incorporate the future behavior of the system, being instead point-wise optimal [33]. In
+contrast, Nonlinear Model Predictive Control (NMPC) emphasizes the performance by solving an optimal control problem
+online, despite additional assumptions must be met to certify the closed loop stability. Thus, the integration of both these
+control methodologies has been extensively discussed in the literature to try to combine the beneﬁts and to compensate
+for the drawbacks. Lyapunov methods have been used to construct stabilizing terminal conditions for NMPCs [34], or to
+analyze the stability in the absence thereof [35]. Another approach incorporates the stability condition required by a CLF
+along the prediction horizon found with a NMPC [36]. As noted in [36], this approach has several desirable properties,
+such as the absence of a terminal cost, and stability for any horizon length. In [37], the focus is on the practical and
+computational aspects of the uniﬁcation of these two methodologies to control a robotic platform. The performed tests
+show that this combination leads to improved performance over CLF methods, signiﬁcantly reducing the tuning of the
+prediction horizon length and the terminal conditions for NMPC methods. However, the integration reported so far only
+considers known simple dynamics, proposing algorithms that are not suitable for the human-robot interaction problem. In
+fact, many conventional MPC algorithms encounter problems related to the large computational burden caused by the high
+non-linearity of the considered system dynamics, requiring accurate models. An interesting implementation of an industrial
+controller based on MPC stabilized with Lyapunov constrains is described in [38]. The controller is applied on a continuous
+nonlinear system with complex dynamics. The accurate mathematical model of such system is hard to be obtained. To solve
+this issue, the modeling is realized by exploiting a Reinforcement Learning (RL) technique to approximate the solution of
+the Lyapunov MPC (LMPC). Speciﬁcally, among all the RL algorithms, Q-Learning is used, in which ANNs are exploited to
+
+                                                              3
+L. Roveda, A. Testa, A.A. Shahid et al.                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+approximate the agent and the Q-function to deal with a continuous state space. Thus, the computational eﬃciency of the
+control law is guaranteed regardless of the complexity of system dynamics.
+   The reviewed updating strategies for the online tuning of the impedance control parameters in the pHRC context are
+indeed characterized by some diﬃculties in the simultaneous optimization of the impedance parameters. The online opti-
+mization of the setpoint and the other impedance parameters is, in fact, important to obtain an active target-oriented and
+compliant behavior of the manipulator during pHRC task. In addition, it is commonly diﬃcult to ensure stability in such op-
+timization problem. Moreover, a reliable model of the target dynamics is not always available, making it diﬃcult to optimize
+the collaboration. Besides, the most of the reviewed strategies are based on the internal simulation of the state evolution,
+exploiting the prediction capabilities of dynamic models or Q-functions. However, the former are often not enough accurate
+or eﬃcient to be implemented for real applications execution, and the latter are usually approximated with a fuzzy logic,
+requiring a precise setting of the fuzzy rules and membership functions to solve “curse of dimensionality” problems.
+
+1.3. Paper contribution
+
+    The aim of this paper is to design a variable impedance controller with guaranteed stability for pHRC applications. This
+controller should be capable of modeling the complex human-robot interaction dynamics, exploiting it for the online opti-
+mization of the low-level impedance control parameters. The employed optimization methodology, similarly to the strategy
+described in [20], is based on the resolution of an MPC. The MPC objective function is designed to minimize the user’s
+effort during the interaction with the manipulator, simulating the evolution of the system through an ensemble of artiﬁcial
+neural networks (ANNs). In fact, along with GP models (which, however, lose eﬃciency in high dimensional spaces [25]), an
+ensemble of ANNs represents an interesting choice to accurately model the unknown dynamics of the system, thus making
+it possible to capture the uncertainties of the prediction. The MPC is enhanced with stability guarantees by means of Lya-
+punov constraints. The MPC is then solved online by means of a Q-Learning method that uses an actor-critic algorithm to
+approximate the exact solution.
+    The proposed controller has been designed to ﬁx the following three main open issues that are still present in the
+reviewed state of the art approaches (especially taking into consideration the controller developed in [20] by some of the
+authors):
+
+  (i) computational burden;
+ (ii) lack of demonstrated stability of the closed loop solution;
+(iii) performance-dependence on the weights used for the cost function and for the setpoint update strategy.
+
+    (i) is tackled by avoiding to solve the MPC problem with a CEM algorithm at each control step. A Q-learning algorithm,
+as described in [38], is instead used. Based on the measured state of the manipulator, the Q-learning algorithm (which
+embeds two neural networks) returns an estimation of the optimal impedance parameters that would have been computed
+by the MPC, with much lower computational requirements. After an exploration phase, the Q-function learns the utility of
+all the state-action tuples, allowing the actor to choose the most desirable control policy according to the speciﬁed targets.
+During the training phase of an actor, a lighter CEM algorithm is still used to solve a receding horizon control problem and
+to update the actor network. In this way, the prediction capability of the ANN is exploited to estimate the state evolution,
+and to obtain the ﬁnal result that is more accurate than the one obtained by just selecting the action associated with the
+highest Q-value. In fact, selecting the action with the highest Q-value, it will not take into account the model uncertainty
+(as it is done in the proposed implementation).
+    (ii) is solved by combining the MPC with a Lyapunov-based controller obtained with the point-wise mini-norm method
+in [33], which introduces the speciﬁed constraints at every control step. These two approaches are sub-optimal strategies
+to solve an optimization problem, and, under proper technical conditions, are equivalent, respectively, to the Euler-Lagrange
+optimization and to the solution of the Hamilton-Jacobi-Bellman equation [36]. Thus, the proposed approach, from a prac-
+tical viewpoint, provides the guaranteed stability properties of the CLFs methods, together with the on-line optimization
+capabilities and performance of receding horizon controllers.
+    Since the Lyapunov-based point-wise mini-norm controller solves an inverse optimal control problem, it tunes the choice
+of the best control action not on the weights of the performance index, but on the Lyapunov function(s). In combination
+with the MPC, it leads to reduce the inﬂuence of the cost weights on the ﬁnal control action [37], thus tackling (iii). This
+third issue is also addressed by considering the setpoint of the Cartesian impedance control and damping parameters as
+optimization variables (avoiding the need to manually tune the setpoint control law related gains, as shown in [20]).
+
+
+Remark 1. The authors developed the proposed Q-LMPVIC working on a control-aﬃne model of the robot system, assuming
+that the human’s interaction does not affect this property. The authors are conﬁdent that the operator does not modify
+the actuation law since the controller is designed to reduce his/her effort, and he/she is interacting with the robot at its
+end-effector only. This modeling choice is common in literature, whereas non-aﬃne systems are considered just when the
+control is clearly non-linear. As a matter of example, this is considered for aircraft dynamics, underwater vehicles, active
+magnetic bearings, electromagnetic levitation, etc. [39].
+
+                                                              4
+L. Roveda, A. Testa, A.A. Shahid et al.                                                             Artiﬁcial Intelligence 312 (2022) 103771
+
+
+    The proposed controller has been validated through experimental tests, considering a pHRC application, in which a Franka
+EMIKA panda robot has been used as a test platform. Two scenarios have been considered: i) interaction between the hu-
+man and the robot end-effector (i.e., no tool at the robot end-effector); ii) interaction between the human and a sealing
+gun installed at the robot’s end-effector. A total of 20 subjects (i.e., 10 subjects for each scenario) have been involved in the
+experimental campaign. In both the scenarios, each user was asked to interact with the robot along the controlled z vertical
+direction. To assess its performance, the proposed controller has been compared with the model-based reinforcement learn-
+ing variable impedance controller previously developed by some of the authors in [20]. The pHRC performance has been
+validated on the basis of the questionnaire described in [4,20]. Achieved results highlight the improved performance of pro-
+posed controller w.r.t. to the one in [20]. Furthermore, the training process of the proposed controller has been validated in
+order to verify its applicability in a real industrial context for a speciﬁc operator (i.e., each user trains a separate controller).
+5 additional users have been asked to perform their own training of the controller, to show the ease of the procedure for
+customizing the controller for each speciﬁc user. Achieved results show the effectiveness of the training process. Finally, the
+proposed approach has been applied to two complex use-cases (a collaborative assembly task and a collaborative deposition
+task) in order to show its applicability to real industrial tasks.
+
+1.4. Paper layout
+
+    The paper is structured as follows. In Section 2, a detailed description of the control methodology is proposed. The low-
+level impedance controller is introduced in Section 2.1. Then, the pHRC dynamics is detailed in Section 2.2. The description
+of the adopted methodology for the online modeling and estimation of the pHRC dynamics is provided in Section 2.3. The
+Lyapunov-based MPC is detailed in Section 2.4. The Q-learning methodology is stated in Section 2.5, along with its actor-
+critic implementation in Section 2.6. The CEM algorithm is described in Section 2.7. Finally, the complete Q-LMPC control
+framework is shown in Section 2.8. Section 3 provides the achieved experimental results, demonstrating the improved pHRC
+performance w.r.t. the controller proposed in [20]. Finally, Section 4 contains the conclusions and the future work.
+
+2. Methodology
+
+    The proposed Q-Learning-based Model Predictive Variable Impedance Control (Q-LMPVIC) for pHRC tasks is made up of
+two main levels. In the ﬁrst one (i.e., the low-level control loop), a variable Cartesian impedance controller is realized, such
+that the outer high-level controller could work considering the manipulator as a decoupled mass-spring-damper system in
+the Cartesian space. The outer high-level controller is then used to update the setpoint and the damping parameters of the
+inner controller in order to optimize the pHRC performance (i.e., minimize the interaction force between the human and the
+robot, and, therefore, the operator’s effort). The outer high-level controller is composed of an actor and a critic ANN, which
+implements a Q-Learning algorithm for the resolution of a nonlinear optimal control problem. An ensemble of ANNs is ex-
+ploited to estimate the model of the system. An MPC enhanced with stability guarantees (by means of Lyapunov constraints)
+is implemented to online compute the low-level impedance control parameters, maximizing the pHRC performance.
+    Fig. 1 shows the proposed Q-LMPVIC schema, highlighting each element composing the proposed methodology. In the
+following, all the elements composing the Q-LMPVIC (i.e., the low-level Cartesian impedance control, the human-robot
+interaction dynamics, the modeling estimation methodology based on the ensemble of ANNs, the L-MPC, the Q-learning
+methodology, its actor-critic ANNs, and the CEM algorithm) are described.
+
+2.1. Cartesian impedance control
+
+    As described in [40], a Cartesian impedance controller can be designed to perform a compliant task, providing the
+reference to the inner position controller. On the basis of the interaction force acting on the manipulator, impedance control
+allows to calculate the robot accelerations ẍimp = [p̈; ϕ̈ cd ] (where p̈ are related to the translational degrees of freedom -
+DoFs -, and ϕ̈ cd are related to the rotational DoFs described by the intrinsic Euler angles representation):
+
+            p̈ = Mt−1 (−Dt ṗ − Kt p − ft ) ,
+                                                                                                                                      (1)
+         ϕ̈ cd = M−
+                  ϕ
+                    1                        T
+                      −Dϕ ϕ̇ cd − Kϕ ϕ cd + Sω (ϕ cd ) τ ϕ .
+
+Considering the translational part of the impedance control, Mt is the target mass matrix, Dt is the target damping matrix,
+Kt is the target stiffness matrix, ft is the external forces vector. p is the actual Cartesian positions vector, while p = p − pd
+and ṗ = ṗ − ṗd , where pd is the target positions vector and ṗd is the target velocity vector. Considering the rotational part
+of the impedance control, Mϕ is the target inertia matrix, Dϕ is the target damping matrix, Kϕ is the target stiffness matrix.
+ϕ cd is the set of Euler angles extracted from Rdc = RdT Rc , describing the mutual orientation between the compliant frame Rc
+(coincident with the robot end-effector reference frame) and the target frame Rd . τ ϕ is the external torques vector referred
+to the target frame. Matrix Sω (ϕ cd ) deﬁnes the transformation from the derivatives of Euler angles to angular velocities
+ω = Sω (ϕ cd )ϕ̇ cd [41]. The six DoFs impedance control, therefore, results in:
+
+                                                                 5
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                 Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+Fig. 1. Overall Q-LMPVIC scheme. The training operations inside the dashed square are performed once the buffer is full (as described in section 2.6), leading
+to the update of the Q-LMPC controller, that regularly sends the optimal setpoint and damping parameters to the impedance controller. The optimization
+variables (i.e., the Cartesian impedance control setpoint x̃d and damping D̃r ) are used as the control input u, to be computed on the basis of the robot state
+z.
+
+
+         Mr ẍC i + Dr ẋC i + Kr xC i = fext ,                                                                                                           (2)
+
+where Mr , Dr , Kr are the impedance diagonal matrices composed of both the translational and rotational parts, xC i = xC i −
+xd = [p; ϕ cd ] = [xt ; xr ] (where xdC i is the six DoFs position reference for the impedance controller), ẋC i = ẋC i − ẋd ,
+                                                                                                                          √
+and fext = [ft ; Sω
+                  T
+                    (ϕ cd ) τ ϕ ]. It should be underlined that the damping matrix can be computed as follows: Dr = 2ζ r Kr Mr ,
+where ζ r is the damping ratio diagonal matrix.
+
+2.2. pHRC model description
+
+   The proposed Q-LMPVIC is designed for pHRC tasks, in which the operator is always considered in contact with the
+manipulator whenever the motion is required. Thus, pHRC dynamics can be considered as a result of an interaction between
+two agents, the robot and the human, that can be described by the following model:
+
+         Mtot ẍ + Dtot ẋ + Ktot (x − xd ) = Kh (x̆d − x),                                                                                                 (3)
+
+where (2) is modiﬁed introducing the operator’s dynamics through additional unknown contributions Mh to the total mass
+Mr + Mh = Mtot , additional unknown contribution Dh to the total damping Dr + Dh = Dtot , and additional unknown contri-
+bution Kh to the total stiffness Kr + Kh = Ktot . Considering that the operator wants to reach a certain target position x̆d ,
+the external wrench fext (i.e., the human applied wrench fh ) is applied in proportion to the actual error x̆d − x and to the
+human stiffness Kh .
+     As proposed in this paper, the high-level controller should optimize the impedance control setpoint x̃d (˜· refers to
+variables object of optimization), such that it follows the operator’s target position x̆d , and the impedance control damping
+D̃r , in order to achieve a smooth motion during the task execution. The stiffness parameter of the impedance control is not
+considered for optimization purposes. In fact, its optimization does not affect the achieved collaboration signiﬁcantly (i.e.,
+
+                                                                              6
+L. Roveda, A. Testa, A.A. Shahid et al.                                                             Artiﬁcial Intelligence 312 (2022) 103771
+
+
+the simultaneous optimization of the impedance control setpoint and stiffness is not necessary since they are multiplied in
+the robot dynamics (2)). Therefore, the ﬁnal controlled system, ideally, should behave as follows:
+
+     Mtot ẍ + (D̃r + Dh )ẋ + Ktot (x − x̃d ) − fh = 0,                                                                                (4)
+                     
+where fh = Kh x̆d − x .
+   The external force fh applied by the human can be included in the system state. The state space representation can,
+indeed, be written as follows:
+         ⎧
+         ⎪  dẋ       −1          dx
+         ⎪ dt = Mtot −(D̃r + Dh ) dt − Ktot (x − x̃d ) + fh ,
+         ⎪
+         ⎨
+           ẋ = dx  ,                                                                                                                   (5)
+         ⎪
+         ⎪
+                 dt
+                              
+         ⎪
+         ⎩ ḟh = Kh dx̆d − dx .
+                         dt dt
+
+For the sake of simplicity, since the Cartesian impedance control decouples the Cartesian degrees of freedom (DoFs), it will
+be considered a one DoF system in the following analysis. In addition, translational DoFs will be considered in the paper,
+due to the common management of such DoFs in pHRC w.r.t. rotational DoFs [9]. The one dimensional system, along a
+translational DoF, can be written as it follows:
+         ⎧
+         ⎪  dẋ       D h dx  K tot   fh    K tot      D̃ r dx
+         ⎪ dt = − Mtot dt − Mtot x + Mtot + Mtot x̃d − Mtot dt ,
+         ⎪
+         ⎨
+           ẋ = dx  ,                                                                                                                   (6)
+         ⎪
+         ⎪
+                 dt
+                               
+         ⎪
+         ⎩ ḟ h = K h dx̆d − dx .
+                         dt  dt
+
+The above formulation can be re-written as:
+
+         ż(t ) = f(z(t )) + g1 (z(t ))u 1 (t ) + g2 (z(t ))u 2 (t ),                                                                   (7)
+
+where:
+
+         z(t ) = [ẋ, x, f h ] T ∈ Z ⊂ R3 ,     u 1 (t ) ∈ U 1 ,   u 2 (t ) ∈ U 2 ,
+         U i := {u i ∈ Rumin
+                          i   ≤ u i ≤ umax
+                                       i   },
+in which the two optimization variables can be seen as the input u of the system, and the state z is represented by the
+robot position x, the robot velocity ẋ, and the external force f h . Since the parameters describing the human dynamics are
+dependent on the characteristics of the interaction, varying during the task execution, the outer controller does not have
+access to a known dynamics modeling. Therefore, the functions f, g1 and g2 are nonlinear and need to be estimated and
+updated periodically. In order to simplify the considered problem without losing any generality, it is possible to consider the
+target position x̆d as a piece-wise constant function. In fact, due to the reduced bandwidth of the human motion w.r.t. the
+                                                                                                     dx̆
+one of the low-level robot controller (i.e., few Hz against kHz, [20]), it is reasonable to consider dtd = 0. In addition, it is also
+important to underline that the considered system dynamics is control-aﬃne. Besides, it can be assumed that f(z(t )) and
+gi (z(t )) are smooth vector ﬁelds, and that the origin is an equilibrium point of the unforced nominal system, which implies
+that f(0) = 0. Moreover, it is also assumed that the state z of the considered system is sampled synchronously w.r.t. the
+inputs (i.e., the control variables), and the time instants at which the state measurement samplings are taken are indicated
+by the time sequence tk > 0, with tk = t 0 + k, k = 0, 1, 2, ..., where t 0 is the initial time and  is the sampling time.
+
+2.3. Model estimation
+
+   To implement the proposed model-based reinforcement learning approach, the unknown dynamics of pHRC detailed in
+the previous Section needs to be modeled. To avoid introducing the relevant errors in this delicate modeling phase, it is
+better to avert to the use of simpliﬁed models [26,28]. A possible solution to this issue is, therefore, the adoption of Artiﬁcial
+Neural Networks (ANNs) for the modeling of the pHRC dynamics in an accurate and eﬃcient way. However, ANNs tend to
+overﬁt in the regions of state space with less training data. To solve this issue, it is possible to use an ensemble of ANNs
+in order to capture the model uncertainties where less data is available [42]. In fact, ANNs agree with each other in the
+regions where more data is available, whereas they disagree with each other in the regions with less data. For this reason,
+the dynamics uncertainties are captured considering the whole ensemble for the prediction, and used in the CEM algorithm
+for online resolution of the MPC and the Lyapunov-based controller. Additionally, ANNs can easily scale with the data,
+thanks to the parallelization with modern GPUs. This functionality is not exploited in the present work, since one of the
+objectives of this paper is to reduce the computational burden in order to make the algorithm feasible for implementation
+in pHRC tasks also with a moderate computational power.
+   The following procedure has been implemented in order to train and update the ensemble of ANNs:
+
+                                                                                 7
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                         Artiﬁcial Intelligence 312 (2022) 103771
+
+
+                                          Table 1
+                                          Parameters used for the CEM and for the ANNs.
+
+                                              Parameter                           Value
+                                              Hardware conﬁguration               1 NVIDIA GPU + 12 CPU cores
+                                              Training buffer size                5
+
+                                              Model Approximators
+                                              Number of hidden layers             5
+                                              Number of hidden units              512
+                                              Size of ensemble                    2
+                                              Activation function                 ReLU
+                                              Learning rate                       1e-3
+
+                                              Actor
+                                              Optimizer                           Adam
+                                              Number of hidden layers             3
+                                              Number of hidden units              64
+                                              Activation function                 ReLU
+                                              Learning rate                       1e-4 - 5e-5
+
+                                              Critic
+                                              Optimizer                           SGD
+                                              Number of hidden layers             3
+                                              Number of hidden units              128
+                                              Activation function                 ReLU
+                                              Learning rate                       1e-3
+
+                                              CEM
+                                              Discount factor γ                   0.9
+                                              No. of samples                      16
+                                              No. of iterations                   3
+                                              No. of elites                       4
+                                              Prediction horizon                  7
+
+
+
+  1. The parameters for the network architecture are taken from [42] whereas the ensemble size is found by testing multiple
+     values from 2 to 5 in simulation and experimental tests [20]. The parameters used for the networks are listed in Table 1.
+  2. The networks learn the target dynamics f̆(zt , ut ) by predicting the change in the state over the time step duration :
+
+               zt +t  = zt + f̆(zt , ut ).                                                                                                         (8)
+
+     This choice is made due to the fact that control input has a little effect on output when two successive states zt and
+     zt +t  are very similar [43].
+  3. The inputs and outputs are normalized using mean and standard deviation. The initial values of mean and standard
+     deviation for each variable are roughly estimated from the knowledge of the target task. During the ﬁrst run on the
+     actual robot, these variables are measured to update the previous estimation. Data normalization highly impacts the
+     way in which the neural network interprets the different states of the manipulator, and it is crucial to obtain a good
+     performance, reducing also the distribution shift between the training and the interaction samples.
+  4. The ensemble of ANNs is updated periodically to adapt to the new human physiological parameters, using measured
+     data during the task execution. In such a way, the adaptability of the approach is improved when the operator changes
+     his/her collaboration modalities with the robot (i.e., when he/she changes the target task, or gets tired). In particular, a
+     period can be deﬁned during which the actual state ẑ = [ẋ, x, f h ] is measured and stored in a buffer. At the end of this
+     period, the values are compared with the output of the neural network z̄:
+
+                                                    1
+               em = ẑ(tk ) − z̄(tk ),    Em =          em 2 .                                                                                    (9)
+                                                    2
+      A stochastic gradient descend method is then used to update the layer weights.
+
+Thus, the proposed ANNs are able to provide a model function f̆(zt , ut ) that represents a system that is control-aﬃne:
+
+         f̆(zt , ut ) = f(zt ) + g1 (zt )u 1t + g2 (zt )u 2t .                                                                                    (10)
+
+However, the general model function is not enough for the deﬁnition of the Lyapunov-based controller (adopted to stabilize
+the MPC). Indeed, it is important to obtain the speciﬁc functions f, g1 , and g2 at every instant. f can be found evaluating
+f̆(zt , ut ) when both the inputs are null:
+
+         f̆(zt , 0, 0) = f(zt ) + g1 (zt )0 + g2 (zt )0 = f(zt ).                                                                                 (11)
+
+                                                                            8
+L. Roveda, A. Testa, A.A. Shahid et al.                                                              Artiﬁcial Intelligence 312 (2022) 103771
+
+
+Function g1 can be obtained by subtracting f from f̆(zt , ut ), evaluated when u 1 = 1 u 2 = 0:
+
+         f̆(zt , 1, 0) − f(zt ) = f(zt ) + g1 (zt )1 + g2 (zt )0 − f(zt ) = g1 (zt ).                                                  (12)
+
+Function g2 can be obtained by subtracting f from f̆(zt , ut ), evaluated when u 1 = 0 u 2 = 1:
+
+         f̆(zt , 0, 1) − f(zt ) = f(zt ) + g1 (zt )0 + g2 (zt )1 − f(zt ) = g2 (zt ).                                                  (13)
+These functions f, g1 , and g2 will be used in the next Sections to guarantee the stability of the controlled system.
+
+2.4. Lyapunov-based model predictive control
+
+    The MPC is an online control methodology in which, at each time step tk , the actual state z(tk ) of the system to be
+controlled is sampled and used as the initial state of an optimal control problem. The latter is solved in open loop for a
+speciﬁed time horizon T = [tk , tk+1 , tk+2 , ... , tk+ N ], and a series of optimal control actions [uk , uk+1 , uk+2 , ... , uk+ N ]
+is returned as an output. Only the ﬁrst term of the series is the input (i.e., control action) to be applied in the next time
+step to the controlled system, after which the system evolves and the new measured state is the starting point of the
+next optimization problem. While the controller must work for an indeﬁnite time, the deﬁned time horizon is limited
+to T . Moreover, the controller is subjected to constraints on the input, so, the open loop behavior evaluated at each step
+could differ from the closed loop one (even in the case the system model is perfect). In addition, instability might occur. The
+stability and the feasibility of the solution of the optimal control problem can be enforced introducing a proper terminal cost
+and a terminal constraint. Other approaches can also be found in the literature, in particular considering Lyapunov-based
+Model Predictive Controllers, where stability and robustness properties are inherited by the Lyapunov-based controller,
+combining it with the online optimization and performance properties of the receding horizon method [44,45,37,36,38].
+Thus, a sub-optimal strategy providing excellent results is obtained from the resolution of a reduced complexity optimization
+problem.
+    Considering the previously deﬁned nonlinear continuous-time system in (7), the optimal control problem can be solved
+in an open-loop/Euler-Lagrange fashion, adopting a receding horizon control technique to produce a state feedback control
+law. However, to approach the optimal control problem in this framework, the original objective function must be adapted,
+with a consequent modiﬁcation of the problem as it follows:
+          ∞                 t k+ N
+
+              r (·)dτ =          r (·)dτ + ϕ (z(tk+ N ))      i f ϕ (·) = V ∗ (·),                                                     (14)
+         0                  tk
+
+where V ∗ (·) represents the value function obtained from the optimization of the original cost functional, r (·) is the instan-
+taneous cost function, and ϕ (·) is the terminal weight. Moreover, the solution here obtained is only locally optimal. To solve
+these issues, without complex computations, by referring to [36], it is possible to generate an inverse optimal control law
+h, given a properly chosen CLF V L , through the point-wise minimization of the control effort:
+
+                 min h T h + q(z),                                                                                                     (15)
+                   h
+
+                 ∂ V L (z)
+         s.t.              ( f(z) + g1 (z)h1 + g2 (z)h2 ) ≤ −σ (z),                                                                    (16)
+                    ∂z
+where σ (z) is a continuous positive deﬁnite function, and q : R3 → R is a continuously differentiable function such that
+q(0) = 0 and q(z) > 0 when z = 0. Since the optimization is limited to the current time step, state z is already known and
+only the control action h has to be imposed. Thus, the presence of the term q(z) is pointless for the optimization purpose.
+The resulting Lyapunov-based controller, under proper technical conditions [36], is equivalent to the globally optimal solu-
+tion of the Hamilton-Jacobi-Bellman equation. Extending this point-wise controller to a receding horizon methodology, the
+objective function should also account for the state z, while the constraint (16) should be extended at all the time steps
+inside the horizon. Thus, the optimization problem becomes:
+                            t k+ N
+
+                   min               r (z̄(τ ), u(τ ))dτ   u ∈ U,                                                                      (17)
+                 u∈ S ()
+                            tk
+
+         s.t.   z̄˙ (t ) = f(z̄(t )) + g1 (z̄(t ))u 1 (t ) + g2 (z̄(t ))u 2 (t ),                                                      (18)
+
+                z̄(tk ) = ẑ(tk ),                                                                                                     (19)
+
+                 ∂ V L (z̄)
+                            ( f(z̄) + g1 (z̄)u 1 + g2 (z̄)u 2 ) ≤ −σ (z̄),                                                             (20)
+                    ∂ z̄
+
+                                                                                    9
+L. Roveda, A. Testa, A.A. Shahid et al.                                                             Artiﬁcial Intelligence 312 (2022) 103771
+
+
+where S () is the family of piece-wise constant functions with sampling period , N is the prediction horizon, r (·) is
+the cost function, that for this problem can be set as f h f h T , z̄(t ) is the predicted trajectory in open loop, and ẑ(t ) is the
+state measured at time tk . The proposed methodology can be interpreted as a conceptual blend of HJB and Euler–Lagrange
+philosophies, that for N → 0 becomes equivalent to the point-wise mini norm problem, and for N → ∞ goes back to the
+original optimal control problem. In any case, for all the ﬁnite N, a stable solution can be chosen, and, if the conditions in
+[36] are respected, the optimal controller is recovered even for the case of a ﬁnite time horizon.
+   Once the controller h is computed, it is better to rearrange the constraint (20) in a way in which the associated limits
+on the control action clearly emerge:
+         ∂ V L (z)                                   ∂ V L (z)
+                   (f(z) + g1 (z)u 1 + g2 (z)u 2 ) ≤           (f(z) + g1 (z)h1 + g2 (z)h2 ).                                         (21)
+            ∂z                                          ∂z
+The existence of a controller h(z) = [h1 (z), h2 (z)] T that provides the stability of an equilibrium point (i.e., the origin), while
+satisfying the system input constraints for all the states inside a given stability region, is not generally guaranteed, and it
+is associated to the property of stabilizability of the system [46]. According to Artstein’s theorem [47], a dynamical system
+has a differentiable Control Lyapunov Function (CLF) if and only if there exists a regular global asymptotically stabilizing
+feedback. Thus, given a set of class K functions αi (·), i = 1, 2, 3, 4, and a CLF V L (z), the inverse optimal control problem
+can be surely solved.
+
+Deﬁnition 2.1. A class K function is a continuous function α : [0; a) → R + , with a > 0, α (0) = 0 and α strictly monotonically
+increasing (denoted α ∈ K ). If a = ∞ and limr →∞ α (r ) = ∞, then α is said to be a class K ∞ function [37].
+
+Deﬁnition 2.2. A CLF is a continuously differentiable function V L (z) for which the following inequalities are valid [48]:
+
+         α1 (|z|) ≤ V L (z) ≤ α2 (|z|),                                                                                               (22)
+
+               ∂ V L (z)
+         inf             ( f(z) + g1 (z)h1 + g2 (z)h2 ) ≤ −α3 (|z|),                                                                  (23)
+           h      ∂z
+           ∂ V L (z)
+                     ≤ α4 (|z|),                                                                                                      (24)
+              ∂z
+for all z ∈ O z ⊆ R2 , where O z is an open neighborhood of the origin. We will say that V L is a weak CLF when the inequality
+(23) is non-strict, namely, when:
+
+               ∂ V L (z)
+         inf             ( f(z) + g1 (z)h1 + g2 (z)h2 ) ≤ 0.                                                                          (25)
+          h       ∂z
+
+   The existence of a weak CLF is not contemplated in Artstein’s theorem, and it doesn’t guarantee the global stabilizability,
+as it does with the existence of a CLF. Nevertheless, in many cases, a weak CLF can, indeed, be used to design a globally
+stabilizing control law, which is the case of the present work. To deﬁne the inverse optimal control problem speciﬁed by
+(15)-(16), it is necessary to choose a CLF V L and a function σ (z). The latter can be selected in order to obtain the point-wise
+mini-norm Sontag controller [49], which provides a smooth, real and analytic feedback stabilizer for a generic aﬃne system.
+Denoting the Lie derivatives of V L as:
+
+         a(z) := ∇ V L (z) · f(z),                                                                                                    (26)
+         b1 (z) := ∇ V L (z) · g1 (z),                                                                                                (27)
+         b2 (z) := ∇ V L (z) · g2 (z),                                                                                                (28)
+                    
+                    2
+         β(z) =            b2i (z).                                                                                                   (29)
+                    i =1
+
+σ (z) has to be chosen as:
+               
+       σs (z) = (a2 + q(β)β 2 ,                                                                                                       (30)
+
+to yield the resulting control law:
+                             
+                           a+ a2 +β 2 q(β)
+              h i = −b i              β      for β = 0,
+                                                                                                                                      (31)
+              hi = 0                         for β = 0.
+
+                                                                       10
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                   Artiﬁcial Intelligence 312 (2022) 103771
+
+
+If, at this point, the CLF V L is chosen to have the same shape lines of the optimal value function V ∗ , all the technical
+conditions to obtain an inverse optimal controller are satisﬁed. Thus, V L corresponds to the solution of the HJB equation, and
+it is globally optimal [50]. The most obvious candidate for the CLF is a quadratic function, which includes the fundamental
+variables to measure the distance from the researched point. So, it can be deﬁned as:
+
+                  1                  1
+         VL =         ẋP 1 ẋ T +       f h P 2 f hT ,                                                                                                     (32)
+                  2                  2
+where P 1 and P 2 are the weights used to select the signiﬁcance of each term. For this choice, the previously deﬁned Lie
+derivatives can be expressed as:
+
+          a(z) : = ∇ V L (z) · f(z) = P 1 ẋ · f[1] + P 2 f h · f[3]
+                                                   
+                                Dh      K tot    fh                                                                                                         (33)
+                   = P 1 ẋ · −    ẋ −       x+      − P 2 f h · K h ẋ,
+                                         M tot            M tot         M tot
+         b1 (z) : = ∇ V L (z) · g1 (z) = P 1 ẋ · g1 [1] + P 2 f h · g1 [3]
+                                  K tot                                                                                                                     (34)
+                   = P 1 ẋ ·             ,
+                                 M tot
+         b2 (z) : = ∇ V L (z) · g2 (z) = P 1 ẋ · g2 [1] + P 2 f h · g2 [3]
+                                  −ẋ                                                                                                                       (35)
+                   = P 1 ẋ ·             ,
+                                 M tot
+                                                                                       
+                        
+                        2
+                                                              K tot 2        ẋ     2
+          β(z) : =             b2i (z) = P 12 ẋ2 ·                     +                   .                                                               (36)
+                                                              M tot         M tot
+                        i =1
+
+However, in such a way, the resultant control law h is not continuous. In fact, for any shape of q(β), that can be for example
+set to β 2 as in [49], the system does not respect the small control property. Thus, continuity cannot be proven in general,
+and it becomes necessary to look at the conditions in which β → 0 (i.e., ẋ → 0) to understand how the stabilizer behaves.
+Considering the unknown human parameters as constant, for z → 0, it can be noticed that:
+
+         a(z) → 0 as z2i ,                b1 (z) → 0 as zi ,
+         b2 (z) → 0         as z2i ,         β(z) → 0 as z2i ,
+thus:
+                                     
+                               a+        a2 + β 4
+         h1 (z) = −b1                                 → 0 as zi ,
+                                         β
+                                     
+                               a+        a2 + β 4
+         h2 (z) = −b2                                 → 0 as z2i .
+                                         β
+Indeed, with this assumption, the Lyapunov-based controller results continuous for z = 0. However, it is known that the
+human impedance parameters M h , D h , K h are actually nonlinear functions of the state and, to make the previous statement
+                            D
+valid, it is necessary that Mh , KMtot and M1 do not diverge to inﬁnity when z → 0, or at least diverge slower than z1 . Since
+                              h     h        h                                                                        i
+for the considered HRC scenario the latter assumption is reasonable, the controller can still be considered continuous in
+this point. Instead, when ẋ → 0, therefore β → 0, but x, f h = 0, assuming again that impedance parameters do not vary too
+much, and considering that x̆d = 0 ⇒ f h = − K h x and P 2  P 1 (as will be actually implemented), it can be noticed that:
+
+
+
+                                                                      ẋ → 0+       x<0              ẋ → 0+   x>0
+                                                                      a(z) → 0− as ẋ                a(z) → 0+ as ẋ
+                                                                      b1 (z) → 0+ as ẋ              b1 (z) → 0+ as ẋ
+                                                                      b2 (z) → 0− as ẋ2             b2 (z) → 0− as ẋ2
+                                                                      β(z) → 0+ as ẋ2               β(z) → 0+ as ẋ2
+                                                                      ẋ → 0−       x<0              ẋ → 0−   x>0
+                                                                      a(z) → 0+  as ẋ               a(z) → 0−  as ẋ
+                                                                      b1 (z) → 0− as ẋ              b1 (z) → 0− as ẋ
+                                                                      b2 (z) → 0− as ẋ2             b2 (z) → 0− as ẋ2
+                                                                      β(z) → 0+ as ẋ2               β(z) → 0+ as ẋ2
+
+
+                                                                                                11
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                              Artiﬁcial Intelligence 312 (2022) 103771
+
+
+                                                        ẋ → 0+    x<0
+                                                                         
+                                                                       a+ a2 +β 4
+                                                        h1 (z) = −b1                  → 0 quicker than ẋ
+                                                                         β
+                                                                       a+ a2 +β 4
+                                                        h2 (z) = −b2         β        → 0 quicker than ẋ
+                                                        ẋ → 0+    x>0
+                                                                         
+                                                                       a+ a2 +β 4
+                                                        h1 (z) = −b1                  → −c
+                                                                         β
+                                                                       a+ a2 +β 4
+                                                        h2 (z) = −b2         β        → 0 as ẋ
+                                                        ẋ → 0−    x<0
+                                                                         
+                                                                       a+ a2 +β 4
+                                                        h1 (z) = −b1                  →c
+                                                                         β
+                                                                       a+ a2 +β 4
+                                                        h2 (z) = −b2         β        → 0 as ẋ
+                                                        ẋ → 0−    x>0
+                                                                         
+                                                                       a+ a2 +β 4
+                                                        h1 (z) = −b1                  → 0 quicker than ẋ
+                                                                         β
+                                                                       a+ a2 +β 4
+                                                        h2 (z) = −b2         β        → 0 quicker than ẋ
+
+
+
+
+Fig. 2. First component of the Lyapunov-based controller h1 , found for constant values of the human parameters. The Figure underlines the discontinuity of
+the control action for ẋ = 0, with the exception of the origin.
+
+
+c is a ﬁnite value. For this reason, in these points, the Lyapunov-based controller is not continuous. However, it remains
+piece-wise continuous, still inside the family of the feasible input actions for the proposed system. Fig. 2 and Fig. 3 shows
+the two components of the Sontag’s controller, considering feasible values of the human parameters [51].
+    Considering the above analysis, the resulting closed loop system obtained from the application of the Sontag’s stabilizer
+shows a non-smooth dynamics, and it cannot be handled with classical existence theorems for ordinary differential equa-
+tions, requiring vector ﬁelds which are at least Lipschitz continuous. Instead, to analyze this system, a reference to the work
+of Filippov [52] needs to be made, who developed a solution concept for differential equations where right-hand sides were
+only required to be Lebesgue measurable in the state and time variables.
+
+Deﬁnition 2.3 (Filippov). Considering a vector differential equation ẋ = f (x, t ) measurable and locally bounded, a vector
+function x(·) is called a solution on [t 0 , t 1 ] if x(·) is absolutely continuous on [t 0 , t 1 ] and for almost all t ∈ [t 0 , t 1 ]:
+
+         ẋ ∈ K [ f ](x, t ),                                                                                                                          (37)
+where:
+                             
+         K [ f ](x, t ) =                  ¯ f { B (x, δ) \ N },
+                                          co                                                                                                           (38)
+                            δ>0 μ N =0
+
+
+                                                                                 12
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+                        Fig. 3. Second component of the Lyapunov-based controller h2 , found for constant values of the human parameters.
+
+
+                                                                              ¯ represents the convex closure of a set, while
+   μ N =0 denotes the intersection over all sets N of Lebesgue measure zero, co
+B (x, δ) is the ball of radius δ centered at x.
+
+    K [ f ](x, t ) is a multivalued map able to associate multiple values to the same couple (x, t ). Through its introduction, the
+above differential equation is generalized in a differential inclusion, and it becomes conceptually possible to deal with the
+discontinuous ẋ. In the above deﬁnition, it is important that the sets of measure zero are discarded. This technical detail
+allows the obtained solutions to be deﬁned at points even where the vector ﬁeld itself is not deﬁned, e.g. at the interface of
+two regions in a piece wise deﬁned vector ﬁeld.
+
+Theorem 2.1 (Chain rule). Let x(·) be a Filippov solution to ẋ = f (x, t ) on an interval containing t and V : Rn × R → R be a smooth
+function, generally dependent on time. Then V (x(t ), t ) is absolutely continuous and:
+           d                     ˙
+                V (x(t ), t ) ∈ Ṽ (x, t ),                                                                                                              (39)
+           dt
+where:
+                                              
+            ˙             ∇Vx     K [ f ](x, t )
+           Ṽ (x, t ) =                            .                                                                                                     (40)
+                          ∂ Vt          1
+∇ V x represents the gradient of function V respect to vector x, while ∂ V t stands for the partial derivative of V respect to t.
+
+                                                                                                     ˙
+    The demonstration is provided in [53]. The deﬁnition of the set value map Ṽ (x, t ) is necessary to study the equilibria of
+differential inclusions through the generalized Lyapunov criterion, deﬁned and demonstrated in [54].
+
+Theorem 2.2 (Lyapunov stability). Let ẋ = f (x, t ) be essentially locally bounded and 0 ∈ K [ f ](x, t ) in a region D ⊃ {x ∈ Rn  x <
+δ} × {t |t 0 ≤ t < ∞}. Also, let V : Rn × R → R be a regular function satisfying:
+
+           V (0, t ) = 0,                                                                                                                                (41)
+           0 < α1 ( x ) ≤ V (x, t ) ≤ α2 ( x )         f or x = 0,                                                                                   (42)
+in D for some α1 , α2 ∈ class K . Then:
+
+       ˙
+  1. Ṽ (x, t ) ≤ 0 in D implies x(t ) ≡ 0 is a uniformly stable solution and V is a weak CLF;
+  2. if in addition, there is a class K function α3 in D with the property:
+                  ˙
+                 Ṽ (x, t ) ≤ −α3 ( x ) < 0,                                                                                                           (43)
+      then the solution x(t ) ≡ 0 is uniformly asymptotically stable and V is a CLF.
+
+                                                                               13
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                            Artiﬁcial Intelligence 312 (2022) 103771
+
+
+                                                                      ˙
+    For the purposes of the present work, the set Ṽ L (x, t ) = ∇ V L (z) · (f(z) + g1 (z)h1 + g2 (z)h2 ) is deﬁned as:
+                                         
+          ˙                  a−a−          a2 + β 2 q(β) < 0 for β = 0,
+         Ṽ (x, t ) =
+            L                                                                                                                                        (44)
+                             a=0                                  for β = 0,
+
+therefore, the chosen V L is only a weak CLF and it doesn’t guarantee the existence of a stabilizing controller. Nevertheless,
+the solution can be still accepted, proceeding with the inverse optimal design, since the global asymptotic stability can be
+proven from an extension of the LaSalle’s theorem, originally demonstrated only for continuous differential equations.
+
+Theorem 2.3 (LaSalle). Let                be a compact set such that every Filippov solution to the autonomous system ẋ = f (x), x(0) = x(t 0 )
+starting in        is unique and remains in          for all t ≥ t 0 . Let V :    → R be a regular function such that v ≤ 0 for all v ∈ Ṽ˙ . Deﬁne
+   = {x ∈ |0 ∈ Ṽ˙ }. Then, every trajectory in             converges to the largest invariant set M in the closure of   .
+
+
+Proof. Let z(t ) be a Filippov solution of the considered system starting in . Since V L (z(t )) is absolutely continuous, Ṽ L is
+                                                                                                                                                    ˙
+bounded below zero and V L is bounded above zero, V L (z) tends to a constant a as t → ∞. Uniqueness of the trajectories
+implies continuous dependence on initial conditions, so that the positive limit set L + of z(t ) is an invariant set. Moreover,
+L+ ⊂      because
+                                                                                                                                     ˙
+                     is closed. By the continuity of V L , V L ( p ) = a for all p ∈ L + . Since L + is invariant, 0 ∈ Ṽ L in L + . Given
+that all the solutions inside L + are absolutely continuous and characterized by dt     d
+                                                                                           V L = 0, it follows that L + ⊂ . Since L + is
+contained in the largest invariant set in , the theorem is proved, and these solutions are attracted towards M, that is the
+largest invariant set for which ẋ = 0 [53]. 
+
+   Now, if in this set M there are no trajectories consistent with the differential inclusion K [ f ](z, t ), solutions different
+from z ≡ 0 cannot remain in M, and this equilibrium position can be considered asymptotically stable.
+
+         M ∩ K [ f ](m) = ∅ ∀m = 0 ∈ M .                                                                                                             (45)
+
+In the considered system, M is an invariant subset characterized by ẋ = 0, and general x and f h , whereas K [ f ](m) is
+obtained evaluating K [ f ](z, t ) at these points:
+                         ⎡ ⎤                        ⎡           +Kh   ⎤
+                    0                                   − K tot
+                                                             M tot
+         M = Span ⎣ 1 ⎦ ,             K [ f ](m) = ⎣         0        ⎦.                                                                             (46)
+                    1                                        0
+
+Since z = 0 is the only point of intersection of these two sets, it is possible to conclude that the system remains in M only
+for z ≡ 0. Thus, the designed Lyapunov-based controller h is able to asymptotically stabilize the system and to attract the
+state to the equilibrium point, as graphically shown in Fig. 4. However, the latter doesn’t guarantee the stability when it is
+implemented in a zero-order hold fashion. In this case, the result is a function of the sampling period  and of the weights
+P 1 and P 2 . At this point, there is the possibility to replace the receding horizon constraint derived in the continuous-time
+implementation (21) with its variant adapted for a sampled system. However, this substitution leads to a degradation of
+the performance [37], thus, we will keep the constraint (21) in the MPC to inherit the properties of the Lyapunov-based
+controller.
+
+2.5. Q-Learning
+
+   Reinforcement Learning (RL) refers to the actor (or agent) that modiﬁes its action based on the stimuli received by
+interacting with the environment in order to maximize the notion of cumulative reward [55]. It is an eﬃcient technique to
+realize optimal control for systems with high complexity, such as industrial process control and chemical process control
+[55–57]. Among the RL algorithms, Q-learning is a typical method developed by Watkins and Dayan [58], known as action-
+dependent heuristic dynamic programming. One of the advantages of Q-learning is that it can obtain the optimal control
+policy directly by minimizing the Q-function relying on the information of system states and inputs without any prior
+knowledge of the system dynamics. An example of RL algorithm used to approximate a quasi-inﬁnite-horizon nonlinear
+MPC for a discrete-time nonlinear system is developed in [59]. Based on that, in [38] a predictive controller for nonlinear
+continuous-time systems is designed, taking into consideration pHRC and its modeling for control purposes, as in the here
+presented method. Due to the presence of several sources of disturbance and due to the large amount of unmodeled
+variables, the pHRC system to be controlled is modeled as a Markov decision process (MDP). The system is deﬁned as a
+4-tuple η(X, U, F M , R M ), where X is the state space, U is the action space, F M : X × U → X is the state transition function that
+describes the process to be controlled, and R M represents the reward function. The function F M , modeling the evolution of
+the state depending on the actual state and input, is stochastic. Thus, it associates at all the states in X a certain probability
+to be acquired by the system in the actual conditions. The goal of the RL is to ﬁnd an optimal control policy π : X → U
+
+                                                                                 14
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+Fig. 4. Representation of the vector ﬁeld of the differential inclusion with the associated streamlines, which represent the trajectory solution for different
+initial conditions.
+
+
+by optimizing the cumulative or total reward function [60]. In this paper, the proposed cost function to be minimized is
+deﬁned as the integral of the utility function from time instant tk to inﬁnity:
+                                        t∞
+
+         R M = V (z(tk )) =                r (z(τ ), u(τ ))dτ ,                                                                                          (47)
+                                    tk
+
+where the utility function r (·) is equal to the previously deﬁned quadratic cost function in (17). The control action u belongs
+to the piece-wise constant functions u(t ) = u(tk ) ∀ t ∈ [tk , tk+1 ), and it is chosen by the control policy π depending on the
+state z. For this reason, V is function of the state only.
+    The goal of the RL is the resolution of an optimization problem, therefore, to deﬁne a series of input actions that
+minimizes the value function:
+                                    t∞
+
+         V ∗ (z(tk )) = min              ψ n r (z(τ ), u(τ ))dτ ,                                                                                        (48)
+                            u(·)
+                                   tk
+
+where ψ is the discounted factor of the Bellman function. According to the Bellman principle, it can be reformulated as it
+follows:
+                                   t k +1
+            ∗
+         V (z(tk )) = min                    ψ n r (z(τ ), u(τ ))dτ + V ∗ (z(tk+1 )).                                                                    (49)
+                            u(·)
+                                   tk
+
+In the framework of the Q-learning, the reward function to be optimized can be expressed as the function Q , dependent
+on the present state and input action. Thus, the previous expression can be rewritten as:
+                                                t k +1
+            ∗
+         Q (z(tk ), u(tk )) = min                        r (z(τ ), u(τ ))dτ + Q ∗ (z(tk+1 ), u(tk+1 )),                                                  (50)
+                                         u(·)
+                                                tk
+
+and the optimal control law u∗ (t ) results in:      k
+
+
+                u∗ (tk ) = arg min Q ∗ (z(tk ), u(tk )),                                                                                                 (51)
+                                        u(·)
+
+         s.t.   z(tk+1 ) = F M (z(tk ), u(tk )).                                                                                                         (52)
+
+                                                                                       15
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                            Artiﬁcial Intelligence 312 (2022) 103771
+
+
+These equations can be used to derive a Q-learning-based algorithm to obtain the optimal control policy of the LMPC
+problem iteratively [38]. The algorithm implementation related to the described methodology is summarized in the pseudo-
+code in Algorithm 1 (Q-Learning).
+   The set Ū in which the input action is optimized is deﬁned as Ū = U ∩ L U , where L U is the set of inputs that respect
+the Lyapunov constraint expressed in the LMPC (as described in the previous Section). Enforcing such deﬁned Lyapunov
+constraint, once the algorithm is converged, the policy should inherit the stability and the robustness of the Lyapunov-
+based controller. The initialization of the Q-function at the step 4 in the Algorithm 1 facilitates the calculation of the initial
+policy in the following step 5. In any case, considering the learning process of the iterative Q-function, the initialization
+method does not affect its update and convergence. Theoretically, the convergence is reached for i → ∞. However, this is
+not feasible in practical applications, due to the limited computing resources and real-time computing requirements. Indeed,
+in these cases, a sub-optimal control law is obtained after a ﬁnite number of iterations. Besides, by approximating the Q-
+function and the control policy with neural networks in online update, an additional ﬁtting error is introduced. Nevertheless,
+this method still allows to reach very high accuracy in the control of the system [38].
+
+
+Algorithm 1 Q-Learning.
+1: Initialize the error threshold  > 0
+2: for k = k0 , k0 + 1, ..., ∞ do
+3:     Measure the current state vector z(tk ) and set i = 0
+4:     Initialize Q 0 (·) = 0
+5:     Calculate the initial control u0 (tk ) by
+
+                                      tk+1
+
+             u0 (tk ) = arg min              r (z(τ ), u(τ ))dτ + Q 0 (·)                                                                             (53)
+                            u(·)∈Ū
+                                      tk
+
+6:     while
+                                                                    
+              i +1                                                  
+             Q     (z(tk ), ui (tk )) − Q i (z(tk ), ui −1 (z(tk ))) >                                                                             (54)
+
+     do
+7:         Update the sequence of action policies:
+
+                                      tk+1
+               i
+             u (tk ) = arg min             r (z(τ ), u(τ ))dτ + Q i (z(tk+1 ), ui −1 (tk+1 ))                                                         (55)
+                            u(·)∈Ū
+                                      tk
+
+8:         Update the sequence of Q-functions:
+
+                                             tk+1
+
+             Q i +1 (z(tk ), ui (tk )) =               r (z(τ ), ui (τ ))dτ + Q i (z(tk+1 ), ui −1 (z(tk+1 )))                                        (56)
+                                             tk
+
+
+9:     Apply u(t ) = ui (tk ), t ∈ [tk , tk+1 ) to the system
+
+
+
+    In contrast to the ordinary Q-Learning algorithm, in the proposed approach, the agent adopts the same action policy used
+for an update of the Q-function. In literature, this kind of algorithm is named as SARSA. Considering that a greedy policy
+is adopted, it can still be considered as a Q-learning algorithm. This peculiarity depends on the fact that, in the proposed
+pHRC scenario, it is not possible to identify two separate time-windows for the exploration of the environment, waiting
+for the function to converge, and for the optimal control of the system. Indeed, the best control available at the time is
+immediately applied to the system.
+    The convergence of the proposed Q-Learning algorithm need to be proved. Exploiting the three lemma, it will be proved
+that for i → ∞, the sequence { Q i +1 (z(tk ), ui (tk ))} tends to the optimal Q-function Q ∗ (z(tk ), ui (tk )), and the estimated
+control policy sequence u i (tk ) tends to the optimal control policy u ∗ (tk ), where u (t ) = u (tk ), t ∈ [tk , tk+1 ). A similar demon-
+stration is also available in [38].
+
+Lemma 2.4. Let ai be any arbitrary control sequence subjected to the control constraint Ū . The corresponding value function i +1 (·)
+is updated by:
+
+                                                  t k +1
+
+          i +1 (z(tk ), ai (tk )) =                     r (z(τ ), ai (τ ))dτ + i (z(tk+1 ), ai −1 (z(tk+1 ))),                                     (57)
+                                                  tk
+
+with 0 (·) = 0. Then, Q i +1 (z(tk ), ui (tk )) ≤ i +1 (z(tk ), ai (tk )) can be satisﬁed for any iterative number i.
+
+                                                                                                    16
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                     Artiﬁcial Intelligence 312 (2022) 103771
+
+
+Proof. Note that Q i +1 (z(tk ), ui (tk )) is the result of a minimization done by using the optimal input ui (tk ), while
+i +1 (z(tk ), ai (tk )) is achieved under an arbitrary control input ai (tk ); it can be concluded that Q i +1 (z(tk ), ui (tk )) ≤
+i +1 (z(tk ), ai (tk )). 
+
+Lemma 2.5. Consider the Q-function sequence { Q i +1 (z(tk ), ui (tk ))} deﬁned in the algorithm, and the corresponding system input
+sequence {ui (tk )}. Then, it follows that ∀ i Q i ≤ Q i +1 .
+
+Proof. Setting the arbitrary control sequence ai (tk ) = ui +1 (tk ) for i +1 :
+
+                                                     t k +1
+             i +1                  i +1
+                     (z(tk ), u          (tk )) =        r (z(τ ), ui +1 (τ ))dτ + i (z(tk+1 ), ui (z(tk+1 ))),                                             (58)
+                                                     tk
+
+                                                     t k +1
+             i +2                  i +1
+         Q            (z(tk ), u          (tk )) =            r (z(τ ), ui +1 (τ ))dτ + Q i +1 (z(tk+1 ), ui (z(tk+1 ))).                                     (59)
+                                                     tk
+
+Considering the initialized value functions Q 0 (·) = 0 (·) = 0, for i = 0:
+
+                                                               t k +1
+             1                0                 0
+         Q (z(tk ), u (tk )) −  (·) =                              r (z(τ ), u0 (τ ))dτ ≥ 0.                                                                 (60)
+                                                               tk
+
+This difference is kept for all i since the Q i +1 (·) and i (·) terms are always increased of the same quantity
+ tk+1
+ t
+       r (z(τ ), ui (τ ))dτ . Indeed, Q i +1 (·) ≥ i (·) ∀i. Knowing from Lemma 2.4 that Q i (·) ≤ i (·), it can be concluded that:
+  k
+
+
+         Q i +1 (·) ≥ i (·) ≥ Q i (·) ⇒ Q i +1 (·) ≥ Q i (·) ∀ i .                      
+
+Lemma 2.6. Consider the Q-function sequence { Q i +1 (z(tk ), ui (tk ))} deﬁned in the algorithm. There is an admissible control policy
+that makes the control law and the corresponding system state z be 0 in a limited time t N f . There exists an upper bound Y (tk ) such
+that ∀ i Q i +1 (z(tk ), ui (tk )) ≤ Q ∗ (z(tk ), u∗ (tk )) ≤ Y (tk ).
+
+Proof. Let μ(z) be an arbitrary admissible control policy, and set ai = μ(z(tk )). At this point, i +1 (z(tk ), μ(z(tk ))) can be
+expressed as:
+
+         i +1 (z(tk ), μ(z(tk ))) =
+                 t k +1
+
+          =              r (z(τ ), μ(z(τ )))dτ + i (z(tk+1 ), μ(z(tk+1 )))
+                 tk
+                 t k +2
+
+          =              r (z(τ ), μ(z(τ )))dτ + i −1 (z(tk+2 ), μ(z(tk+2 )))
+                 tk                                                                                                                                           (61)
+                 t k + i +1
+
+          =               r (z(τ ), μ(z(τ )))dτ + 0 (z(tk+i +1 ), μ(z(tk+i +1 )))
+                   tk
+                 t∞
+
+          ≤             r (z(τ ), μ(z(τ )))dτ = V (z(tk )).
+              tk
+
+This is valid for every admissible control policy. Substituting the general μ with u∗ , it is possible to get Q i +1 (z(tk ), u∗ (z(tk )))
+≤ Q ∗ (z(tk ), u∗ (z(tk ))), that implies:
+
+         Q i +1 (z(tk ), ui (tk )) ≤ Q ∗ (z(tk ), u∗ (z(tk ))).                                                                                               (62)
+
+Besides, let μ0 be the admissible control policy that makes the control law and the corresponding system state z be 0 in a
+limited time t N f . It is not optimal, thus:
+
+                                                                                             17
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                     Artiﬁcial Intelligence 312 (2022) 103771
+
+
+                                             t∞
+
+         Q ∗ (z(tk ), u∗ (z(tk ))) ≤             r (z(τ ), μ0 (z(τ )))dτ
+                                            tk
+              tN f                                      t∞
+
+          =          r (z(τ ), μ0 (z(τ )))dτ +                 r (z(τ ), μ0 (z(τ )))dτ                                                        (63)
+              tk                                    t N f +1
+              tN f
+
+          =          r (z(τ ), μ0 (z(τ )))dτ = Y (tk ).
+              tk
+
+Therefore, the condition ∀ i Q i +1 (z(tk ), ui (tk )) ≤ Q ∗ (z(tk ), u∗ (tk )) ≤ Y (tk ) is veriﬁed.   
+
+Theorem 2.7. Consider the iterative control law u i and Q i +1 deﬁned in Algorithm 1. When i → ∞, one has ui → u∗ and Q i +1 → Q ∗ .
+
+Proof. According to Lemma 2.5 and the deﬁnition of the optimal Q-function, if i → ∞ it results:
+
+         Q ∗ (z(tk ), u∗ (tk )) ≤ lim Q i +1 (z(tk ), ui (tk )).                                                                              (64)
+                                          i →∞
+
+According to Lemma 2.6, it is possible to write:
+
+         Q i +1 (z(tk ), ui (tk )) ≤ Q ∗ (z(tk ), u∗ (tk )) ≤ Y (tk )           ∀ i.                                                          (65)
+Thus:
+
+          lim Q i +1 (z(tk ), ui (tk )) = Q ∗ (z(tk ), u∗ (tk )).                                                                             (66)
+         i →∞
+
+The theorem is therefore demonstrated.                          
+
+2.6. Actor-Critic neural networks
+
+    The Algorithm 1 can be implemented online using a proper threshold  to limit the number of iterations. However, in this
+way, many constrained minimization problems need to be solved at each time instant, and the result of such processes is
+very ineﬃcient from the computational point of view. Therefore, to overcome this problem, Q-Learning can be implemented
+using a couple of neural networks to approximate the Q-function and the policy π .
+    The actor neural network is the responsible for the update of the variable impedance parameters, and it represents
+the action choosing the policy of the Q-Learning. It approximates the LMPC control law u LM P C (tk , z(tk )) by processing the
+vector of the measured state ẑ = [ẋ, x, f h ] T through 3 hidden layers to return the two optimized impedance parameters
+ũ = [x̃d , D̃ h ] T (i.e., the setpoint and the damping parameters). The structure is the following:
+                                                                                        
+         ũnm = tanh A3 · σ R LU (A2 · σ R LU (A1 ẑ + b1 ) + b2 ) + b3 .                                                                     (67)
+ũnm indicates the non-normalized output of the ANN. The couples ( A i , b i ) represent the three linear layers of the neural
+network, that transform the input vector with a matrix multiplication, adding a bias. Since 64 units per layer are used, the
+dimensions of the matrices are:
+
+         A1 ∈ R64×3 , A2 ∈ R64×64 , A3 ∈ R2×64 ,
+         b1 ∈ R64 , b2 ∈ R64 , b3 ∈ R2 .
+The activation function σ R LU is the Rectiﬁed Linear Unit, deﬁned as it follows:
+
+         σ R LU (x) = x+ = max(0, x).                                                                                                         (68)
+Due to the hyperbolic tangent, the output is constrained in the range [−1, 1], and it should be denormalized:
+
+         ũ = ũnm · ustd + uavr ,                                                                                                            (69)
+         uavr = (umax + umin )/2,                                                                                                             (70)
+         ustd = (umax − umin )/2.                                                                                                             (71)
+These constraints represent the saturation limit of the input, and this is a good method to enforce them for the implemen-
+tation of the proposed controller in real applications.
+
+                                                                                       18
+L. Roveda, A. Testa, A.A. Shahid et al.                                                          Artiﬁcial Intelligence 312 (2022) 103771
+
+
+                                                                                   ¯ the result of the minimization of the
+   During the training, the output of the actor neural network ū is compared with ū,
+Q-function, approximated by the critic neural network Q̄ :
+
+         ¯ (tk ) = arg min Q̄ (z(tk ), u(tk )),
+         ū                                                                                                                        (72)
+                               u(·)∈Ū
+
+                        ¯ (tk ),                      1
+         ea = ū(tk ) − ū                     Ea =       ea 2 .                                                                 (73)
+                                                      2
+The stand gradient descent algorithm is used to update the weight for the actor network, that is implemented as it follows:
+
+           j +1            j ∂ E a ∂ ū(tk )
+         Ai        = Ai − la                 ,                                                                                     (74)
+                           ∂ ū(tk ) ∂ Ai
+           j +1      j       ∂ E a ∂ ū(tk )
+         bi     = b i − la                   ,                                                                                     (75)
+                           ∂ ū(tk ) ∂ bi
+where la is the learning rate of actor.
+  The critic neural network is used to approximate the Q-function, that in general is expressed as:
+
+                    t∞
+
+         Q̄ =            r (z(τ ), ū(τ ))dτ ,                                                                                     (76)
+                   tk
+
+where ū(tk ) is approximated by the actor neural network. Since r (·) = f h f hT , ū is not directly present in the functional.
+However, it determines the future states, i.e., the values of f h from tk+1 onward. In fact, this network needs to approximate
+the sum of the costs associated to the states probably covered according to a greedy control policy, and it requires as an
+input the whole state (zt ; ūt ) T to be able to estimate the future system evolution. Then, 3 hidden layers of 128 neurons
+each are used to elaborate the state and return an estimation of the Q-function. The adopted structure is as it follows:
+
+         Q̄ = C3 · σ R LU (C2 · σ R LU (C1 (zt ; ūt ) T + d1 ) + d2 ) + d3 ,                                                      (77)
+                        128×5              128×128                       128
+         C1 ∈ R                 , C2 ∈ R               , C3 ∈ R                ,
+                        128              128
+         d1 ∈ R               , d2 ∈ R         , d3 ∈ R.
+Then, the approximated error and squared error of the critic network are, respectively, deﬁned as e c and E c :
+
+                                                          1
+         ec = Q̄ (tk ) − Q̄¯ (tk ),             Ec =          ec 2 ,                                                             (78)
+                                                          2
+
+where Q̄¯ is the result of the Bellman equation:
+
+                          t k +1
+
+         Q̄¯ (t ) =
+               k                r (·)dτ + Q̄ (tk+1 ).                                                                              (79)
+                          tk
+
+Again, a variant of the gradient descent algorithm is used to update the weight during the training of the critic network,
+that can be schematized as it follows:
+
+           j +1           j          ∂ E c ∂ Q̄ (tk )
+         Ci        = Ci − l c                         ,                                                                            (80)
+                                   ∂ Q̄ (tk ) ∂ Ci
+           j +1           j          ∂ E c ∂ Q̄ (tk )
+         di        = di − l c                         ,                                                                            (81)
+                                   ∂ Q̄ (tk ) ∂ di
+where lc is the learning rate of critic.
+
+2.7. Cross entropy method
+
+   In the previous section the minimization of Q̄ has been described, necessary during the training of actor to deﬁne the
+error ea . Thus, another optimization problem is introduced, which can be solved as a discrete optimal control problem since,
+for this application, the input can only be piece-wise constant and the state has already been sampled. To choose the best
+input action ū¯ (tk ), the evolution of the interaction force f h suggested by the ensemble of neural networks along a time
+horizon long enough has to be considered. This problem can be formalized as:
+
+                                                                                   19
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                           Artiﬁcial Intelligence 312 (2022) 103771
+
+
+                 ¯ k = arg min Q̄ (zk , uk )
+                 ū
+                              u(·)∈Ū
+
+                                    
+                                    N −1                                                                                                            (82)
+                 = arg min                 r (·) + Q̄ (z N −1 , u N −1 ),
+                          u(·)∈Ū
+                                    k =0
+
+         s.t.    żk+1 = f(zk ) + g1 (zk )u 1k + g2 (zk )u 2k ,                                                                                     (83)
+                 z0 = z̃(tk ),                                                                                                                      (84)
+         ¯ k ∈ Ū ,
+         ū
+         k = 0, 1, ..., N − 1.
+The exact computation of the optimum is not possible due to the high non-linearity of the problem, and due to the
+uncertainties that come with the modeling of the system. In order to compute an approximated solution of the above
+ﬁnite-horizon control problem, the Cross-Entropy Method (CEM) is exploited [61]. CEM is a probabilistic optimization be-
+longing to the ﬁeld of Stochastic Optimization. The strategy of the algorithm is to sample the problem space, approximating
+the distribution of suitable solutions. This is achieved by assuming a distribution of the problem space (such as Gaussian),
+sampling from this distribution to generate possible candidate solutions. Then, the distribution is updated on the basis of
+the best found candidate solutions. As the algorithm progresses, the distribution becomes more reﬁned, until it focuses
+on the area of optimal solutions. The pseudo-code describing its implementation is given in Algorithm 2 (Cross Entropy
+Method).
+
+Algorithm 2 Cross entropy method.
+ 1: Initialize the mean μ and the standard deviation σ of the stochastic distributions
+  2: for iter = 0, 1, ..., N it do
+  3:    Sample the sequence of outputs {ū ¯ j}
+  4:    Saturate the values out of the limit range
+  5:    for k = 0, 1, ..., N − 1 do
+                                                                                                       j
+  6:        Predict the system evolution for each sample j through the ensemble of neural networks → z̄k
+         Evaluate cost j =
+                               N −1       j            j      ¯j
+  7:                           k=0 r ( f hk ) + Q̄ (z̄ N −1 , ū N −1 )
+ 8:      Order the samples according to cost j
+ 9:      Choose the best s elite samples.
+10:      Compute their mean μcp and standard deviation σcp
+11:      Use them to update the stochastic distributions, considering a smoothing factor α :
+
+
+              μi+1 = (1 − α )μi + αμcp ,                    σ i+1 = (1 − α )σ i + ασcp
+                           ¯j
+12: Return the best sample ū
+
+
+    It is important to highlight that the value function to be minimized is considered through the Bellman equation, so that
+the contributions closest in time are directly evaluated from the cost function. In such a way, the prediction capabilities
+of the model approximator are exploited to estimate the state evolution, and to obtain a ﬁnal result that is more accurate
+than the one achieved by an algorithm that relays only on the Q-function. The limit range out of which the generated input
+must be cut is the previously deﬁned set Ū . It is the intersection of U , that includes all the input actions that respect the
+saturation limits, and the set L U , that include the inputs that respect the Lyapunov constraint expressed in the LMPC. In
+fact, these constraints can be decoupled and transferred into the upper and lower bounds of each input.
+    The conditions present in the deﬁnition of the Model Predictive Control can be made stricter to be reformulated for the
+single inputs:
+                                                                             
+             ∂ V L (z(tk ))                           ∂ V L (z(tk ))
+                            gi (tk )(z) u i (tk ) ≤                  gi (tk )(z) h i (z(tk )),                                                      (85)
+                   ∂z                                       ∂z
+                         ∂ V L (z(tk ))
+where i = 1, 2,                ∂z       gi (tk )(z)     ∈ R, and u i (tk ) ∈ R. In such a way, the stability of the system respect to each single
+input is imposed. Simplifying w.r.t. the common term, it is possible to write:
+         ⎧
+         ⎨ u i (tk ) ≤ hi (z(tk )) if             ∂ V L (z(tk ))
+                                                        ∂z       gi (tk )(z)    > 0,
+                                                                                                                                                    (86)
+         ⎩ u (t ) ≥ h (z(t )) if                  ∂ V L (z(tk ))
+                                                                 gi (tk )(z)    < 0.
+            i k      i    k                             ∂z
+
+Combining these limits with the saturation constraints, it gets to:
+         ⎧
+         ⎨ umin
+            i
+                ≤ u i (tk ) ≤ hi (z(tk )) if                   ∂ V L (z(tk ))
+                                                                     ∂z       gi (tk )(z)   > 0,
+                                                                                                                                                    (87)
+         ⎩ h (z(t )) ≤ u (t ) ≤ umax if                        ∂ V L (z(tk ))
+                                                                              gi (tk )(z)   < 0,
+            i    k      i k      i                                   ∂z
+
+
+                                                                                             20
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+                                                                                           ∂ V L (z(tk ))
+that is the explicit deﬁnition of the set Ū . Note that in case ẋ = 0,                         ∂z       gi (tk )(z)   = 0 ∀i, and:
+
+         ∂ V L (z)                                   ∂ V L (z)
+                   (f(z) + g1 (z)u 1 + g2 (z)u 2 ) =           (f(z) + g1 (z)h1 + g2 (z)h2 ) = 0.                                                                (88)
+            ∂z                                          ∂z
+Therefore, it is not necessary to introduce further limitations on the set U .
+
+2.8. Online updating the Q-LMPC
+
+    All the ANNs employed by the controller are trained online to provide the algorithm with the capability of dynamically
+adapting to new data patterns. In the RL framework, the online learning approach (as opposed to batch learning) allows
+the immediate knowledge transfer to the agent, which is also valuable to guide the data acquisition in the most convenient
+direction. This method results in higher exploitation and less sensitivity to the learning parameters for the system to con-
+verge [62]. Besides, the memory for most critical tasks is preserved by using the data shortly after their acquisition. The
+design and implementation of the online controller to effectively and eﬃciently update the impedance control parameters
+is proposed below, considering a nonlinear system and its unknown dynamics (as introduced in Fig. 1). The training of the
+neural networks described in Section 2.6 recalls the update of the sequences { Q i +1 (z(tk ), ui (tk ))}, and {ui (tk ))}, shown in
+the Algorithm 1. Therefore, the proposed Q-LMPC (summarized in the pseudo-code in Algorithm 3) is a fair approximation
+of Q-Learning and, once the networks converged, it tends to the result of the LMPC problem.
+
+Algorithm 3 Q-LMPC.
+  1: Initialize the weight of the actor neural network and the critic neural network
+  2: Initialize the weight of the neural networks of the model approximator ensemble
+  3: for k = k0 , k0 + 1, ..., ∞ do
+  4:     Measure the current state vector z(tk ) = [ẋ, x, f h ] T
+  5:     Store the transition (z(tk−1 ), u(tk−1 ), z(tk )) inside the buffer D
+  6:     Calculate the control law ũ(tk ) through equations (67) and (69):
+
+                                                                             
+             ũnm = tanh A3 · σ R LU (A2 · σ R LU (A1 ẑ + b1 ) + b2 ) + b3
+
+             ũ = ũnm · ustd + uavr
+
+ 7:      Apply ũ(tk ) to the system
+ 8:      if k/ N h is integer then
+ 9:          Get N h transitions (zn , un , zn+1 ) from D, where n = 1, 2, ..., N h
+10:          Update the model approximators
+11:          for each transition (zn , un , zn+1 ) in N h do
+12:              Use zn and un to compute Q̄ n
+13:              Use zn+1 to compute ūn+1 through the actor neural network
+14:              Use zn+1 and ūn+1 to compute Q̄ n+1
+15:             Apply the Bellman equation to ﬁnd Q̄¯ n
+16:             Calculate ec , E c and update the critic weight
+17:          for each transition (zn , un , zn+1 ) in N h do
+18:             Find ū¯ n+1 minimizing Q̄ (zn+1 ) with CEM
+19:             Calculate ea , Ea and update the actor weight
+
+
+    The catastrophic interference issue in the actor-critic network training is addressed by adapting the learning rate ac-
+cording to the measured state. In this way, the operating scenarios that provide non-meaningful information are detected,
+reducing their relevance in the learning. As a matter of example, the learning rate of the actor-network is decreased when
+the operator and the robot do not interact. Due to the limited computational capability of the Linux rt kernel (in which
+is not possible to make use of GPUs), it is not possible to update the networks at every iteration (i.e., 6 Hz), requiring to
+slow down the frequency to 1.2 Hz. During training, the record of the states previously covered (i.e., zn , zn+1 , ...) has to be
+performed into a buffer D of size N h . When the buffer ﬁlls up, the training phase is activated, and the operations inside
+the dashed square in Fig. 1 are performed. The data stored into the buffer are provided to the training framework in the
+same order in which they are acquired. It is important to have a buffer of a small size, both to shorten the idle time of
+the training process (to beneﬁt of the online learning properties) and to reduce the variance between the data used in two
+subsequent training steps. Indeed, if these data are perceived as sampled from different distributions, a sudden variation
+of the control policy can occur, leading to an unstable behavior. This issue has also been tackled designing a proper data
+normalization and the experimental results assess the successful outcome of these solutions. From the computational point
+of view, the training of the actor is the most expensive part of the algorithm due to the application of the CEM. Therefore,
+after it converges, it is possible to stop the training, increasing the update frequency of the controller.
+
+3. Experimental results
+
+    In this Section, the experimental validation of the proposed Q-LMPVIC for pHRC tasks is described. The proposed con-
+troller has been compared w.r.t. the one in [20], previously developed by some of the authors. Both the controllers have
+
+                                                                                      21
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                             Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+Fig. 5. Franka EMIKA panda Robot involved in the validation experiments. Considering the experimental scenario i), the user interacts with the manipulator
+at its end-effector. Considering the experimental scenario ii), a sealing gun is attached to the robot end-effector and the user interacts with the robot
+through it (see Fig. 13).
+
+
+been implemented and tested on a Franka EMIKA panda robot (Fig. 5), used as a test platform for the execution of the
+target pHRC task. In the following, the considered target pHRC tasks for validation purposes are ﬁrstly described. Then, the
+evaluation protocol is introduced. The participants are later detailed. Next, the implementation details of the Q-LMPVIC are
+given. Finally, the experimental results are shown.
+
+3.1. Target pHRC tasks
+
+    Two experimental scenarios have been considered for the test and validation of the proposed Q-LMPVIC, compared with
+the approach in [20]: i) interaction between the human and the robot end-effector (i.e., no tool at the robot end-effector,
+Fig. 5); ii) interaction between the human and a sealing gun installed at the robot’s end-effector. The subjects are supposed
+to operate the robot along the vertical direction z, where the proposed Q-LMPVIC approach and the one in [20] are activated.
+Two virtual walls along the z axis (that have been set at 0.7 m and 0.3 m) have been implemented in order to constraint
+the robot motion. Each subject performs 10 up and down complete motions between the deﬁned virtual walls. The two
+experimental scenarios have been tested by adopting a pre-training for both the proposed algorithm and the one in [20].
+Such pre-training has been performed by one of the authors, Andrea Testa. The running order of the control algorithms has
+been randomized to balance the evaluation results. In addition, the training process of the proposed Q-LMPVIC approach
+has been tested considering the experimental scenario i), asking to the participants to perform their own training section in
+order to evaluate the training procedure of the proposed methodology.
+
+3.2. Evaluation protocol
+
+   The pre-trained controllers (both the Q-LMPVIC and the controller in [20]) have been evaluated on the basis of the
+qualitative evaluation framework used in [4,20]. Indeed, the performance of the two tested control methods has been
+assessed using a questionnaire at the end of the evaluation experiments for all the subjects. The following metrics have
+
+                                                                           22
+L. Roveda, A. Testa, A.A. Shahid et al.                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+been deﬁned to address both physical human-robot interactions (pHRI) and cognitive human-robot interactions (cHRI) to
+completely address human expectations and task goals [63]:
+
+  • naturalness: human’s overall likability, normalcy, ease of use, convenience, non- complexity in operation and collabora-
+      tion;
+  • smoothness: whether the movement is smooth and characterized by a limited jerk;
+  • effort: amount of effort, hardship or endeavor required to achieve a performance level satisfying the mental, physical
+      and temporal demand;
+  • motion: nature of object velocity and acceleration felt by the human (i.e., whether the velocity, acceleration is low or
+      high compared to human expectation);
+  • stability: presence/absence of oscillations, sudden inactivity of the system, and their effects on manipulation, object,
+      system structure, and environment;
+  • detection of intention: whether the robot follows human intention in accelerating or de-accelerating the motion;
+  • performance: the overall performance, e.g., lifting the object to the desired position within the speciﬁed time and
+      attempting to avoid user-unfriendly events.
+
+Each of the proposed metrics has a ranking between 0 (minimum ranking, very negative review) to 4 (maximum ranking,
+very positive review). The ratings have been assigned upon completion of the experiment in one explored scenario and allow
+to order the feedback in a structured framework. Ratings are based on the subjective opinion of the participants, gained by
+the feeling with the controllers and indicative mainly of their relative performance. As among volunteers there are expert
+professionals as well as merely curious, the questionnaire collected a various collection of points of view. So, there is also
+room for reviews built on a deep know-how, which can be considered closer to an absolute independent evaluation of the
+controllers.
+   The training process has been evaluated in order to verify the usability of the proposed controller from scratch (i.e., to
+be trained by a speciﬁc user within a real context of application). The following criteria are considered for the proposed
+evaluation:
+
+  • user-friendliness: whether the training is intuitive or not (i.e., if the necessary actions to train the robot are complex
+      and/or too far from the ordinary way to use the robot);
+  • duration: time required to achieve an acceptable performance of the controller;
+  • satisfaction: whether the operator is able to achieve the target performance during the test.
+
+Each of the proposed metrics has a ranking between 0 (minimum ranking) to 4 (maximum ranking).
+
+
+3.3. Participants
+
+
+    The following subjects have been involved in the experimental evaluation for the different experimental scenarios:
+
+  • scenario i) with pre-training: 10 healthy subjects (6 males, 4 females, with mean age = 31 ± 6 years) without any
+      physical problem;
+  • scenario ii) with pre-training: 10 healthy subjects (10 males, with mean age = 24 ± 1 years) without any physical
+      problem;
+  • scenario iii) without pre-training: 5 healthy subjects (3 males, 2 females, with mean age = 26 ± 3 years) without any
+      physical problem.
+
+Prior to the testing, all subjects have been informed about the evaluation scenario and the testing procedure.
+
+
+3.4. Implementation of the Q-LMPVIC
+
+
+    The code required to implement and run the proposed Q-LMPVIC (with detailed instructions) is available at the following
+GitHub repository: https://github.com/Andrea8Testa/Laboratorio.git. The provided readme ﬁle contains the precise description
+of the hyperparameters used to deﬁne and train the ANNs for the sake of repeatability.
+    The proposed Q-LMPVIC has been implemented on a Franka EMIKA panda robot, exploiting the ROS framework. The im-
+plementation has been made on top of the available Franka torque control (based on libfranka functionalities), exploiting the
+Franka Control Interface (FCI), making it possible to send motor signals to the manipulator in real-time at 1 kHz. The end-
+effector interaction force, fundamental for the evaluation of the cost function, is provided by converting the measurements
+of the torque sensors installed by the vendor in each actuated joint of the robot employed for experimental evaluation.
+However, it is important to underline that a force/torque sensor installed at the end-effector of the robot can be used if
+joint torque sensors are not available on the employed manipulator.
+
+                                                                23
+L. Roveda, A. Testa, A.A. Shahid et al.                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+3.4.1. Low-level Cartesian impedance control
+    The low-level Cartesian impedance control runs at 1 kHz (i.e., the frequency of the Franka EMIKA panda robot torque
+controller), and its parameters are imposed as follows: the mass parameters have been set to 10 kg, while the inertia
+parameters are set to 10 kg m2 , the translational and rotational stiffness parameters have been set to 500 N/m and 50
+N m/rad respectively. The damping ration parameters, for the non-optimized Cartesian impedance control DoFs, are set to
+0.7. The setpoint and the damping parameters are computed online along the controlled Cartesian direction z, exploiting
+the proposed Q-LMPVIC for the Cartesian DoF z. The Cartesian impedance control has been implemented exploiting the
+measured interaction wrench fext = fh applied by the human operator, that is provided by the manipulator (making use of
+its internal joint torques measurements).
+
+3.4.2. Lyapunov-based controller
+    As mentioned in Section 2.4, the parameters of the Lyapunov function are chosen empirically, based on experimental
+testing:
+
+                  1                  1
+         VL =         ẋP 1 ẋ T +       f h P 2 f hT ,
+                  2                  2
+         P 1 = 10−5 ,           P 2 = 4 · 10−4 .
+
+3.4.3. ANNs
+    The architecture of the ensemble of model approximators and of the actor-critic neural networks have been discussed,
+respectively, in Section 2.3 and in Section 2.6. To update the weights of the critic neural network during the training,
+the SGD algorithm of Pytorch is used [64]. Instead, for all the others, the Adam algorithm (an algorithm for ﬁrst-order
+gradient-based optimization of stochastic objective functions) [65] is employed. The learning rates are set to 10−3 for the
+model approximators and the critic networks, whereas it goes from 10−4 to 5 · 10−5 in the actor network, according to the
+magnitude of the measured f h . The buffer used to store the transitions required to train the ANNs has a size of N h = 5.
+
+3.4.4. CEM
+    The CEM used to solve the discrete optimal control problem in section 2.7 is characterized by a smoothing rate α = 0.9,
+a prediction horizon N = 7, N it = 4, N samples = 15, and s = 4 elite samples.
+    The saturation limits on input are set to:
+                                                       
+                0.7                         0.3
+         umax =     ,                umin =     .
+                5.0                         0.1
+
+The control frequency of the high-level Q-LMPC is set equal to 6 Hz. This value is mainly determined by the number of
+ANNs and the settings of the CEM.
+
+3.5. Experimental results
+
+   The experimental results related to the human-robot interaction dynamics modeling, to the comparison between the
+proposed Q-LMPVIC and the MBRLC in [20], and to the evaluation of the training process of the proposed controller are
+shown in this Section.
+
+3.5.1. Human-robot interaction dynamic modeling evaluation
+    The accuracy of the learned human-robot interaction dynamic model is fundamental for the effectiveness of the proposed
+Q-LMPVIC. In fact, on the basis of the learned model, the MPC computes the optimized impedance control parameters to
+be applied during the human-robot collaboration task. Therefore, such model affects the task dynamics and the human
+perception of the collaboration with the robot. It is therefore mandatory that the proposed approach is capable to model
+the complex human-robot interaction dynamics to succeed.
+    In order to validate the proposed modeling, Fig. 6 shows the training loss and the test loss for the two employed
+ANNs. The behavior of the pre-trained model approximators has been recorded in the experimental scenario i), extracting
+random training and testing subsets from the collected data. Two new ANNs are then trained on the ﬁrst subset, and
+evaluated on the second one. Such plots highlight that the proposed couple of ANNs is capable to model the human-robot
+interaction dynamics. Fig. 7 shows the comparison between the measured and the predicted state variables at the end of
+the aforementioned training, highlighting the capabilities of the modeling to predict the interaction dynamics for control
+purposes. In fact, as it can be seen especially considering the force estimation, the estimation error is in the same range of
+model-based state of the art observers [66–69], and, more importantly, as it is shown in [20].
+
+3.5.2. Q-LMPVIC vs. MBRLC within the experimental scenario i)
+    Considering the experimental scenario i) deﬁned in Section 3.1, the obtained results related to the ﬁrst six performance
+indicators detailed in Section 3.2 are shown in Fig. 8 for both the tested controllers. The overall performance indicator is
+
+                                                              24
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                 Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+Fig. 6. Training loss (red line) and test loss (blue line) for the 2 ANNs. (For interpretation of the colors in the ﬁgure(s), the reader is referred to the web
+version of this article.)
+
+
+
+
+                                          Fig. 7. Comparison between the measured and the predicted state variables.
+
+
+
+
+instead shown in Fig. 9 for both the tested controllers. The controllers achieved a similar result w.r.t. the stability criterion
+as shown in Fig. 8(e), whereas in all the other metrics the Q-LMPC controller is performing better. The most important
+improvements are achieved w.r.t. the effort criterion as shown in Fig. 8(c), the motion criterion as shown in Fig. 8(d),
+and the naturalness criterion as shown in Fig. 8(a). In fact, the novel Q-LMPVIC has been perceived as much lighter and
+more responsive than the MBRLC. This result can be highlighted by overlapping the evolution of the interaction force and
+the optimized setpoint. Fig. 10 shows such evolutions, to highlight the reactivity of the proposed controller, being able to
+quickly adapt the Cartesian impedance setpoint during the human-robot interaction.
+
+
+3.5.3. Q-LMPVIC vs. MBRLC within the experimental scenario ii)
+    Considering the experimental scenario ii) deﬁned in Section 3.1, the obtained results related to the ﬁrst six performance
+indicators detailed in Section 3.2 are shown in Fig. 11 for both the tested controllers. The overall performance indicator is
+instead shown in Fig. 12 for both the tested controllers. The achieved results in the considered scenario ii) are aligned to
+the ones achieved in the scenario i): the proposed Q-LMPVIC outperforms the MBRLC. In particular, considering the extra
+payload attached to the robot end-effector (i.e., the sealing gun), the effort criterion highlights the better performance of
+the proposed Q-LMPVIC much more w.r.t. the ones of the MBRLC (as shown in Fig. 11(c)). In fact, the proposed Q-LMPVIC is
+demonstrated to be very reactive, promptly following the intended motion of an operator, i.e., quickly adapting the setpoint
+so that the applied force decays within few time instants due to the prompt displacement of the end-effector.
+
+
+3.5.4. Q-LMPVIC training process validation
+    Considering the validation procedure of the Q-LMPVIC training process deﬁned in Section 3.1, the obtained results are
+shown in Fig. 14. The involved subjects have been globally satisﬁed by the training process of the Q-LMPVIC. While three
+subjects considered the ﬁrst minute of training boring, the controller proved to learn quickly, improving their feedback along
+with the training. All the subjects found the procedure smooth and simple, and, in the most of the cases, 5 minutes have
+been enough to achieve acceptable performance. A completely satisfactory controller behavior has been commonly reached
+after 10 minutes of training.
+
+                                                                              25
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                         Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+Fig. 8. (a) Naturalness, (b) Smoothness, (c) Effort, (d) Motion, (e) Stability, (f) Detection of Intention criteria for the two tested controllers within the scenario i).
+
+
+
+
+3.6. Validation use-cases
+
+
+   Besides the performance comparison above, showing the improved achieved performance of the proposed approach w.r.t.
+the one in [20], the developed controller has been employed in two industrial tasks to provide more insights on its usage
+in real production scenarios. In particular, (i) a collaborative assembly task of a gear into its shaft [5] (Fig. 13 (a)) and (ii)
+a collaborative deposition task [6] (Fig. 13 (b)) have been considered as target use-cases. (i) considers the robot equipped
+with a gripper manipulating a gear to be collaboratively assembled. (ii) considers the robot equipped with a sealing gun
+operated by the human along the deposition path, strictly related to the activities developed in the H2020 CS2 ASSASSINN
+
+                                                                                   26
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                           Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+                                          Fig. 9. Overall performance criterion for the two tested controllers within the scenario i).
+
+
+
+
+Fig. 10. Interaction force and the optimized setpoint evolutions in the considered scenario i) for a speciﬁc subject. The delay between the interaction force
+and the setpoint represents the reaction time of the manipulator.
+
+
+
+
+project. Both the tasks can be executed to demonstrate the application to the robot (e.g., in the context of programming-by-
+demonstration) or to collaboratively perform it.
+   The selected tasks allow the assessment of the adoption of the proposed controller in real human-robot collaborative
+industrial tasks. In fact, such tasks require a smooth human-robot interaction, having the robot capable of quickly reacting
+to the intention of motion of the human in order to properly execute the target task, guaranteeing the stability of the
+interaction. In fact, instabilities, vibrations, or delays in the controller reaction might cause task failures or unacceptable
+output quality. Indeed, the proposed use-cases allow the evaluation of the effectiveness of the developed controller in
+complex human-robot collaborative applications.
+   A video showing the performed assembly task is available at the link https://youtube.com/shorts/Mc-VMzbGfpA?
+feature=share, while a video showing the performed deposition task is available at the link https://youtube.com/shorts/
+QQ1hLD9Va6o?feature=share. As it can be highlighted, the proposed controller allows the implementation of a smooth and
+reactive robot behavior (reﬂecting the performance evaluation provided in the previous Sections), making it possible to per-
+form complex human-robot collaborative tasks. Thus, the proposed controller is proven to be applicable to real industrial
+tasks.
+
+                                                                                      27
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+Fig. 11. (a) Naturalness, (b) Smoothness, (c) Effort, (d) Motion, (e) Stability, (f) Detection of Intention criteria for the two tested controllers with Makita Cordless
+Caulking Gun mounted on the manipulator within the scenario ii).
+
+
+
+3.7. Discussion
+
+3.7.1. Pros
+    The Lyapunov-based approach addressed the lack of stability issue and performance-weight sensitivity present in the
+previous related works (such as in [20]). As a consequence, the proposed Q-LMPVIC outperforms the approach in [20]
+with a minimal tuning effort. The ensemble of ANNs solves the challenges related to the diﬃculty and the effort required
+for obtaining an accurate model of a non-linear system by providing a reliable estimation of the human-robot interaction
+behavior. The integration of the CEM and the Q-learning for LMPC problem resolution combines the prediction capabilities
+
+                                                                                  28
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+                                      Fig. 12. Overall performance criterion for the two tested controllers within the scenario ii).
+
+
+
+
+Fig. 13. The tested (a) assembly task (where the gear has to be assembled into its shaft) and (b) deposition task (where the material has to be deposited
+along the highlighted path) are shown.
+
+
+                                                                                   29
+L. Roveda, A. Testa, A.A. Shahid et al.                                                          Artiﬁcial Intelligence 312 (2022) 103771
+
+
+
+
+                                               Fig. 14. Results of the training analysis.
+
+
+
+offered by the ensemble with the limited computational burden associated with the RL techniques. In fact, the controller
+can run on the Linux rt kernel (which does not allow the usage of) at an acceptable frequency.
+
+3.7.2. Cons
+    The hardware limitations and the constraints on the computational time generated by the necessity of online learning
+limit the number of ANNs that the algorithm can handle. By reducing the dimension of the model approximator ensemble,
+a higher risk of over-ﬁtting is shown in the regions with few available data, together with a performance deterioration at
+the beginning of the training. Besides, only the interaction force is used for the operator’s effort evaluation during the task,
+and other ergonomics analyses on the collaboration performance have not been carried out.
+
+4. Conclusions
+
+    The presented work in this paper proposes a Q-Learning-based Model Predictive Variable Impedance Control Q-LMPVIC
+to assist the operators in physical human-robot collaboration (pHRC) tasks. The proposed methodology is composed of
+two control loops, a low-level Cartesian impedance controller, and a high-level methodology for the online optimization
+of impedance control parameters (i.e., the setpoint and damping parameters), allowing to minimize the human-robot in-
+teraction force during the collaboration. The outer high-level controller is composed of an actor and a critic ANN, which
+implement a Q-Learning algorithm for the resolution of a nonlinear optimal control problem. An ensemble of ANNs is
+exploited to estimate the model of the system. The MPC enhanced with stability guarantees (by means of Lyapunov con-
+straints) is, indeed, implemented to compute the low-level impedance control parameters online.
+    The proposed Q-LMPVIC has been tested to assess its performance, comparing it w.r.t. a MBRL variable impedance control
+implemented in [20]. The proposed Q-LMPVIC has been proven to improve the pHRC performance. The training process
+of the proposed approach has been also validated, showing high-quality performance and a limited training time. Two
+complex use-cases (a collaborative assembly task and a collaborative deposition task) have been additionally setup to show
+the applicability of the proposed approach to real industrial tasks.
+    Future work is devoted to increase the high-level control loop frequency (imposed equal to 6 Hz in this paper) in order to
+further improve the pHRC performance. To solve this issue, parallelization with modern GPUs can be exploited. In addition,
+external sensors (such as EMGs) can be exploited to better capture the human-robot interaction modeling and collaboration
+performance. The proposed strategy will also be adapted (in terms of modeling and control objectives) and applied to an
+exoskeleton device.
+
+Declaration of competing interest
+
+   The authors declare that they have no known competing ﬁnancial interests or personal relationships that could have
+appeared to inﬂuence the work reported in this paper.
+
+                                                                  30
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                        Artiﬁcial Intelligence 312 (2022) 103771
+
+
+Acknowledgement
+
+   The work has been developed within the project ASSASSINN, funded from H2020 CleanSky 2 under grant agreement n.
+886977.
+   The work has been developed within the project ExoRescue, funded from EUREKA Eurostars under grant agreement n.
+E!115182.
+
+References
+
+ [1] G. Fragapane, D. Ivanov, M. Peron, F. Sgarbossa, J.O. Strandhagen, Increasing ﬂexibility and productivity in industry 4.0 production networks with
+     autonomous mobile robots and smart intralogistics, Ann. Oper. Res. (2020) 1–19.
+ [2] S. Makris, Cooperating Robots for Flexible Manufacturing, Springer, 2021.
+ [3] L. Roveda, N. Castaman, S. Ghidoni, P. Franceschi, N. Boscolo, E. Pagello, N. Pedrocchi, Human-robot cooperative interaction control for the installation
+     of heavy and bulky components, in: 2018 IEEE International Conference on Systems, Man, and Cybernetics, SMC, IEEE, 2018, pp. 339–344.
+ [4] L. Roveda, S. Haghshenas, M. Caimmi, N. Pedrocchi, L. Molinari Tosatti, Assisting operators in heavy industrial tasks: on the design of an optimized
+     cooperative impedance fuzzy-controller with embedded safety rules, Frontiers in Robotics and AI 6 (2019) 75.
+ [5] L. Roveda, M. Magni, M. Cantoni, D. Piga, G. Bucca, Human–robot collaboration in sensorless assembly task learning enhanced by uncertainties adapta-
+     tion via bayesian optimization, Robot. Auton. Syst. 136 (2021) 103711.
+ [6] L. Roveda, B. Maggioni, E. Marescotti, A. Shahid, A.M. Zanchettin, A. Bemporad, D. Piga, Pairwise preferences-based optimization of a path-based
+     velocity planner in robotic sealing tasks, IEEE Robot. Autom. Lett. (2021).
+ [7] F. Vicentini, N. Pedrocchi, M. Beschi, M. Giussani, N. Iannacci, P. Magnoni, S. Pellegrinelli, L. Roveda, E. Villagrossi, M. Askarpour, et al., Piros: cooperative,
+     safe and reconﬁgurable robotic companion for cnc pallets load/unload stations, in: Bringing Innovative Robotic Technologies from Research Labs to
+     Industrial End-Users, Springer, 2020, pp. 57–96.
+ [8] R.R. Galin, R.V. Meshcheryakov, Human-robot interaction eﬃciency and human-robot collaboration, in: Robotics: Industry 4.0 Issues & New Intelligent
+     Control Paradigms, Springer, 2020, pp. 55–63.
+ [9] L. Roveda, S. Haghshenas, A. Prini, T. Dinon, N. Pedrocchi, F. Braghin, L.M. Tosatti, Fuzzy impedance control for enhancing capabilities of humans in
+     onerous tasks execution, in: 2018 15th International Conference on Ubiquitous Robots, UR, IEEE, 2018, pp. 406–411.
+[10] A. Mauri, J. Lettori, G. Fusi, D. Fausti, M. Mor, F. Braghin, G. Legnani, L. Roveda, Mechanical and control design of an industrial exoskeleton for advanced
+     human empowering in heavy parts manipulation tasks, Robotics 8 (3) (2019) 65.
+[11] E. Magrini, A. De Luca, Hybrid force/velocity control for physical human-robot collaboration tasks, in: 2016 IEEE/RSJ International Conference on
+     Intelligent Robots and Systems, IROS, IEEE, 2016, pp. 857–863.
+[12] A. Martinez, B. Lawson, C. Durrough, M. Goldfarb, A velocity-ﬁeld-based controller for assisting leg movement during walking with a bilateral hip and
+     knee lower limb exoskeleton, IEEE Trans. Robot. 35 (2) (2018) 307–316.
+[13] N. Hogan, Impedance control: an approach to manipulation, in: 1984 American Control Conference, IEEE, 1984, pp. 304–313.
+[14] L. Roveda, A user-intention based adaptive manual guidance with force-tracking capabilities applied to walk-through programming for industrial robots,
+     in: 2018 15th International Conference on Ubiquitous Robots (UR), IEEE, 2018, pp. 369–376.
+[15] S.G. Khan, G. Herrmann, M. Al Graﬁ, T. Pipe, C. Melhuish, Compliance control and human–robot interaction: Part 1—survey, Int. J. Humanoid Robot.
+     11 (03) (2014) 1430001.
+[16] P. Liang, C. Yang, N. Wang, Z. Li, R. Li, E. Burdet, Implementation and test of human-operated and human-like adaptive impedance controls on Baxter
+     robot, in: Conference Towards Autonomous Robotic Systems, Springer, 2014, pp. 109–119.
+[17] C. Yang, C. Zeng, C. Fang, W. He, Z. Li, A dmps-based framework for robot learning and generalization of humanlike variable impedance skills,
+     IEEE/ASME Trans. Mechatron. 23 (3) (2018) 1193–1203.
+[18] W. Kim, L. Peternel, M. Lorenzini, J. Babič, A. Ajoudani, A human-robot collaboration framework for improving ergonomics during dexterous operation
+     of power tools, Robot. Comput.-Integr. Manuf. 68 (2021) 102084.
+[19] L. Roveda, N. Pedrocchi, L.M. Tosatti, Exploiting impedance shaping approaches to overcome force overshoots in delicate interaction tasks, Int. J. Adv.
+     Robot. Syst. 13 (5) (2016) 1729881416662771.
+[20] L. Roveda, J. Maskani, P. Franceschi, A. Abdi, F. Braghin, L.M. Tosatti, N. Pedrocchi, Model-based reinforcement learning variable impedance control for
+     human-robot collaboration, J. Intell. Robot. Syst. 100 (2) (2020) 417–433.
+[21] S. Cremer, S.K. Das, I.B. Wijayasinghe, D.O. Popa, F.L. Lewis, Model-free online neuroadaptive controller with intent estimation for physical human–robot
+     interaction, IEEE Trans. Robot. 36 (1) (2019) 240–253.
+[22] C. Gaz, E. Magrini, A. De Luca, A model-based residual approach for human-robot collaboration during manual polishing operations, Mechatronics 55
+     (2018) 234–247.
+[23] F. Dimeas, N. Aspragathos, Reinforcement learning of variable admittance control for human-robot co-manipulation, in: 2015 IEEE/RSJ International
+     Conference on Intelligent Robots and Systems, IROS, IEEE, 2015, pp. 1011–1016.
+[24] A. Kukker, R. Sharma, Stochastic genetic algorithm-assisted fuzzy q-learning for robotic manipulators, Arab. J. Sci. Eng. (2021) 1–13.
+[25] C. Li, Z. Zhang, G. Xia, X. Xie, Q. Zhu, Eﬃcient force control learning system for industrial robots based on variable impedance control, Sensors 18 (8)
+     (2018) 2539.
+[26] J.R. Medina, H. Börner, S. Endo, S. Hirche, Impedance-based gaussian processes for modeling human motor behavior in physical and non-physical
+     interaction, IEEE Trans. Biomed. Eng. 66 (9) (2019) 2499–2511.
+[27] H. Gomi, R. Osu, Task-dependent viscoelasticity of human multijoint arm and its spatial characteristics for interaction with environments, J. Neurosci.
+     18 (21) (1998) 8965–8978.
+[28] E. Noohi, M. Žefran, J.L. Patton, A model for human–human collaborative object manipulation and its application to human–robot interaction, IEEE
+     Trans. Robot. 32 (4) (2016) 880–896.
+[29] L. Peternel, N. Tsagarakis, A. Ajoudani, A human–robot co-manipulation approach based on human sensorimotor information, IEEE Trans. Neural Syst.
+     Rehabil. Eng. 25 (7) (2017) 811–822.
+[30] Y. Li, S.S. Ge, Human–robot collaboration based on motion intention estimation, IEEE/ASME Trans. Mechatron. 19 (3) (2013) 1007–1014.
+[31] L. Grüne, J. Pannek, Nonlinear model predictive control, in: Nonlinear Model Predictive Control, Springer, 2017, pp. 45–69.
+[32] W.-L. Ma, S. Kolathaya, E.R. Ambrose, C.M. Hubicki, A.D. Ames, Bipedal robotic running with durus-2d: bridging the gap between theory and experi-
+     ment, in: Proceedings of the 20th International Conference on Hybrid Systems: Computation and Control, 2017, pp. 265–274.
+[33] R.A. Freeman, P.V. Kokotovic, Inverse optimality in robust stabilization, SIAM J. Control Optim. 34 (4) (1996) 1365–1391.
+[34] A. Jadbabaie, J. Yu, J. Hauser, Unconstrained receding-horizon control of nonlinear systems, IEEE Trans. Autom. Control 46 (5) (2001) 776–783.
+[35] A. Jadbabaie, J. Hauser, On the stability of receding horizon control with a general terminal cost, IEEE Trans. Autom. Control 50 (2005) 674–678.
+
+
+                                                                                  31
+L. Roveda, A. Testa, A.A. Shahid et al.                                                                                  Artiﬁcial Intelligence 312 (2022) 103771
+
+
+[36] J.A. Primbs, V. Nevistic, J.C. Doyle, A receding horizon generalization of pointwise min-norm controllers, IEEE Trans. Autom. Control 45 (5) (2000)
+     898–909.
+[37] R. Grandia, A.J. Taylor, A. Singletary, M. Hutter, A.D. Ames, Nonlinear model predictive control of robotic systems with control Lyapunov functions,
+     preprint, arXiv:2006.01229, 2020.
+[38] H. Zhang, S. Li, Y. Zheng, Q-learning-based model predictive control for nonlinear continuous-time systems, Ind. Eng. Chem. Res. 59 (40) (2020)
+     17987–17999.
+[39] T. Binazadeh, M.A. Rahgoshay, Robust output tracking of a class of non-aﬃne systems, Syst. Sci. Control Eng. 5 (1) (2017) 426–433.
+[40] F. Caccavale, C. Natale, B. Siciliano, L. Villani, Six-dof impedance control based on angle/axis representations, IEEE Trans. Robot. Autom. 15 (2) (1999)
+     289–300.
+[41] L. Sciavicco, B. Siciliano, Modelling and Control of Robot Manipulators, Springer Science & Business Media, 2012.
+[42] K. Chua, R. Calandra, R. McAllister, S. Levine, Deep reinforcement learning in a handful of trials using probabilistic dynamics models, preprint, arXiv:
+     1805.12114, 2018.
+[43] A. Nagabandi, G. Kahn, R.S. Fearing, S. Levine, Neural network dynamics for model-based deep reinforcement learning with model-free ﬁne-tuning, in:
+     2018 IEEE International Conference on Robotics and Automation, ICRA, IEEE, 2018, pp. 7559–7566.
+[44] P. Mhaskar, N.H. El-Farra, P.D. Christoﬁdes, Predictive control of switched nonlinear systems with scheduled mode transitions, IEEE Trans. Autom.
+     Control 50 (11) (2005) 1670–1680.
+[45] P. Mhaskar, N.H. El-Farra, P.D. Christoﬁdes, Stabilization of nonlinear systems with state and control constraints using Lyapunov-based predictive control,
+     Syst. Control Lett. 55 (8) (2006) 650–659.
+[46] M. Heidarinejad, J. Liu, P.D. Christoﬁdes, Economic model predictive control of nonlinear process systems using Lyapunov techniques, AIChE J. 58 (3)
+     (2012) 855–870.
+[47] Z. Artstein, Stabilization with relaxed controls, Nonlinear Anal., Theory Methods Appl. 7 (11) (1983) 1163–1173.
+[48] D. Munoz de la Pena, P.D. Christoﬁdes, Lyapunov-based model predictive control of nonlinear systems subject to data losses, IEEE Trans. Autom. Control
+     53 (9) (2008) 2076–2089.
+[49] E.D. Sontag, A ‘universal’ construction of Artstein’s theorem on nonlinear stabilization, Syst. Control Lett. 13 (2) (1989) 117–123.
+[50] R.A. Freeman, J.A. Primbs, Control Lyapunov functions: new ideas from an old source, in: Proceedings of 35th IEEE Conference on Decision and Control,
+     vol. 4, IEEE, 1996, pp. 3926–3931.
+[51] D. Lakatos, F. Petit, P. Van Der Smagt, Conditioning vs. excitation time for estimating impedance parameters of the human arm, in: 2011 11th IEEE-RAS
+     International Conference on Humanoid Robots, IEEE, 2011, pp. 636–642.
+[52] A.F. Filippov, Differential Equations with Discontinuous Righthand Sides: Control Systems, vol. 18, Springer Science & Business Media, 2013.
+[53] D. Shevitz, B. Paden, Lyapunov stability theory of nonsmooth systems, IEEE Trans. Autom. Control 39 (9) (1994) 1910–1914.
+[54] M. Vidyasagar, Nonlinear Systems Analysis, SIAM, 2002.
+[55] F.L. Lewis, D. Vrabie, Reinforcement learning and adaptive dynamic programming for feedback control, IEEE Circuits Syst. Mag. 9 (3) (2009) 32–50.
+[56] Q. Wei, D. Liu, G. Shi, A novel dual iterative q-learning method for optimal battery management in smart residential environments, IEEE Trans. Ind.
+     Electron. 62 (4) (2014) 2509–2518.
+[57] R. Padhi, N. Unnikrishnan, X. Wang, S. Balakrishnan, A single network adaptive critic (snac) architecture for optimal control synthesis for a class of
+     nonlinear systems, Neural Netw. 19 (10) (2006) 1648–1660.
+[58] C.J.C.H. Watkins, P. Dayan, Q-Learning, Mach. Learn. 8 (1992) 279–292.
+[59] X. Xu, H. Chen, C. Lian, D. Li, Learning-based predictive control for discrete-time nonlinear systems with stochastic disturbances, IEEE Trans. Neural
+     Netw. Learn. Syst. 29 (12) (2018) 6202–6213.
+[60] O. Sprangers, R. Babuška, S.P. Nageshrao, G.A. Lopes, Reinforcement learning for port-Hamiltonian systems, IEEE Trans. Cybern. 45 (5) (2014) 1017–1027.
+[61] J. Brownlee, Clever algorithms: nature-inspired programming recipes, Jason Brownlee, 2011.
+[62] G.A. Rummery, M. Niranjan, On-Line Q-Learning Using Connectionist Systems, vol. 37, Citeseer, 1994.
+[63] S. Mizanoor Rahman, R. Ikeura, Cognition-based control and optimization algorithms for optimizing human-robot interactions in power-assisted object
+     manipulation, J. Inf. Sci. Eng. 32 (5) (2016).
+[64] L. Bottou, Stochastic gradient descent tricks, in: Neural Networks: Tricks of the Trade, Springer, 2012, pp. 421–436.
+[65] D.P. Kingma, J. Ba, Adam: a method for stochastic optimization, preprint, arXiv:1412.6980, 2014.
+[66] L. Roveda, A. Bussolan, F. Braghin, D. Piga, 6d virtual sensor for wrench estimation in robotized interaction tasks exploiting extended Kalman ﬁlter,
+     Machines 8 (4) (2020) 67.
+[67] L. Roveda, D. Piga, Sensorless environment stiffness and interaction force estimation for impedance control tuning in robotized interaction tasks, Auton.
+     Robots 45 (3) (2021) 371–388.
+[68] L. Roveda, A.A. Shahid, N. Iannacci, D. Piga, Sensorless optimal interaction control exploiting environment stiffness estimation, IEEE Trans. Control Syst.
+     Technol. 30 (1) (2021) 218–233.
+[69] L. Roveda, A. Bussolan, F. Braghin, D. Piga, Robot joint friction compensation learning enhanced by 6d virtual sensor, Int. J. Robust Nonlinear Control
+     (2022).
+
+
+
+
+                                                                              32
+

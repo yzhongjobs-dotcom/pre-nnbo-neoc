@@ -1,0 +1,442 @@
+                                           Model Predictive Robot-Environment Interaction Control for Mobile
+                                                                  Manipulation Tasks
+                                                         Maria Vittoria Minniti, Ruben Grandia, Kevin Fäh, Farbod Farshidian, Marco Hutter
+
+
+                                           Abstract— Modern, torque-controlled service robots can reg-
+                                        ulate contact forces when interacting with their environment.
+                                        Model Predictive Control (MPC) is a powerful method to solve
+                                        the underlying control problem, allowing to plan for whole-
+                                        body motions while including different constraints imposed by
+                                        the robot dynamics or its environment. However, an accurate
+arXiv:2106.04202v1 [cs.RO] 8 Jun 2021
+
+
+
+
+                                        model of the robot-environment is needed to achieve a satisfying
+                                        closed-loop performance. Currently, this necessity undermines
+                                        the performance and generality of MPC in manipulation tasks.
+                                        In this work, we combine an MPC-based whole-body controller
+                                        with two adaptive schemes, derived from online system identi-
+                                        fication and adaptive control. As a result, we enable a general
+                                        mobile manipulator to interact with unknown environments,
+                                        without any need for re-tuning parameters or pre-modeling the
+                                        interacting objects. In combination with the MPC controller, the
+                                        two adaptive approaches are validated and benchmarked with
+                                        a ball-balancing manipulator in door opening and object lifting
+                                        tasks.                                                                      Fig. 1: A ball-balancing manipulator opening a hinged door.
+                                                                                                                    The robot is required to maintain its balance and, at the
+                                                              I. INTRODUCTION                                       same time, follow a desired end-effector trajectory while
+                                           Mobile service robots deployed in human habitats will                    interacting with an unknown, external environment.
+                                        face a wide variety of manipulation tasks. Assisted lifting of
+                                        objects, cleaning of windows, or opening of doors, all require
+                                        deliberate interaction between the robot and its surroundings.              the environment that the robot should interact with, which, in
+                                        Solving such robot-environment interaction control tasks in                 general, is not available and needs to be extracted in advance.
+                                        a stable and repeatable manner is still an open problem.                    To tackle this issue, we extend an SLQ-MPC framework
+                                        For fixed-base robots, state-of-the-art control schemes [1],                introduced in [9] by two adaptive control strategies, that are
+                                        [2], [3] can define and limit the interaction forces in a                   based on model identification adaptive control (MIAC) [10]
+                                        reactive manner. However, if the manipulator is mounted on a                and model reference adaptive control (MRAC) [11], [1]. The
+                                        mobile base, control action is additionally demanded for the                design of the proposed methods relies on the assumption
+                                        stabilization of the robotic platform itself. This is especially            that the environment behaves as a linear mechanical system
+                                        the case for underactuated mobile bases, such as humanoids,                 along the interaction trajectory direction. We benchmark
+                                        quadrupeds or wheeled balancing systems, that require a                     the performance of these two adaptive approaches and the
+                                        planning strategy to maintain their balance [4]–[6]. For                    baseline non-adaptive MPC for opening a door and lifting
+                                        known environments [7] or simple interactions [8], planning                 a weight. Such applications are typically used to evaluate
+                                        for the robot motion and interaction has been addressed                     robotic manipulation skills [12]. We then conclude that while
+                                        by a Model Predictive Controller (MPC), which deals with                    both techniques improve the MPC’s performance during the
+                                        the constraints and dynamics by solving an optimal control                  interaction, the MRAC method demonstrates a more reliable
+                                        problem in a receding horizon fashion.                                      and robust performance across the two different tasks.
+                                           While robust to certain model mismatches, the lack of                       For the experiments, a ballbot with an arm has been
+                                        a precise system model can profoundly affect the MPC’s                      employed, as shown in Fig. 1. Due to its underactuation,
+                                        performance. For interaction tasks, this includes a model of                a ballbot requires a whole-body control strategy that coordi-
+                                                                                                                    nates the movement and balance of the manipulator. Thus,
+                                           This work was supported in part by the Swiss National Science Foun-      controlling such a platform is an intriguing problem, that
+                                        dation through the National Centre of Competence in Research Robotics       has received growing attention in the recent years [13], [14],
+                                        (NCCR Robotics), in part by the Swiss National Science Foundation through
+                                        the National Centre of Competence in Digital Fabrication (NCCR dfab), in    [15].
+                                        part by Intel Network on Intelligent Systems, and in part by the European
+                                        Union’s Horizon 2020 research and innovation programme under grant          A. Related Work
+                                        agreement No 780883.)                                                          Classical methods in robot-environment interaction control
+                                           All authors are with Robotic Systems Lab, ETH Zurich,
+                                        Zurich 8092, Switzerland {mminniti, rgrandia, farbodf,                      are based on direct and indirect force control. In direct force
+                                        mahutter}@ethz.ch                                                           control [1], the manipulation task is performed by tracking a
+desired force. This method is effective in all those scenarios                      II. MPC PROBLEM
+where specific force profiles have to be applied. However,          In our proposed method, an MPC solver manages the on-
+the generation of suitable force trajectories is not trivial     line switching between subsystems (e.g., the change between
+without prior knowledge about the environment and the task.      cost functions and constraints) and the system model update
+Indirect force control allows for tracking a desired force       at the start of every MPC iteration. We employ an SLQ-MPC
+by exploiting its relation with deviations in position and       method [27], which solves the underlying optimal control
+can be formulated as an impedance or admittance controller       problem using the Sequential Linear Quadratic (SLQ) algo-
+[16], [17]. Impedance control allows tuning the controller’s     rithm [28], while allowing to switch between subsystems.
+stiffness and damping based on the desired task, but its            Let q, q̇ ∈ Rn be the generalized positions and velocities
+performance degrades when the environment’s model is un-         of the robot, and let τ ∈ Rm be the actuation torques. In
+known or time-varying. Recent approaches propose to learn        addition, the end-effector pose is defined as χee ∈ SE(3).
+an error force term to compensate for the uncertainties in the   The employed non-linear optimal control formulation aims
+robot and the environment model [18]. Another possibility        at minimizing the cost function
+is to change the controller gains based on the force tracking                            Z T
+error [19], or an online estimate of the environment model           J ∗ (xss (0)) = min     ||xdss − xss ||2Qss + ||ud − u||2R
+[20], [21]. The MIAC method presented in this letter fits                          u(·)    0
+in this category, with the novelty of using the environment
+                                                                                               + ||χdee   χee ||2Qee dt,     (1)
+estimates to improve the internal model of the MPC planner
+in real-time.                                                    where the state and input at time t are defined as xss :=
+   On the other hand, adaptive controllers have proven to        (q, q̇) ∈ R2n , u := τ ∈ Rm , and we use the symbol         to
+be very effective when dealing with the uncertainty of           denote the task-space pose error, as defined in [1] for the
+the inertial parameters in the dynamic model of robotic          quaternion rotation part. The optimization is subject to a set
+manipulators [1], [22]. In such methods, the adaptive pa-        of constraints:
+rameters do not necessarily converge to the real values, but
+are updated to achieve convergence of the tracking error.                                 xss (0) = xss0                     (2)
+Analysis on adaptive control has also been conducted in                                   ẋss = f (xss , u)                 (3)
+the context of force/position control in unknown interactions                             h(xss , u, t) ≥ 0.                 (4)
+[23], [24], and it has mainly considered fixed-base, fully-
+actuated manipulators. The MRAC controller presented in          The initial condition of the MPC problem (2) coincides with
+this work focuses on obtaining an adaption law for the           the robot measured state. The system in (3) consists of the
+environment model, to be set as a constraint in an MPC           robot’s dynamical model and the interaction model, which
+module that can plan for motion and interaction force for        are discussed in the following section. Inequality constraints
+a general mobile manipulator system. There are previous          (4) include joint angle and torque limits, and are treated as
+works that have used an adaptive law to update a parametric      soft constraints according to a relaxed log-barrier function
+MPC model [25], [26]. However, so far this combination           method [29].
+has not been addressed in a mobile manipulation scenario,                     III. INTERACTION CONTROL
+especially when dealing with underactuated platforms.
+                                                                 A. Control Task
+                                                                    The control task considered in this work is to follow a tra-
+                                                                 jectory with the robot end-effector while having contact with
+B. Contributions                                                 an unknown environment. For trajectory generation, we use
+                                                                 the time-optimal algorithm described in [30], which allows
+   The main contribution of this work is to enable an MPC        for generating position and velocity trajectories for the end-
+strategy to plan and control mobile-manipulation tasks that      effector with bounded acceleration and velocity magnitudes.
+involve interaction with an unknown environment, without         Its simple implementation also allows fast recomputation.
+the need for re-tuning the control parameters for different      This is important for the door opening task, where the door
+tasks or offline modeling. To this end, we propose to            hinge position and current angle are estimated online and
+combine a whole-body MPC scheme with two adaptive                thus the trajectory needs to be continuously updated.
+control techniques, based on system identification and model
+reference adaptive control. We benchmark the performance         B. Assumptions and Notation
+of the two described methods in two different representative       Let λee ∈ R3 be the interaction force between the
+manipulation tasks. We experimentally demonstrate that the       robot end-effector and the environment, and let v(t) ∈ R3
+combination of MPC and the model reference adaptive              be the unit vector tangent to the manipulation trajectory.
+controller enables the robot to complete the desired tasks,      Without loss of generality, we suppose λee = λv, with
+while the performance of the baseline controller degrades,       λ ∈ R; possible normal components could be compensated
+and the MPC scheme relying on online system identification       using force feedback, without modifications to the following
+fails to generalize across different tasks.                      derivation.
+  We state the following assumptions:                               torques produce an additional force in the operational space.
+  • The contact between the end-effector and the environ-           The terms m, b, k, fs , x0 , v, fee are updated in the system
+    ment is rigid.                                                  dynamics at the beginning of each MPC iteration.
+  • The environment model can be described by a 3D
+                                                                    C. Model Identification Adaptive Control (MIAC)
+    second-order system:
+                                                                       The objective of MIAC is to estimate the environment
+        λee = M̄ ẍenv + B̄ ẋenv + K̄(xenv − x0 ) + fs ,    (5)    model parameters by means of an online system identifica-
+                                                                    tion method, and to use these estimates to improve control
+     where xenv ∈ R3 is the position of the environment
+                                                                    performance. Since MPC is employed as the main controller
+     interaction point, M̄ , B̄, K̄ ∈ R3×3 are positive sym-
+                                                                    module, the estimated parameters can be used in the system
+     metric impedance matrices, fs ∈ R3 is a static force,
+                                                                    dynamics to model the environment. The block diagram
+     and x0 ∈ R3 is a given spring equilibrium position.
+                                                                    of the resulting closed-loop system is indicated in Fig. 2.
+  • The manipulation direction v is a principal direction
+                                                                    A simpler version of this method would be to directly
+     for M̄ , B̄, K̄, with m, b, k ∈ R as associated eigenval-
+                                                                    compensate the external force using measurements from a
+     ues. These are the mass, damping and stiffness of the
+                                                                    force sensor. However, estimating the parameters allows for
+     environment object.
+                                                                    a more accurate prediction by the MPC since a model of
+The model in Eq. (5) applies to a number of interaction             the environment is available that can be used during the
+objects used in service robotics tasks. For instance, doors         prediction and optimization over the time horizon.
+and windows usually have a spring and damping behavior.                Estimating the environment impedance parameters is a
+Carts and payloads can also be described by Eq. (5), setting        classical problem in robotics [31]. Available methods include
+B̄ = 0, K̄ = 0. The stated assumptions yield:                       Recursive [31], Least Mean Square [32] estimation, and
+λ = v T λee = mv T ẍee + bv T ẋee + kv T (xee − x0 ) + v T fs ,   algebraic manipulations [33]. Here, we propose the use
+                                                                    of a Kalman filter as online system identification method
+where xee = xenv , since the contact is rigid. To derive            to estimate the environment’s mass m, damping b, spring
+a controller for the environment system, this equation is           stiffness k and static force fs . Thus, Eq. (7b) is transformed
+written as a one-dimensional second-order linear system.            into a state-space model with the substitutions x1 := x −
+Many state space representations are possible, depending on         x0 , x2 := ẋ. Converting the resulting model in discrete
+the trajectory v. One possibility that allows to generalize         time with sampling time Ts , the following measurement
+among many trajectories consists in letting x := v T xee ,          update equation can be extracted:
+which yields:
+                                                                                                                          m
+                                                                                                                          
+          λ = mẍ + bẋ + k(x − x0 ) + fs + O(v̇),                                                                       b
+                                                                               h                                       i
+                                                             (6)      λ[k] =       x2 [k]−x2 [k−1]
+                                                                                                     x2 [k]   x1 [k]   1   + w[k],    (9)
+                                                                                          Ts                              k
+                T
+where fs = v fs is the projected static force. We now                                                                     fs
+assume the direction v(t) to be constant or slowly varying;         with zero mean Gaussian measurement noise w. Eq. (9) can
+this applies to a number of relevant tasks, which have usually      be compactly written as:
+linear or circular paths on relatively small angles. Thus, we
+obtain a robot-environment model as                                                            zk = Hk π k + wk ,                      (10)
+
+   M (q)q̈ + n(q, q̇) = S T τ − Jee (q)T (fee + λee ),      (7a)    with measurement z and estimated parameters π. The pro-
+                                                                    cess model of the filter is chosen as a random walk of the
+   mẍ + bẋ + k(x − x0 ) + fs = λ,                         (7b)
+                                                                    parameters π with process noise n ∼ N (0, Q) :
+                n×n              n
+ where M ∈ R          , and n ∈ R are the robot’s mass matrix
+                                                                                                π k = π k−1 + n.                       (11)
+and non-linear terms, respectively. S T ∈ Rn×m maps the
+actuator torques to generalized torques and, in the case of a       As shown in Eq. (9), the filter measurement is the interaction
+ballbot system, is a non-linear function of the joint positions     force λ along the manipulation trajectory. This can be ac-
+q. Jee (q) ∈ R3×n is the position jacobian of the end-effector      quired with a force sensor, or with an observer approach [34].
+frame. Since x is a function of q, (7b) can be written in terms     Regarding the measurement update equation (9), depending
+of q, q̇, q̈. Substituting λee = λv from (7b) into (7a) and         on the task, the two terms m and fs may be linearly
+converting to state-space form, the system dynamics in (3)          dependent on each other. For instance, if the manipulation
+is obtained.                                                        is in vertical direction with a free object, then fs = mg. Or,
+   The term fee ∈ R3 is an additional virtual force, used as        if the manipulated object is pushed in horizontal direction,
+a control term. In its simplest implementation it takes the         fs = kmg, where k is a Coulomb friction coefficient.
+form of a PD controller:                                            However, to avoid loss of generality, in this formulation they
+                                                                    are considered separate from each other. As a result, m is
+             fee = K(xd − x) + D(ẋd − ẋ).                  (8)
+                                                                    observable only in the presence of persistent accelerations ẍ.
+Similar to what is done in inverse dynamics-based impedance            By providing the estimates m̂, b̂, k̂, fˆs to the MPC solver,
+controllers, this term is not part of the true robot equations      at the next iteration, the optimal control planner becomes
+of motion, but modifies them so that the planned control            aware of the evolution of the robot-environment model.
+                                                                                         IV. EXPERIMENTS
+                                                                        The control structures presented in the previous sections
+                                                                     III-C, III-D are evaluated in two experimental scenarios.
+                                                                     In the first scenario, the robot is tasked with opening a
+                                                                     hinged door. In the second one, the robot is tasked with
+                                                                     lifting an object of unknown mass. The experiments are
+                                                                     used to assess how modifying the MPC controller using the
+                                                                     environment estimated/adapted parameters can improve the
+                                                                     closed-loop tracking performance. A video showcasing the
+Fig. 2: Block diagram of the closed-loop system under the            results accompanies this paper 1 .
+MIAC controller.                                                     A. Experimental Setup
+                                                                        The robot employed for the tests is a ballbot with a 4-
+D. Model Reference Adaptive Control (MRAC)                           degree of freedom (DOF) arm attached to the base and a
+                                                                     Robotiq-2F85 gripper as end-effector. The system is shown
+   As described in [1], [11], the design method for an MRAC
+                                                                     in Fig. 1. It is modeled with 8 DOFs, resulting in a di-
+controller consists of finding a control law that is dependent
+                                                                     mensionality of the MPC system of 16 states. The reference
+on the reference tracking error and includes adaptive param-
+                                                                     torques sent to the actuators are computed as τ ref =
+eters. Then, a Lyapunov function is formulated to derive both
+                                                                     τ ∗ + Kp (q ∗ − q) + Kd (q̇ ∗ − q̇, ), where τ ∗ , q ∗ , q̇ ∗ are
+the parameters adaption law and a certification of the system
+                                                                     the optimal joint torques, positions and velocities. The MPC
+stability. Here, this procedure is simplified since the model
+                                                                     solver computes its optimal solution at a frequency of 200 Hz
+(7b) is linear in the environment parameters. Thus, it can be
+                                                                     over a time horizon of 1.5 s, and is implemented with the
+written as:
+                                                                     OCS2 toolbox [35]. Rigid-body dynamics and kinematics
+    mẍ + bẋ + k(x − x0 ) + fs = Y (ẍ, ẋ, x)π = λ,        (12)    equations are generated using the RobCoGen library [36].
+                            T
+where π := [m, b, k, fs ] , Y (ẍ, ẋ, x) := [ẍ, ẋ, x − x0 , 1].   State estimation, motion planning and control run on the
+The control law is defined as                                        onboard PC, which is an Intel Core i7, NUC10i7FNK Mini
+                                                                     PC.
+         λ = m̂ẍr + b̂ẋr + k̂(x − x0 ) + fˆs + ks σ,                  The interaction force used as a measurement for the
+            = Y (ẍr , ẋr , x)π̂ + ks σ,                    (13)    Kalman Filter of Sec. III-C is computed by means of a
+                                                                     momentum observer [34], which allows to estimate the
+with ks > 0 as a tuning parameter and with the following
+                                                                     generalized external torques τ ext from joint position, velocity,
+definitions:
+                                                                     and torque measurements. Then, an augmented Jacobian
+       x̃ = xd − x,             ẋr = ẋd + Λx̃,   Λ > 0,            method is employed to retrieve the external force on the
+                     ˙
+       ẍr = ẍd + Λx̃,                         ˙
+                                σ = ẋr − ẋ = x̃ + Λx̃.     (14)    end-effector. This is implemented by defining
+                                                                                                           
+A Lyapunov function for the controlled system can be                                                  Jbase
+                                                                                           Jaug :=            ,                   (18)
+defined as                                                                                              Jee
+                      1                    1                         where Jbase = [Inb ×nb , 0nb ×(n−nb ) ] is the Jacobian corre-
+    V (σ, x̃, π̃) = mσ 2 + Λks x̃2 + π̃ T Kπ π̃ > 0,   (15)
+                      2                    2                         sponding to the nb degrees of freedom of the base. Then,
+where π̂ ∈ R4 is the vector of adaptive parameters, π̃ :=            λee is computed from:
+π̂−π, and Kπ ∈ R4×4 is a positive definite matrix. Imposing                             
+                                                                                         τ base
+                                                                                                
+                                                                                                     −T
+V̇ ≤ 0, the adaption law can be derived:                                                          = Jaug τ ext .               (19)
+                                                                                          λee
+                   π̂˙ = K −1 Y T (ẍr , ẋr , x)σ.
+                           π                           (16)          B. Door Opening
+The control law (13) is the sum of an adaptive term                     In this experiment, the robot should open a door up to a
+Y (ẍr , ẋr , x)π̂ and a PD-feedback term ks σ. The control         desired angle of 70°. The desired end-effector path is a cir-
+force to be tracked by the MPC controller is computed as:            cular trajectory. An extended Kalman Filter (EKF) estimates
+               fee = (Y (ẍr , ẋr , x)π̂ + ks σ) v.         (17)    the door radius, angle, and hinge position, which are used
+                                                                     for the re-planning of the time-optimal trajectory generator of
+With respect to the MIAC controller, here the estimates              Sec. III-A. Based on given velocity and acceleration bounds
+of the environment parameters are not considered in the              and on the current door measurements, the time optimal
+MPC. The system dynamics thus reduces to Eq. (7a) with               trajectory generator determines the door angle references and
+λee = 0. Indeed, the goal of this method is not to exactly           the remaining door-opening time. The parameters of the PD
+compensate the environment model in Eq. (7b), but rather to          controller (8) are specified in a frame rigidly attached to the
+modify the controller with an adaptive law that guarantees           door, in order to achieve a higher compliance in the radial
+the convergence of the tracking error along the manipulation
+trajectory.                                                            1 Available at https://youtu.be/A7_e-UWkfXo.
+Fig. 3: Door opening experiment with a ball-balancing manipulator. The robot is tasked with opening the door up to a
+desired angle of 70°, while tracking a circular trajectory.
+
+
+
+
+Fig. 4: Block diagram of the closed-loop system under the
+cascade MRAC-MPC controller.
+
+
+direction and a lower compliance in the tangential direction.
+Since the mass of the original door is not heavy enough to
+result in a challenging application, it is modified by attaching
+two boxes of intermediate weight (1.5 kg) and larger weight
+(4.2 kg), respectively, behind the door.                           Fig. 5: From top to bottom: desired and estimated door
+   During the heavy-door experiment, both the end-effector         angle under the PD, MIAC, MRAC controllers, for the door
+and the ball-trajectory are commanded to track a desired           opening experiments. The plots are referred to the light and
+circular trajectory. The reference for the ball is necessary to    heavy door experiment on the left and right, respectively.
+avoid a collision with the door frame when the ballbot leans
+forward while pushing. Both of the tests are repeated under        TABLE I: RMSE [deg] and final door errors [deg] of the
+three different controllers, which are: 1) the baseline MPC        three interaction controllers in the two door-opening test
+controller, with an additional PD force input as in (8). 2) the    scenarios.
+MIAC controller presented in section III-C. 3) the MRAC
+controller presented in section III-D. To compare the tracking                            Light Door            Heavy Door
+                                                                     Controller        RMSE    Final Error   RMSE    Final Error
+performance of the different controllers for the opening of          Impendance (PD)     9.5          8.74    19.5          19.7
+the two doors, we compute the root mean square tracking              MIAC                2.7         -1.64     4.9          -1.7
+error (RMSE), and the final error between the desired and            MRAC                2.6          -3.9     5.8          -3.9
+estimated door angle which are visible in Table I.
+   1) Light door: For this experiment, forces in the range of
+10 −15 N need to be applied to open the door. The door angle       influences the ball position, resulting in a trade-off between
+tracking performance is shown in Fig. 5. For the baseline          this effect and the door frame collision avoidance term.
+controller, the tracking error is large at all times. On the          Both the MIAC controller and the MRAC-MPC controller
+contrary, the tracking error is comparably small for all the       produce a considerable reduction of the tracking error, as
+other controllers, with a final door error of less than 4°.        it can be verified in Table I. The MRAC controller can
+   2) Heavy door: In this experiment, forces in the range of       fast adapt to the unknown environment due to the balance
+20 −25 N need to be applied to open the door. The door angle       between the PD and adaptive terms, whose contribution is
+tracking performance for this test is visualized in Fig. 5.        shown in Fig. 6. As the time passes, the PD term becomes
+We notice that the desired and measured door angles exhibit        less relevant and most of the control action comes from
+more oscillations than in the previous test. In fact, due to the   the adaptive input. Regarding the MIAC estimates, since the
+higher required pushing force, the controller plans to lean the    employed door has no spring behaviour, the most significant
+base forward at a larger angle. Tilting the base additionally      parameters are the door damping and static friction, whose
+Fig. 6: Contribution of the adaptive and PD terms in the
+MRAC control law (13) for the light door opening test (on
+the left) and heavy door opening test (on the right).
+
+
+                                                                  Fig. 8: From top to bottom: measured and desired end-
+                                                                  effector position for the unknown object lifting experiment
+                                                                  under the non-adaptive baseline MPC, MIAC, and MRAC,
+                                                                  respectively. The plots are referred to simulations (on the
+                                                                  left), and hardware tests (on the right).
+
+
+Fig. 7: Estimation of the damping and static force parameters     This gets reduced if the whole-body MPC is combined with
+for the light door opening experiment (on the left), and heavy    the proposed interaction control formulation. However, the
+door opening experiment (on the right) using the MIAC             MIAC controller is strongly influenced by imprecise actuator
+controller.                                                       torque measurements used for the force estimation, and con-
+                                                                  sequent degradation of the environment identification. As a
+                                                                  result, the closed-loop system under the MIAC controller has
+estimates are plotted in Fig. 7. The non-adaptive baseline        a slower convergence than in the simulation. On the contrary,
+impedance controller performs poorly without re-tuning of         the MRAC controller manages to consistently reduce the
+the stiffness and damping gains and is not able to open the       tracking error in the same amount of time, with the payload
+door up to the desired angle.                                     being successfully moved to the desired height. Furthermore,
+                                                                  we point out that the same gains were used for the MRAC in
+C. Lifting Unknown Objects
+                                                                  both the door opening experiment from section IV-B and the
+   In this experiment, the robot is tasked with lifting an        lifting test. However, as shown in figure Fig. 8, for the MIAC
+unmodeled payload of 2 kg. One of the assumptions under           controller, direct transfer to a different task while maintaining
+which the interaction controllers are derived in section III is   the same tracking behavior was not possible with the same
+that the robot dynamic model in (7a) is perfectly known. To       parameters used for system identification.
+evaluate how this assumption may influence the controller
+performance, the same experiment is executed both in a                  V. CONCLUSIONS AND FUTURE WORK
+Gazebo simulation, where the robot model is perfect, and on          This paper focuses on making a whole-body MPC con-
+the physical system, where some degree of model mismatch          troller adaptive to mobile manipulation tasks in unknown
+is present. The Gazebo simulation model is based on [8],          environments. Thus, a system identification and an adaptive
+[37]. While in the door opening scenario the robot interacts      control method are proposed to extend the MPC formulation.
+with a statically stable object, the equilibrium of the object    From experimental tests, it can be concluded that both the
+being lifted is attained at a non-zero interaction force, which   MIAC method and the cascade MRAC-MPC outperform the
+adds an element of complexity to the task.                        original MPC controller in mobile manipulation tasks applied
+   1) Simulation: The measured and desired trajectory along       to unknown environments. However, the MRAC method
+the end-effector vertical direction is depicted in Fig. 8.        generalizes better across tasks. In fact, it is independent
+Analyzing the plots for the simulation test under the baseline    of interaction forces estimation or the convergence of the
+controller, it can be inferred that, if the MPC is unaware        MIAC system identification method. The employed modeling
+of the lifted payload, the robot is not able to track the         strategy was derived under the assumption that the envi-
+desired trajectory. Conversely, the end-effector position error   ronment can be described by a linear mass-spring-damper
+is minimized if the environment online estimates are included     system. As a future direction, we intend to generalize the
+in the optimization, in both an estimated or adaptive manner,     formulation to general multi-DOF tasks (e.g. a collaborative
+as it can be noticed from the plots referring to the MIAC and     task). Furthermore, so far, the objective has been to achieve
+MRAC controllers.                                                 the desired closed-loop performance in practice. Providing
+   2) Hardware: The same experiment is performed on the           theoretical guarantees for stability and feasibility in MPC is
+physical system, with corresponding plots shown in Fig. 8.        an active research area, which we will further pursue in the
+The baseline MPC controller has an increasing tracking error.     context of robot-environment interaction.
+                             R EFERENCES                                        [23] L. Villani, C. C. De Wit, and B. Brogliato, “An exponentially stable
+                                                                                     adaptive control for force and position tracking of robot manipulators,”
+ [1] B. Siciliano, L. Sciavicco, L. Villani, and G. Oriolo, Robotics: mod-           IEEE Transactions on Automatic Control, vol. 44, no. 4, pp. 798–802,
+     elling, planning and control. Springer Science & Business Media,                1999.
+     2010.                                                                      [24] J. Roy and L. L. Whitcomb, “Adaptive force control of posi-
+ [2] C. Natale, Interaction control of robot manipulators: six degrees-of-           tion/velocity controlled robots: theory and experiment,” IEEE Trans-
+     freedom tasks. Springer Science & Business Media, 2003, vol. 3.                 actions on Robotics and Automation, vol. 18, no. 2, pp. 121–137,
+ [3] M. Vukobratovic, D. Surdilovic, Y. Ekalo, and D. Katic, Dynamics                2002.
+     and Robust Control of Robust Robot-Environment Interaction. World          [25] B. Zhu and X. Xia, “Lyapunov-based adaptive model predictive control
+     Scientific Publishing, 2009.                                                    for unconstrained non-linear systems with parametric uncertainties,”
+ [4] J. Koenemann, A. Del Prete, Y. Tassa, E. Todorov, O. Stasse,                    IET Control Theory & Applications, vol. 10, no. 15, pp. 1937–1943,
+     M. Bennewitz, and N. Mansard, “Whole-body model-predictive con-                 2016.
+     trol applied to the hrp-2 humanoid,” in 2015 IEEE/RSJ International        [26] B. Zhu, Z. Zheng, and X. Xia, “Constrained adaptive model-predictive
+     Conference on Intelligent Robots and Systems (IROS). IEEE, 2015,                control for a class of discrete-time linear systems with parametric
+     pp. 3346–3351.                                                                  uncertainties,” IEEE Transactions on Automatic Control, vol. 65, no. 5,
+ [5] J.-P. Sleiman, F. Farshidian, M. V. Minniti, and M. Hutter, “A unified          pp. 2223–2229, 2019.
+     mpc framework for whole-body dynamic locomotion and manipula-              [27] F. Farshidian, E. Jelavic, A. Satapathy, M. Giftthaler, and J. Buchli,
+     tion,” arXiv preprint arXiv:2103.00946, 2021.                                   “Real-time motion planning of legged robots: A model predictive
+ [6] N. Gupta, J. Smith, B. Shrewsbury, and B. Børnich, “2d push recovery            control approach,” in 2017 IEEE-RAS 17th International Conference
+     and balancing of the eve r3-a humanoid robot with wheel-base, using             on Humanoid Robotics (Humanoids). IEEE, 2017, pp. 577–584.
+     model predictive control and gain scheduling,” in 2019 IEEE-RAS 19th       [28] F. Farshidian, M. Kamgarpour, D. Pardo, and J. Buchli, “Sequential
+     International Conference on Humanoid Robots (Humanoids). IEEE,                  linear quadratic optimal control for nonlinear switched systems,”
+     2019, pp. 365–372.                                                              IFAC-PapersOnLine, vol. 50, no. 1, pp. 1463–1469, 2017.
+ [7] D. Lee, H. Seo, D. Kim, and H. J. Kim, “Aerial manipulation using          [29] R. Grandia, F. Farshidian, R. Ranftl, and M. Hutter, “Feedback mpc
+     model predictive control for opening a hinged door,” in 2020 IEEE               for torque-controlled legged robots,” arXiv preprint arXiv:1905.06144,
+     International Conference on Robotics and Automation (ICRA), 2020,               2019.
+     pp. 1237–1242.                                                             [30] F. Ramos, M. Gajamohan, N. Huebel, and R. D’Andrea, “Time-
+ [8] M. V. Minniti, F. Farshidian, R. Grandia, and M. Hutter, “Whole-body            optimal online trajectory generator for robotic manipulators,” 2013.
+     mpc for a dynamically stable mobile manipulator,” IEEE Robotics and        [31] L. J. Love and W. J. Book, “Environment estimation for enhanced
+     Automation Letters, vol. 4, no. 4, pp. 3687–3694, 2019.                         impedance control,” in Proceedings of 1995 IEEE International Con-
+ [9] F. Farshidian, E. Jelavic, A. Satapathy, M. Giftthaler, and J. Buchli,          ference on Robotics and Automation, vol. 2. IEEE, 1995, pp. 1854–
+     “Real-time motion planning of legged robots: A model predictive                 1859.
+     control approach,” in Humanoids, 2017, pp. 577–584.                        [32] I. F. Jasim, P. W. Plapper, and H. Voos, “Gaussian filtering for
+[10] Z. Öreg, H.-S. Shin, and A. Tsourdos, “Model identification adap-              enhanced impedance parameters identification in robotic assembly
+     tive control-implementation case studies for a high manoeuvrability             processes,” in 2015 IEEE 20th Conference on Emerging Technologies
+     aircraft,” in 2019 27th Mediterranean Conference on Control and                 & Factory Automation (ETFA). IEEE, 2015, pp. 1–4.
+     Automation (MED). IEEE, 2019, pp. 559–564.                                 [33] J. Becedas, G. Mamani, V. Feliu, and H. Sira-Ramı́rez, Estimation
+[11] N. T. Nguyen, “Model-reference adaptive control,” in Model-Reference            of Mass-Spring-Dumper Systems. Dordrecht: Springer Netherlands,
+     Adaptive Control. Springer, 2018, pp. 83–123.                                   2009, pp. 411–422.
+[12] A. H. Quispe, H. B. Amor, and H. I. Christensen, “A taxonomy               [34] S. Haddadin, A. De Luca, and A. Albu-Schäffer, “Robot collisions: A
+     of benchmark tasks for robot manipulation,” in Robotics Research.               survey on detection, isolation, and identification,” IEEE Transactions
+     Springer, 2018, pp. 405–421.                                                    on Robotics, vol. 33, no. 6, pp. 1292–1312, 2017.
+[13] Z. Li and R. Hollis, “Toward a ballbot for physically leading people:      [35] “OCS2: An open source library for optimal control of switched sys-
+     A human-centered approach,” in 2019 IEEE/RSJ International Con-                 tems,” [Online]. Available: https://bitbucket.org/leggedrobotics/ocs2.
+     ference on Intelligent Robots and Systems (IROS). IEEE, 2019, pp.          [36] M. Giftthaler, M. Neunert, M. Stäuble, M. Frigerio, C. Semini, and
+     4827–4833.                                                                      J. Buchli, “Automatic differentiation of rigid body dynamics for
+[14] F. Sonnleitner, R. Shu, and R. L. Hollis, “The mechanics and control of         optimal control and estimation,” Advanced Robotics, vol. 31, no. 22,
+     leaning to lift heavy objects with a dynamically stable mobile robot,”          pp. 1225–1237, 2017.
+     in 2019 International Conference on Robotics and Automation (ICRA).        [37] P. Fankhauser and C. Gwerder, “Modeling and control of a ballbot,”
+     IEEE, 2019, pp. 9264–9270.                                                      B.S. thesis, Eidgenössische Technische Hochschule Zürich, 2010.
+[15] M. Shomin, J. Forlizzi, and R. Hollis, “Sit-to-stand assistance with a
+     balancing mobile robot,” in 2015 IEEE International Conference on
+     Robotics and Automation (ICRA). IEEE, 2015, pp. 3795–3800.
+[16] N. Hogan, “Impedance control: An approach to manipulation: Part
+     i—theory,” 1985.
+[17] H. Kazerooni, T. Sheridan, and P. Houpt, “Robust compliant motion
+     for manipulators, part i: The fundamental concepts of compliant
+     motion,” IEEE Journal on Robotics and Automation, vol. 2, no. 2,
+     pp. 83–92, 1986.
+[18] W. Amanhoud, M. Khoramshahi, M. Bonnesoeur, and A. Billard,
+     “Force adaptation in contact tasks with dynamical systems,” in 2020
+     IEEE International Conference on Robotics and Automation (ICRA).
+     IEEE, 2020, pp. 6841–6847.
+[19] K. Lee and M. Buss, “Force tracking impedance control with variable
+     target stiffness,” IFAC Proceedings Volumes, vol. 41, no. 2, pp. 6751–
+     6756, 2008.
+[20] N. Diolaiti, C. Melchiorri, and S. Stramigioli, “Contact impedance
+     estimation for robotic systems,” IEEE Transactions on Robotics,
+     vol. 21, no. 5, pp. 925–935, 2005.
+[21] V. Mallapragada, D. Erol, and N. Sarkar, “A new method of force
+     control for unknown environments,” International Journal of Advanced
+     Robotic Systems, vol. 4, no. 3, p. 34, 2007.
+[22] J.-J. E. Slotine and W. Li, “On the adaptive control of robot manip-
+     ulators,” The international journal of robotics research, vol. 6, no. 3,
+     pp. 49–59, 1987.
+

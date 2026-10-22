@@ -1,0 +1,666 @@
+                                                   Variable Impedance Control in End-Effector Space:
+                                           An Action Space for Reinforcement Learning in Contact-Rich Tasks
+                                           Roberto Martín-Martín, Michelle A. Lee, Rachel Gardner, Silvio Savarese, Jeannette Bohg, Animesh Garg
+
+                                           Abstract— Reinforcement Learning (RL) of contact-rich ma-
+                                        nipulation tasks has yielded impressive results in recent years.
+                                        While many studies in RL focus on varying the observation
+                                        space or reward model, few efforts focused on the choice of
+                                        action space (e.g. joint or end-effector space, position, velocity,
+                                        etc.). However, studies in robot motion control indicate that
+arXiv:1906.08880v2 [cs.RO] 2 Aug 2019
+
+
+
+
+                                        choosing an action space that conforms to the characteristics
+                                        of the task can simplify exploration and improve robustness to
+
+                                                                                                                                 π(o) = a
+                                        disturbances. This paper studies the effect of different action
+                                        spaces in deep RL and advocates for variable impedance control
+                                        in end-effector space (VICES) as an advantageous action space
+                                        for constrained and contact-rich tasks. We evaluate multiple
+                                        action spaces on three prototypical manipulation tasks: Path                   Fig. 1: Depending on the characteristics of a task, different action
+                                        Following (task with no contact), Door Opening (task with                      spaces for policy learning are better suited than others; Variable
+                                        kinematic constraints), and Surface Wiping (task with continu-                 impedance control in end-effector space (VICES) is efficient to
+                                        ous contact). We show that VICES improves sample efficiency,                   learn both free-space motion and contact-rich tasks. Through the
+                                        maintains low energy consumption, and ensures safety across                    compensation of the robot’s kinematics and dynamics, the policies
+                                        all three experimental setups. Further, RL policies learned with               learned for one robot in simulation transfer seamlessly to other robot
+                                        VICES can transfer across different robot models in simulation,                instances and to the real robot.
+                                        and from simulation to real for the same robot. Further
+                                        information is available at https://stanfordvl.github.io/vices.                implementations), a key problem in robotics is to generate
+                                                                                                                       a viable reference in a suitable space given raw sensory
+                                                              I. I NTRODUCTION                                         observations, i.e. modelling the function g(·) and deciding
+                                           Diverse control tasks in robot manipulation are naturally                   on the interface to f (·). Once the interface has been defined
+                                        addressed in different action spaces – for a specific task, one                (e.g. forces, positions, contact points, etc.), the generation of
+                                        action space might simplify learning and control more than                     reference signals by g(·) can be addressed in multiple ways,
+                                        another. For a walking robot, it is important to directly control              ranging from hand-tuned state machines [15, 41], trajectory
+                                        contact interactions to avoid slippage [35]. In contrast, for                  optimization [14, 45], imitation learning [5, 12, 19, 38], or
+                                        a tennis swing, it is important to track and control position,                 reinforcement learning (RL) [9, 23].
+                                        velocity, and at times the acceleration of the end-effector [11].                 Recent research in RL has focused on “observations-to-
+                                        For a surface-to-surface alignment task, minimizing the                        torques” [25], which is akin to merging f (·) and g(·) into
+                                        moment around a contact is important for robustness [15].                      a single learned model. Other methods use higher-level
+                                        Tackling all these tasks requires solving two subproblems:                     action spaces, such as joint space commands (e.g. position
+                                        (1) the generation of reference signals (desired contacts,                     or velocity) [7, 8, 46, 48] or task space commands (e.g.
+                                        trajectories, moments, etc.), and (2) the tracking of these                    end-effector poses, force or fixed impedance) [13, 23]. These
+                                        signals.                                                                       works typically focus on the effects of choosing an observation
+                                           Control systems for robots can be structured with two                       space O on the learning process and rarely justify the choice
+                                        feedback control loops that address the aforementioned                         of action spaces, A. However, the choice of action space
+                                        subproblems: an outer loop controller that generates a time-                   defines the quantity around which the inner control loop is
+                                        varying reference trajectory, and an inner loop controller                     closed, and by extension the space wherein tracking error
+                                        that tracks this trajectory. Let us refer to the outer loop                    is minimized. This critically impacts robustness and task
+                                        as a functional map from observations to reference signals                     performance as well as learning efficiency and exploration.
+                                        g(o) : O → A, and the inner loop as a map from reference                          Moreover, previously proposed action spaces do not neces-
+                                        signals to actuation commands f (a) : A → U. The combined                      sarily create suitable references for some contact-rich tasks.
+                                        control law becomes: u = f ◦ g(o), where o ∈ O is some                         Consider the task of wiping a board, wherein a robot must
+                                        observation, a ∈ A is an abstract action providing a reference                 control forces in some directions (to keep pressing against
+                                        signal in some space, and u ∈ U is the control command sent                    the board) and motion in others. The physical constraints of
+                                        to the robot’s actuators to track this reference.                              the task dictate in which axes the robot should be stiff and in
+                                           While control theory provides a vast repertoire of strategies               which it should be compliant. This can often be time-varying.
+                                        to map from reference signals to actuation commands ( f (·)                    Manual specification of the task constraints is not a scalable
+                                                                                                                       solution for the variety of contact-rich tasks the robot may
+                                          All authors are with Stanford Artificial Intelligence Lab (SAIL), Stanford   need to perform, and for some tasks, manual specification
+                                        University. A. Garg is also with Nvidia, USA. This work has been               may be non-trivial.
+                                        partially supported by JD.com American Technologies Corporation (“JD”)
+                                        under the SAIL-JD AI Research Initiative. This article solely reflects the        This paper studies how the selection of an interface between
+                                        opinions and conclusions of its authors and not JD or any entity associated    g(·) and f (·), (the space A) affects RL as a method to
+                                        with JD.com. [robertom, mishlee, rachel0, ssilvio,                             learn the mapping from observations to reference signals,
+                                        bohg, animeshg]@stanford.edu
+g(·), and presents the first empirical study comparing the          However, the specification of impedance in the demonstration
+most common choices for the A in contact-rich manipulation.         only reflects variability in demonstrations trajectories but not
+We argue that an action space that captures motion and              the underlying task constraints imposed by the environment
+impedance in end-effector space can enable efficient learning       nor the force profiles required for the task. This approach
+of such tasks. We evaluate joint position, joint velocity,          is also restricted to tasks where expert demonstrations are
+joint torque, joint variable impedance, as well as fixed            feasible, and hence is limited in application to kinematic
+and variable impedance in end-effector space. The choice            tasks with phases that require different level of precision.
+of action space should be guided not only by the robot              Reinforcement Learning: In the field of model-based rein-
+model but also by prior knowledge of the task. Hence, we            forcement learning, Kim et al. [18] proposed a method to learn
+compare action spaces across tasks with varying degrees of          the parameters of a variable impedance position controller in
+task-space constraints, i.e., Path Following with no contact        end-effector space based on the equilibrium point formalism.
+(path following), manipulation of constrained mechanisms            They demonstrated the convergence, robustness and energy
+(door opening), and continuous unconstrained contact (surface       efficiency of their method on simulated manipulation task
+wiping).                                                            with a two DoF planar arm. However, their method requires
+   Moreover, we introduce variable impedance control in             an initial trajectory which is not always available.
+end-effector space (VICES) and advocate this action space              Similar to our method, Buchli et al. [4] apply policy
+for Deep RL algorithms applied to contact-rich manipulation.        improvements with path integrals (PI2 ) [44] to refine initial tra-
+We show that policies defined in VICES improve sample               jectories and learn variable scheduling for the joint impedance
+efficiency for exploration in RL, energy efficiency, and reduce     parameters. They demonstrate that energy consumption can
+applied forces. Thanks to the classical dynamically consistent      be optimized while achieving a task using variable impedance.
+operational space formalism [17], we observe that policies          However, they use joint space as their action space, which
+learned in end-effector space are also more robust to transfer      limits the transferability of the learned behaviors to different
+across robots with significant differences in dynamics whether      robots and the optimality of the trajectories in the space of
+in simulation or the real world.                                    the task. Also, their method requires an initial estimate of
+                      II. R ELATED W ORK                            the solution to start the iteration.
+                                                                       Rey et al. [34] propose an approach to simultaneously
+Robot Motion Control: Compliant control of a robot ma-              learn kinematic trajectories from demonstrations and variable
+nipulator enables adaption to uncertainty in the environment        impedance in task space from exploration. They use Gaussian
+(e.g. exact shape of a surface, or kinematic constraints of         Mixture Regression as representation for the policy and
+mechanisms) during contact-rich tasks. However, certain tasks       demonstrate their method in simulation and in one real-world
+require direct control of the contact interactions (e.g. don’t      planar task with one single stiffness parameter. [13] proposed
+apply too much force when wiping a window). Previous                a method to refine given trajectories with additional force
+abstractions have divided dimensions of the task into those         profiles using PI2 [44] and readings from a force-torque sensor.
+that are controlled kinematically (through position and             We aim to achieve dynamic behavior without direct force
+velocity) and dynamically (through force and torques) [17, 20,      loop control by using impedance to learn both trajectories
+29]. However in practice, the hard decoupling requires a level      and variable stiffness profiles.
+of knowledge about the task that is not always available [3].          It is worth noting that all previous approaches have
+Impedance control [10] allows safe robot contact manipulation       boostrapped learning with initial demonstrations while we
+with an unknown environment by explicitly controlling the           explore learning from scratch to better understand how
+amount of force the robot exerts when it deviates from a            fast policies converge. Viereck et al. [47] studied how to
+given kinematic goal. Therefore, it alleviates the need for         incorporate control structure to learn hopping policies for
+perfect knowledge or hard separation between the dynamic            one-legged robot with RL. They use an optimal controller for
+and kinematic task dimensions.                                      fixed task conditions and learn to imitate its policy with neural
+   However, different phases of a manipulation task may             networks to generalize to new task conditions. Interestingly,
+require a dynamic balancing between kinematic and dynamic           they compare two network architectures outputting signals
+control. Existing methods address it by scheduling variable         in different action spaces: directly desired torques or full
+impedance gains to maintain stability or safety for a given         feedback parameters and desired configuration, which is
+kinematic trajectory [27, 30, 37]. However, these methods           transformed into torques with an analytic function. Their
+assume that a reference trajectory is given.Instead, we propose     experiments show that this second action space is best suited
+to directly predict both end-effector displacement (reference)      for the hopping task with intermittent contact and adds
+and variable impedance gains based on observations.                 interpretability to the network output. We study a set of
+Action Spaces in Learning from Demonstrations: LfD                  analytic functions (controllers) that map policy actions to low
+derives a task policy based on demonstrations provided              level robot commands for robot manipulation in three tasks
+by some other agent(s) [2]. If the demonstrations do not            with different contact properties.
+perfectly overlap, a possible approach is to derive a policy           With related motivation to ours, Peng et al. [33] studied the
+that imitates the mean motion of the demonstration set, and         importance of different action representations in RL for the
+varies the stiffness according to the coherence of the trials [6,   task of locomotion. Similar to us, they aimed to shed light
+21] or according to the force sensed during kinesthetic             on the best action space to be used, but in their case they
+replay [1]. Similar use of variable impedance as an action          focused on imitation learning in bipedal motion of simulation
+representation for LfD has been demonstrated to be successful       agents. We would like to provide similar insights in the more
+for adaptive grasping [26], manipulation of deformable              complex contact-rich robot manipulation domain and include
+objects [22], and co-adaptation to human workers [36].              preliminary studies of transfer to real world.
+              III. R EINFORCEMENT L EARNING                                                                                  Controllers:
+                                                                            Policy              Linear
+   The goal in reinforcement learning is to find a policy π,               (20Hz)            Interpolator         A)                 B)
+
+that selects actions based on current observations so as to                                                             Joint                Joint
+                                                                                                                       Torques              Velocity
+maximize the expected reward obtained from interactions
+with the environment [42]. We assume that the underlying
+                                                                                                Controller
+problem can be modelled as a discrete-time continuous                                           (500 Hz)
+                                                                                                                  C)                 D)
+
+Markov decision process (S, A, P, R, γ, ρ), where S is a                   Robot &                                      Joint               End-Effector
+                                                                         Environment
+continuous state space, A is a continuous action space, P                                                              Position                Pose
+
+is a Markovian transition model defining the probability of
+transitioning between states for a given action P(s0 |s, a), R       Fig. 2: We trained policies that output actions, a, on different
+is a reward function R(s, a) = r ∈ R, γ ∈ [0, 1) is a discount       action spaces, A at 20 Hz; Depending on the action space, the
+factor (for infinite horizon problems) and ρ is the initial          appropriate controller takes in the desired control signal, the control
+                                                                     parameters (fixed or given by the policy), and the current state
+state distribution. When π is probabilistic it represents the        and outputs actuation commands u ∈ U at 500 Hz, which for our
+probability of the action, a, given the state, s: π(a|s) = p(a|s),   robots correspond to joint torques τ. We interpolate linearly between
+and π(·|s) is the density distribution over A in state s.            consecutive low-frequency policy actions to generate smoother high-
+   Alternatively, we can assume the state is not directly            frequency controller signals (and parameters, if controlled by policy).
+observable and learn a policy π(a|o) conditioned on observa-         while we wipe a surface) [3, 17, 20, 29]. To succeed in these
+tions o ∈ O instead of latent states s ∈ S. Herein, the agent        tasks, the robot needs to dynamically modulate the exerted
+following the policy π obtains an observation ot at time t           force on the environment through the torques on each joint.
+and performs an action at , receiving from the environment an            To map between action space A and actuation space U, we
+immediate reward rt and a new observation ot+1 . Assuming            can define analytic parameterized functions (i.e. controllers),
+the policy is parameterized by θ , a policy gradient algorithm        fκ (a, srobot ) : A × Srobot → U, that transform the output of the
+optimizes θ to maximize that the expected future return:             policy from the action space to the space of control commands
+                                                                     depending on the current state of the robot, srobot ∈ Srobot .
+                                              "          #
+                                                X
+           ∗                                         t
+         θ = argmax J(θ , ρ) = argmax E             γ rt      (1)    The parameters of these functions, κ, can be made part of the
+                  θ                   θ         t                    policy action space so that the agent has full controllability
+These algorithms are based on the policy gradient theorem            on the manipulation behavior [4].
+              δJ    P               P δ πθ (a|s)                         In the following, we will introduce the different choices
+that states: Pδθ =     s µπθ (s, ρ)  a   δ θ Qπθ (s, a), where       of analytic controllers fκ , we use to map policy actions from
+µπθ (s, ρ) = t γ t P(st = s|ρ) and Qπθ is the action-value           commonly used policy action spaces into joint torques.
+function associated to the current policy πθ .                           Joint Torques: When the policy directly outputs desired
+  There are multiple algorithmic solutions based on the              joint torques, i.e. a = τdes , the function that transforms to
+policy gradient theorem that allow us to represent the policy        robot commands is simply (jt = joint torques):
+with a deep neural network, e.g. Trust Region Policy Opti-
+mization (TRPO) [39], Deep Deterministic Policy Gradients                                                    jt
+                                                                                                u = fκ (a = τdes ) = τdes                                  (1)
+(DDPG) [28], or Advantage Actor-Critic (A2C) [31]. In our
+evaluation of different action spaces for policies, we will use         Joint Velocities: When the policy outputs reference joint
+Proximal Policy Optimization (PPO) [40]. The evaluation of           velocities a = q̇des , the function to map to joint torques is
+the sensitivity of different algorithms to the action space is       (jv = joint velocities):
+deferred to future work.                                                                   jv
+                                                                                     u = fκ (a = q̇des , st = q̇) = kv (q̇des − q̇)                        (2)
+ IV. ACTION S PACES IN RL FOR ROBOT M ANIPULATION
+                                                                     where we close the loop around q̇, the current joint velocity
+   Relating the formalisms we introduced in Sec. I and III,          (state), and kv is a vector of proportional gain (parameter κ).
+π corresponds to g(·), the function that maps observations              Joint Positions: For policies that output reference joint
+to reference actions in some space A, assuming that another          positions, a = qdes , it is most straightforward to use a
+function f (·) will map these actions to low level control           proportional-derivative (PD) controller that generates torques
+commands, u ∈ U.                                                     that increase with the joint position error and decrease with the
+   We note that the RL algorithms in Sec. III are agnostic           current joint velocity. We also remove the dynamic effects of
+to choice of action space A. In practice, the most common            the mechanism by scaling the torques with the inertia matrix,
+A in RL for robot manipulation are a) joint torques [25],            M [17]. The function to transform reference joint positions
+b) joint velocities [7, 46, 48], c) joint positions [8], and         to joint torques is thus (jp = joint positions):
+d) end-effector position [23, 43] possibly with orientation.
+The most common lowest level control commands (and the                                   jp                               
+                                                                                   u = fκ (qdes , q, q̇) = M kp ∆q − kv q̇         (3)
+one we assume for our underlying physical agent) are joint
+torques, u = τ ∈ T . Joint torques are safer than positions and      where ∆q = qdes − q is the difference between current and
+velocities for contact-rich tasks in unstructured environments,      desired joint configurations, which can be used as an
+because the forces the robot will apply on the environment           alternative policy action space. kp and kv are vectors of
+are limited by the specified desired torques.                        proportional and derivative gains (parameters κ).
+   Manipulation tasks can seldom be solved solely by only               End-Effector Pose: In the cases where the policy outputs
+controlling motion since there are tasks that contain contact        the desired 6-D pose ∈ SE(3) of the robot in end-effector
+and force constraints (e.g. the adaptation required to manip-        space, xdes , we can use an impedance-based PD controller
+ulate an articulated object or the minimum force to press            to first derive an end-effector space acceleration to move
+         6000                                                                     105                                                                        6000
+
+
+
+         4000                                                                     104                                                                        4000
+
+
+
+
+                                                                         Reward
+
+
+
+
+                                                                                                                                                    Reward
+Reward
+
+
+
+
+         2000                                                                     103                                                                        2000
+
+
+            0                                                                     102                                                                           0
+                0.0        0.5           1.0         1.5         2.0                    0.0   0.5    1.0       1.5      2.0        2.5                              0.0            0.5             1.0           1.5
+                                                                                                                          6
+                          Number of Steps (10 )      6
+                                                                                                Number of Steps (10 )                                                           Number of Steps (106)
+
+                      (a) Path Following                                                       (b) Door Opening                                                             (c) Surface Wiping
+            Variable Impedance Control         High Impedance Control   Medium Impedance Control           Low Impedance Control          Variable Impedance
+                                                                                                                                                                          Joint Position   Joint Velocity   Joint Torque
+              in End-Eﬀector Space              in End-Eﬀector Space      in End-Eﬀector Space              in End-Eﬀector Space         Control in Joint Space
+
+
+Fig. 3: Training curves for a) Path Following (free space), b) door opening (kinematic constraints), and c) surface wiping (contact rich)
+tasks; The plots depict mean and standard deviation of five learning processes with different random seeds; Tasks without contact or with
+kinematic constraints (Path Following and door opening) do not require variable impedance as action space to achieve high reward; In the
+contact-rich task (surface wiping) the policy using variable impedance in end-effector space achieves higher reward because it learns to
+adapt correctly the amount of force applied to the tasks constraints
+towards the goal. To do that, xdes can be decomposed into                                                      It enables the policy to learn both to predict the end-effector
+desired position, pdes ∈ R3 , and desired orientation, Rdes ∈                                                  pose as a trajectory reference as well as to dynamically adapt
+SO(3). In the impedance-based PD controller, the end-effector                                                  the impedance gains along each of the six axes (rotation and
+acceleration increases with the difference between desired                                                     translation) according to the phase of the task.
+end-effector pose and current pose, p and R, and decreases                                                                            V. E XPERIMENTS
+with the current end-effector velocity, v and ω.
+  We then compute the robot actuations (joint torques) to                                                         We conduct experiments in three application domains: a)
+achieve the desired end-effector space accelerations leveraging                                                free space Path Following [4], b) manipulation of articulated
+the kinematic and dynamic models of the robot with the                                                         mechanisms [18] and c) surface wiping [24, 32]. These tasks
+dynamically-consistent operational space formulation [16].                                                     are not only relevant applications in robotics, but also span
+First, we compute the wrenches at the end-effector that                                                        different levels of task constraints from free motion to highly
+correspond to the desired accelerations, f ∈ R6 . Then, we                                                     constrained contact-rich manipulation, which allows us to
+map the wrenches in end-effector space f to joint torque                                                       evaluate and compare the characteristics of the different action
+commands with the end-effector Jacobian at the current joint                                                   spaces for policy learning.
+configuration J = J(q): u = J T f .                                                                               For these three tasks and for each of the evaluated action
+  Thus, the function that maps end-effector space position                                                     spaces we aim to answer the following questions: is the
+and orientation to low level robot commands is (ee =                                                           action space suitable for model-free RL? Is the learned policy
+end-effector space):                                                                                           physically efficient? Does the policy learned with a simulated
+                                                                                                               robot transfer to a different simulated robot? Does a policy
+                      u = fκee (pdes , Rdes , p, R, v, ω)                                                      learned in simulation transfer to a real robot? To answer these
+                            T
+                         = Jpos [Λpos [kppos (pdes − p) − kvpos v]]+                                (4)        questions we will use the following metrics and tests:
+                                                                                                               1) Sample efficiency and task completion: samples re-
+                            T
+                               [Λori kpori (Rdes R) − kvori ω ]
+                                                               
+                          Jori                                                                                  quired for the policy to succeed in the task and/or converge
+where Λpos and Λori are the parts corresponding to position                                                    2) Physical efficiency: energy consumed by the robot when
+and orientation in Λ ∈ R6×6 , the inertial matrix in the end-                                                   using the trained policy. We assume a proportional relation-
+effector frame that decouples the end-effector motions, Jpos                                                    ship between joint torques and electric power
+and Jori are the position and orientation parts of the end-                                                    3) Physical effort: wrenches applied to the environment by
+effector Jacobian, and          corresponds to the subtraction in                                               the trained policy during contact-rich manipulation tasks
+SO(3). The difference between current and desired position                                                     4) Transferability between robots: does a robot achieve
+(∆pos = pdes − p) and between current and desired orientation                                                   the task using a policy trained on a different robot?
+(∆ori = Rdes R) can be used as alternative policy action
+              pos pos                                                                                          5) Sim-to-real transfer of contact-rich policies: does a real
+space, A. kp , kv , kpori , and kvori are vectors of proportional
+                                                                                                                robot achieve the task using a policy trained in simulation?
+and derivative gains for position and orientation (parameters                                                     Our control framework is outlined in Fig 2. In all exper-
+κ), respectively.                                                                                              iments our policies output actions (a ∈ A) at 20 Hz, while
+   Variable Impedance End-Effector Space (VICES):
+                                                                                                               we send joint torque commands (u ∈ U = T ) to the robot at
+   Thus far, we have defined transformations between policy
+                                                                                                               500 Hz. To generate torque commands at a higher frequency,
+actions a and robot commands u are parameterized with κ. In
+                                                                                                               the controllers use the constant desired goal from the policy
+these cases, parameters κ are manually specified. We observe
+                                                                                                               while updating the current state of the robot, srobot . In order
+that it is beneficial to augment the action space with these
+                                                                                                               to ensure smooth robot commands and generated motions, in
+parameters to give the agent full control of the behavior. As
+                                                                                                               all of our controllers we interpolate linearly between policy
+discussed in Sec. II, this idea has been previously explored in
+                                                                                                               commands at consecutive time steps.
+joint space for kp and kv [4]. In this paper, we propose to also
+                                                              pos                                              A. Free-Space Motion - Path Following
+turn the parameters of the end-effector space function (kp ,
+ pos
+kv , kpori , and kvori ) into policy outputs. We term this action                                              Setup. In this experiment we aim to measure the properties
+space as Variable Impedance End-Effector Space (VICES).                                                        of different action spaces for tasks that do not involve any
+contact with the environment. Agent’s goal is to follow a                      200
+                                                                                                                                   pos-x
+                                                                                                                                  kp
+                                                                                                                                   pos-y
+trajectory in free-space passing through four via-points. The                  180
+                                                                                                                                  kp
+                                                                                                                                   pos-z
+                                                                                                                                  kp
+via-points are placed on a virtual plane in front of the agent
+
+
+
+
+                                                                         N/m
+                                                                               160
+at a constant distance along the x axis. The order and location
+                                                                               140
+of the via-points are fixed. We measure success as the fraction
+of the four via-points that are passed through.                                120
+                                                                                     0    2          4              6     8
+
+   This setup is a more complex version of the one via-point                    10                                             pos-x
+                                                                                                                              kp     · ∆x
+trajectory of Buchli et al. [4]. This task can be solved                                                                       pos-y
+                                                                                                                              kp     · ∆y
+                                                                                                                               pos-z
+kinematically without impedance control. However, we found                       5                                            kp     · ∆z
+
+
+
+
+                                                                         N
+that controlling the compliance of the robot could still offer                   0
+
+benefits in this setup.
+                                                                               −5
+Reward Model. This task is trained in two phases : a first
+                                                                                     0    2          4              6     8
+phase of task completion and a second phase of energy                                                    Time (s)
+
+optimization. In the first phase, the agent is rewarded only         Fig. 4: Free space Path Following: Time evolution for a single
+to complete the task: to pass through the four via-points. In        episode of a policy using variable impedance in end-effector space;
+the second phase, the trained models from previous phase             Impedance (stiffness, k p ) changes as via-points are checked as
+are further trained with the additional objective of optimizing      indicated by the vertical dotted lines; The four via-points of the
+                                                                     trajectory are aligned with the same x coordinate and thus the
+their motion to reduce energy consumption.                           policy learns to not exert force in that dimension (blue curves);
+   In the first phase of the experiment, the agent is rewarded       After checking a via-point, the policy increases stiffness (k p ) and
+when it hits a via-point (it gets closer than dth = 5 cm). To        combines it with the right desired displacement (k p ∆x) to generate
+help guide exploration, we also provide a small dense reward         motion in the direction to reach the next via-point of the trajectory
+inversely proportional to the distance to the next via-point         completion of the task
+in the trajectory. Since the episodes continue after the task           We gain insights on how an RL policy exploits VICES
+is completed, a task-completion bonus proportional to the            for this task by observing the stiffness and damping over
+remaining time steps was introduced to discourage the robot          the course of an episode. Fig. 4 depicts the commands (the
+from unnecessarily extending the duration of the task. We            desired stiffness and the product of desired stiffness and delta
+train policies with this reward using the different action spaces    position) from the policy trained with VICES for one episode
+to evaluate if they can learn to follow the free-space trajectory.   after the first stage of training (before applying the energy
+   In the second phase of the experiment , we explore if             penalty). The policy exploits the impedance (stiffness) to
+the action spaces can optimize for the additional objective          reach each via-point in the different portions of the trajectory.
+of minimizing energy consumption without decreasing the              As it checks each via-point (indicated by the vertical bars
+quality of the first objective (passing through the via-points).     in the figure), the impedance changes in the appropriate
+We include an energy consumption penalty to the previously           dimension to move quickly to the next via-point with enough
+defined reward function. To evaluate energy consumption we           stiffness to avoid overshooting.
+assume that the torques from the motors are proportional
+to electric current and the voltage is constant, and thus the        Physical Efficiency. We evaluate the physical efficiency of
+amount of electric power scales proportional to the torque           policies in different action spaces by comparing the total
+and the energy is its time integral.                                 energy consumption of the agents at the end of the first phase
+                                                                     and of the second phase of our experiment, where we add
+Observations. We use as observations the pose and velocity           the energy penalty. We found that the policies using variable
+of the end-effector in the robot reference frame, as well as         impedance in end-effector space as action space were the only
+the location of the via-points (and whether each one has been        end-effector space policies that consistently improved energy
+checked).                                                            efficiency while maintaining task performance. Both the
+Evaluation. We first evaluate each of the different action           medium and high fixed impedance models became unstable,
+spaces in simulation, using a simulated Panda robot agent            since the action space does not have sufficient degrees of
+with five different random seeds. In the first phase of the          freedom to optimize the motion to reduce energy consumption
+experiment, we measure sample efficiency (reward as function         while still achieving the trajectory task. Note that since the
+of the iterations) and level of completion of the task (number       low impedance model never achieved the task, it was not
+of via-points crossed). In the second phase of the experiment,       evaluated with energy penalties.
+we also measure the total energy consumption and task                   In joint space, the policies outputting actions in variable
+success. In both phases we evaluate how the original trained         impedance space were also able to reduce the energy
+policies transfer between robots.                                    consumption significantly more than the controllers with
+Sample Efficiency and Task Completion. Fig. 3 (a) shows the          fixed impedance, as expected [4]. They also reduced more
+training curves for policies in each of the action spaces. All       energy than policies outputting variable impedance in end-
+policies except the ones that output reference joint torques         effector space. This reflects that the policies outputting
+and end-effector poses resolved with a fixed low impedance           joint space commands resulting from the first phase of
+controller were able to achieve the goal of the task: checking       our experiment solved the task much faster (with higher
+all 4 via-points (see Fig. 5a). For the policies that achieve        energy consumption) than their end-effector counterparts
+the task, the differences in reward value after convergence          and therefore had much more room for improvement when
+is simply a consequence of the termination bonus: some               optimizing for energy efficiency. Therefore, the difference
+action spaces (e.g. desired end-effector poses resolved with         in absolute energy optimization between policies in joint
+high fixed impedance) allow for faster motion and thus faster        and in end-effector space is an artifact of the difference in
+Task Completion   1.00                                                                        1.00                                                                  1.00
+
+
+
+
+                                                                            Task Completion
+
+
+
+
+                                                                                                                                                  Task Completion
+                  0.75                                                                        0.75                                                                  0.75
+
+                  0.50                                                                        0.50                                                                  0.50
+
+                  0.25                                                                        0.25                                                                  0.25
+
+                  0.00                                                                        0.00                                                                  0.00
+
+                                (a) Path Following                                                   (b) Door Opening                                                                (c) Surface Wiping
+                                       Variable Impedance Control   High Impedance Control           Medium Impedance Control    Variable Impedance
+                                                                                                                                                                           Joint Position   Joint Velocity
+                                         in End-Eﬀector Space        in End-Eﬀector Space              in End-Eﬀector Space     Control in Joint Space
+
+Fig. 5: Evaluation of the the task performance and transfer of policies learned on a robotic platform (Panda, dark color bars) to a different
+platform (Sawyer, lighter color bars) for a) Path Following (free space), b) door opening (kinematic constraints), and c) surface wiping
+(contact rich) tasks; Transfer is between simulated robots without retraining; The error bars indicate the range of percent task performance
+across the 5 seeds; Policies trained in the joint torque action space and in the end-effector low impedance action space did not learn to
+achieve the task in the original embodiment (Panda) and are not part of the transfer evaluation; Policies in joint space are unable to transfer
+between embodiments while policies in end-effector space transfer better because they are not dependant of the robot dynamics; Policy
+transfer is harder for tasks with increased contact with the environment, as the agent is more likely to hit joint limits
+
+magnitude between end-effector space delta position limits                                                         Sample Efficiency and Task Completion. We first evaluate the
+and joint space delta angle limits (i.e., the joint space agents                                                   different action spaces on their sample efficiency of learning
+were originally allowed to move more at each time step).                                                           the door-manipulation. The training results are depicted in
+Transferability. We also evaluate how policies using different                                                     Fig. 3, middle. The task success results for the door task can
+action spaces transfer in simulation from one robot to another                                                     be found in Fig. 5b.
+through zero-shot transfer from the Panda robot to the Sawyer                                                         We observe that policies that output end-effector space ac-
+robot. The results are depicted in Fig. 5a. As expected, we                                                        tions (with medium, variable, and high impedance) outperform
+observed that after convergence only the policies using fixed                                                      policies in all other action spaces, in terms of achieving close
+and variable impedance in end-effector space could transfer                                                        to 100% task success rate and higher rewards. In end-effector
+directly between robots. The joint-space policies were not                                                         space, the policy resolved with an impedance controller with
+able to transfer due to the very different kinematics and                                                          fixed medium stiffness and damping is able to learn the task
+dynamics of the two robot platforms. By using end-effector                                                         at a faster rate than the variable impedance controller, as it is
+space control, we factor out the effects of the embodiment                                                         initialized with a suitable impedance to operate the door with
+from the policy learning problem.                                                                                  the defined friction. However, policies outputting actions in
+                                                                                                                   the both aforementioned spaces reach similar rewards and
+B. Manipulation of Constrained Mechanisms - Door Opening                                                           task success rates at the end of training, as the policies that
+Setup. In this task, the robot has to learn how to manipulate                                                      can vary impedance end up learning a suitable impedance
+a one DoF constrained mechanism, a door, to a specific                                                             for the task.
+configuration. The agent is equipped with a two-finger gripper                                                        While the policies resolved with an impedance controller
+it can use to hold the door handle. The door handle is a bar                                                       with fixed high impedance parameters also achieve on average
+attached vertically on the door leaf. The gripper is closed,                                                       100% task success rate, their rewards are lower because they
+leaving a space between the fingers to cage the door handle                                                        exert higher forces in the environment that is penalized. The
+while still allowing for rotation between handle and gripper.                                                      policies resolved with an impedance controller with fixed
+   We ensure that the agent learns to interact in a controlled                                                     low impedance parameters are not able to learn the door
+and safe manner. Hence instead of maximally opening the                                                            opening task because they cannot exert high enough forces to
+door, we set the goal to manipulate the door into a desired                                                        overcome the friction of the door and move it. The policies
+joint configuration (θgoal = 60°). We measure success as the                                                       outputting joint velocity actions can reach up to 75% task
+fraction of the total desired joint state achieved by the robot:                                                   success, but the rewards are much lower than policies in
+     |θ  −θ    |                                                                                                   VICES, as they often reach joint limits while opening the
+1 − doorθ goal .
+                         goal                                                                                      door. Policies outputting other joint-space actions (torques,
+Reward Model. We reward the agent when the door joint                                                              positions) are unable to learn to exert enough force to open
+gets closer to the desired configuration. We provide additional                                                    the door without reaching joint limits.
+constant reward if the configuration of the door is very
+                                                                                                                   Transferability. We also evaluate the ability of policies in
+close to the desired value (less than 5°). We penalize forces
+                                                                                                                   different action spaces to transfer from the Panda robot to
+and torques exerted on the environment that go beyond the
+                                                                                                                   the Sawyer robot. The results are shown in Fig. 5b, in
+physical payload of the robot (40 N). We also penalize the
+                                                                                                                   lighter colors. Transferring policies for the door opening
+agent for colliding with the environment with links other than
+                                                                                                                   task is more complex than for the free-space Path Following
+the gripper and for going beyond its joint limits. For safety,
+                                                                                                                   task because the different robots’ kinematics lead to very
+the episode terminates when joint limits are violated.
+                                                                                                                   different task-space limitations, as well as very different
+Observations. We use as observation the pose and velocity                                                          joint limit constraints. Similar to results in the other tasks,
+of the robot’s end-effector in the robot reference frame, as                                                       policies trained in joint space are unable to transfer, since the
+well as the door’s angle and angular velocity.                                                                     kinematics of the robots differ substantially. The end-effector
+Evaluation: We evaluate the different action spaces in                                                             space policies are able to transfer much more successfully,
+simulation. We train an agent with a Panda robot embodiment                                                        as the end-effector space policies are able to abstract away
+for each action space with five different random seeds.                                                            the dynamics and kinematics of each specific robot model.
+There is still a performance drop, as the policies in end-                              1                        3
+effector space do not learn to account for the robots’ different
+kinematic constraints (i.e. joint limits).
+                                                                                                 2                                   4
+C. Contact-Rich Manipulation - Surface Wiping
+Setup. In this experiment the goal is to wipe a table whose
+surface location is unknown. The agents are equipped with a
+wiping tool, resembling a scrubber or a whiteboard eraser (see           1.25
+Fig. 1). In the simulator, the tool is modeled as a soft material                                                                    pz
+
+
+
+
+                                                                     m
+that creates contact forces that increase proportionally to the          1.20
+
+
+penetration into the tool’s surface. The material to wipe is                    0   5       10         15       20   25                   30
+
+modeled as a set of small elements of a color different from              0.0
+                                                                                                                           pos-x
+                                                                                                                          kp     ·    x
+
+
+
+
+                                                                    N
+the table. The elements are placed randomly on the table
+surface to form a continuous “stain” and are marked initially             0.1
+                                                                          0.1 0     5       10         15       20   25                   30
+
+as unwiped. They become wiped if the wiping tool passes
+
+
+
+
+                                                                     N
+through them, which also causes them to disappear visually.               0.0
+                                                                                                                           pos-y
+                                                                                                                          kp     ·    y
+
+
+Note that since the elements are modeled as very thin (1 mm                     0   5       10         15       20   25                   30
+
+height) cylinders resting on the table’s surface, the agent              0.14
+
+
+
+
+                                                                     N
+needs to press the tool against the surface so as to be able to          0.12                                              pos-z
+                                                                                                                          kp     ·    z
+
+
+wipe elements. Success rate is measured as the fraction of                      0   5       10         15       20   25                   30
+                                                                                                     Time [s]
+the elements wiped. The sliding coefficient of friction of the
+table acting along both axes of the tangent plane is sampled        Fig. 6: Sim2Real transfer: we apply directly the policy learned in
+                                                                    simulation with action in variable impedance in end-effector space
+uniformly between 1.0 and 0.1. The initial location of the          to the real robot; pictures correspond to dotted vertical lines in the
+agent above the table is randomized.                                plots; 1) the robot pushes towards the table in a compliant manner
+Reward Model. The main reward comes from wiping off                 (height over the table in the top plot, force in z, bottom plot); the
+elements. We also provide additional reward for wiping off all      experimenter marks different parts of the whiteboard, 2) and 4), and
+                                                                    the robot reacts 3) moving towards the area following the forces in
+the elements. Additionally, to help during the initial phases of    x and y (second and third rows)
+exploration, we give the agent a small reward for maintaining
+contact with the table. Finally, since we aim to generate           transfer between robots. Policies trained in variable impedance
+safe solutions that can directly be tested on the real robot,       in end-effector space transfer better than policies in any other
+we slightly penalize the agent for applying forces over the         space since the policy is independent of the robot embodiment.
+payload of the real robot (40 N), and harshly penalize the          However, there is a significant drop in performance due to
+agent for reaching joint limits or colliding with the table with    the different forces generated by the different embodiments.
+parts other than the wiping tool. If such collisions occur, the     Simulation-to-real transfer. In a final experiment we evaluate
+episode ends and the tasks restarts.                                if the policies trained in simulation can be used on the real
+Observations. There is no straightforward way to represent          robot without any retraining. We use in our experiment the
+the state of a wiping task. Instead, we directly use visual         best performing simulation policy. The goal in the real world
+observations: 48 × 48 × 3 RGB images of the wiping scene            is to wipe a whiteboard painted with a marker. Since our focus
+generated in our simulator, and obtained from a camera on           is on the evaluation of the action space and not on learning
+our real robot platform for the simulation-to-real transfer         a representation of the image, we convert the real images
+experiments. As in previous experiments, we also provide            into fake simulated images by superimposing the results of a
+the pose and velocity of the end-effector.                          color segmentation for the colored parts of the table on an
+Evaluation: We first evaluate the different action spaces on        image from the simulator where the robot configuration is
+simulation. We train an agent with a Panda robot embodiment         set to track the real robot. As a safety precaution, we stop
+for each action space with five different random seeds.             the robot if the payload is exceeded. We note that the robot
+Sample Efficiency and Task Completion. Fig. 3, right, shows         does not use any direct force sensing during the experiments.
+the convergence of the agents with different action spaces.            We initialize the robot to the same location and run ten
+We observe that the agents with variable impedance in end-          trials each with a different part of the whiteboard painted.
+effector space converge faster and achieve higher reward.           One example of the run can be seen in Fig. 6 and more runs
+The higher reward is obtained thanks to a lower penalty             in the video attachment. We assume a successful trial when
+for applying excessive force on the table since the agents          the robot wipes more than 3/4 of the painted line. The robot
+can learn to appropriately adapt their stiffness. The mean          wipes successfully the board in 8 of the 10 trials. In one of the
+force applied by the policies with variable impedance in end-       failed trials the robot moved abruptly and triggered the safety
+effector space is 28 N, less than the robot’s payload. Agents       mechanism. In another trial the robot did not wipe the mark
+using other action spaces apply higher mean force or not            entirely. These results indicate that the policies trained with
+enough to wipe the table. In terms of task completion, the          VICES can transfer seamlessly to real world by exploiting
+results are depicted in Fig. 5c, dark colors. Policies outputting   the knowledge of the dynamics model of the robot.
+actions in VICES achieve the highest ratio of wiped units.                              VI. C ONCLUSION
+Transferability. We also evaluate if the policies learned with        Reinforcement Learning (RL) as a family of algorithms has
+the Panda robot embodiment transfer directly to the Sawyer          ushered in impressive results in generalization, yet principled
+robot in simulation. Fig. 5c, depict the results of the policy      evaluation on how to choose action spaces to learn control
+policies is missing. We presented a thorough evaluation of                       [22]   A. X. Lee, H. Lu, A. Gupta, S. Levine, and P. Abbeel, “Learning
+the effect of the choice of action space on learning policies in                        force-based manipulation of deformable objects from multiple
+                                                                                        demonstrations”, in ICRA, IEEE, 2015, pp. 177–184.
+RL for tasks without contact, with kinematic constraints and                     [23]   M. A. Lee, Y. Zhu, K. Srinivasan, P. Shah, S. Savarese, L. Fei-Fei,
+contact-rich manipulation tasks. We also presented variable                             A. Garg, and J. Bohg, “Making sense of vision and touch: Self-
+impedance in end-effector space (VICES) as an efficient                                 supervised learning of multimodal representations for contact-rich
+                                                                                        tasks”, in ICRA, 2019.
+choice of action space for RL and showed empirically that,                       [24]   D. Leidner, W. Bejjani, A. Albu-Schäffer, and M. Beetz, “Robotic
+even when contact conditions are dynamically variable during                            agents representing, reasoning, and executing wiping tasks for daily
+the task, this model outperforms other action space choices on                          household chores”, in AAMAS, 2016.
+                                                                                 [25]   S. Levine, C. Finn, T. Darrell, and P. Abbeel, “End-to-end training
+sample efficiency, energy consumption, and safety. We also                              of deep visuomotor policies”, JMLR, vol. 17, no. 1, 2016.
+showed that, thanks to the subtraction of the dynamic effects                    [26]   M. Li, H. Yin, K. Tahara, and A. Billard, “Learning object-level
+of the embodiment, using variable impedance in end-effector                             impedance control for robust grasping and dexterous manipulation”,
+                                                                                        in ICRA, May 2014, pp. 6784–6791.
+space we can transfer policies learned in simulation to other                    [27]   Y. Li, G. Ganesh, N. Jarrasse, S. Haddadin, A. Albu-Schaeffer, and
+simulated robots and to a real robot without fine tuning.                               E. Burdet, “Force, Impedance, and Trajectory Learning for Contact
+                                                                                        Tooling and Haptic Identification”, Transactions on Robotics, vol.
+                               R EFERENCES                                              34, no. 5, pp. 1170–1182, 2018.
+                                                                                 [28]   T. P. Lillicrap, J. J. Hunt, A. Pritzel, N. Heess, T. Erez, Y. Tassa, D.
+ [1]   F. J. Abu-Dakka, L. Rozo, and D. G. Caldwell, “Force-based                       Silver, and D. Wierstra, “Continuous control with deep reinforcement
+       variable impedance learning for robotic manipulation”, Robotics                  learning”, ArXiv preprint arXiv:1509.02971, 2015.
+       and Autonomous Systems, vol. 109, pp. 156–167, Nov. 2018.                 [29]   M. T. Mason, “Compliance and force control for computer controlled
+ [2]   B. D. Argall, S. Chernova, M. Veloso, and B. Browning, “A survey                 manipulators”, Transactions on Systems, Man, and Cybernetics, vol.
+       of robot learning from demonstration”, Robot. Auton. Syst., vol. 57,             11, no. 6, pp. 418–432, Jun. 1981.
+       no. 5, pp. 469–483, May 2009.                                             [30]   D. Mitrovic, S. Klanke, and S. Vijayakumar, “Learning impedance
+ [3]   H. Bruyninckx and J. De Schutter, “Specification of force-controlled             control of antagonistic systems based on stochastic optimization
+       actions in the "task frame formalism"-a synthesis”, Transactions on              principles”, IJRR, vol. 30, no. 5, pp. 556–573, 2011.
+       Robotics and Automation, vol. 12, no. 4, pp. 581–589, Aug. 1996.          [31]   V. Mnih, A. P. Badia, M. Mirza, A. Graves, T. Lillicrap, T. Harley,
+ [4]   J. Buchli, F. Stulp, E. Theodorou, and S. Schaal, “Learning variable             D. Silver, and K. Kavukcuoglu, “Asynchronous methods for deep
+       impedance control”, IJRR, vol. 30, no. 7, pp. 820–833, 2011.                     reinforcement learning”, in ICML, 2016, pp. 1928–1937.
+ [5]   S. Calinon and A. Billard, “A probabilistic programming by demon-         [32]   C. Ott, Cartesian impedance control of redundant and flexible-joint
+       stration framework handling skill constraints in joint space and task            robots. Springer, 2008.
+       space”, in Proc. IEEE/RSJ Intl Conf. on Intelligent Robots and            [33]   X. B. Peng and M. van de Panne, “Learning locomotion skills using
+       Systems (IROS), Nice, France, Sep. 2008, pp. 367–372.                            deeprl: Does the choice of action space matter?”, in SIGGRAPH,
+ [6]   S. Calinon, I. Sardellitti, and D. G. Caldwell, “Learning-based control          USA: ACM, 2017.
+       strategy for safe human-robot interaction exploiting task and robot       [34]   J. Rey, K. Kronander, F. Farshidian, J. Buchli, and ·. A. Billard,
+       redundancies”, in IROS, Oct. 2010, pp. 249–254.                                  “Learning motions from demonstrations and rewards with time-
+ [7]   S. Gu, E. Holly, T. Lillicrap, and S. Levine, “Deep reinforcement                invariant dynamical systems based policies”, vol. 42, 2018.
+       learning for robotic manipulation with asynchronous off-policy            [35]   L. Righetti, J. Buchli, M. Mistry, M. Kalakrishnan, and S. Schaal,
+       updates”, in ICRA, IEEE, 2017, pp. 3389–3396.                                    “Optimal distribution of contact forces with inverse-dynamics con-
+ [8]   T. Haarnoja, A. Zhou, K. Hartikainen, G. Tucker, S. Ha, J. Tan,                  trol”, IJRR, vol. 32, no. 3, pp. 280–298, 2013.
+       V. Kumar, H. Zhu, A. Gupta, P. Abbeel, et al., “Soft actor-critic         [36]   L. Rozo, S. Calinon, D. G. Caldwell, P. Jimenez, and C. Torras,
+       algorithms and applications”, ArXiv preprint arXiv:1812.05905, 2018.             “Learning physical collaborative robot behaviors from human demon-
+ [9]   J. Harrison*, A. Garg*, B. Ivanovic, Y. Zhu, S. Savarese, L. Fei-                strations”, Transactions on Robotics, vol. 32, no. 3, 2016.
+       Fei, and M. Pavone (* equal contribution), “Adapt: Zero-shot              [37]   E. A. Rückert, G. Neumann, M. Toussaint, and W. Maass, “Learned
+       adaptive policy transfer for stochastic dynamical systems”, in ISRR,             graphical models for probabilistic planning provide a new class of
+       SPRINGER STAR, 2017.                                                             movement primitives”, Frontiers in computational neuroscience, vol.
+[10]   N. Hogan, “Impedance control: An approach to manipulation”,                      6, p. 97, 2013.
+       Journal of dynamic systems, measurement, and control, vol. 107,           [38]   S. Schaal, A. Ijspeert, and A. Billard, “Computational approaches
+       p. 17, 1985.                                                                     to motor learning by imitation”, Philosophical Transactions of the
+[11]   A. J. Ijspeert, J. Nakanishi, and S. Schaal, “Movement imitation with            Royal Society of London. Series B: Biological Sciences, vol. 358, no.
+       nonlinear dynamical systems in humanoid robots”, in ICRA, vol. 2,                1431, pp. 537–547, 2003.
+       May 2002, 1398–1403 vol.2.                                                [39]   J. Schulman, S. Levine, P. Abbeel, M. I. Jordan, and P. Moritz, “Trust
+[12]   A. J. Ijspeert, J. Nakanishi, H. Hoffmann, P. Pastor, and S. Schaal,             region policy optimization.”, in Icml, vol. 37, 2015, pp. 1889–1897.
+       “Dynamical movement primitives: Learning attractor models for             [40]   J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov,
+       motor behaviors”, Neural Comput., vol. 25, no. 2, 2013.                          “Proximal policy optimization algorithms”, ArXiv, 2017.
+[13]   M. Kalakrishnan, L. Righetti, P. Pastor, and S. Schaal, “Learning         [41]   S. Sen*, A. Garg*, D. V. Gealy, S. McKinley, Y. Jen, and K. Goldberg
+       force control policies for compliant manipulation”, in IROS, 2011.               (* equal contribution), “Automating multiple-throw multilateral
+[14]   D. Kappler, F. Meier, J. Issac, J. Mainprice, C. Garcia Cifuentes,               surgical suturing with a mechanical needle guide and sequential
+       M. Wüthrich, V. Berenz, S. Schaal, N. Ratliff, and J. Bohg, “Real-               convex optimization”, in ICRA, 2016.
+       time perception meets reactive motion generation”, IEEE Robotics          [42]   R. S. Sutton and A. G. Barto, Reinforcement learning: An introduction.
+       and Automation Letters, vol. 3, no. 3, pp. 1864–1871, Jul. 2018.                 MIT press, 2018.
+[15]   M. Khansari, E. Klingbeil, and O. Khatib, “Adaptive human-inspired        [43]   B. Thananjeyan, A. Garg, S. Krishnan, C. Chen, L. Miller, and
+       compliant contact primitives to perform surface–surface contact under            K. Goldberg, “Multilateral surgical pattern cutting in 2d orthotropic
+       uncertainty”, IJRR, vol. 35, no. 13, pp. 1651–1675, 2016.                        gauze with deep reinforcement learning policies for tensioning”, in
+[16]   O. Khatib, “Inertial Properties in Robotic Manipulation: An Object-              ICRA, IEEE, 2017, pp. 2371–2378.
+       Level Framework”, IJRR, vol. 14, no. 1, pp. 19–36, 1995.                  [44]   E. Theodorou, J. Buchli, and S. Schaal, “A generalized path integral
+[17]   O. Khatib, “A unified approach for motion and force control of robot             control approach to reinforcement learning”, JMLR, vol. 11, no. Nov,
+       manipulators: The operational space formulation”, IEEE Journal on                pp. 3137–3181, 2010.
+       Robotics and Automation, vol. 3, no. 1, pp. 43–53, 1987.                  [45]   M. Toussaint, K. R. Allen, K. A. Smith, and J. B. Tenenbaum, “Dif-
+[18]   B. Kim, J. Park, S. Park, and S. Kang, “Impedance learning for robotic           ferentiable physics and stable modes for tool-use and manipulation
+       contact tasks using natural actor-critic algorithm”, Transactions on             planning”, in RSS, 2018.
+       Systems, Man, and Cybernetics, vol. 40, no. 2, pp. 433–443, 2010.         [46]   M. Večerík, T. Hester, J. Scholz, F. Wang, O. Pietquin, B. Piot,
+[19]   O. Kroemer, C. Daniel, G. Neumann, H. Van Hoof, and J. Peters,                   N. Heess, T. Rothörl, T. Lampe, and M. Riedmiller, “Leveraging
+       “Towards learning hierarchical skills for multi-phase manipulation               demonstrations for deep reinforcement learning on robotics problems
+       tasks”, in ICRA, IEEE, 2015.                                                     with sparse rewards”, ArXiv preprint arXiv:1707.08817, 2017.
+[20]   T. Kröger, B. Finkemeyer, U. Thomas, and F. M. Wahl, “Com-                [47]   J. Viereck, J. Kozolinsky, A. Herzog, and L. Righetti, “Learning a
+       pliant motion programming: The task frame formalism revisited”,                  Structured Neural Network Policy for a Hopping Task”, RAL, 2018.
+       Mechatronics & Robotics, Aachen, Germany, 2004.                           [48]   Y. Zhu, Z. Wang, J. Merel, A. Rusu, T. Erez, S. Cabi, S. Tunyasuvu-
+[21]   K. Kronander and A. Billard, “Learning compliant manipulation                    nakool, J. Kramár, R. Hadsell, N. de Freitas, et al., “Reinforcement
+       through kinesthetic and tactile human-robot interaction”, Transactions           and imitation learning for diverse visuomotor skills”, in RSS, 2018.
+       on Haptics, vol. 7, no. 3, pp. 367–380, Jul. 2014.
+

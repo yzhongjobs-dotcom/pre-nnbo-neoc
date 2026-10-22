@@ -1,0 +1,616 @@
+                                                               Computers in Biology and Medicine 183 (2024) 109291
+
+
+                                                                      Contents lists available at ScienceDirect
+
+
+                                                         Computers in Biology and Medicine
+                                                        journal homepage: www.elsevier.com/locate/compbiomed
+
+
+
+
+Viscoelastic modeling based force control framework for enhancing
+operation safety of soft tissue for orthopedic surgical robots✩
+Guangming Xia a , Zifeng Jiang b , Bin Yao a , Yu Dai a ,∗,1
+a Institute of Robotics and Automatic Information Systems, Nankai University, Tianjin 300350, China
+b
+    Viterbi School of Engineering, University of Southern California, Los Angeles, CA 90007, United States
+
+
+
+ARTICLE                  INFO                                ABSTRACT
+
+Keywords:                                                    In robot-assisted laminectomy, precise control of touch force on the spinal cord during the dissection of
+Surgical robot                                               ossified ligaments is critical to prevent dura mater tearing and ensure surgical safety. However, the complex
+Touch force servo                                            viscoelastic characteristics of tissue at the lesion site pose a significant challenge for accurately applying
+Tissue modeling
+                                                             touch force. This paper proposes a safe touch force servo framework based on tissue model identification
+Controller optimization
+                                                             and preoperative optimization of the force controller. First, a soft tissue model is established using elastic and
+                                                             viscoelastic elements, and the transfer function from tissue deformation to touch force is derived. Subsequently,
+                                                             the path and parameters of a safe pre-touch are designed, and force information required for tissue model
+                                                             identification is obtained through the pre-touch experiment. The model order and specific parameter values
+                                                             are then identified using a differential evolution algorithm. Next, force control simulation is conducted based
+                                                             on the identified model, and a specifically designed loss function is introduced to achieve preoperative tuning
+                                                             of the force controller. Finally, step force control experiments on sheep spines validate the effectiveness of
+                                                             the proposed method. This paper provides a safe and available touch motion control framework that can
+                                                             be expandable to impose precise force on various vulnerable soft tissues, with the potential for widespread
+                                                             application.
+
+
+
+1. Introduction                                                                                    overall surgical safety [8,9]. In robot-assisted procedures for dissecting
+                                                                                                   ossified ligaments, precise control of the interaction force between the
+1.1. Research background and motivation                                                            robot and the spinal cord is crucial to prevent excessive dissection force
+                                                                                                   from tearing the dura mater. This necessitates improved automatic
+    The function of the spine is vital to the body health and daily ac-                            control of the interaction force between the robot and the spinal
+tivities [1]. However, changes in modern work lifestyles have led to an                            cord.
+increase in various spine disorders, particularly those related to nerve
+compression [2]. Laminectomy is a common surgical procedure aimed                                  1.2. Related works
+at relieving nerve compression in spinal disorders, involves removing
+the lamina to expose the ossified posterior longitudinal ligament [3,4].
+                                                                                                       Soft tissue touch force information has been widely applied in
+Subsequently, the ossified portion is dissected to release spinal canal
+                                                                                                   studies such as tumor palpation [10,11]. The class of the soft tissue
+space, alleviating nerve compression in patients [5]. In traditional
+                                                                                                   can be identified because of their different mechanical properties [12,
+surgeries, surgeons manually manipulate tools to dissect the ossified
+                                                                                                   13]. Considering complex viscoelastic mechanical properties of some
+ligament, and preventing dura mater tears is crucial for ensuring surgi-
+cal safety [6]. However, traditional surgeries are constrained by factors                          tissues, some researchers selected to use finite element analysis (FEA)
+such as physiological hand tremors, fatigue from prolonged procedures,                             for detailed modeling [14–16]. However, the FEA method involves
+and lack of proficiency, all of which may result in damage to vital                                significant computation and time duration, and the established FEA
+neural tissues [7]. Utilizing robot assistance in laminectomy and dissec-                          model cannot be further used for the iterative optimization of force con-
+tion procedures is considered a solution to these challenges, enhancing                            troller parameters. Collective parametric models are commonly used
+
+
+
+    ✩ This work was supported by the National Natural Science Foundation of China under Grant 62173190.
+    ∗ Corresponding author.
+         E-mail addresses: xiaguangming@mail.nankai.edu.cn (G. Xia), zifengji@usc.edu (Z. Jiang), daiyu@nankai.edu.cn (Y. Dai).
+     1
+         Member, IEEE.
+
+https://doi.org/10.1016/j.compbiomed.2024.109291
+Received 29 May 2024; Received in revised form 22 September 2024; Accepted 15 October 2024
+Available online 25 October 2024
+0010-4825/© 2024 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies.
+G. Xia et al.                                                                                                    Computers in Biology and Medicine 183 (2024) 109291
+
+
+for modeling tissues due to their simplicity, fast response time, and
+relatively realistic deformations [17]. For instance, the three-parameter
+principal model is widely used to roughly represent the viscoelastic
+behavior of different types of soft tissues [18]. Considering that the
+three-parameter model cannot accurately characterize the mechanical
+properties of some complex viscoelastic tissues, a parallel model with
+elastic and Maxwell units was introduced in this study to characterize
+the tissue composed of the dura mater and spinal cord. This ensures
+both the accuracy of the model and its suitability for closed-loop
+simulation, thereby making the established model applicable for the
+iterative optimization of the force controller.
+    There are also some related researches focusing on the develop-
+ment of perception technology. For example, some improved force
+sensors [12,19] and various vision-based force estimation methods [20,                   Fig. 1. Schematic diagram of SCS caused by ligament ossification.
+
+21] are designed to better perceive touch force and improve the effi-
+ciency and recognition accuracy of palpation. For example, Y. E. Lee
+et al. utilized deep learning, relying solely on visual information and              (5) The validity of the proposed method was verified by performing
+inertial data from the instrument to estimate palpation force [20]. W.C.         force control experiments on a sheep spine.
+Yue et al. proposed presents a novel dynamic tactile sensor with a                   The rest of this article is organized as follows. In Section 2, the
+symmetrical longitudinal piezoelectric cantilever structure [12]. The            proposed method is introduced in detail. In Section 3, the experiments,
+commonality among these studies lies in the identification of soft tissue        results and discussion are provided. The conclusion and future plans
+categories based on force data and instrument’s location information,            are provided in Section 4.
+with some specific categories potentially involving the location and
+developmental stage of tumor tissues. The difference lies in the specific        2. Methods
+processing and computational procedures related to force information
+acquisition due to task variations. During the laminectomy procedure,            2.1. Problem description
+the touch force on the dura mater can be directly measured by force
+sensors installed on the mechanical unit executing the pressing action.              Laminectomy is the most common orthopedic surgery in clinics used
+Therefore, this study utilizes directly measured force for feedback              to treat spinal canal stenosis (SCS) by relieving compression on the
+rather than relying on estimated force based on vision, electricity or           nerves in the spine. Fig. 1 illustrates the schematic diagram of the spine
+other indirect methods.                                                          when SCS is caused by the ossification of the posterior longitudinal
+    Most soft tissue touch force control studies focus on designing              ligament. As depicted in Fig. 1, the ossified posterior longitudinal
+controllers and verifying stability, aiming to ensure that surgical tools        ligament (highlighted in green) compresses the spinal nerve inwardly.
+can achieve smooth and precise force transmission when in contact                To alleviate nerve compression, orthopedists need to cut off the spinous
+with soft tissues [22–25]. For instance, J. Guo employed a fuzzy PID             processes and lamina of the vertebral body, subsequently exposing and
+controller in a vascular intervention surgical robot [22]. Q.Y. Ren intro-       dissecting the posterior longitudinal ligament. During the process of
+                                                                                 cutting off the spinous processes and lamina and dissecting the ossified
+duced a neural network-based surgical robot force controller, incorpo-
+                                                                                 ligament, an assistant may often need to gently press the dura mater
+rating a compensator based on adaptive proportional–integral-sliding-
+                                                                                 of the patient’s spinal cord to facilitate the dissection of the ossified
+mode control [25]. These studies all emphasize that well-designed
+                                                                                 ligament and prevent tearing of the dura mater. The relative position
+instrument force control can enhance surgical safety and potentially
+                                                                                 of the press contraction area of the spinal cord and the ossified ligament
+alleviate postoperative pain for patients. However, tuning the parame-
+                                                                                 is indicated in Fig. 1. In robot-assisted surgery, robotic arm is hoped to
+ters of force controllers based on experience is challenging. Therefore,
+                                                                                 apply pressure automatically. However, the viscoelastic properties of
+this paper aims to validate a preoperative controller tuning framework,
+                                                                                 the soft tissue around the lesion area can vary greatly between patients,
+using a small amount of safely acquired touch force information to
+                                                                                 posing a challenge in determining universal controller parameters.
+adjust the controller parameters. This study demonstrates the proposed
+                                                                                 Therefore, it is crucial to develop a control framework capable of
+method in the context of controlling touch force on the dura mater of
+                                                                                 accurately identifying the soft tissue model and automatically opti-
+sheep spines, and the presented framework is scalable. The optimiza-
+                                                                                 mizing the force controller parameters. This will enable the robot to
+tion algorithm and controller within the framework can be replaced
+                                                                                 consistently achieve the best possible press force servo, ensuring safe
+according to the requirements of other relevant tasks.
+                                                                                 and effective surgery for different patients.
+
+1.3. Contributions and organization of this study                                2.2. Soft tissue’s force model and transfer function establishment
+
+    The contributions are mainly in the following aspects:                           This section aims to develop a transfer function to characterizes the
+    (1) Proposed a force servo framework for robotic safe touch based            relationship between the applied deformation on the soft tissue and the
+on tissue model identification and preoperative optimization of force            resulting contact force. Fig. 2(a) describes the schematic diagram of the
+controllers;                                                                     contacting process between the surgical tool and the spinal cord. The
+    (2) Developed the soft tissue model based on elastic and viscoelastic        arc-shaped end of the tool is in direct contact with the spinal cord, and
+elements and derived its transfer function from tissue deformation to            the blue dotted line represents the deformed spinal cord after pressing.
+touch force;                                                                     Given that the dura mater exhibits linear elasticity while the spinal cord
+    (3) Designed the path and parameters for a safe preliminary touch,           displays complex viscoelastic properties, Fig. 2(b) depicts a soft tissue
+and obtained the force information required for tissue model identifi-           model that comprises a single elastic element and several Maxwell
+cation through experiments;                                                      elements arranged in parallel. The elastic element is utilized to capture
+    (4) Model identification and force control simulations were per-             the behavior of linear elasticity, while the complex viscoelasticity is
+formed, and a specially designed loss was introduced to enable pre-              represented using several Maxwell elements. The Maxwell element is
+operative adjustment of the force controller.                                    composed of a damping element and an elastic element in series. Let
+
+                                                                             2
+G. Xia et al.                                                                                                         Computers in Biology and Medicine 183 (2024) 109291
+
+
+𝑥(𝑡) denotes the displacement of arc-shaped end after contacting the
+spinal cord (𝑥(𝑡) is also the applied deformation on the soft tissue), and
+𝑓 (𝑡) denotes the resulting contact force. Perform force analysis on the
+soft tissue model
+                 ∑
+                 𝑛
+𝑓 (𝑡) = 𝑓0 (𝑡) +   𝑓𝑖 (𝑡)                                               (1)
+                     𝑖=1
+
+where 𝑓0 (𝑡) denotes the linear elastic force, 𝑓𝑖 (𝑡) denotes the viscoelastic
+force from the 𝑖th Maxwell element.
+    Through force analysis, it can be obtained that the geometric re-
+lationship between the elastic and damping elements inside the 𝑖th
+Maxwell element is
+𝑥(𝑡) = 𝑥e𝑖 (𝑡) + 𝑥d𝑖 (𝑡)                                                  (2)
+
+where 𝑥e𝑖 (𝑡) denotes the deformation amount of the elastic element
+inside the Maxwell element, and 𝑥d𝑖 (𝑡) denotes the deformation amount
+of the damping element inside the Maxwell element. Derived from (2),
+further get
+̇ = 𝑥̇ e𝑖 (𝑡) + 𝑥̇ d𝑖 (𝑡)
+𝑥(𝑡)                                                                      (3)
+
+Further, analyzing the internal force of the 𝑖th Maxwell element, as
+follows
+𝑓𝑖 (𝑡) = 𝑓𝑖e (𝑡) = 𝑓𝑖d (𝑡)                                                (4)
+
+𝑓𝑖e (𝑡) = 𝑘𝑖 𝑥e𝑖 (𝑡)                                                      (5)
+
+𝑓𝑖d (𝑡) = 𝑐𝑖 𝑥̇ d𝑖 (𝑡)                                                    (6)
+
+where 𝑘𝑖 and 𝑓𝑖e (𝑡) represent the stiffness coefficient and output force of
+the elastic element inside the Maxwell element, respectively. And 𝑐𝑖 and
+𝑓𝑖d (𝑡) represent the damping coefficient and output force of the internal
+damping element of the Maxwell element, respectively. According to
+(4), (5) and (6), (7) and (8) can be expressed as follows                            Fig. 2. Soft tissue model establishment. (a) the contact between the instrument and
+           𝑓̇ (𝑡)                                                                    the dura mater; (b) Soft tissue contact force model.
+𝑥̇ e𝑖 (𝑡) = 𝑖                                                          (7)
+            𝑘𝑖
+           𝑓 (𝑡)
+𝑥̇ d𝑖 (𝑡) = 𝑖                                                          (8)           where 𝐴 and 𝑓𝑎 are the amplitude and frequency of the sinusoidal
+             𝑐𝑖
+                                                                                     acceleration. The starting speed is zero, and the starting position of
+     According to (3), (7) and (8), (9) can be obtained                              the instrument’s end is the surface of the dura mater. Therefore, the
+         𝑐                                                                           displacement of the instrument is equal to the deformation of the target
+𝑓𝑖 (𝑡) + 𝑖 𝑓̇𝑖 (𝑡) = 𝑐𝑖 𝑥(𝑡)
+                        ̇                                                 (9)        soft tissue, as follows
+        𝑘𝑖
+                                                                                               −𝐴                      𝐴
+and the force of the elastic element 𝑘0 can be calculated as                         𝑥(𝑡) =            sin(2𝜋 𝑓𝑎 𝑡) +       𝑡                            (13)
+                                                                                             (2𝜋 𝑓𝑎 )2                2𝜋 𝑓𝑎
+𝑓0 (𝑡) = 𝑘0 𝑥(𝑡)                                                         (10)
+                                                                                     Based on (13), when time is greater than 1∕𝑓𝑎 , the tissue deformation
+Carry out Laplace transform on (9) and (10), and substitute them into                reaches its maximum value of 𝐴∕2𝜋. The maximum deformation can
+(1), (11) is further obtained as follows                                             be controlled by adjusting 𝐴 and the time required for the tissue
+              ∑𝑛                                                                     deformation to reach its maximum can be controlled by adjusting 𝑓𝑎 .
+                        𝑐𝑖 𝑠
+𝑓 (𝑠) = (𝑘0 +                      )𝑥(𝑠)                         (11)                    The common driving method for surgical instruments is based on
+                  (𝑐 𝑖 ∕𝑘 𝑖 )𝑠 + 1
+              𝑖=1                                                                    discrete digital speed servo. Therefore, the input of the surgical instru-
+                                                                                     ment at time 𝑘 is a discrete digital speed
+    Conclusion: a transfer function, which can characterize the rela-
+tionship between the applied deformation on the soft tissue and the                  𝑣(𝑘) = [𝑥(𝑘 + 1) − 𝑥(𝑘)]𝑓co                                                   (14)
+resulting contact force, is established in this section.                             where 𝑓co represents the transmission frequency of speed command for
+                                                                                     the surgical instrument’s driving motor. 𝑥(𝑘) and 𝑥(𝑘+1) are the planned
+2.3. Safe pre-touch design and model identification                                  ideal positions of the instrument’s end at time 𝑘 and 𝑘 + 1, respectively.
+                                                                                          In a safe pre-touch test, a force sensor are used to collect correspond-
+    This section aims to identify the parameters associated with the soft            ing force response. Assuming the force sensor’s sampling frequency is
+tissue model established in Section 2.2 effectively based on the force               𝑓F , and the collection duration is 𝑇s , the obtained force signal is
+response data obtained from a specially designed touch experiment
+named safe pre-touch. During pre-touch procedure, a specific strain                  𝐅e = [𝐹e (1)    𝐹e (2)   ⋯     𝐹e (𝑇s ∕𝑓F )]                                  (15)
+is carried out to the soft tissue. Simultaneously, recording how stress
+changes over time. To apply a safe strain, the acceleration of the                       Assuming a simulation frequency[ of 𝑓sim , and a duration equal
+surgical instrument is planned as follows                                                                                                                   ] to 𝑇s ,
+                                                                                     for each set of solution vectors 𝛥 = 𝑘0 , 𝐼 , 𝑘1 , … , 𝑘𝐼 , 𝑐1 , … , 𝑐𝐼 inserted
+       ⎧                 1                                                           into the corresponding transfer function of (11) and provided with the
+       ⎪𝐴 sin(𝑓𝑎 𝑡) 𝑡 < 𝑓𝑎                                                           same input velocity, a set of simulated touch forces can be obtained.
+𝑎(𝑡) = ⎨                                                            (12)
+       ⎪    0       𝑡 > 𝑓1
+       ⎩                  𝑎                                                          𝐅sim = [𝐹sim (1)    𝐹sim (2)   ⋯     𝐹sim (𝑇s ∕𝑓sim )]                        (16)
+
+                                                                                 3
+G. Xia et al.                                                                                                                    Computers in Biology and Medicine 183 (2024) 109291
+
+
+                                                                                       where 𝑇s is the simulation time, 𝑤1 , and 𝑤2 are the weight coefficients
+                                                                                       of error term and punishment term respectively. 𝑒(𝑡) is the deviation
+                                                                                       between the actual contact force and the expected force. 𝑢(𝑡) is the feed
+                                                                                       speed of the end of the surgical instrument, and um is the allowed max
+                                                                                       input of 𝑢(𝑡).
+                                                                                           To prove the generality of the proposed method, proportion inte-
+                                                                                       gration differentiation (PID), linear active disturbance rejection control
+                                                                                       (LADRC), and internal model control (IMC) controllers are employed
+                                                                                       for performance testing. These three controllers represent model-free,
+                                                                                       model-estimated, and model-based approaches. Fig. 4 shows their con-
+                                                                                       trol frameworks. Next, they are briefly introduced, and their parameters
+                                                                                       requiring tuning in practice are determined.
+                                                                                           The basic PID controller transfer function is
+                                                                                                      𝑘
+                                                                                       𝐶PID (𝑠) = 𝑘p + i + 𝑘d 𝑠                                             (20)
+                                                                                                       𝑠
+                                                                                       where 𝑘p , 𝑘i and 𝑘d are the proportional, integral and the differential
+Fig. 3. Flow chart of soft tissue model parameter identification based on stress
+                                                                                       coefficients respectively.
+relaxation tests and DE algorithm.
+                                                                                           The basic LADRC controller has a linear extended state observer
+                                                                                       (LESO). The LESO applied in soft tissue contact force control is as
+                                                                                       follows
+                                                                                       𝑥̇ = 𝐴𝑥 + 𝐵 𝑢,
+   The key to identifying system parameters based on optimization                                                                                         (21)
+                                                                                       𝑦 = 𝐶 𝑥 + 𝐷𝑢,
+algorithms lies in the calculation of the fitness function. Since the
+sampling frequencies of the two forces may differ, interpolation is                    where
+used to align the lengths of 𝐹sim and 𝐹e before computing the error.                       ⎡ −3𝜔o            1     0⎤       ⎡0        3𝜔o ⎤
+Assuming the aligned length is 𝐴lig , a fitting error vector 𝐸F is then                𝐴 = ⎢−3𝜔o 2           0     1⎥ , 𝐵 = ⎢1        3𝜔o 2 ⎥                                 (22)
+                                                                                           ⎢                        ⎥       ⎢               ⎥
+obtained                                                                                   ⎣ −𝜔o 3           0     0⎦       ⎣0         𝜔o 3 ⎦
+𝐄𝐹 = [(𝐹sim (1) − 𝐹e (2)) ⋯ (𝐹sim (𝐴lig ) − 𝐹e (𝐴lig ))]                                   ⎡1        0      0⎤       ⎡0        0⎤
+                                                                   (17)
+= [𝐸𝐹 (1) 𝐸𝐹 (1) ⋯ 𝐸𝐹 (𝐴lig )]                                                         𝐶 = ⎢0        1      0⎥ , 𝐷 = ⎢0        0⎥                                             (23)
+                                                                                           ⎢                 ⎥       ⎢          ⎥
+                                                                                           ⎣0        0      1⎦       ⎣0        0⎦
+And the calculation of the fitness function during the identification of
+system parameters is                                                                   where 𝑤o is defined as the observer bandwidth frequency, and input
+               √
+               √                                                                       and output vectors of the above LESO are
+               √      𝐴lig
+               √ 1 ∑
+Fitness(𝐄𝐹 ) = √           𝐸 (𝑖)2                                   (18)               𝑢 = [𝑣       𝐹c ]T                                                                     (24)
+                 𝐴lig 𝑖=1 𝐹
+
+                                                                                       𝑦 = [𝑧1       𝑧2      𝑧3 ]T = [𝐹c       𝐹̇ c    𝐹̈c ]T                                 (25)
+    Given that differential evolution algorithms address complex opti-
+mization problems through cooperation and competition among indi-
+viduals within a population, they exhibit strong robustness and global                     Moreover, the controller bandwidth frequency 𝜔c is defined as
+optimization capabilities. Therefore, this study employs the differential              follows
+evolution (DE) algorithm for subsequent system parameter identifica-
+                                                                                       𝜔c = 𝑜1 × 𝜔o                                                                           (26)
+tion. Fig. 3 summarizes the parameter identification process.
+    It is important to note that optimization algorithms are not unique.               where suggested value range of 𝑜1 is 0.5 to 1. The proportional and
+As long as the model identification error meets the requirements of                    differential coefficients 𝑘p and 𝑘d in 𝐶PID (𝑠) are calculated as follows
+practical applications, alternative algorithms may also be considered,
+                                                                                       𝑘p = 𝑜 p × 𝑤c 2                                                                        (27)
+such as particle swarm optimization (PSO) in [26] or whale optimiza-
+tion algorithm (WOA) in [27].
+                                                                                       𝑘d = 2 × 𝑜d × 𝑤c                                                                       (28)
+
+2.4. Touch force controller and optimization procedure                                 The coefficients 𝑜p and 𝑜d is used to fine-tune 𝑘p and 𝑘d , and their
+                                                                                       ranges should be set by experience.
+    Optimizing the controller parameters lies in the calculation of the                    In IMC design, the transfer function of the controlled object is
+objective function. In order to obtain satisfactory dynamic performance                needed as reference. Assume the contact force model of the target soft
+of the transition process, the integral time absolute error is used as the             tissue has been identified as follows:
+basic objective function for parameter selection. To mitigate the risk of                       𝑓 (𝑠) ̂        𝑐̂1 𝑠       𝑐̂ 𝑠
+                                                                                       𝐺e (𝑠) =      = 𝑘0 +           ++ 2                              (29)
+the surgical instrument’s feed speed being excessively high, a penalty                          𝑥(𝑠)        𝜏̂1 𝑠 + 1   𝜏̂2 𝑠 + 1
+term for the feed speed (control input) is incorporated into the objective             and 𝐺e (𝑠) can be obtained
+function. Furthermore, an overshoot penalty term is introduced to                                      𝑞2 𝑠2 + 𝑞1 𝑠 + 𝑞0
+minimize overshooting. In summary, the formula for calculating the                     𝐺e (𝑠) =                                                                               (30)
+                                                                                                𝜏̂1 𝜏̂2 𝑠2 + (𝜏̂1 + 𝜏̂2 )𝑠 + 1
+objective function J is as follows:
+if ∶ (𝑢(𝑡) < 𝑢m ) ∨ (𝑒(𝑡) > 0)                                                         where
+          𝑇s                                                                           𝑞2 = 𝑘̂ 0 𝜏̂1 𝜏̂2 + 𝑐̂1 𝜏̂2 + 𝑐̂2 𝜏̂1                                                  (31)
+𝐽=             (𝑤1 |𝑒(𝑡)|)𝑡𝑑 𝑡
+     ∫0
+                                                                           (19)
+else ∶                                                                                 𝑞1 = 𝑘̂ 0 (𝜏̂1 + 𝜏̂2 ) + 𝑐̂1 + 𝑐̂2                                                     (32)
+          𝑇s
+𝐽=             (𝑤1 |𝑒(𝑡)| + 𝑤2 |𝑒(𝑡)|)𝑡𝑑 𝑡
+     ∫0                                                                                𝑞0 = 𝑘̂ 0 + 𝑐̂1 + 𝑐̂2                                                                  (33)
+
+                                                                                   4
+G. Xia et al.                                                                                                              Computers in Biology and Medicine 183 (2024) 109291
+
+
+
+
+                                                                                                          Fig. 5. Experimental hardware and spine specimen.
+
+
+
+
+Fig. 4. Three control frameworks: model-free, model-estimated, and model-based
+approaches. (a) PID controller-based force control framework; (b) LADRC controller-
+based force control framework; (c) IMC controller-based force control framework. The
+shaded area highlights the controller part.
+
+
+
+
+Assume that the identified transfer function 𝑅e (𝑠) of instrument drive
+device is as follows                                                                                         Fig. 6. Surgical instrument movement curves.
+
+         𝑥(𝑠)          1
+𝑅e (𝑠) =      =                                                    (34)
+         𝑣(𝑠)    𝑠(𝑡̂m 𝑠 + 1)
+Then there is a reverse function 𝐺− (𝑠)
+              1        (𝑡 𝑠2 + 𝑠)(𝜏̂1 𝜏̂2 𝑠2 + (𝜏̂1 + 𝜏̂2 )𝑠 + 1)
+𝐺− (𝑠) =              = m                                                     (35)
+         𝐺e (𝑠)𝑅e (𝑠)           𝑞2 𝑠2 + 𝑞1 𝑠 + 𝑞0
+And the IMC controller 𝐶IMC (𝑠) can be obtained
+𝐶IMC (𝑠) = 𝐺− (𝑠)𝐹 (𝑠)                                                        (36)
+
+where
+                          1
+𝐹 (𝑠) =                                                                       (37)
+          (𝑎1 𝑠 + 1)(𝑎2 𝑠 + 1) … (𝑎𝑢 𝑠 + 1)
+Considering physical achievability and sensor delay of this study, 𝐹 (𝑠)’s
+order is at least second order.                                                                Fig. 7. Three sets of force captured by the sensor and the smoothed force.
+     Conclusion: The parameters of PID that should be optimized are
+𝑘p , 𝑘i and 𝑘d . The parameters of LADRC that should be optimized are
+𝑤o , 𝑜1 , 𝑜p and 𝑜d , and then the optimal 𝑤c , 𝑘p and 𝑘d can be further                   3.2. Force data obtaining and model identification
+calculated via (26), (27), and (28). The parameter of IMC that should
+be optimized is 𝑎1 , 𝑎2 , … , 𝑎𝑢 .                                                             Use the method in Section 2.3 for obtaining force data. The sam-
+                                                                                           pling frequency 𝑓s of the force sensor is set to 100 Hz. The maximum
+3. Experiments, results and discussions                                                    displacement is limited in 3 mm to ensure safety by setting amplitude
+                                                                                           𝐴 of the acceleration as 3.14 mm∕s2 . The acceleration, velocity, and
+                                                                                           displacement curves of the surgical instrument movement over time
+3.1. Experimental hardware and specimen preparation
+                                                                                           are shown in Fig. 6, and Fig. 7 shows the force curve captured by
+                                                                                           the force sensor. Further, this section employed a system identification
+    The hardware for soft tissue’s contact force model identification                      based on the methods in Section 2.3 and the force response data.
+experiment is shown in Fig. 5: A plastic rod with rounded end is utilized                  Detailed algorithm parameter settings during the system identification
+for applying pressure on the surface of the dura mater. The motion of                      process and the identification results will be provided. The number
+the plastic rod is actuated by a rotary motor and a linear guide. A force                  𝑛 of viscoelastic units determines the order of the system. Hence,
+sensor is positioned between the guide platform and the plastic rod.                       identification should initially be conducted with a low order, and if
+The demo object is the spinal cord of the sheep spine. A metal vise is                     the accuracy does not meet the requirements, the order is increased.
+utilized for fixing the spine specimen. The spinous process and lamina                         Table 1 provides the DE algorithm parameter settings for 𝑛 = 1,
+are removed to fully expose the spinal cord.                                               including the population size 𝑁p , scaling factor 𝐹 , crossover probability
+
+                                                                                       5
+G. Xia et al.                                                                                                              Computers in Biology and Medicine 183 (2024) 109291
+
+
+
+
+Fig. 8. Model identification results. (a) Convergence curve of loss when 𝑛 = 1; (b) Convergence curve of loss when 𝑛 = 2; (c) Comparison of model force and actual force when
+𝑛 = 1; (d) Comparison of model force and actual force when 𝑛 = 2.
+
+
+Table 1                                                                                    Table 3
+Parameter settings and results for system identification when using DE algorithm and       Parameter settings for PID controller optimization and the optimized parameters’
+supposing 𝑛 = 1.                                                                           value.
+ Parameter          Value           Parameter          Value          Range                 Parameter                      𝑘p                    𝑘i                   𝑘d
+ 𝑁p                 12              𝑘0                 0.096          [0.04, 0.12]          Optimized value                15.26                 0.53                 0.99
+ 𝐹                  0.5             𝑐1                 0.654          [0.20, 2.00]          Range setting                  [0, 50]               [0, 1]               [0, 5]
+ 𝐶r                 0.3             𝜏1                 3.298          [1.00, 18.0]
+
+                                                                                           Table 4
+Table 2                                                                                    Parameter settings for LADRC controller optimization and the optimized parameters’
+Parameter settings and results for system identification when using DE algorithm and       value.
+supposing 𝑛 = 2.                                                                            Parameter                𝑤o              𝑜1               𝑜p              𝑜d
+ Parameter          Value           Parameter          Value          Range
+                                                                                            Optimized value          9.98            0.51             4.96            0.72
+ 𝑁p                 20              𝑘0                 0.061          [0.04, 0.08]          Range setting            [1, 12]         [0.5, 1]         [1, 20]         [0, 4]
+ 𝐹                  0.5             𝑐1                 0.394          [0.20, 0.40]
+ 𝐶r                 0.3             𝜏1                 13.12          [10.0, 18.0]
+ –                  –               𝑐2                 2.122          [1.50, 2.50]
+ –                  –               𝜏2                 209.5          [190 , 210]          3.3. Controller parameter tuning, analysis and practical testing
+
+                                                                                               This section provides a detailed overview of the process and results
+                                                                                           of automatically optimizing PID controllers, LADRC controllers, and
+𝐶r , final parameter’s value and their corresponding optimization range.
+                                                                                           IMC controllers using the model presented in Table 2. The adopted loss
+The convergence curve of the loss function for 𝑛 = 1 is shown in
+                                                                                           is calculated according to (19), and the parameters are kept consistent
+Fig. 8(a). Fig. 8(c) compares the force response of the model with real
+                                                                                           (𝑤1 = 1, 𝑤2 = 100, 𝑢m = 1.5 mm∕s, and 𝑇s = 10 s) when tuning
+force data for 𝑛 = 1. It can be observed that the fitted model does not
+                                                                                           these three controllers. Tables 3, 4, and 5 present the tuning results
+exhibit satisfactory accuracy in the force decay phase, prompting an
+                                                                                           for the three controllers. Additionally, Fig. 9(a) illustrates the conver-
+increase in 𝑛 for further identification.
+                                                                                           gence curves of the loss function for these three controllers during the
+     Table 2 provides the DE algorithm parameter settings for 𝑛 = 1,
+                                                                                           tuning process. From Fig. 9(a), it is evident that under the same loss
+including the population size 𝑁p , scaling factor 𝐹 , crossover probability                function setting, the IMC controller converges faster compared to PID
+𝐶r , final parameter’s value and their corresponding optimization range.                   and LADRC controllers. In other words, IMC approaches convergence
+The convergence curve of the loss function is depicted in Fig. 8(b).                       to the optimal state more rapidly, especially in the early stages of
+Fig. 8(d) compares the force response of the model with real force                         adjustment. It is noteworthy that after a sufficient number of iterations,
+data for 𝑛 = 2, revealing that the current error is only due to noise,                     the difference in the loss values between the IMC controller and the
+and there is no trend error. The fitted model has a sufficient order                       well tuned PID or LADRC controllers are not significant. This implies
+and good accuracy, making it suitable for tuning the parameters of                         that when the model of the controlled object is known, PID and LADRC
+the force controller in subsequent simulations. Increasing the order of                    controllers can achieve good control performance through parameter
+viscoelastic elements can improve the model’s fitting accuracy. How-                       tuning. This emphasizes that accurately establishing and identifying the
+ever, a higher order also increases simulation time, making it unsuitable                  deformation-force model of soft tissues is crucial for achieving better
+for real-time use. Based on our experiments, second-order viscoelastic                     controller parameter tuning.
+elements offer a good balance of accuracy and efficiency, meeting the                          Furthermore, compared to IMC, PID, and LADRC require more
+needs of real-time applications.                                                           iterations (𝐼a ) for adjustment (In our test, under the same loss, IMC
+
+                                                                                       6
+G. Xia et al.                                                                                                                 Computers in Biology and Medicine 183 (2024) 109291
+
+
+
+
+Fig. 9. Experiment results on spinal cord of sheep spine specimen. (a) Convergence curves of loss function 𝐽 during controller parameter tuning period via simulation. (b) Typical
+touch force control result with optimized PID. (c) Typical touch force control result with optimized LADRC. (d) Typical touch force control result with optimized IMC.
+
+
+
+
+Table 5                                                                                         The robotic surgical system lacks tactile feedback mechanism, and
+Parameter settings for IMC controller optimization and the optimized parameters’            doctors cannot judge the surgical operation status through touch like
+value.
+                                                                                            traditional surgery. In addition, if the direction or angle of the sur-
+ Parameter                             𝑎1                               𝑎2
+                                                                                            gical tool needs to be adjusted during the surgical process, it may
+ Optimized value                       0.255                            0.084               require remeasurement and calibration, increasing the complexity and
+ Range setting                         [0.01, 0.30]                     [0.01, 0.30]
+                                                                                            time cost of the surgery. The internal model controller can adapt to
+                                                                                            intraoperative changes by adjusting model parameters in real-time. In
+                                                                                            other words, it continuously updates the internal model using feed-
+can stop at around the second iteration to ensure enough performance                        back to maintain an accurate representation of the actual operating
+on force control, while PID need to be stop after the 9th iteration, and                    environment. Clearly, this requires enhanced computational speed and
+LADRC is around the 14th iteration). This can be explained by the fact                      reasoning capabilities. We can expect that by integrating artificial
+that IMC has two parameters to tune, PID has three, and LADRC has                           intelligence method [28], the controller is expected to gain stronger
+four. The more parameters need tuning, the slower the convergence,                          self-learning and predictive capabilities, enabling faster responses to
+and the more iterations required to reach the same low loss value. We                       intraoperative changes and improving surgical precision and safety.
+tested the time required for a 10 s step force control simulation ten
+times, which was approximately 140.8 ± 5.6 ms (Mean and standard                            4. Conclusion
+deviation). Considering that the DE algorithm sets the population size
+for each iteration to be at least four times the number of parameters 𝑁p ,                      Many surgeries require precise control of the operational force
+the total optimization time 𝑇a = 4𝑁p 𝐼a . Therefore, the theoretical times                  applied to soft tissues, a task often accomplished by clinical surgeons
+are 3.38 s, 15.21 s, and 31.54 s for IMC, PID, and LADRC, respectively.                     through clinical touch and experience. For example, precise control
+The measured values were approximately 4.5 s, 16.2 s, and 32.3 s. The                       of the contact force on the spinal cord is crucial to prevent dura
+above results supports that leveraging a model-based design to simplify                     mater tearing during the dissection of ossified ligaments. However, the
+the controller may shorten parameter optimization time during pre-                          complex viscoelastic characteristics of tissues at the lesion site pose a
+tuning of controller. Finally, practical tests were conducted on sheep’s                    significant challenge for accurately applying touch force. Inspired by
+spine with three optimized controllers, and the results are depicted in                     the operating patterns of clinical surgeons, this paper introduces a safe
+Fig. 9. It can be observed that, based on the identified deformation-                       touch force servo framework designed for the precise control of contact
+force model and designed loss, the three different types of controllers                     force on the spinal cord with a robotic system. The framework incorpo-
+achieved similar performance in touch force control. However, com-                          rates tissue model identification and preoperative optimization of the
+pared to IMC, the PID controller may exhibit a smaller overshoot (as                        force controller. Through theoretical analysis, simulation testing, and
+shown in Fig. 9(b)’s zoom-in area), while LADRC may be more sensitive                       experimental validation, the effectiveness of this approach in achieving
+to noise (highlighted in red oval frame as shown in Fig. 9(c)). Thus,                       precise force control on the spinal cord has been verified. The proposed
+fully utilizing the identified model to design controllers can lead to a                    framework is extendable to apply precise forces to various vulnerable
+slight improvement in control performance.                                                  soft tissues, demonstrating its potential for widespread applications.
+
+                                                                                        7
+G. Xia et al.                                                                                                                       Computers in Biology and Medicine 183 (2024) 109291
+
+
+    In the future, improvements to the soft tissue model will be made                            [19] F. Ju, Y. Wang, Z. Zhang, Y. Wang, Y. Yun, H. Guo, B. Chen, A miniature
+to consider more complex physiological characteristics, such as non-                                  piezoelectric spiral tactile sensor for tissue hardness palpation with catheter robot
+                                                                                                      in minimally invasive surgery, Smart Mater. Struct. 28 (2) (2019) 025033.
+linearity and temperature sensitivity. Additionally, the proposed touch
+                                                                                                 [20] Y.E. Lee, H.M. Husin, M.P. Forte, S.W. Lee, K.J. Kuchenbecker, Learning to
+force servo framework will be optimized through exploring broader                                     estimate palpation forces in robotic surgery from visual-inertial data, IEEE Trans.
+clinical experiments.                                                                                 Med. Robot. Bionics 5 (3) (2023) 496–506.
+                                                                                                 [21] Z. Chua, A.M. Jarc, S.M. Wren, I. Nisky, A.M. Okamura, Task dynamics of prior
+                                                                                                      training influence visual force estimation ability during teleoperation, IEEE Trans.
+CRediT authorship contribution statement
+                                                                                                      Med. Robot. Bionics 2 (4) (2020) 586–597.
+                                                                                                 [22] J. Guo, L. He, S. Guo, Study on force feedback control of the vascular
+   Guangming Xia: Writing – original draft, Data curation, Concep-                                    interventional surgical robot based on fuzzy PID, in: 2020 IEEE International
+tualization. Zifeng Jiang: Validation, Data curation. Bin Yao: Data                                   Conference on Mechatronics and Automation, ICMA, IEEE, 2020, pp. 1710–1715.
+curation. Yu Dai: Writing – original draft, Project administration,                              [23] G. Xia, Z. Jiang, Y. Dai, Pedicle drilling force control of a robotic surgical system
+                                                                                                      via spine-soft tissue coupling model and parameters optimization, Comput. Biol.
+Funding acquisition.                                                                                  Med. 169 (2024) 107710.
+                                                                                                 [24] S.G. Yuen, D.P. Perrin, N.V. Vasilyev, P.J. Del Nido, R.D. Howe, Force tracking
+Declaration of competing interest                                                                     with feed-forward motion estimation for beating heart surgery, IEEE Trans.
+                                                                                                      Robot. 26 (5) (2010) 888–896.
+                                                                                                 [25] Q. Ren, W. Zhu, Z. Feng, W. Liang, Learning-based force control of a surgical
+    The authors declare that they have no known competing finan-                                      robot for tool-soft tissue interaction, IEEE Robot. Autom. Lett. 6 (4) (2021)
+cial interests or personal relationships that could have appeared to                                  6345–6352.
+influence the work reported in this paper.                                                       [26] J.B. Raja, S.C. Pandian, PSO-FCM based data mining model to predict diabetic
+                                                                                                      disease, Comput. Methods Programs Biomed. 196 (2020) 105659, URL https:
+                                                                                                      //www.sciencedirect.com/science/article/pii/S0169260720314929.
+References
+                                                                                                 [27] J.D. Sweetlin, H.K. Nehemiah, A. Kannan, Feature selection using ant colony
+                                                                                                      optimization with tandem-run recruitment to diagnose bronchitis from CT scan
+ [1] S. Kandhari, D. Sharma, S. Samuel, G. Sharma, P. Majumdar, V.R. Edgerton,                        images, Comput. Methods Programs Biomed. 145 (2017) 115–125, URL https:
+     P. Gad, Epidural spinal stimulation enables global sensorimotor and autonomic                    //www.sciencedirect.com/science/article/pii/S0169260716306423.
+     function recovery after complete paralysis: 1st study from India, IEEE Trans.               [28] R. Doshi, K.K. Hiran, M. Gok, E.-S.M. El-kenawy, A. Badr, M. Abotaleb, Artificial
+     Neural Syst. Rehabil. Eng. 30 (2022) 2052–2059.                                                  intelligence’s significance in diseases with malignant tumours, Mesop. J. Artif.
+ [2] J. song Yang, J. Liu, L. Chu, J. Li, C. Chen, H. Chen, P. Liu, L. Yan, T. jiang                  Intell. Healthc. 2023 (2023) 35–39.
+     Liu, D. jun Hao, Causes of residual back pain at early stage after percutaneous
+     vertebroplasty: A retrospective analysis of 1,316 cases, Pain Physician 22 (5)
+                                                                                                                            Guangming Xia received his B.Sc. degree from Harbin
+     (2019) E495–E503.
+                                                                                                                            Engineering University, Harbin, China in 2019.
+ [3] G. Xia, L. Zhang, Y. Dai, Y. Xue, J. Zhang, Vertebral lamina state estimation in
+                                                                                                                                 He studied as a visiting student at the National Univer-
+     robotic bone milling process via vibration signals fusion, IEEE Trans. Instrum.
+                                                                                                                            sity of Singapore for one year from December, 2022. He
+     Meas. 71 (2022) 1–11.
+                                                                                                                            is currently working toward the Ph.D. degree in control
+ [4] G. Xia, Z. Jiang, J. Zhang, R. Wang, Y. Dai, Sound pressure signal-based bone
+                                                                                                                            science and engineering with Nankai University, Tianjin,
+     cutting depth control in robotic vertebral lamina milling, IEEE Sens. J. 22 (11)
+                                                                                                                            China.
+     (2022) 10708–10718.
+                                                                                                                                 His research interests include medical robots, trajectory
+ [5] H.R. Silvers, P.J. Lewis, H.L. Asch, Decompressive lumbar laminectomy for spinal
+                                                                                                                            planning of orthopedic robot, intelligent perception, precise
+     stenosis, J. Neurosurg. 78 (5) (1993) 695–701.
+                                                                                                                            motion control, and complex signal processing.
+ [6] K. Ito, M. Yamada, T. Horiuchi, K. Hongo, Microanatomy of the dura mater
+     at the craniovertebral junction and spinal region for safe and effective surgical
+     treatment, J. Neurosurg.: Spine 33 (2) (2020) 165–171.                                                                 Zifeng Jiang received his B.Sc. degree from the College of
+ [7] H. Tian, Z. Han, Y. Wang, X. Zhu, W. Zhang, Z. Wang, C. Li, X. Duan, Virtual-                                          Artificial Intelligence, Nankai University, Tianjin, China in
+     fixture-based osteotomy shared control: A framework for human-robot shared                                             2022.
+     surgical osteotomy manipulation, IEEE Trans. Med. Robot. Bionics 5 (4) (2023)                                               He is currently pursuing his Master degree at the Viterbi
+     945–955.                                                                                                               School of Engineering, University of Southern California,
+ [8] G. Xia, J. Wang, Y. Dai, Y. Xue, J. Zhang, Vibration-based cutting depth control                                       Los Angeles, California, United States. His research interests
+     and angle adjustment of robotic curved bone milling, IEEE Trans. Instrum. Meas.                                        include medical robots, signal processing, image recognition
+     71 (2022) 1–10.                                                                                                        and machine learning.
+ [9] G. Xia, J. Wang, B. Yao, Y. Dai, Y. Xue, J. Zhang, Tactile perception-based
+     depth and angle control during robot-assisted bent bone grinding, IEEE Trans.
+     Ind. Inform. 20 (1) (2024) 50–61.
+[10] B. Xiao, W. Xu, J. Guo, H.-K. Lam, G. Jia, W. Hong, H. Ren, Depth estimation
+                                                                                                                            Bin Yao received the B.S. degree in automation from the
+     of hard inclusions in soft tissue by autonomous robotic palpation using deep
+                                                                                                                            Shandong University of Science and Technology, Qingdao,
+     recurrent neural network, IEEE Trans. Autom. Sci. Eng. 17 (4) (2020) 1791–1799.
+                                                                                                                            China, in 2018.
+[11] C. Pacchierotti, D. Prattichizzo, K.J. Kuchenbecker, Cutaneous feedback of
+                                                                                                                                 He studied as a visiting student at the National Univer-
+     fingertip deformation and vibration for palpation in robotic surgery, IEEE Trans.
+                                                                                                                            sity of Singapore and Singapore General Hospital for one
+     Biomed. Eng. 63 (2) (2016) 278–287.
+                                                                                                                            year from September, 2022. He is currently working toward
+[12] W. Yue, F. Ju, Y. Zhang, Y. Yun, T. Li, Z.T.H. Tse, H. Ren, Dynamic piezoelectric
+                                                                                                                            the Ph.D. degree in control science and engineering with
+     tactile sensor for tissue hardness measurement using symmetrical flexure hinges
+                                                                                                                            Nankai University, Tianjin, China.
+     and anisotropic vibration modes, IEEE Sens. J. 21 (16) (2021) 17712–17722.
+                                                                                                                                 His research interests include medical robots, force
+[13] J. Guo, P. Li, H. Yan, H. Ren, Viscoelastic model based bilateral teleoperation
+                                                                                                                            sensing and control, fiber optic sensing, signal conditioning
+     for robotic-assisted tele-palpation, Assem. Autom. 37 (3) (2017) 322–334.
+                                                                                                                            circuit design, and signal processing.
+[14] L. Shi, W. Yao, Y. Gan, L.Y. Zhao, W. Eugene McKee, J. Vink, R.J. Wapner, C.P.
+     Hendon, K. Myers, Anisotropic material characterization of human cervix tissue
+     based on indentation and inverse finite element analysis, J. Biomech. Eng. 141                                         Yu Dai received the M.S. and Ph.D. degrees in instrument
+     (9) (2019) 091017.                                                                                                     science and technology from Harbin Institute of Technology,
+[15] S.S. Sajjadinia, B. Carpentieri, D. Shriram, G.A. Holzapfel, Multi-fidelity surrogate                                  Harbin, China, in 2004 and 2009, respectively.
+     modeling through hybrid machine learning for biomechanical and finite element                                              He is currently a Professor with the College of Artificial
+     analysis of soft tissues, Comput. Biol. Med. 148 (2022) 105699.                                                        Intelligence, Nankai University, Tianjin, China. His research
+[16] A.M. Teixeira, P. Martins, A review of bioengineering techniques applied to                                            interests include medical robots and signal processing.
+     breast tissue: Mechanical properties, tissue engineering and finite element
+     analysis, Front. Bioeng. Biotechnol. 11 (2023) 1161815.
+[17] Y. Wu, H. Wang, A. Li, Parameter identification methods for hyperelastic and
+     hyper-viscoelastic models, Appl. Sci. 6 (12) (2016) 386.
+[18] A. Bonfanti, J.L. Kaplan, G. Charras, A. Kabla, Fractional viscoelastic models for
+     power-law materials, Soft Matter 16 (26) (2020) 6002–6020.
+
+
+                                                                                             8
+

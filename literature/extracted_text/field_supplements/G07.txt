@@ -1,0 +1,520 @@
+       IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 6, NO. 2, APRIL 2021                                                                                             2225
+
+
+
+
+             Learning Variable Impedance Control via Inverse
+             Reinforcement Learning for Force-Related Tasks
+                                   Xiang Zhang , Liting Sun , Zhian Kuang , and Masayoshi Tomizuka
+
+
+          Abstract—Many manipulation tasks require robots to interact                    clude learning from demonstrations (LfD) [1]–[3] and deep
+       with unknown environments. In such applications, the ability to                   reinforcement learning (RL) with variable impedance action
+       adapt the impedance according to different task phases and en-                    spaces [4]–[6]. However, the task-specific impedance skills
+       vironment constraints is crucial for safety and performance. Al-
+       though many approaches based on deep reinforcement learning                       obtained by LfD approaches may fail when the task changes.
+       (RL) and learning from demonstration (LfD) have been proposed                     Besides, designing a suitable reward function is challenging
+       to obtain variable impedance skills on contact-rich manipulation                  for RL. Therefore, their skill transferability is limited. A more
+       tasks, these skills are typically task-specific and could be sensitive to         general way of learning variable impedance skills needs to be
+       changes in task settings. This letter proposes an inverse reinforce-              found to tackle these problems.
+       ment learning (IRL) based approach to recover both the variable
+       impedance policy and reward function from expert demonstra-                          The development of the inverse reinforcement learning (IRL)
+       tions. We explore different action space of the reward functions to               method provides a new insight on learning from demonstration.
+       achieve a more general representation of expert variable impedance                The goal of IRL is to recover the expert reward or cost function
+       skills. Experiments on two variable impedance tasks (Peg-in-Hole                  from demonstrations. New policies can then be obtained by
+       and Cup-on-Plate) were conducted in both simulations and on a                     reoptimizing this learned reward in new scenarios. Previously,
+       real FANUC LR Mate 200iD/7 L industrial robot. The comparison
+       results with behavior cloning and force-based IRL proved that the                 IRL has been applied to several tasks such as plate placing [7]
+       learned reward function in the gain action space has better trans-                and route planning [8]. However, there is no previous work
+       ferability than in the force space. Experiment videos are available               applying the IRL method to the variable impedance control to
+       at https://msc.berkeley.edu/research/impedance-irl.html.                          our knowledge. Furthermore, the action space for the reward
+          Index Terms—Compliance and impedance control, learning                         function for this task is still unclear. Should we define rewards
+       from demonstration, machine learning for robot control.                           directly on the force, or should we look for a reward function in
+                                                                                         terms of the impedance gain?
+                                   I. INTRODUCTION                                          This letter proposes an inverse reinforcement learning based
+                                                                                         approach to recover both the variable impedance policy and the
+             OBOT systems are increasingly deployed into various
+       R     unstructured environments such as factories, warehouses
+       and hospitals. In these environments, robots need to perform
+                                                                                         reward function from expert demonstrations. While this learned
+                                                                                         policy can be utilized to solve the original task, new variable
+                                                                                         impedance policies can be generated for different task settings
+       complex tasks while interacting with unknown environments
+                                                                                         by using RL to maximize the learned reward function. Since the
+       in a safe and stable manner. Impedance control, which es-
+                                                                                         learned reward function only depends on the current observation
+       tablishes a virtual mass-spring-damping contact dynamic, has
+                                                                                         and action, it is agnostic to task settings. Thus, our approach is
+       been widely applied to these robot systems to guarantee safe
+                                                                                         more general and has better transferability in comparison with
+       physical interactions. Moreover, many complex manipulation
+                                                                                         previous LfD approaches.
+       tasks require the robot to change impedance according to the
+                                                                                            Furthermore, similar to [6], we argue that, for force-related
+       task phases. In practice, a variable impedance skill is needed in
+                                                                                         tasks, learning in the impedance gain action space is better than
+       such tasks.
+                                                                                         learning in the force action space. The basic idea is that the
+          In recent years, several learning-based methods have been
+                                                                                         performance of gain policy is guaranteed by the impedance
+       introduced to obtain variable impedance skills. Examples in-
+                                                                                         control law and therefore improves the reward transferability.
+          Manuscript received October 15, 2020; accepted February 4, 2021. Date of       For validation, we compare our approach with behavior cloning
+       publication February 23, 2021; date of current version March 11, 2021. This       (BC) [9] baseline in two tasks: Peg-in-Hole and Cup-on-Plate
+       letter was recommended for publication by Associate Editor T. Kulvicius and       (as shown in Fig. 1), and the influence of two action spaces
+       Editor T. Asfour and upon evaluation of the reviewers’ comments. (Correspond-
+       ing author: Xiang Zhang.)                                                         (impedance gain and Cartesian space force) have also been
+          Xiang Zhang, Liting Sun, and Masayoshi Tomizuka are with the Depart-           studied. As a result, our approach successfully recovers the
+       ment of Mechanical Engineering, University of California, Berkeley, CA            expert variable impedance policy and achieves better transfer
+       94720 USA (e-mail: xiang_zhang_98@berkeley.edu; litingsun@berkeley.edu;
+       tomizuka@me.berkeley.edu).                                                        performance than BC and the force-based IRL in the testing
+          Zhian Kuang is with the Research Institute of Intelligent Control and Sys-     scenarios.
+       tems, Harbin Institute of Technology, Harbin 150001, China, and also with the        This letter’s remainder is organized as follows: Related works
+       Department of Mechanical Engineering, University of California, Berkeley, CA
+       94720 USA (e-mail: zhiankuang@foxmail.com).                                       are introduced in Section II. Our controller design and learning
+          Digital Object Identifier 10.1109/LRA.2021.3061374                             framework are outlined in Section III. Section IV presents the
+
+                                2377-3766 © 2021 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                              See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+        2226                                                                                    IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 6, NO. 2, APRIL 2021
+
+
+
+                                                                                          be generated by reoptimizing the learned reward function with
+                                                                                          RL.
+                                                                                             In the field of reinforcement learning, Buchli et al. [4] uti-
+                                                                                          lized policy improvement with path integrals (P I 2 ), which is a
+                                                                                          model-free method to learn the joint space variable impedance
+                                                                                          skills. However, the joint space impedance they are using limited
+                                                                                          policy transferability. Rey et al. [5] further improved this method
+                                                                                          by simultaneously learning trajectories and a state-dependent
+                                                                                          varying stiffness model, which is now represented in the robot
+                                                                                          end-effector frame. Martin et al. [6] compared the RL perfor-
+                                                                                          mance of different action spaces in robot manipulation tasks.
+        Fig. 1. Left: a human expert demonstrates on the robot, Right: the robot          They showed the variable impedance control in end-effector
+        accomplishes the task with the learned variable impedance skill.                  space (VICES) has an advantage in constrained and contact-rich
+                                                                                          tasks. However, the results from RL highly depend on the design
+                                                                                          of the reward function. With our method, the reward function
+                                                                                          can be recovered from expert demonstrations and generates new
+        experiments in simulation and on the real robot. Finally, the
+                                                                                          policy for different tasks with RL methods.
+        conclusion is given in Section V.
+
+                                                                                          C. Inverse Reinforcement Learning
+                                   II. RELATED WORK
+                                                                                             Inverse reinforcement learning is one of the learning from
+        A. Force-Control Related Tasks in Robotics
+                                                                                          demonstrations methods. Unlike the traditional LfD approaches
+           Force control is essential for many robotics applications, such                such as BC, where the main idea is to mimic expert actions, the
+        as the assembly, the surface polishing, and the machining. Previ-                 goal of IRL is to infer the expert’s reward function from expert
+        ous works in this field can be categorized into two methods: pure                 demonstrations. Then the optimal policy is obtained by maxi-
+        force control and position-force control. The pure force control                  mizing this reward function using forward RL. One commonly
+        accomplishes tasks by directly controlling the robot’s force in                   used framework for IRL is the maximum entropy IRL [8]. This
+        the Cartesian space or in the joint space. Examples can be found                  framework assumes the expert trajectories follow a Boltzmann
+        in the peg-hole assembly task [10] and visual manipulations                       distribution with the cost and updates cost function by maximum
+        tasks from [11]. For the position-force control, it can be further                likelihood learning. Levine et al. [15] further improved this
+        separated into the hybrid position/force control [12] and the                     framework to high dimensional and continuous tasks by using
+        impedance control [13]. In the first method, the position and                     the local Laplace approximation of the cost function. However,
+        force are controlled in two separate channels. Researchers have                   these methods require the dynamics model for the cost function
+        deployed this method on surface polishing tasks and peg-in-                       update, which is challenging to obtain in robot manipulation
+        hole [3]. However, the position-force decoupling can only be                      tasks.
+        achieved when the task is well-defined and may not be available                      Recently, Finn et al. [7] proposed a sample-based IRL ap-
+        for complex tasks [2]. Impedance control mitigates this limit                     proach to recover cost function in high dimensional state-action
+        by controlling the force applied by the robot when it deviates                    spaces. In this method, the agent alternates between optimiz-
+        from the desired trajectory and has been introduced to the valve                  ing the cost function and optimizing policy, which generates
+        turning task [2] and several tools using tasks [14].                              trajectories to minimize the cost. Since the optimizer requires
+                                                                                          no dynamics model, both the cost function and the policy are
+                                                                                          updated in a model-free way. Later the authors found that their
+        B. Variable Impedance Control                                                     method agrees with the generative adversarial network (GAN)
+           In many complex tasks, variable impedance skills are needed                    formulation and introduced the GAN-GCL algorithm in [16].
+        for robots to interact with the environment. Learning from                        One practical problem for GAN-GCL is that it evaluates the
+        demonstration approaches are utilized to learn the expert vari-                   full trajectory and results in high variance estimates. Adversar-
+        able impedance skills. In [1], human experts control a robot’s                    ial inverse reinforcement learning (AIRL) [17] improved the
+        impedance by a hand-held impedance control interface. The                         performance by extending the GAN-GCL algorithm to single
+        expert data is then recorded by dynamical movement primi-                         state-action pairs and achieved superior results in simulation.
+        tives (DMP) and learned by the regression method. Researches                         Although many IRL algorithms employ entropy regularisa-
+        in [2] directly estimated the robot impedance from the human                      tion to prevent the simply mimicking the expert policy, there
+        demonstrations and then encoded the robot skill by Gaussian                       is no previous work focus on the effect of action space selec-
+        Mixture Regression (GMR) with sensed forces. However, these                       tion to the authors’ knowledge. In our method, by introducing
+        previous works learned expert variable impedance skills on                        variable impedance gain action space, we can find more general
+        specific tasks which are difficult to transfer to a different task                representation of the expert policy than using force as action and
+        setting. In our approach, both the expert variable impedance skill                improve the reward function transfer performance in a new task
+        and the reward function would be recovered, and new skills can                    setting.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+       ZHANG et al.: LEARNING VARIABLE IMPEDANCE CONTROL VIA INVERSE REINFORCEMENT LEARNING FOR FORCE-RELATED TASKS                                                2227
+
+
+
+
+       Fig. 2.   Controller design.
+
+
+
+                              III. PROPOSED APPROACH
+                                                                                         error e and the tracking velocity ė. Our policy takes in the
+       A. Cartesian Space Impedance Control                                              observations and outputs either the impedance gain K, B or
+         Consider the dynamics model of the robot in the Cartesian                       the feedback force Ff b , depending on the action space design.
+       space:                                                                            The impedance gain controller then calculates the control inputs
+                                                                                         by (3) and controls the robot.
+                 M (x)ẍ + C(x, ẋ)ẋ + G(ẋ) = J −T τ − F ext                    (1)       We employ AIRL [17] to learn both the expert policy and
+       where M (x) is the mass-inertia matrix, C(x, ẋ) denotes the                      the reward function and the training procedure is detailed in
+       Coriolis matrix, G(ẋ) is the gravity vector, ẍ, ẋ and x are                    Algorithm 1. In this adversarial training setting, the discrimi-
+       respectively the Cartesian acceleration, velocity and position of                 nator which separates the generator trajectories and the expert
+       the end-effector, J is the Jacobian matrix and τ , F ext represents               trajectories is defined as:
+       the joint space motor torque input and the external force, respec-                                                     exp(rθ (o, a))
+                                                                                                            Dθ (o, a) =                                             (6)
+       tively. Under the impedance control law, the robot will behave                                                     exp(rθ (o, a)) + π(a|o)
+       as a mass-spring-damping system, which follows the dynamics
+                                                                                         where rθ (o, a) is the reward function we want to learn and π(a|o)
+       equation:
+                                                                                         is the probability of taking action a at observation o under current
+         Md (ẍ − ẍd ) + Bd (ẋ − x˙d ) + Kd (x − xd ) = −F ext (2)                     policy. The discriminator is updated to minimize this loss [17]:
+                                                                                                     T
+                                                                                                     
+       where Md , Bd , Kd are the desired mass, damping and stiffness
+       matrices. By solving (1), (2) and setting Md = M (x), the                           L(θ) =           −ED [logDθ (ot , at )] − Eπt [1 − logDθ (ot , at )]
+                                                                                                      t=0
+       impedance control law can be written as:                                                                                                           (7)
+                                       τ =J F  T                                            The generator is the variable impedance policy. During the
+                                                                                         training, the policy is updated to maximize the trajectory reward,
+                      F = M (x)ẍd + C(x, ẋ)ẋ + G(x)                            (3)    which is evaluated by the reward function. In our approach, we
+                               −Bd (ẋ − x˙d ) − Kd (x − xd )                            use TRPO [18], which is a policy gradient based RL method to
+                                                                                         update the policy.
+          This impedance control law can be further separated into two                      Since the environment dynamics are unknown, we applied RL
+       parts: the feed-forward term Ff f to cancel the nonlinear robot                   to reoptimize a new policy in a different task setting to test the
+       dynamics and the feedback term Ff b which tracks the desired                      performance of the learned reward function. In the RL process,
+       trajectory:                                                                       the policy update is the same as the IRL but with the fixed learned
+                     Ff f = M (x)ẍd + C(x, ẋ)ẋ + G(x)                          (4)    reward function.
+
+                       Ff b = −Bd (ẋ − x˙d ) − Kd (x − xd )                                                         IV. EXPERIMENTS
+                                                                                  (5)
+                             = −Bd ė − Kd e                                                To evaluate our proposed approach, we conduct experiments
+                                                                                         in several robotic tasks, both in simulation and on a real robot. In
+       where e and ė are the tracking error and the tracking velocity.
+                                                                                         the simulation, we design two variable impedance control tasks:
+       The stiffness matrix Kd and the damping matrix Bd are also
+                                                                                         Peg-in-Hole task and Cup-on-Plate task. For the experiment
+       known as the impedance gain matrices, since they map the track-
+                                                                                         validation, we collect human expert data for the Cup-on-Plate
+       ing error and velocity to the feedback force Ff b . To simplify the
+                                                                                         task by kinesthetic teaching and test learned policies on the real
+       notations, we use K (stiffness) and B (damping) to represent
+                                                                                         robot.
+       Kd and Bd in the rest of letter.
+                                                                                            To validate our approach’s generalizability, we compare the
+                                                                                         performance of our approach with four baseline methods: 1)
+       B. Learning Variable Impedance Skills With AIRL
+                                                                                         force-based AIRL, 2) gain-based BC, 3) force-based BC and
+         Fig. 2 depicts our controller design. In our approach, the                      4) constant gain. We hypothesize that using the impedance
+       observations from the robot and the environment are the tracking                  gain as action space improves the transferability to the testing
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+        2228                                                                                    IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 6, NO. 2, APRIL 2021
+
+
+
+                                                                                                                        TABLE II
+                                                                                                    PEG-IN-HOLE SUCCESS RATE IN DIFFERENT MESH SCALES
+
+
+
+
+        Fig. 3. Training and testing scenarios for (a) the Peg-in-Hole task and (b) the
+        Cup-on-Plate task, orange stars indicate the goal points.
+                                                                                                                        TABLE III
+                                                                                                      CUP-ON-PLATE RELATIVE PERFORMANCE DIFFERENCE
+                                       TABLE I
+                   PEG-IN-HOLE SUCCESS RATE IN DIFFERENT TILT ANGLES
+
+
+
+
+                                                                                          the force action case, our policy outputs the Cartesian space
+                                                                                          force exerted by the robot. For the impedance gain action space,
+        scenarios, either via AIRL or BC, since the impedance control                     our policy outputs impedance gains and the control input are
+        law remains effective when task setting changes. Furthermore,                     obtained by equation (5).
+        by recovering the expert reward function, learning gain in the                       To reduce the dimension of the gain action space, we suppose
+        impedance control via AIRL is a more general approach than                        that the stiffness matrix K and damping matrix B are diagonal.
+        BC.                                                                               Therefore, our policy outputs diagonal elements of two matrices
+                                                                                          rather than full matrices. Furthermore, by enforcing diagonal
+        A. Tasks in Simulator                                                             elements to be positive, we can ensure the stiffness matrix K
+                                                                                          and the damping matrix B are positive definite. To extend our
+           1) Task Setups: As depicted in Fig. 3, two robotic tasks,                      approach to the full matrix case, Cholesky decomposition can
+        Peg-in-Hole and Cup-on-Plate, are conducted in the Mujoco [19]                    be utilized to guarantee K, B > 0.
+        simulation to evaluate the proposed approach. In the Peg-in-Hole                     Different impedance gain outputs are utilized for two tasks
+        task, the diameters of the peg and hole are 25.37 mm and                          according to tasks. In the Peg-in-Hole task, the peg veloc-
+        25.40 mm, respectively. For the Cup-on-Plate task, FANUC LR                       ity is small, and the stiffness plays a main role in the in-
+        Mate 200iD/7 L industrial robot is included into simulation and                   sertion. Thus, the policy outputs a 6-dimensional stiffness,
+        the robot’s goal is to place a cup on a plate in a fast and steady                [K1 , K2 , K3 , K4 , K5 , K6 ] with fixed damping term, where
+        manner. In two simulation environments, model parameters such                     Ki (i = 1, 2, 3) denote the stiffness for the position error and
+        as the mass-inertia matrix M (x), the Coriolis matrix C(x, ẋ)                    Ki (i = 4, 5, 6) denote the stiffness for the orientation error. For
+        and the gravity vector G(x) are calculated by Mujoco automat-                     the Cup-on-Plate task, the tracking velocity is large, and the
+        ically using the simulation model.                                                damping term affects the performance. Therefore, the output
+           2) Observation Spaces: We use the tracking error e and                         of our policy is now [K1 , . . ., K6 , d], which contains an extra
+        tracking velocity ė together as observations for two tasks. The                  damping factor d. The stiffness and damping matrices can then
+        goal points are shown in Fig. 3, and the end-effectors are located                be obtained by:
+        on the center of mass (COM) of the peg for the Peg-in-Hole task                                                                           √
+        and on the cup for the Cup-on-Plate task.                                                K = diag(K1 , K2 , K3 , K4 , K5 , K6 ) B = d K
+           Moreover, since a single pair of e and ė doesn’t provide
+                                                                                          We use a 1-dimensional damping factor rather than another 6-
+        acceleration information and may not fully represent the system
+                                                                                          dimensional damping for dimension reduction.
+        dynamics. We also employ an augmented observation space
+                                                                                             4) Generating Expert Data: Fifty expert trajectories are col-
+        which contains a history of e and ė from the last five time steps
+                                                                                          lected for both tasks by two designed variable impedance con-
+        for evaluation. In Table I,II and III, evaluations on the augmented
+                                                                                          trollers. In the Peg-in-Hole task, the expert is a fixed tip stiffness
+        observation space are marked with “His” which denotes using a
+                                                                                          controller. The stiffness of the peg tip can be transferred to the
+        history of e and ė.
+                                                                                          COM frame by:
+           3) Action Spaces: There are two options for the action space
+                                                                                                                          T
+        selection, the force action, and the impedance gain action. For                                           KCOM = Jtip Ktip Jtip                              (8)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+       ZHANG et al.: LEARNING VARIABLE IMPEDANCE CONTROL VIA INVERSE REINFORCEMENT LEARNING FOR FORCE-RELATED TASKS                                                2229
+
+
+
+       where Ktip denotes the stiffness matrix of the peg tip and
+       Jtip is the Jacobian matrix between COM and the tip, which
+       depends on the peg’s configuration. Thus, this fixed tip stiffness
+       is a variable stiffness on the COM. The uncorrelated stiffness
+       diag(K1 , K2 , K3 , K4 , K5 , K6 ) is solved by:
+
+                  diag(K1 , K2 , K3 , K4 , K5 , K6 ) e = KCOM e                   (9)
+
+       where e is the tracking error.
+         In the Cup-on-Plate task, the variable impedance controller
+       contains three phases:
+                                ⎧
+                                ⎪
+                                ⎨accelerating, if epos > e1
+        controller phases = switching,            if e1 > epos > e2
+                                ⎪
+                                ⎩
+                                  reaching,       if e2 > epos
+
+
+                      
+       where epos = e2x + e2y + e2z indicates the Cartesian space po-
+       sition tracking error and e1 , e2 are two gain changing points
+       which are 0.4 m and 0.2 m. As shown in Fig. 5(a), our designed
+       expert control law chooses the largest gain to accelerate in the
+       accelerating phase and generally switching to the smaller gain in
+       the switching phase. In the reaching phase, the robot approaches                  Fig. 4.   Transfer performance on the Peg-in-Hole task.
+       the plate with minimum speed to guarantee safety.
+          5) Performance Score: In the experiment, we designed per-
+       formance functions to evaluate different policies. In the Peg-in-                 their performances are similar, which approves these polices
+       Hole task, the performance function outputs a constant penalty                    successfully imitate the expert in the training.
+       if the peg is not aligned with the hole. Otherwise, it penalizes                     We then transfer the learned reward functions obtained by
+       the z direction error, which is the vertical distance to the target               AIRL to generate new policies in the testing scenario. Since
+       point.                                                                            Peg-in-Hole is a difficult task, the initial policy influences the
+          The designed performance function in the Cup-on-Plate task                     final reoptimizing results. In one setting, we select the three
+       only penalizes the tracking error e when in the accelerating                      best policies from five random runs to evaluate the transfer
+       phase and the tracking velocity ė in the reaching phase. If in the               performance to mitigate this effect. For BC, we directly transfer
+       switching phase, the the performance function penalizes both e                    the policy obtained in training to the testing scenarios.
+       and ė.                                                                              In the first testing scenario, we change the tilt angles of the peg.
+          6) Training Details: For the network architectures, our re-                    Results are depicted in Fig. 4(a) and Table I. We find that gain-
+       ward function is a 2-layer neural network with 32 units. For                      based AIRL achieves the highest success rate and outperforms
+       the policy, we use a 2-layer gaussian policy with 32 units when                   all the other policies. Two BC policies achieve a high success
+       using a single pair of e and ė as observation. The units number                  rate when the tilt angle is close to −2◦ , but fails to generalize
+       increases to 128 for the augmented observation space. The                         to tilt angles −6◦ and 2◦ , where trajectories deviate from expert
+       activation function is Tanh for the policy and Relu for the reward                demonstrations. The force-based AIRL has zero success rate
+       function.                                                                         when the tilt angles are 2◦ . In this case, the force policy imitates
+          For the Learning hyper-parameters, the batch size and tra-                     the expert action in the training, pushing the peg in the wrong
+       jectory length of TRPO are 8000 and 200, respectively in the                      direction from the hole and falls. However, since the sign of
+       Peg-in-Hole task. For the Cup-on-Plate task, we use a batch size                  the tracking error e changes, the feedback force generated by
+       of 10 000 and trajectory length of 500.                                           the impedance control law also reverses the direction. Thus the
+          7) Evaluations: In evaluation, we set two metrics to com-                      gain policy is still valid when the tilt angle changes and avoids
+       pare different approaches, which are the imitation learning                       getting stuck in the middle. For the constant gain baseline, it
+       performance in the training scenario and the transfer learning                    achieves 100% success rate when the tilt angle is 0◦ , which is the
+       performance in the testing scenarios.                                             simplest scenario. However, since it doesn’t utilize the variable
+          Peg-in-Hole task: We first evaluate the imitation learning                     impedance control gain, its success rate is much lower than our
+       results of four policies in the training scenario. The mean per-                  proposed approach when increasing the tilt angle.
+       formance score and the mean success rate of three runs are                           For the second testing scenario, we use smaller mesh scales
+       given in the rightmost column of Fig. 4(b) and marked with                        of the peg and hole. Fig. 4(b) depicts the performance scores
+       (T) in Table I and Table II. We observe that all policies achieve                 results. We notice that using gain as action improves the trans-
+       high success rates in accomplishing the Peg-in-Hole task and                      ferability, either for AIRL or BC. The reason is that, as shown
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+        2230                                                                                    IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 6, NO. 2, APRIL 2021
+
+
+
+
+        Fig. 5. Policy comparisons for Cup-on-Plate task: two top figures of (a) and (b) compare the policy outputs of gain-based AIRL and BC with the expert gain
+        policy; three bottom figures of (a) and (b) show the force applied by policies in x, y, z directions.
+
+
+
+        in Fig. 2, the feedback force of the gain policy is generated by                  named from T1 to T4. As a result, gain-based AIRL outperforms
+        the impedance control law, which is still effective when task                     other policies in T1, T2, T4 and only falls behind the constant
+        setting changes. However, the force policy doesn’t have this                      gain baseline in T3.
+        advantage and could be infeasible in the new dynamics. The                           We explore the underlying reason for this difference by
+        performance score difference is negligible for gain-based AIRL                    comparing the gains and forces. Fig. 5(b) depicts the policy
+        and BC. However, as shown in Table II, the gain-based AIRL                        comparison results for T1. In comparison, the gain-based AIRL
+        achieves higher successful rate when the mesh scale is small.                     recovers the expert gain changing trend and the expert force in
+           We also tested our approach with all the baselines on the                      x, y directions. However, it chooses small stiffness in z direction
+        augmented observation space. As shown in Table I and Table II,                    in the beginning and applies a much smaller force than the
+        our approach still achieves the highest success rate and has                      expert. This result may relate to the changes of robot dynamics
+        similar performance in comparison with the original observation                   in the new initial point. Since the mass matrix M (x) in (3) is a
+        space. However, since the dimension of the augmented observa-                     function of the current robot configuration, the Cartesian space
+        tion space is much larger, the force-based AIRL policy is more                    dynamics is coupled. We observe that, under the new setting,
+        difficult to train and has even worse generalization results.                     the force applied in y direction will also result in an acceleration
+           Cup-on-Plate task: The first column of Table III shows the                     in z direction, while this effect is negligible in the training
+        relative performance difference with the expert in training. This                 scenario. This dynamics change could influence the way to max-
+        difference is a normalized performance score difference with                      imize the reward function and therefore influences the learned
+        the expert, and a larger value indicates a larger performance                     policy.
+        difference. In the training scenario, all four policies accomplish                   For gain-based BC, it learns to set a small stiffness and large
+        the Cup-on-Plate task and achieve a similar performance score                     damping when the error is small. However, the gain switching
+        compared to the expert. We also compare the gains and forces                      happens too late, and the performance score is penalized for the
+        applied by learned policies, and the results are depicted in                      final velocity. As depicted in Fig. 5(b), the force-based AIRL
+        Fig. 5(a). We observe that both the gain-based AIRL and the                       applies force in the wrong direction in x, y axes, and fails in the
+        force-based AIRL recover the most features of the expert. Since                   testing scenario. The reason is that the learned reward function
+        the objective of BC encourages the policy to directly mimic the                   for the force action encourages imitation of the expert force
+        expert action, two BC baselines achieve the best performance in                   actions, which cannot drive the cup to the plate with the new
+        imitating expert gain and force policies.                                         initial point.
+           In the testing, the robot end-effector is initialized in four                     The evaluation results using the augmented observation space
+        different positions. The performance scores in comparison with                    are shown in Table III. The augmented observation space doesn’t
+        the expert are given in Table III, and four initial testing points are            improve the performance either for the gain action or for the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+       ZHANG et al.: LEARNING VARIABLE IMPEDANCE CONTROL VIA INVERSE REINFORCEMENT LEARNING FOR FORCE-RELATED TASKS                                                2231
+
+
+
+
+       Fig. 6.   Policy comparisons for the real robot: (a) gain-based AIRL and BC policies in the training, (b) gain-based AIRL and BC policies in the testing.
+
+
+
+       force action in the training and testing and our approaches still                                               TABLE IV
+                                                                                                     AVERAGE TRAJECTORY DEVIATION ON THE REAL ROBOT
+       outperforms all the baselines.
+
+
+       B. Experiments on the Real Robot
+          We also evaluate our method on the real-world Cup-on-Plate
+                                                                                                                          TABLE V
+       task. In the real-world experiment, expert data is collected by                                       FINAL DEVIATION ON THE REAL ROBOT
+       a human expert on the real robot. Then the learned policies are
+       transferred to the real robot for the performance evaluation.
+          1) Task Setup: The real-world experimental setup consists of
+       the host and target computer, the F/T sensor, and the FANUC LR
+       Mate 200iD robot [20]. We programmed the Cartesian variable
+       impedance control algorithm on the host PC and it controls                           We first evaluate the performance of two gain action ap-
+       the real robot system which is connected to the target PC via                     proaches,which are gain-based AIRL and BC. Fig. 6(a) depicts
+       Simulink Real-Time. The model parameters of the real robot                        the real-world expert gains and the recovered gain policies.
+       such as the mass-inertia matrix M (x), the Coriolis matrix                        Although the expert policy is noisy and the Sim-to-Real gap
+       C(x, ẋ) and the gravity vector G(x) are obtained by the                          exists, both the gain-based AIRL and BC successfully recover
+       Euler-Lagrange method [21]                                                        the expert gains. We then collect three trajectories with the
+          2) Collecting Human Expert Data: In the data collec-                           learned policy on the real robot. As shown in Table IV and
+       tion process, the human expert applies force and torque                           Table V, average deviations with the expert of the gain-based
+       on the end-effector to place cup on the plate. This 6-                            AIRL and BC are close to 10 mm and the final deviations from
+       dimensional Cartesian space force and torque are measured                         the target point are both 12 mm.
+       by the F/T sensor and the control input is then calculated                           We also evaluate two gain action approaches in the testing
+       with (3). We record both the tracking state [e, ė] and the                       scenario with a different initial position. As shown in Fig. 6(b),
+       human expert force together as the human expert data. The                         the BC policy tends to apply constant damping and x direction
+       human expert gain is estimated in the data processing. We collect                 stiffness in the testing scenario and causes lagging in comparison
+       thirty expert trajectories with the same initial point as the training            with the expert trajectory. However, the gain-based AIRL suc-
+       scenario in the simulation.                                                       cessfully recovers the expert variable impedance policy. Thus,
+          3) Gain Estimation Using Sliding Window Method: To re-                         in the testing, the average deviation from the expert and the final
+       cover the expert gain policy, we apply a similar method as [2],                   deviation are 13.4 mm and 10.8 mm, respectively, which are
+       which uses a short sliding window to estimate stiffness and                       much smaller than the gain-based BC and in the same range as
+       damping from the force. Each time window contains ten state-                      in the training scenario.
+       force pairs, and expert gain is estimated by solving (5) with Least                  For the force-based AIRL, it cannot finish the Cup-on-Plate
+       Square.                                                                           task and finally drives the robot out of the feasible workspace,
+          4) Evaluation: With real-world human expert data, we                           both in the training and testing. Its failure is caused by the large
+       learned both a policy and a reward function in the simulation                     sim-to-real gap on the force action space. As shown is Fig. 7,
+       environment by using AIRL. Training settings other than expert                    the velocity responses of the same force action in simulation
+       data remain the same as the simulation Cup-on-Plate task.                         and real-robot is too different which makes the learned policy in
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+        2232                                                                                    IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 6, NO. 2, APRIL 2021
+
+
+
+                                                                                                                            REFERENCES
+                                                                                           [1] L. Peternel, T. Petrič, and J. Babič, “Human-in-the-loop approach for
+                                                                                               teaching robot assembly tasks using impedance control interface,” in Proc.
+                                                                                               IEEE Int. Conf. Robot. Automat., 2015, pp. 1497–1502.
+                                                                                           [2] F. J. Abu-Dakka, L. Rozo, and D. G. Caldwell, “Force-based learning of
+                                                                                               variable impedance skills for robotic manipulation,” in Proc. IEEE-RAS
+                                                                                               18th Int. Conf. Humanoid Robots (Humanoids), 2018, pp. 1–9.
+                                                                                           [3] T. Tang, H.-C. Lin, Y. Zhao, Y. Fan, W. Chen, and M. Tomizuka, “Teach
+                                                                                               industrial robots peg-hole-insertion by human demonstration,” in Proc.
+                                                                                               IEEE Int. Conf. Adv. Intell. Mechatronics, 2016, pp. 488–494.
+                                                                                           [4] J. Buchli, F. Stulp, E. Theodorou, and S. Schaal, “Learning variable
+                                                                                               impedance control,” Int. J. Robot. Res., vol. 30, no. 7, pp. 820–833, 2011.
+        Fig. 7. Velocity response of the robot in simulation and real-world to same
+                                                                                           [5] J. Rey, K. Kronander, F. Farshidian, J. Buchli, and A. Billard, “Learning
+        (a) gain action and (b) force action.
+                                                                                               motions from demonstrations and rewards with time-invariant dynamical
+                                                                                               systems based policies,” Auton. Robots, vol. 42, no. 1, pp. 45–64, 2018.
+                                                                                           [6] R. Martín-Martín, M. A. Lee, R. Gardner, S. Savarese, J. Bohg, and A.
+                                                                                               Garg, “Variable impedance control in end-effector space: An action space
+        simulation hard to directly transfer to the real-world. However,                       for reinforcement learning in contact-rich tasks,” in Proc. IEEE/RSJ Int.
+        for the gain policy, the feedback impedance control gain prevents                      Conf. Intell. Robots Syst. (IROS), Macau, China, 2019, pp. 1010–1017,
+        the trajectory from deviating too much from the target point and                       doi: 10.1109/IROS40897.2019.8968201.
+                                                                                           [7] C. Finn, S. Levine, and P. Abbeel, “Guided cost learning: Deep inverse
+        therefore result in a much smaller sim-to-real gap for policy                          optimal control via policy optimization,” in Proc. Int. Conf. Mach. Learn.,
+        transfer. For the force-based BC, it can reach the target point                        2016, pp. 49–58.
+        in the training but with a much larger final deviation than                        [8] B. D. Ziebart, A. L. Maas, J. A. Bagnell, and A. K. Dey, “Maximum
+                                                                                               entropy inverse reinforcement learning,” in Proc. 23rd AAAI Conf. Artif.
+        two gain based methods. Moreover, it also fails in the testing                         Intell., Chicago, IL, USA,Jul. 13–17, 2008, pp. 1433–1438.
+        scenario.                                                                          [9] D. A. Pomerleau, “Alvinn: An autonomous land vehicle in a neural
+                                                                                               network,” in Proc. Adv. Neural Inform. Process. Syst., 1989, pp. 305–313.
+                                                                                          [10] T. Inoue, G. De Magistris, A. Munawar, T. Yokoya, and R. Tachibana,
+                                     V. CONCLUSION                                             “Deep reinforcement learning for high precision assembly tasks,” in Proc.
+                                                                                               IEEE/RSJ Int. Conf. Intell. Robots Syst., 2017, pp. 819–825.
+           In this letter, we introduced an IRL based approach to recover                 [11] S. Levine, C. Finn, T. Darrell, and P. Abbeel, “End-to-end training of deep
+        variable impedance policies and reward functions from expert                           visuomotor policies,” J. Mach. Learn. Res., vol. 17, no. 1, pp. 1334–1373,
+        demonstrations. While the learned policy can be utilized in                            2016.
+                                                                                          [12] M. H. Raibert and J. J. Craig, “Hybrid position/force control of manipula-
+        the original task, new impedance policies can be generated                             tors,” ASME. J. Dyn. Sys., Meas., Control., vol. 103, no. 2, pp. 126–133,
+        by optimizing the learned reward function for different task                           Jun. 1981, doi: 10.1115/1.3139652.
+        settings. We also explored the effect of action spaces selection on               [13] N. Hogan, “Impedance Control: An Approach to Manipulation: Part II–
+                                                                                               Implementation,” ASME. J. Dyn. Sys., Meas., Control., vol. 107, no. 1, pp.
+        recovering expert rewards. Benefiting from the feedback control                        8–16, Mar. 1985, doi: 10.1115/1.3140713.
+        law, we argue that using gain as action can improve the reward                    [14] Y. Li, G. Ganesh, N. Jarrassé, S. Haddadin, A. Albu-Schaeffer, and E.
+        transfer performance.                                                                  Burdet, “Force, impedance, and trajectory learning for contact tooling and
+                                                                                               haptic identification,” IEEE Trans. Robot., vol. 34, no. 5, pp. 1170–1182,
+           Experiments are conducted to evaluate our approach. In the                          Oct. 2018.
+        simulation, the gain-based AIRL successfully imitates the expert                  [15] S. Levine and V. Koltun, “Continuous inverse optimal control with locally
+        demonstrations during the training and has better transfer learn-                      optimal examples,” in Proc. 29th Int. Conf. Mach. Learn., 2012.
+                                                                                          [16] C. Finn, P. Christiano, P. Abbeel, and S. Levine, “A connection be-
+        ing results than all the baselines. For the real robot experiment,                     tween generative adversarial networks, inverse reinforcement learning,
+        although the sim-to-real gap exists, our approach successfully                         and energy-based models,” CoRR, vol. abs/1611.03852, 2016.
+        recovers the expert trajectory in the training and outperforms                    [17] J. Fu, K. Luo, and S. Levine, “Learning robust rewards with adversarial
+                                                                                               inverse reinforcement learning,” CoRR, vol. abs/1710.11248, 2017.
+        BC in a different initial position.                                               [18] J. Schulman, S. Levine, P. Abbeel, M. Jordan, and P. Moritz, “Trust region
+           Although our approach achieves an improved generalization                           policy optimization,” in Proc. Int. Conf. Mach. Learn., 2015, pp. 1889–
+        results than traditional LfD methods, there still are some limi-                       1897.
+                                                                                          [19] E. Todorov, T. Erez, and Y. Tassa, “Mujoco: A physics engine for model-
+        tations. First, we employ a simplified impedance control law as                        based control,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2012,
+        in the previous references [4], [6], which doesn’t measure the                         pp. 5026–5033.
+        external force and results in a coupled Cartesian space dynamics.                 [20] Z. Kuang, X. Zhang, L. Sun, H. Gao, and M. Tomizuka, “Feedback-based
+                                                                                               digital higher-order terminal sliding mode for 6-dof industrial manipula-
+        In the future work, we would like to decouple the dynamics                             tors,” 2021, arXiv:2102.03531.
+        by adding the external force into the impedance control law.                      [21] Z. Kuang, H. Gao, and M. Tomizuka, “Precise linear-motor synchroniza-
+        Moreover, in our approach, we assume the waypoints are fixed                           tion control via cross-coupled second-order discrete-time fractional-order
+                                                                                               sliding mode,” IEEE Trans. Mechatron., vol. 26, no. 1, pp. 358–368,
+        and given in the task. In the future, we plan to include waypoints                     Feb. 2021.
+        of the expert trajectory as one of the policy outputs and image
+        of the workspace can be utilized as an input. In this way, our
+        method can be extended to handle tasks with time-varying goal
+        points.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 15:32:16 UTC from IEEE Xplore. Restrictions apply.
+

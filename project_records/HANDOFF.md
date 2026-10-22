@@ -2,7 +2,45 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
-**Latest checkpoint (2026-10-22, cloud Claude session): final Chinese simulation
+**Latest completed checkpoint (2026-10-22): original-source field review for the user's changed question.**
+The user asked to select relevant papers from both local libraries and update the
+field assessment, then explicitly rejected abstract reframing and extra research
+questions. [Field state](../research/field_state.md) was rewritten in Chinese as a
+related-work analysis of adaptive/optimal force control, online predictive models,
+learned impedance, respiratory compensation, joint geometry/compliance estimation
+and stable execution. [Research question](../research/research_question.md) now
+quotes the user's force/position-based motion-and-stiffness question and labels the
+earlier B0 question as its historical starting point; no new method was selected.
+
+Twenty-two selected originals/author manuscripts and texts were added: 87 unique
+PDFs and 90 usage records now. [Review sources](../literature/motion_stiffness_review_sources.json)
+and the unified manifest retain identities, roles, hashes, versions and actual
+reading pages. Wang TIE2026 (G02), Roveda AI2022 (G08), VICES (G24) and CARE (G21)
+are now local. The two user-named breathing papers are G13 (Cao TIM2025:
+vision-predicted reference plus force admittance) and G14 (Velikova ICRA2024:
+constant-force acquisition and INR volume reconstruction). They are different
+contributions. Zhang TIE2024 MHE-VIC and DOSMAC remain abstract/excerpt-level
+sources; their equations and some joint-estimation papers still need full text.
+
+Scientific conclusion: do not claim all VIC attributes force changes to stiffness,
+assumes stationary/known surfaces, or fails when motion and stiffness vary together.
+CARE already analyzes joint compliance/registration observability; Haninger and
+learned approaches already coordinate reference/impedance; DOSMAC explicitly
+handles both changes as a lumped disturbance. These precedents do not establish
+that the exact new candidate is fully covered, but the current broad novelty claim
+is not established. C1's implemented drift is an equivalent force-prediction state
+that also absorbs material/relaxation mismatch, not demonstrated recovery of true
+surface position/velocity. Ablation numbers establish the channel's utility, not
+physical source separation. The benchmark Haninger row is a damping-rule task
+adaptation, not its original full GP predictive controller.
+
+The user wants concrete scholarly related-work prose, faithful to original papers;
+do not resume the rejected abstract reframing or protect C1 through a new question.
+No controllers, weights, experimental results, B0 equations or frozen-snapshot files
+were changed, and no simulations/training were run. Next work follows the user's
+next request and the confirmed stage-1-to-3 workflow below.
+
+**Previous checkpoint (2026-10-22, cloud Claude session): final Chinese simulation
 section and an open question/method decision. Read this block first; it supersedes
 the presentation choices in the blocks below.**
 

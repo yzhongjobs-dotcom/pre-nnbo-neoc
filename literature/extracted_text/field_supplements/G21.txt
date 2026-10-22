@@ -1,0 +1,586 @@
+            Simultaneous Compliance and Registration
+                 Estimation for Robotic Surgery
+                 Siddharth Sanan∗ , Stephen Tully∗ , Andrea Bajo† , Nabil Simaan† and Howie Choset∗
+                                                       ∗ The Robotics Institute
+                                                 Carnegie Mellon University
+                                                        Pittsburgh, PA
+                               Email: sanan@cmu.edu, stully@ece.cmu.edu, choset@cs.cmu.edu
+                                             † Dept. of Mechanical Engineering
+                                                     Vanderbilt University
+                                                        Nashville, TN
+                                 Email: andrea.bajo@gmail.com, nabil.simaan@vanderbilt.edu
+
+
+
+   Abstract—Leveraging techniques pioneered by the SLAM com-
+munity, we present a new filtering approach called simultaneous
+compliance and registration estimation or CARE. CARE is like
+SLAM in that it simultaneously determines the pose of a surgical
+robot while creating a map, but in this case, the map is a
+compliance map associated with a preoperative model of an organ
+as opposed to just positional information like landmark locations.
+The problem assumes that the robot is forcefully contacting and
+deforming the environment. This palpation has a dual purpose:
+1) it provides the necessary geometric information to align or
+register the robot to a priori models, and 2) with palpation at
+varying forces, the stiffness/compliance of the environment can be
+computed. By allowing the robot to palpate its environment with
+varying forces, we create a force balanced spring model within a
+Kalman filter framework to estimate both tissue and robot posi-
+tion. The probabilistic framework allows for information fusion      Fig. 1. The registration parameters define the transformation between the
+and computational efficiency. The algorithm is experimentally        coordinate frame S of the surface model and the coordinate frame R of the
+evaluated using a continuum robot interacting with two bench-        robot.
+top flexible structures.
+
+                      I. I NTRODUCTION                               and assistance in maintaining correspondence between pre-
+   Minimally invasive surgery (MIS) offers patients many             operative surgical plans and their execution.
+benefits including fast recovery, reduced pain and improved             Computer-aided image overlay augments surgeon’s under-
+cosmesis compared to open surgery. These advantages, how-            standing of the anatomy and its correspondence with pre-
+ever, come at the cost of increased challenges to the surgeons       operative images though an overlay of 3D reconstructed
+in terms of manipulation dexterity, diminished haptic presence,      pre-operative images on the visible anatomy[16]. Successful
+and limited situational awareness. The limited situational           image-guided robot-assisted surgery hinges on registering the
+awareness during MIS stems from the loss of visualization            surgical tool to the coordinate frame of a known a priori
+due to the extremely narrow field of view imposed by the             3D surface model (as obtained from pre-operative 3D image
+necessary use of thin endoscopes. Added to the narrow field of       reconstruction), depicted in Fig. 1.
+view is the lack of haptic sensory immersion which precludes            Registration to rigid anatomy such as bones is easy and
+the detection and use of surface and stiffness features to           does not require intraoperative update due to organ shifting,
+deduce correlations between the intraoperative scene and the         swelling or gravitational pull. When operating on flexible
+preoperative imaging.                                                anatomy this task becomes more challenging. Organ shifting
+   Robot-assisted MIS and computer-aided surgery were intro-         distorts the mapping between intraoperative sensitive anatomy
+duced to assist surgeons in overcoming the limitations of MIS.       and its corresponding interpretation in image space. This
+Robot-assisted MIS allows surgeons to augment their skills           further complicates the task of the surgeon in avoiding critical
+with the dexterity and precision of the robots (e.g. [8, 18]).       anatomy such as nerves, arteries, billary duct, etc.
+Newer systems allow surgeons to extend their reach deeper               While there are approaches to overcome organ shift using
+into the patient’s anatomy (e.g. [4, 22]). Computer-aided            deformable registration from intraoperative surface scanning
+surgery allowed surgeons to achieve intra-operative navigation       (e.g. [10, 13]), these approaches typically work using white-
+light based imaging data. In cases where the critical anatomy        associated contact force magnitudes do the following: 1) create
+is obfuscated by blood or is underneath tissue layers one can        a set of estimated stiffness normal to the surface, 2) find the
+use either intraoperative imaging or mechanical palpation data.      registration parameters relating the robot frame to the model
+For example, mechanical stiffness imaging has been shown to          of the environment. In the following discussion, we make
+allow surgeons to detect hidden features based on probing for        few simplifying assumptions. The following list provides the
+changes in relative stiffness [11, 20, 23, 21, 17].                  simplifying assumptions and the rationale behind making these
+    A common approach to achieve registration is to use an           assumptions:
+iterative closest point (ICP) algorithm [3] which typically             1) Palpation data is obtained using a robot capable of force
+assumes the surrounding environment is rigid and does not                   sensing. For example, we use a continuum robot with
+account for tool-tissue interaction. Unfortunately ICP is too               force sensing algorithms as demonstrated in [21].
+computationally expensive to update registration parameters in          2) The position data of the robot tip is accurate. If the
+real time. Probabilistic filtering based approaches have been               robot kinematic model is not accurate then the robot
+developed to perform registration [15, 12]. These techniques                tip is tracked using external measurements such as a
+primarily use line of sight measurements, i.e, 3D vision or                 magnetic tracker.
+range scanning, to output a map of locations of anatomical              3) The forces that the robot applies on the environment
+structures and landmarks. There has also been prior work in                 during palpation are small enough not to cause a large
+estimating tissue compliance using palpation, without solving               deformation of the surface. Although this assumption
+the registration problem, using filtering methods [9, 23].                  limits the ability of palpation to discern deep underlying
+    Our approach is to use contact between the tool and the                 stiffness features, we are still able to detect stiffness
+environment to estimate the alignment between the tool and the              features close to the surface of the environment. A
+anatomical structure. If the environment were rigid, estimating             typical case where detection of a shallow underlying
+registration using geometric contact constraints alone would                stiffness feature is useful is during the final stages of
+be possible. However, since we are dealing with flexible                    resection around an artery with the aim of avoiding
+environments with unknown elastic properties, the parameters                inadvertent cutting of the artery.
+defining the elastic properties must also be estimated. In              4) The friction between the robot tip and the environment
+our formulation, we incorporate contact force measurement                   are negligible. The rationale for this assumption is that
+to estimate both the environment stiffness and registration                 the anatomy is typically lubricious and also the robot
+parameters simultaneously using an iterated extended Kalman                 tip may be equipped with a rolling/spherical bearing in
+filter (IEKF) based algorithm. In this work, we extend the                  a manner similar to the work of [14].
+approach of [19] by relaxing two assumptions made in that               5) The deformation of the model is predominantly in the
+work: 1) the environment has uniform stiffness everywhere, 2)               direction normal to the surface at contact point. This
+the environment stiffness is known. In this work, we initialize             assumption follows from the previous one since lack of
+our IEKF with a distribution of stiffness and then we use                   friction eliminates tangential forces on the environment.
+contact and force information to estimate the stiffness map
+                                                                        We also emphasize that the motivation for estimating the
+and register the robot frame to the a-priori model of the
+                                                                     environment stiffness from contact detection is for detecting
+environment.
+                                                                     relative stiffness changes as the robot probe tip moves along
+    The contribution of this work is a new method capable of         the surface. We are not interested in exact data of stiffness
+“on the fly” registration of a robot to a flexible environment.      for diagnosis. Instead, relative stiffness changes can be used
+We have adopted a probabilistic method that allows us to             to detect nodules, cysts, arteries, etc. Examples of works
+readily estimate the compliance or stiffness of the environment      using relative stiffness changes for stiffness imaging include
+while simultaneously aligning the robot to an organ. Such            [14, 20, 5]. Since the exact value of the environment stiffness
+information can be used for image-guided surgery and haptic          in not important and since we limit the palpation forces to
+feedback during MIS. The identified environment stiffness can        levels associated with small deformations of the tissue we use
+be used to locate tumors and major arteries at the surgical field.   a simple linear model of the environment stiffness.
+    The outline of the remainder of the paper is as follows: in
+Sec. II we outline the problem statement and assumptions,              III. F ILTERING FOR R EGISTRATION AND C OMPLIANCE
+in Sec. III we introduce our registration and compliance                                   E STIMATION
+estimation approach, in Sec. IV we test the observability of our
+problem using a simple test case, and in Sec. V we discuss the         The goal of the CARE algorithm is to estimate a state
+experiments we performed. Finally, in Sec. VI, we conclude           vector that encodes the alignment of the robot as well as the
+the paper with a discussion of the contributions we have made        compliance of the surface. We therefore define x as follows,
+and future work.                                                                  x = [xk,robot θ k,robot sk xk,tip ]T ,          (1)
+       II. P ROBLEM S TATEMENT AND A SSUMPTIONS                      where xk,robot and θ k,robot represent the position and orien-
+   Problem Statement: Given an a priori model of the en-             tation vectors, respectively, of the robot base in the coordinate
+vironment and a set of robot end effector locations with             frame of the surface model, sk is a vector defining the stiffness
+in a direction normal to the surface, and xk,tip represents the    robot base position xk,robot and the robot base orientation
+position of the robot tip in the base frame.                       θk,robot .
+   During data collection for generating the input to the CARE        In (2), the surface normal n is obtained by finding the nor-
+algorithm, the robot may be telemanipulated using hybrid           mal associated with the plane on the surface that is closest to
+position-force control ensuring a regulated force on the surface   the current estimate of the robot tip position xSk,tip . Similarly,
+subject to a rough estimate of the surface normal. The robot       the function s(xk ) extracts the stiffness corresponding to the
+detects that it is in contact with a surface using an imple-       plane closest to xSk,tip .
+mentation similar to [1] or by using a threshold on the force         For the measurement update step, we use an iterative
+estimated at the tip of the robot. The robot infers the contact    algorithm that prevents divergence of the state estimate. The
+force by observing the joint actuation forces and solving the      approach is similar to the iterated extended Kalman filter (IKF)
+inverse statics problem in a manner similar to [21]. For our       described in [2]. After each new measurement is obtained, the
+implementation, the surface is assumed to be locally planar        IEKF attempts to update the state mean x̂k|k to minimize the
+and the contact force is assumed to be normal to the surface.      following cost function:
+In addition to measuring force, the robot also measures its tip                               T
+                                                                   x̂+ = arg min x̂k|k − x P−1                    T −1
+                                                                                   
+position in the base frame of the robot.                                        x                  k|k +[zk −h(x)] R       [zk −h(x)]
+   There are two components of the filtering process: a pre-                                                                      (4)
+diction step that evolves the state estimate based on a motion     where zk is the k-th observation, Pk|k is the state covariance
+model and a measurement update step that corrects the state        and R is the measurement noise covariance.
+                                                                      The above optimization problem corresponds to finding the
+estimate with live sensor data. For our implementation, we
+                                                                   maximum likelihood estimate given the current observation
+have designed the prediction step assuming that the parameters
+                                                                   zk . IEKF minimizes the cost function (4)using a recursive
+are static, with a large uncertainty added to the tip position
+                                                                   Gauss-Newton update procedure. The update equations are as
+due to tool movement.
+                                                                   follows:
+Measurement Function: We assume a simple linear spring                       x0 = x̂k|k                                           (5)
+model governs the tool-environment interaction forces. This                                           −1
+                                                                            Ki = Pk|k HTi Hi Pk|k HTi
+                                                                                          
+assumption holds within the surgical context even though                                                                          (6)
+tissue is highly non-linear because we are interested in map-             xi+1 = x̂k|k−1 +                                        (7)
+ping relative changes in stiffness and the absolute estimates
+                                                                                                                 
+                                                                                 Ki zk − h(x̂i ) − Hi x̂k|k−1 − xi ,
+of stiffness are not important to the problem. For example,
+an artery is detected by a change in the stiffness from the        where Hi is the Jacobian of h(x) linearized about xi . The
+surrounding tissue. Since we care only about detecting the         above recursion is continued until convergence. We say the
+change between the tissue and artery, absolute stiffness values    filter has converged when the kxi+1 −xi k < ǫ, where ǫ << 1.
+are unnecessary and we therefore avoid using complex non-          At convergence, the state mean is updated as x̂+
+                                                                                                                  k|k = xi . While
+linear models. Additionally, this assumption is valid because      we do not have a guarantee of convergence, in our experiments
+we apply only small forces on the environment so as to             the filter has converged every time. It should be noted that
+produce minimal local impingement on the surface without           a single iteration of the above procedure corresponds to the
+a substantial deformation of the organ. This ensures that we       standard EKF update step.
+are able to estimate the shape and relative stiffness, and that        Once the mean has been updated using the iterative proce-
+our measurement technique does not change the environment          dure described above, the covariance matrix is updated using
+in a way that makes the problem intractable.                       the standard EKF covariance update equation,
+                                                                                                               −1
+   Therefore, the measurement function used to predict the                          Ki = Pk|k HT HPk|k HT
+                                                                                                   
+                                                                                                                               (8)
+expected measurements (force and tip position) at time-step
+                                                                                  P+
+                                                                                   k|k = Pk|k − KHPk|k                            (9)
+k given xk is as follows,
+                                                                   where H is the Jacobian of h(x) linearized about the updated
+                         −nT (xSk,tip − p)s(xk )
+                                                
+             h(xk ) =                                       (2)    mean x̂+ k|k .
+                                 xk,tip                                It should be noted that a key distinguishing feature of our
+                                                                   filtering approach to registration is that we update our registra-
+where n is the surface normal, p is a point on the (relaxed)
+                                                                   tion to minimize the residual force (i.e, the difference between
+surface, and s(xk ) is a function that extracts the appropriate
+                                                                   the measured force and predicted force) at each contact point
+surface stiffness given the state xk . xSk,tip is the current
+                                                                   instead of minimizing a geometric quantity such as distance
+estimate of the robot tip in the coordinate frame of the surface
+                                                                   between the contact point and surface. We note that we choose
+given by:
+                                                                   to instantiate a number of these Kalman filters, each of which
+             xSk,tip = R(xk )xk,tip + t(xk ),                (3)   attempts to estimate the unknown registration parameters.
+                                                                   When the filter has utilized all the available observations, we
+R(xk ) and t(xk ) are the rotation matrix and translation vector   take the hypothesis with the highest measurement likelihood
+respectively, that perform this transformation based on the        as the final result.
+                        IV. O BSERVABILITY                                   where the function f (xk , uk ) assumes the state parameters are
+                                                                             static, i.e. f (xk , uk ) = xk . We can then compute the Observ-
+   In order to apply the filter described in the previous section,
+                                                                             ability matrix by differentiating the observability function with
+the state must be observable. We test observability through
+                                                                             respect to the Kalman state vector
+the use of a simple test case, described below. Assume an
+environment with three planes of different orientation, indexed                                             ∂
+                                                                                           O(xk , uk ) =       o(xk , uk ).
+by i = (1, 2, 3). Each plane is defined by a normal vector ni                                              ∂xk
+and a plane point pi . For this test case, we assume we have
+                                                                             To test whether the system is observable, we must determine if
+knowledge of which plane we are contacting and that both ni
+                                                                             the observability matrix is invertible. This can be determined
+and pi are known. Each plane has an unknown stiffness si
+                                                                             by looking at the rank of the matrix,
+that is encoded within the state vector for estimation.
+   The state vector is of length 9, which defines the position                                 rank(O(xk , uk )) = 9.
+and orientation of the robot base in the coordinate frame of the
+surface model and encodes the stiffness of each of the three                 We obtained this value through the use of symbolic analysis
+planes.                                                                      using Matlab (The Mathworks Inc., Natick, MA). The result-
+                                                                             ing rank of 9 means that all 9 parameters in the Kalman state
+         xk = [ x y z rz ry rx s1 s2 s3 ]T                                   vector are observable.
+   We obtain three measurements from palpating the three                                   V. E XPERIMENTAL E VALUATION
+planes. We next obtain three additional measurements through
+palpating the same three planes with a different force. The                     The experimental evaluation involved using a 5-mm di-
+point on the plane where contact occurs does not affect the                  ameter two-segment continuum snake robot. This robot uses
+analysis. Let us assume that all of these force measurements                 several NiTi backbones in each one of its bendable segments.
+are obtained and collected together. We will use the term                    Each segment consists from a central backbone surrounded by
+hj (xk ) to represent the j-th element of the measurement                    several secondary backbones that are pushed or pulled on to
+function                                                                     bend the segment. Our robot uses three circumferentially dis-
+                                                                             tributed NiTi secondary backbones for actuation in a manner
+                                                             T
+       h(xk ) = [ h1 (xk ) h2 (xk ) · · · h6 (xk ) ]                         similar to [7]. The robot tip is a spherical probe equipped
+                                                                             with a magnetic tracker allowing for exact measurement of
+and the force measurement model can be written as follows:                   the robot tip location.
+       hj (xk ) = −nTi (R(xk )qj + t(xk ) − pi ) si                             Figure 2 shows the robot with its spherical probe. An
+                                                                             Ascension 3D guidance trackSTARTM magnetic tracker with
+where, for a measurement index j, the associated plane that                  metal immune magnetic transmitter was used for tracking the
+is being contacted is i-th plane. qj is the robot tip position               location of the 0.9 mm magnetic coil embedded in the probe
+corresponding to the j-th observation, measured in the robot                 contacting the environment. We assume the magnetic tracker
+frame. Using Lie derivatives, we can define two different                    measurement noise is normally distributed with zero mean and
+observability functions as follows,                                          standard deviation σt = 3 mm. The robot is also equipped with
+                                                                             load cells for measuring the actuation forces on the secondary
+             
+               (L0f h1 )(xk , uk )
+                                                   1
+                                                     (Lf h1 )(xk , uk )
+                                                                            backbones. Using algorithms such as [21] for estimating the
+                  0
+              (Lf h2 )(xk , uk )                      1
+                                                    (Lf h2 )(xk , uk )     force at the robot tip from measurement of the forces on the
+              0                                    1
+              (L h )(xk , uk )                    (L h3 )(xk , uk ) 
+                                                                        
+o0(xk, uk) =  f0 3                , o1(xk, uk) =  1f                      load cells, we obtained estimates of the forces at the robot tip.
+              (Lf h4 )(xk , uk )                  (Lf h4 )(xk , uk ) 
+                                                                         
+              (L0 h )(x , u )                     (L1 h )(x , u )        The force sensor noise is assumed to be normally distributed
+                  f 5     k    k                        f 5     k    k
+               (L0f h6 )(xk , uk )                   (L1f h6 )(xk , uk )     with zero mean and standard deviation σf = 1 g (0.01 N).
+                                                                             Evaluation of the force estimation accuracy is reported in
+where, uk is the input at step k. The zero-th Lie derivative of              [21]. The control environment was implemented on a real-time
+a function is the function itself,                                           control system using Matlab xPC. This system was used to
+                                                                             palpate the object with varying force levels at multiple points
+                  (L0f hj )(xk , uk ) = hj (xk ),                    (10)
+                                                                             on its surface.
+and the first Lie derivative of a function is as follows,                       We evaluated our probabilistic filtering-based approach us-
+                                                                             ing two experiments. The first experiment utilized a simple
+                                   ∂hj (xk )                                 planar surface consisting of two different materials. We used
+           (L1f hj )(xk , uk ) =             f (xk , uk ).           (11)
+                                     ∂xk                                     this as a proof of concept experiment and to develop an
+Substituting Eq. 10 and 11 into the functions o0 (xk , uk ) and              intuitive understanding of our approach. We then applied
+o1 (xk , uk ), we can write a combined observability function,               our algorithm to a more complex setup, where inclusions
+                   0                                                     stiffer than the surrounding environment were embedded in
+                    o (xk , uk )         h(xk )                              the material. We describe the methodology and results of the
+   o(xk , uk ) =                   =                    ,
+                    o1 (xk , uk )     Hk f (xk , uk )                        two experiments in the following sections.
+A. Planar Surface
+   The experimental model, shown in Fig. 2 was made from
+silicone. The stiffer inclusions were made from rubber wire
+with 80 Shore A hardness. The experimental model was
+palpated with two force levels of 5 g (0.049 N) and 25 g
+(0.245 N) and tip position data was collected during each
+palpation.
+   Dataset and Experiment: We split the palpation data from
+the experiment into two data sets. The first was used to infer
+a best approximation to the relaxed position of the surface
+(shown in Fig. 3 as a gray plane). This data was also used
+to infer the ground truth stiffness (0.089 N/mm and 0.196
+N/mm) for the outer and inner regions, respectively. The
+second dataset was used for testing CARE. The test data was
+artificially disturbed with a translation in x and z-directions,
+resulting in a large registration error with respect to the                       Fig. 3.     The contact points using the initial guess registration (shown in
+                                                                                  green) and after the registration parameters have been estimated using our
+surface. This was done to create a challenging registration test                  filtering algorithm (shown in blue). After application of the filter all the tip
+for our approach. CARE was applied to this data by iterating                      positions are ‘inside’ the planar surface.
+through all the contact points in the test dataset using equations
+outlined in Sec. III.
+                                                                                                                          0.2
+                                                                                                                                                   Stiffness outer
+
+                                                                                       Stiffness estimate error (N/mm)
+                                                                                                                                                   Stiffness inner
+                                                                                                                         0.15
+
+
+                                                                                                                          0.1
+
+
+                                                                                                                         0.05
+
+
+                                                                                                                           0
+                                                                                                                                0   100   200     300     400        500
+                                                                                                                                           time step
+
+Fig. 2. The flexible planar surface consisting of two regions of different
+material. The inner region is stiffer than the outer region. The robot contacts   Fig. 4. This figure shows the error history of the stiffness estimates for both
+the surface with a spherical probe at its end.                                    the inner and outer regions as measurements are incrementally included in
+                                                                                  the filtering algorithm.
+    The registration result of our probabilistic filtering method,
+CARE, compared to the initial registration, is shown in Fig. 3.
+The initially perturbed point cloud of contact points is shown                    in error when the surface is palpated at a second contact force
+in green and are poorly registered to the surface. After the                      at the 250-th time step. The final registration error in terms
+filter applies the contact force measurements, the algorithm                      of aligning the robot to the a priori surface was 0.55mm. The
+correctly aligns the contact points to the surface such that the                  stiffness estimation error is larger in the inner region because
+points are properly displaced “into” the surface to generate                      there are fewer data points in that region.
+forces that agree with the applied palpation force. Note that                        It should be noted that for the experiment described above it
+points to the right of the surface in Fig. 3 are inside the surface               would be impossible for any registration method that utilizes
+while points to the left of the surface are outside the surface.                  geometric information alone to correctly register the robot
+    We note that, during the experiment, the estimate of the x                    frame along the z direction. This is because the problem is
+dimension of the robot registration becomes highly correlated                     ill-posed due to the geometric symmetry that exists in the
+with the estimate of the surface compliance. This occurs                          object along the z-direction. The compliance map breaks this
+because the estimation problem is not observable until the                        symmetry and therefore allows registration in the z-direction.
+surface is palpated at two different forces. In Fig. 4, an error                     For the purpose of comparison, we applied the standard
+plot is shown that depicts the error between the estimated                        ICP algorithm to the above problem. The initial point cloud
+compliance and the true compliance of the surface for the two                     obtained via the palpation experiment (green in Fig. 5) has
+(inner and outer) regions. The data illustrates the sudden drop                   registration error along both the x and z-directions. The
+                                                                                  Fig. 6. A pyramid shaped silicone specimen with embedded hard material
+                                                                                  used in the experiments.
+
+
+Fig. 5.     The point cloud obtained by palpating the surface is registered                      20
+to the surface using ICP. The green point cloud corresponds to the initial
+guess registration, the red point cloud corresponds to the ICP registration                      15
+estimate and the blue point cloud corresponds to the ground truth registration.
+Registration error in X is reduced while registration error in Y does not                        10
+decrease.
+                                                                                                  5
+
+
+
+
+                                                                                        Y (mm)
+                                                                                                  0
+point cloud obtained after application of ICP is shown in                                        −5
+blue. As can be seen in Fig. 5, ICP minimizes the distance
+between the point cloud and the surface plane leading to an                                 −10
+improved registration estimate in the x-direction. However,                                 −15
+as surface compliance and/or palpation forces become larger
+                                                                                            −20
+the registration accuracy in terms of aligning the robot and                                 −20      −10        0    10           20       30
+surface frames will decrease because ICP will attempt to align                                                   X (mm)
+the deformed surface to the undeformed surface. Additionally,
+                                                                                  Fig. 7. Ground truth stiffness distribution on the pyramid surface. High
+registration along the z-direction is not improved because of                     stiffness is indicated in red and low stiffness in dark blue.
+the inherent geometric symmetry in the problem. An accurate
+prior compliance map can address this issue by utilizing the
+palpation forces and compliance information to generate a de-                     size of the stiffness vector sk is equal to the number of facets
+formed target surface for registration. However, our algorithm                    in the surface model, i.e, each face has an associated stiffness.
+attempts to solve for both the compliance map and registration                    The total number of facets in our surface model are 236.
+simultaneously.                                                                      For testing, we artificially perturbed the palpation data
+                                                                                  contact points with a rigid transformation Tpert . The cor-
+B. 3D Soft Volume                                                                 responding ground truth registration for the perturbed data
+                                                                                            −1
+   The previous experiment involving the planar surface served                    set is Tpert  . Using CARE we simultaneously estimated the
+as a relatively simple test to verify the feasibility of our                      registration of the robot and surface stiffness parameters of
+approach. We also tested our filtering algorithm on a more                        the object. We also estimated the registration parameters by
+complex soft object with 3D geometry and embedded hard                            registering the perturbed contact point cloud to the surface
+material, shown in Fig. 6. The surface geometry was obtained                      using ICP.
+by scanning the surface with a magnetically tracked probe                            Figure 8 shows a perturbed contact point cloud based on
+dragged over the surface with only the probe self weight acting                   the initial registration parameters. The initial registration error
+on the surface (the probe weighed less than 0.5 grams).                           is 10mm in the z-direction. As a result all initial contact
+   Experiment details: After obtaining the surface geometry of                    points are above the surface. Once the algorithm has iterated
+the object, the surface was palpated with two force levels of 5 g                 through all the observations in the data set, all contact points
+(0.049 N) and 25 g (0.245 N) using the continuum snake. The                       are below the relaxed surface, as shown in Fig. 9. Fig. 10
+tip of the snake was tracked using the magnetic tracker. As the                   shows the error in the registration and stiffness estimates as
+surface scan and palpation were done with the same tracker                        the algorithm iterates through the data. Fig. 11 shows the error
+setup, the robot frame R and surface frame S are coincident                       in the registration and stiffness estimates when an orientation
+and therefore the ground truth registration parameters of the                     error of 11.5◦ about the Y-axis is applied to the data set. The
+robot are known. Using the known ground truth registration                        stiffness error is computed by taking the Euclidean distance
+we estimate the ground truth surface stiffness. Figure 7 shows                    between the ground truth stiffness vector and the estimated
+the ground truth stiffness distribution on the pyramid surface.                   stiffness vector. The distribution of the estimated stiffness on
+The state vector for this problem is considerably larger as the                   the surface model is also shown for both the experiments in
+                                                                                                                            10
+
+
+
+
+                                                                                                 resgistration error (mm)
+                                                                                                                                                                   CARE
+
+                                                                                                                             5                                     ICP
+
+          5
+    Z (mm)
+
+
+
+
+          0                                                                                                                  0
+         −5
+        −10                                                            10
+                                                                   0
+              0                                                                                                             −5
+                  10                                     −10                                                                      0           1000          2000          3000
+                            20                        −20                                                                                         time step
+                                    30             −30 Y (mm)
+                                           40                                                                                             (a) Registration error
+                        X (mm)
+
+
+
+
+                                                                                       stiffness error estimate (N/mm)
+                  Fig. 8.    Data points prior to registration.                                                             1.4
+
+                                                                                                                            1.2
+
+                                                                                                                             1
+
+          5                                                                                                                 0.8
+    Z (mm)
+
+
+
+
+          0
+         −5
+        −10                                                            10                                                         0           1000          2000          3000
+                                                                   0                                                                              time step
+              0
+                  10                                     −10                                                                          (b) Stiffness estimation error
+                            20                        −20
+                                                                            Fig. 10. Registration and stiffness estimation errors when an initial registra-
+                                    30             −30 Y (mm)               tion error of 10mm in the z-direction is applied to the data set.
+                        X (mm)             40
+
+                   Fig. 9.       Data points after registration.
+                                                                            registration and compliance requires a probabilistic approach
+                                                                            such as the one presented in this paper.
+Fig. 12 and 13. It can be seen from direct observation that the                 The work we presented relies on the use of probabilistic
+estimated stiffness distribution is qualitatively similar to the            filtering for the estimation of uncertain data. The real world
+ground truth stiffness distribution.                                        is noisy and so it is crucial to model and estimate this
+                                                                            uncertainty via sensor fusion techniques. Probabilistic filtering
+              VI. C ONCLUSION AND F UTURE W ORK                             methods like CARE allow us to report confidence measures
+   The results of our experiments show that we can use                      to the surgeon during image-guided interventions for increased
+palpation as an effective strategy for registering the robot “on            situational awareness and more advanced visual feedback. A
+the fly” to a flexible environment and to infer the surface com-            promising application of our approach is to provide feedback
+pliance or stiffness of the environment. Unlike conventional                to the surgeon regarding the location of hard and soft regions
+approaches, CARE uses probabilistic filtering with forceful                 in the surgical field.
+contact, allowing us to estimate the compliance/stiffness of                    Our approach does not aim to substitute the use of med-
+the environment while simultaneously aligning the robot to an               ical imaging for registration but to augment it. Rigid and
+organ. The registration and compliance information estimated                deformable registration techniques that have been studied
+by CARE can be of significant assistance during the use of                  extensively in medical imaging can be combined with the
+image guidance and haptic feedback for minimally invasive                   approach described in our paper to leverage sub-surface fea-
+surgery.                                                                    tures using palpation force data. It is also worth noting that
+   The significance of our approach is apparent as it relates to            any probabilistic filtering technique can be adopted within the
+a “chicken-and-egg problem”: if the compliance of the envi-                 CARE framework. While we have chosen to use the IEKF in
+ronment is known, the expected displacement of each contact                 our implementation due to our prior experience and success
+point into the surface can be determined, thus simplifying reg-             with it, other filtering techniques such as those based on the
+istration. Conversely, if the registration is known, the stiffness          unscented Kalman filter can also be easily adopted within the
+can be determined by observing the surface displacement for                 CARE framework.
+a given contact force. We believe that solving for both the                     The limitations of our proposed approach stem partly from
+                                                 10                                                                  20
+
+                     resgistration error (deg)
+                                                                                        CARE                         15
+                                                  5                                     ICP                          10
+                                                                                                                      5
+
+
+
+
+                                                                                                            Y (mm)
+                                                                                                                      0
+                                                  0
+                                                                                                                     −5
+                                                                                                                −10
+                                                 −5
+                                                       0           1000          2000          3000             −15
+                                                                       time step                                −20
+                                                               (a) Registration error                            −20      −10          0    10            20        30
+                                                                                                                                       X (mm)
+           stiffness error estimate (N/mm)
+
+
+
+
+                                                 1.5                                                  Fig. 12. Estimated stiffness distribution on the pyramid surface for the test
+                                                                                                      case with translation registration error of 10 mm in the z-direction. High
+                                                                                                      stiffness is indicated in red and low stiffness in dark blue
+
+                                                  1
+                                                                                                                     20
+                                                                                                                     15
+                                                 0.5
+                                                                                                                     10
+                                                                                                                      5
+                                                  0                                                         Y (mm)    0
+                                                       0           1000          2000          3000
+                                                                       time step                                     −5
+                                                           (b) Stiffness estimation error                       −10
+Fig. 11. Registration and stiffness estimation errors when an initial registra-                                 −15
+tion error of 11◦ about the Y-axis is applied to the data set.
+                                                                                                                −20
+                                                                                                                 −20      −10          0    10            20        30
+                                                                                                                                       X (mm)
+our simplifying assumptions. Because we assume that the
+robot does not deform the environment significantly we are                                            Fig. 13. Estimated stiffness distribution on the pyramid surface for the
+currently limited in our ability to detect stiffness features                                         test case with orientation registration error of 11.5◦ about the Y axis. High
+                                                                                                      stiffness is indicated in red and low stiffness in dark blue
+embedded deep inside the model. Another limitation is that
+our force controller needs some estimate of the surface normal.
+In this work we have not attempted online estimation of the                                           W911NF1010343.
+surface normal during the implementation of force control.
+   Future work will include adoption of well known methods                                                                         R EFERENCES
+for surface normal algorithms during force control (such as                                            [1] Andrea Bajo and Nabil Simaan. Kinematics-based de-
+[6]). Another possible direction for future research is to not                                             tection and localization of contacts along multisegment
+only estimate surface properties as we have done in this paper                                             continuum robots. Robotics, IEEE Transactions on, 28
+but to also estimate volumetric properties of the tissue. This                                             (2):291–302, 2012.
+will allow us to not only identify regions on the surface of                                           [2] B.M. Bell and F.W. Cathey. The iterated kalman filter
+an organ that are soft or hard but to also localize, in 3D,                                                update as a gauss-newton method. IEEE Transactions on
+embedded features such as arteries and tumors.                                                             Automatic Control, 38(2):294–297, 1993.
+   Finally, although in this work we register the robot to the                                         [3] Paul J Besl and Neil D McKay. A method for registration
+environment using contact force data while not accounting for                                              of 3-d shapes. IEEE Transactions on pattern analysis and
+underlying stiffness features, the eventual goal of our approach                                           machine intelligence, 14(2):239–256, 1992.
+will be to also include such information by using a stiffness                                          [4] A. Degani, H. Choset, A. Wolf, and M.A. Zenati. Highly
+distribution prior which could be obtained from imaging (e.g.                                              articulated robotic probe for minimally invasive surgery.
+ultrasound elastography).                                                                                  In Robotics and Automation, 2006. ICRA 2006. Pro-
+                                                                                                           ceedings 2006 IEEE International Conference on, pages
+                                                            ACKNOWLEDGMENT
+                                                                                                           4167–4172, May 2006.
+  This work has been supported in part by the National                                                 [5] Vladimir Egorov and Armen P Sarvazyan. Mechanical
+Robotics Initiative Award IIS-1327597 and ARO Award                                                        imaging of the breast. IEEE transactions on medical
+     imaging, 27(9):1275–87, September 2008. doi: 10.1109/            Biomedical Engineering, IEEE Transactions on, 57(2):
+     TMI.2008.922192.                                                 404–414, 2010.
+ [6] A. Fedele, A. Fioretti, C Manes, and G. Ulivi. On-line      [15] P. Mountney, D. Stoyanov, A. Davison, and G. Z.
+     processing of position and force measures for contour            Yang. Simultaneous stereoscope localization and soft-
+     identification and robot control. In [1993] Proceed-             tissue mapping for minimal invasive surgery. In Medical
+     ings IEEE International Conference on Robotics and               Image Computing and Computer-Assisted Intervention
+     Automation, pages 369–374. IEEE Comput. Soc. Press,              (MICCAI), 2006.
+     1993. ISBN 0-8186-3450-2. doi: 10.1109/ROBOT.1993.          [16] Terry Peters and Kevin Cleary. Image-Guided Interven-
+     292009.                                                          tions: Technology and Applications. Springer Science,
+ [7] R Goldman, A Bajo, L Maclachlan, R Pickens, S Herrell,           2008. ISBN 078-0-387-73856-7.
+     N Simaan, et al. Design and performance evaluation of a     [17] Pinyo Puangmali, Kaspar Althoefer, Lakmal D. Senevi-
+     minimally invasive telerobotic platform for transurethral        ratne, Declan Murphy, and Prokar Dasgupta. State-
+     surveillance and intervention. IEEE transactions on bio-         of-the-Art in Force and Tactile Sensing for Minimally
+     medical engineering, 2012.                                       Invasive Surgery. IEEE Sensors Journal, 8(4):371–381,
+ [8] Gary S Guthart and John Kenneth Salisbury Jr. The                April 2008. ISSN 1530-437X. doi: 10.1109/JSEN.2008.
+     IntuitiveTM telesurgery system: overview and applica-            917481.
+     tion. In Robotics and Automation, 2000. Proceedings.        [18] Nabil Simaan, Kai Xu, Wei Wei, Ankur Kapoor, Peter
+     ICRA’00. IEEE International Conference on, volume 1,             Kazanzides, Russell Taylor, and Paul Flint. Design
+     pages 618–621. IEEE, 2000.                                       and integration of a telerobotic system for minimally
+ [9] Amir Haddadi and Keyvan Hashtrudi-Zaad. A new                    invasive surgery of the throat. The International journal
+     method for online parameter estimation of hunt-crossley          of robotics research, 28(9):1134–1153, 2009.
+     environment dynamic models. In Intelligent Robots           [19] Stephen Tully, Andrea Bajo, George Kantor, Howie
+     and Systems, 2008. IROS 2008. IEEE/RSJ International             Choset, and Nabil Simaan. Constrained filtering with
+     Conference on, pages 981–986. IEEE, 2008.                        contact detection data for the localization and registration
+[10] M Hayashibe and Y Nakamura. Laser-pointing en-                   of continuum robots in flexible environments. In Robotics
+     doscope system for intra-operative 3D geometric reg-             and Automation (ICRA), 2012 IEEE International Con-
+     istration. In Proceedings 2001 ICRA. IEEE Interna-               ference on, pages 3388–3394. IEEE, 2012.
+     tional Conference on Robotics and Automation (Cat.          [20] P S Wellman, E P Dalton, D Krag, K A Kern, and R D
+     No.01CH37164), volume 2, pages 1543–1548, Seoul,                 Howe. Tactile imaging of breast masses: first clinical
+     Korea, Republic of, 2001. IEEE. ISBN 0-7803-6576-3.              report. Archives of surgery (Chicago, Ill. : 1960), 136
+     doi: 10.1109/ROBOT.2001.932830.                                  (2):204–8, March 2001. ISSN 0004-0010.
+[11] Robert D Howe, William J Peine, DA Kantarinis, and          [21] Kai Xu and Nabil Simaan. Intrinsic wrench estimation
+     Jae S Son. Remote palpation technology. Engineering in           and its performance index for multisegment continuum
+     Medicine and Biology Magazine, IEEE, 14(3):318–323,              robots. Robotics, IEEE Transactions on, 26(3):555–561,
+     1995.                                                            2010.
+[12] A. B. Koolwal, F. Barbagli, C. Carlson, and D. Liang.       [22] Kai Xu, Roger E Goldman, Jienan Ding, Peter K Allen,
+     An ultrasound-based localization algorithm for catheter          Dennis L Fowler, and Nabil Simaan. System design
+     ablation guidance in the left atrium. The International          of an insertable robotic effector platform for single port
+     Journal of Robotics Research, 29(6):643–665, May 2010.           access (spa) surgery. In Intelligent Robots and Systems,
+[13] Ray A Lathrop, Douglas M Hackworth, and Robert J                 2009. IROS 2009. IEEE/RSJ International Conference
+     Webster. Minimally invasive holographic surface scan-            on, pages 5546–5552. IEEE, 2009.
+     ning for soft-tissue image registration. Biomedical Engi-   [23] Tomonori Yamamoto, Balazs Vagvolgyi, Kamini Balaji,
+     neering, IEEE Transactions on, 57(6):1497–1506, 2010.            Louis L Whitcomb, and Allison M Okamura. Tissue
+[14] Hongbin Liu, David P Noonan, Benjamin J Challacombe,             property estimation and graphical display for teleoper-
+     Prokar Dasgupta, Lakmal D Seneviratne, and Kaspar                ated robot-assisted surgery. In Robotics and Automation,
+     Althoefer. Rolling mechanical imaging for tissue ab-             2009. ICRA’09. IEEE International Conference on, pages
+     normality localization during minimally invasive surgery.        4239–4245. IEEE, 2009.
+

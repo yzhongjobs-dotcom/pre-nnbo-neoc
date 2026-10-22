@@ -1,0 +1,1174 @@
+                                                                                                                                                       Journal Title
+                                                                                                                                                       XX(X):1–17
+                                         Robust Contact-rich Manipulation                                                                              ©The Author(s) 2024
+                                                                                                                                                       Reprints and permission:
+                                         through Implicit Motor Adaptation                                                                             sagepub.co.uk/journalsPermissions.nav
+                                                                                                                                                       DOI: 10.1177/ToBeAssigned
+                                                                                                                                                       www.sagepub.com/
+
+                                                                                                                                                         SAGE
+                                                          1, 2                                  1, 2                 1, 2
+                                         Teng Xue                , Amirreza Razmjoo                    , Suhan Shetty         and Sylvain Calinon 1, 2
+
+
+
+                                         Abstract
+                                         Contact-rich manipulation plays an important role in daily human activities. However, uncertain physical parameters
+                                         often pose significant challenges for both planning and control. A promising strategy is to develop policies that are
+                                         robust across a wide range of parameters. Domain adaptation and domain randomization are widely used, but they tend
+                                         to either limit generalization to new instances or perform conservatively due to neglecting instance-specific information.
+                                         Explicit motor adaptation addresses these issues by estimating system parameters online and then retrieving the
+                                         parameter-conditioned policy from a parameter-augmented base policy. However, it typically requires precise system
+arXiv:2412.11829v3 [cs.RO] 28 May 2025
+
+
+
+
+                                         identification or additional training of a student policy, both of which are challenging in contact-rich manipulation
+                                         tasks with diverse physical parameters. In this work, we propose implicit motor adaptation, which enables parameter-
+                                         conditioned policy retrieval given a roughly estimated parameter distribution instead of a single estimate. We leverage
+                                         tensor train as an implicit representation of the base policy, facilitating efficient retrieval of the parameter-conditioned
+                                         policy by exploiting the separable structure of tensor cores. This framework eliminates the need for precise system
+                                         estimation and policy retraining while preserving optimal behavior and strong generalization. We provide a theoretical
+                                         analysis to validate the approach, supported by numerical evaluations on three contact-rich manipulation primitives.
+                                         Both simulation and real-world experiments demonstrate its ability to generate robust policies across diverse instances.
+                                         Project website: https://sites.google.com/view/implicit-ma.
+
+
+                                         Keywords
+                                         Contact-rich manipulation, robust control, sim-to-real transfer, tensor train decomposition
+
+
+
+                                         1     Introduction                                                        instance-specific information and focus primarily on worst-
+                                                                                                                   case scenarios, resulting in conservative behaviors. To
+                                         Robot manipulation usually involves multiple contact-                     address this limitation, online system identification can be
+                                         rich manipulation primitives, such as Push and Pivot,                     integrated to enable adaptive MPC (Adetola et al. 2009;
+                                         leading to a long-horizon problem characterized by hybrid                 Adetola and Guay 2011). However, the diverse parameters
+                                         types of variables (discrete and continuous). The resulting               and non-smooth contact dynamics result in computationally
+                                         combinatorial complexity poses significant challenges to                  expensive parameter estimation and trajectory optimization,
+                                         most planning and control approaches. Instead of treating                 leading to poor performance for real-time control.
+                                         long-horizon manipulation as a whole, one way is to                          Learning manipulation policies that can quickly react
+                                         decompose the long-horizon process into several simple                    to the physical world is thus required to advance further.
+                                         contact-rich manipulation primitives and then sequence them               Widely used approaches include reinforcement learning (RL)
+                                         using PDDL planners (Ghallab et al. 1998; Xue et al. 2024b;               (Kaelbling et al. 1996; Kober et al. 2013) and imitation
+                                         Cheng and Xu 2023) or Large Language Models (Driess                       learning (IL) (Billard et al. 2008; Schaal 1999). Due to
+                                         et al. 2023). Since manipulation primitives are typically                 the high cost of data collection in real-world contact-rich
+                                         sequenced by naive symbolic planners that lack geometric or               scenarios, policy learning in simulation and transferring
+                                         motion-level information, it is crucial to develop primitives             it to the real world has become a common strategy.
+                                         that are robust to diverse instances with varying physical                To enable robust sim-to-real transfer, commonly adopted
+                                         parameters, such as shape, mass, and friction coefficient. For            methods include domain randomization (DR) (Tobin et al.
+                                         example, once a push primitive is scheduled by a high-                    2017; Muratore et al. 2018) and domain adaptation (DA)
+                                         level symbolic planner, it should be capable of pushing                   (Bousmalis et al. 2018; Arndt et al. 2020; Chebotar et al.
+                                         objects with different physical properties from any initial
+                                         configuration to their targets.
+                                                                                                                   1 Idiap Research Institute, Martigny, Switzerland
+
+                                            Many approaches have been proposed for robust planning                 2 École Polytechnique Fédérale de Lausanne (EPFL), Lausanne,
+                                         and control through contacts, such as H-∞ control (Franco                 Switzerland
+                                         et al. 2006), Sliding Mode Control (SMC) (Shtessel et al.                 Corresponding author:
+                                         2014; Edwards and Spurgeon 1998) or Model Predictive                      Teng Xue, Idiap Research Institute, Rue Marconi 19, 1920 Martigny,
+                                         Control (MPC) (Morari and Lee 1999; Garcia et al. 1989;                   Switzerland.
+                                         Lopez et al. 2019). However, these methods often overlook                 Email: teng.xue@idiap.ch
+
+
+                                         Prepared using sagej.cls [Version: 2017/01/17 v1.20]
+2                                                                                                              Journal Title XX(X)
+
+
+
+
+Figure 1. Deployment of the learned policy in a variety of contact-rich manipulation tasks. The left images illustrate the state
+and action spaces for each primitive (Hit, Push, Reorientation) in black and blue, respectively, along with the parameter
+spaces represented by the red variables: m for mass, µ for the friction coefficient, r for the radius, and l for the length. A single
+policy is trained for each primitive and deployed directly across a wide range of objects with varying shapes, weights, and friction
+parameters, while preserving instance-specific optimal behaviors.
+
+
+2019). DR assumes that environment parameters follow                of a student policy to mimic the teacher policy (Lee et al.
+specific distributions (e.g., normal or uniform), and the           2020a). These requirements pose significant challenges in
+goal is to maximize (or minimize) the expected reward (or           contact-rich manipulation tasks, as they demand extensive
+cost) under randomly sampled parameters during training.            data collection and considerable effort in model design and
+While this method provides good generalization to diverse           training, but remain difficult to achieve.
+instances, it often results in suboptimal and high-variance            Instead, we propose implicit motor adaptation (IMA) in
+behaviors due to restrictive assumptions about the parameter        this work. IMA can be seen as an elaborated version of
+distributions. In contrast, DA incorporates more instance-          DR, leveraging instance-aware distributions instead of being
+specific data during policy training, leading to optimal            parameter-blind, while also retaining the advantage of DR
+behaviors in the specific target domain but sacrificing             in not relying heavily on good-quality system identification.
+generalization to other instances without additional fine-          It addresses sim-to-real transfer as a stochastic problem,
+tuning.                                                             pushing the limits for finding an optimal policy under sim-to-
+   Combining DR and DA to harness the benefits of both is           real uncertainty without requiring policy retraining for new
+a sensible strategy (Muratore et al. 2022; Qi et al. 2023), but     instances. The policy is implicitly represented as arg max of
+how to effectively balance them is still an open question.          the parameter-conditioned advantage function
+It typically involves online system identification to capture
+domain-specific information and multi-domain learning to              u∗ = arg max A(h, x, u) instead of u∗ = πθ (h, x),
+account for diverse instances. One promising approach to                       u∈U
+address this trade-off is to learn a base policy that uses                                                                       (1)
+diverse privileged environmental information as input and           where h is the proprioceptive history. EMA estimates the
+then relies on proprioceptive history to estimate the system        system parameter from h and directly inputs it into the
+parameters or a latent low-dimensional embedding online.            base policy πθ to output the action. In contrast, thanks
+For simplicity, we refer to both as the system parameters           to the implicit policy representation, IMA can retrieve
+in this article, which are then used as input to the base           the parameter-conditioned policy using a probabilistic
+policy to generate domain-specific optimal behaviors. This          estimate based on h. This makes it particularly effective
+framework, referred to as Teacher-Student Policy in (Lee            for contact-rich manipulation tasks, in which contact
+et al. 2020a) and Rapid Motor Adaptation in (Kumar et al.           parameters identification is often challenging. Although
+2021) and (Qi et al. 2023), is more broadly termed explicit         implicit representations have been explored in imitation
+motor adaptation (EMA) in this article, as the policies are         learning (Florence et al. 2022) and as components of
+typically represented as explicit feedforward functions that        reinforcement learning (Haarnoja et al. 2017; Wang et al.
+directly output actions given observations and estimated            2022), to the best of our knowledge, our work is the first to
+parameters. It can be viewed as a variant of DA that enhances       investigate this idea in the context of robust policy learning.
+generalization by including online parameter estimation.               However, computing the parameter-conditioned advantage
+   This approach has demonstrated impressive performance            function and retrieving the policy can be computationally
+in quadrupedal locomotion across diverse terrains (Lee et al.       expensive, making it difficult to apply in real-world settings,
+2020a; Kumar et al. 2021) and robust in-hand manipulation           particularly in contact-rich manipulation tasks where the
+(Qi et al. 2023). However, it typically relies on high-quality      robot has to continuously interact with its surroundings. To
+system identification (Qi et al. 2023) or additional training       address this issue, we employ Tensor Train (TT) (Oseledets
+
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                          3
+
+
+2011) as function representation, enabling fast computation        long-horizon visuomotor policy learning. In methods based
+of the advantage function and efficient online policy retrieval.   on dynamic programming, the control policy is naturally
+   This article builds on our previous work (Xue et al. 2024a),    obtained by optimizing objective functions, making it more
+where we introduced domain contraction, a mechanism for            intuitive to represent the policy implicitly. For example,
+retrieving policies with a known probabilistic distribution.       reactive policy learning can be reformulated as solving
+Here, we extend this concept by integrating domain contrac-        sequence-of-constraints model predictive control (MPC)
+tion into a comprehensive sim-to-real transfer framework,          (Toussaint et al. 2022), demonstrating strong generalization
+namely implicit motor adaptation. The framework incorpo-           and improved compositionality using implicit functions.
+rates an online system identification module that probabilis-      Similarly, implicit models can be utilized as policy
+tically estimates environmental parameters from propriocep-        representations in reinforcement learning, emphasizing
+tive history and retrieves the parameter-conditioned policy        their expressiveness in action generation (Haarnoja et al.
+for real-world manipulation from a base policy trained in          2017; Wang et al. 2022). For high-dimensional action
+simulation.                                                        spaces, Tensor Train (TT) can be emplyed as a low-
+   In summary, beyond employing Tensor Train as an                 rank representation for state-value and advantage functions,
+implicit policy representation and utilizing domain contrac-       enabling implicit retrieval of control actions (Shetty et al.
+tion for probabilistic policy retrieval, this paper introduces     2024b; Tal et al. 2018). Our work is inspired by the
+the following new contributions compared to (Xue et al.            performance of implicit representation in control policy
+2024a):                                                            learning and aims to explore its potential for robust policy
+   1) A novel framework called implicit motor adaptation           learning, which has not been investigated so far.
+(IMA) for robust contact-rich manipulation, highlighting the
+promise of implicit representation for robust policy learning
+compared with the widely used explicit motor adaptation            2.3   Sim-to-real transfer
+(EMA) framework.
+   2) A probabilistic system adaptation module allowing the        Obtaining large amounts of real-world data for primitive
+robot to adapt its behavior in a probabilistic manner without      learning is challenging. Therefore, robot learning in
+relying on high-quality system identification or additional        simulation and transferring to the real world is a promising
+student policy training.                                           idea (Peng et al. 2018). However, the reality gap between
+   3) Theoretical proofs and numerical experiments demon-          simulation and the real world poses a significant challenge
+strating the effectiveness of IMA compared to EMA.                 to such idea. If the target domain is known and specific,
+                                                                   Domain Adaptation (DA) (Bousmalis et al. 2018; Arndt et al.
+                                                                   2020; Chebotar et al. 2019) can be an effective method, but
+2     Related Work                                                 its reliance on domain-specific data limits the generalization
+2.1      Learning for Contact-rich Manipulation                    to other scenarios. Alternatively, Domain Randomization
+                                                                   (DR) (Tobin et al. 2017) seeks to develop a robust
+Many approaches have been proposed to learn manipulation           policy by introducing random variations into the simulation
+policies for contact-rich manipulation, including Behavior         parameters. While this method offers good generalization, it
+Cloning (BC) (Florence et al. 2022; Torabi et al. 2018),           often results in suboptimal and high-variance behaviors due
+Deep Reinforcement Learning (DRL) (Pertsch et al. 2021;            to the restrictive assumptions about environment parameter
+Qi et al. 2023; Lee et al. 2020a), and Approximate Dynamic         distribution (e.g., normal or uniform).
+Programming (ADP) (Powell 2007; Werbos 1992). In our
+work, we employ an ADP approach called Tensor Train                   Combining DA and DR can be a promising strategy to
+Policy Iteration (TTPI) (Shetty et al. 2024b) for policy           balance generalization and optimal performance. The basic
+learning, where the state space is augmented with system           idea is to adapt the parameter distribution by leveraging
+parameters to enable subsequent parameter-conditioned              differences between simulated and reference environment
+policy retrieval given different instances. However, our           (Mehta et al. 2020; Muratore et al. 2022; Ramos et al.
+proposed approach is flexible and can be integrated with           2019). However, policies developed through such methods
+any policy learning technique, provided the policy can be          are often tailored to the reference environment or target
+implicitly represented by advantage functions or energy-           domain. Recently, explicit motor adaptation (EMA) (Yu
+based functions.                                                   et al. 2017) has demonstrated remarkable success in
+                                                                   learning robust locomotion (Lee et al. 2020a; Kumar et al.
+                                                                   2021) and manipulation primitives (Qi et al. 2023). In
+2.2      Implicit Policy Representation                            this approach, a teacher policy is trained in simulation
+Instead of being expressed as an explicit function, the            with various domain parameters, and a student policy
+action policy can be described implicitly through function         learns to replicate this behavior, with a low-dimensional
+optimization. Implicit representations have been widely            embedding of proprioceptive history as input. Our work
+used in various approaches, including energy-based models          closely follows this paradigm but introduces a more
+(EBMs) (LeCun et al. 2006; Du and Mordatch 2019),                  efficient way for learning the parameter-augmented teacher
+diffusion models (Yang et al. 2023; Ho et al. 2020), and           policy using tensor approximation. Additionally, our method
+tensor networks (Orús 2019; Stoudenmire and Schwab                eliminates the need for high-quality system identification
+2016). In imitation learning, behavior cloning can be              and subsequent student policy training, as the parameter-
+formulated using EBMs (Florence et al. 2022), highlighting         conditioned robust policy can be directly derived from the
+several advantages such as multimodal representation and           teacher policy given a rough parameter distribution.
+
+
+Prepared using sagej.cls
+4                                                                                                                                  Journal Title XX(X)
+
+
+2.4      Tensor Train for function approximation
+A multidimensional function can be approximated by a
+tensor, where each element in the tensor is the value of
+the function given the discretized inputs. The continuous
+value of the function can then be obtained by interpolating
+among tensor elements. However, storing the full tensor
+for a high-dimensional function can be challenging. To
+address this issue, Tensor Train (TT) was proposed to
+approximate the tensor using several third-order tensor
+cores. The widely used methods include TT-SVD (Oseledets
+2011) and TT-cross (Oseledets and Tyrtyshnikov 2010).
+Furthermore, TTGO (Shetty et al. 2024a) was proposed for
+finding globally optimal solutions given functions in TT
+format. TTPI (Shetty et al. 2024b) was then introduced to                         Figure 2. TT decomposition generalizes matrix decomposition
+learn control policies through tensor approximation, showing                      techniques to higher-dimensional arrays. In TT format, an
+superior performance on several hybrid control problems.                          element in a tensor can be obtained by multiplying specific
+Logic-Skill Programming (LSP) (Xue et al. 2024b) expands                          slices of the core tensors. The figure presents examples of
+the operational space of TTPI by incorporating first-order                        third-order, and fourth-order tensors. Image adapted from
+logic to sequence policies. Building on TTGO and TTPI, our                        Shetty et al. (2024a).
+work extends these methods to learn robust policies, which
+further enhances the capabilities of LSP. We additionally
+                                                                                  tensor, there always exists a TT decomposition (Oseledets
+demonstrate that the TT format is a suitable structure for
+                                                                                  2011). This low-rank structure further facilitates sampling
+efficient parameter-conditioned policy retrieval.
+                                                                                  and optimization for robot planning and control.
+                                                                                     There are several ways to acquire a TT model, including
+3     Background                                                                  TT-SVD (Oseledets 2011) and TT-Cross (Oseledets and
+                                                                                  Tyrtyshnikov 2010; Savostyanov and Oseledets 2011). TT-
+3.1      Tensors as Discrete Analogue of a                                        SVD extends the SVD decomposition from matrix level
+         Function                                                                 to a high-dimensional tensor level. However, it needs to
+A multivariate function F (x1 , . . . , xd ) defined over                         store the full tensor first, which is impractical to very high-
+a rectangular domain made up of the Cartesian                                     dimensional functions. TT-Cross solves this limitation by
+product of intervals (or discrete sets) I1 × · · · × Id                           selectively evaluating function F on a subset of elements,
+can be discretized by evaluating it at points in the set                          avoiding the need to store the entire tensor.
+X = {(xi11 , . . . , xidd ) : xikk ∈ Ik , ik ∈ {1, . . . , nk }}.      This
+gives us a tensor F , a discrete version of F , where                             3.3    Function approximation using Tensor Train
+F (i1 ,...,id ) = F (xi11 , . . . , xidd ), ∀(i1 , . . . , id ) ∈ IX ,  and       Given the discrete analogue tensor F of a function F ,
+IX = {(i1 , . . . , id ) : ik ∈ {1, . . . , nk }, k ∈ {1, . . . , d}}.            we obtain the continuous approximation by spline-based
+The value of F at any point in the domain can then be                             interpolation of the TT cores corresponding to the continuous
+approximated by interpolating between the elements of the                         variables. For example, we can use linear interpolation for
+tensor F .                                                                        the cores (i.e., between the matrix slices of the core) and
+                                                                                  define a matrix-valued function corresponding to each core
+3.2      Tensor Networks and Tensor Train                                         k ∈ {1, . . . , d},
+         Decomposition
+Naively approximating a high-dimensional function using                                          xk − xikk      k           xikk +1 − xk k
+                                                                                    F k (xk ) =               F :,ik +1,: +                F :,ik ,: ,
+a tensor is intractable due to the combinatorial and                                           xikk +1 − xikk               xikk +1 − xikk
+storage complexities of the tensor (O(nd )). Tensor networks                                                                                        (3)
+mitigate the storage issue by decomposing the tensor into                         where xikk ≤ xk ≤ xikk +1 and F k : Ik ⊂ R → Rrk−1 ×rk
+factors with fewer elements, akin to using Singular Value                         with r0 = rd = 1. This induces a continuous approximation
+Decomposition (SVD) to represent a large matrix. In this                          of F given by
+paper, we explore the use of Tensor Train (TT), a type of
+Tensor Network that represents a high-dimensional tensor                                      F (x1 , . . . , xd ) ≈ F 1 (x1 ) · · · F d (xd ).    (4)
+using several third-order tensors called cores, as shown in
+                                                                                  This allows us to selectively do the interpolation only for the
+Fig. 2.
+                                                                                  cores corresponding to continuous variables, and hence we
+   We can access the element indexed (i1 , . . . , id ) of the
+                                                                                  can represent functions in TT format whose variables could
+tensor in this format simply by multiplying matrix slices
+                                                                                  be a mix of continuous and discrete elements.
+from the cores:
+
+               F (i1 ,...,id ) = F 1:,i1 ,: F 2:,i2 ,: · · · F d:,id ,: ,   (2)   3.4    Global Optimization using Tensor Train
+                                                                                         (TTGO)
+where F k:,ik ,: ∈ Rrk−1 ×rk represents the ik -th frontal slice                  In optimization problems, the goal is to find the decision
+(a matrix) of the third-order tensor F k . For any given                          variables x that maximize the objective function f (x).
+
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                                  5
+
+
+TTGO (Shetty et al. 2024a) frames this problem as                                • Reward function R : Ωx × Ωu → R: The immediate
+the maximization of an unnormalized probability density                            reward, which depends on the current state xt , action
+function (PDF) F (x), which is derived from f (x) through a                        ut .
+monotonically non-increasing transformation. The TT-Cross                        • Discount factor γ ∈ [0, 1].
+algorithm is then used to compute the TT approximation of                  This system can be described by a Markov Decision Process
+F (x), denoted by F :                                                      (MDP) M = {Ωx , Ωu , Ωα , f, R, γ}. The objective is to find
+                           r1 X
+                              r2                rd−1                       a policy π that maximizes the expected cumulative reward
+                           X                    X
+ F (x1 , . . . , xd ) ≈                  ···                                                X∞
+
+                           γ1 =1 γ2 =1         γd−1 =1                                  Eπ [   γ t R(xt , π(α, xt )) | x0 = x].       (6)
+                                                                                            t=0
+     F 1 (1, x1 , γ1 )F 2 (γ1 , x2 , γ2 ) · · · F d (γd−1 , xd , 1), (5)
+                                                                           However, knowing the exact value of α in the real
+                    k                                                      world is intractable. This information can, however, be
+where each F is a TT core of size rk−1 × nk × rk , with
+                                                                           estimated using multimodal sensors (Lee et al. 2020b) or
+nk denoting the number of discretization points for xk , and
+                                                                           proprioceptive history (Bianchini et al. 2023; Lee et al.
+the TT ranks rk typically remaining small even in high
+                                                                           2020a). Given the sensor noise and model inaccuracy, it is
+dimensions.
+                                                                           better to estimate the system parameters as a probabilistic
+   Given the TT representation of F (x) as F , we can
+                                                                           distribution, denoted as α̂ ∼ P (α̂). Therefore, our approach
+exploit its separable structure to perform coordinate-wise
+                                                                           aims to find a policy π that maximizes
+optimization by iteratively selecting and refining promising
+                                                                                               ∞
+                                                                                        "                                        !#
+candidates across dimensions. In contrast to naive methods                                     X
+                                                                                                    t
+that require exhaustive search over an exponentially large                   Eα̂∼P (α̂) Eπ         γ R(xt , π(α̂, xt )) | x0 = x    . (7)
+                                                                                                  t=0
+grid (i.e., O(nd )), the TT format enables localized and
+efficient search for a global (or near-global) optimum with                   Solving (7) involves knowing the probability distribution
+significantly lower complexity (i.e., O(ndr2 )). Furthermore,              P (α̂) and then finding the policy π that maximizes the
+this approach is entirely gradient-free, making it well-suited             expected cumulative reward over this distribution. One
+for high-dimensional and non-convex landscapes. For further                approach to address this problem is to learn control
+technical details on these procedures, we refer the readers                policies separately for each instance with its specific
+to (Oseledets 2011; Sozykin et al. 2022; Shetty et al. 2024a).             parameter distribution, akin to performing domain adaptation
+                                                                           within each target domain. However, a single manipulation
+                                                                           primitive typically involves numerous instances, making
+3.5      Generalized Policy Iteration using Tensor
+                                                                           this approach too time-consuming and impractical. An
+         Train (TTPI)                                                      alternative is to learn an augmented base policy that
+Optimal control of dynamical systems with nonlinear                        encompasses multiple instances and retrieve instance-
+dynamics poses a substantial challenge in robotics. To                     specific policies using estimated instance information,
+address this, Generalized Policy Iteration using Tensor Train              similarly to the explicit motor adaptation (EMA) strategy.
+(TTPI) was proposed (Shetty et al. 2024b), leveraging tensor               However, EMA cannot solve (7) as it focuses only on one
+approximation and approximate dynamic programming. This                    specific parameter instance rather than a distribution.
+method approximates state-value and advantage functions                       In this work, we present an implicit motor adaptation
+using Tensor Train (TT), effectively mitigating the curse of               (IMA) approach that addresses the problem of probabilistic
+dimensionality. The low-rank structure of TT enables the use               system identification and, more importantly, the retrieval
+of TTGO to find near-global solutions during policy retrieval              of a robust policy conditioned on the distribution of
+from the advantage function, even under complex nonlinear                  parameters. Additionally, to reduce the computational
+system constraints, surpassing the capabilities of existing                burden of online control, we employ tensor factorization
+neural network-based algorithms. TTPI has demonstrated                     as an implicit representation of the base policy, enabling
+superior performance on several hybrid control problems. In                efficient parameter-conditioned policy retrieval through
+this article, we further extend this approach to learning robust           tensor core products.
+manipulation primitives for contact-rich tasks involving
+diverse contact parameters.                                                5     Implicit Motor Adaptation (IMA)
+                                                                           In this section, we provide a detailed introduction to
+4     Problem formulation                                                  implicit motor adaptation (IMA), focusing on its three
+                                                                           key components: 1) parameter-augmented base policy
+Let us consider a discrete-time dynamical system:                          learning, 2) probabilistic system adaptation conditioned on
+                                                                           proprioceptive history, and 3) parameter-conditioned policy
+      • State x ∈ Ωx ⊆ Rm : The system’s state space.
+                                                                           retrieval via domain contraction. The full pipeline is shown
+      • Action u ∈ Ωu ⊆ Rn : The system’s action space.
+                                                                           in Fig. 3.
+      • Parameters α ∈ Ωα ⊆ Rd : The unknown or uncer-
+        tain physical parameters of the system, such as mass,
+                                                                           5.1     Parameter-augmented Base Policy
+        friction coefficient, etc.
+      • Dynamics Model f : Ωα × Ωx × Ωu → Ωx : The                                 Learning
+        system’s next state depends on current state xt , action           Similarly to the multi-goal setting in DRL (Liu et al. 2022),
+        ut and the system parameters α.                                    we first train a parameter-augmented policy by augmenting
+
+
+Prepared using sagej.cls
+6                                                                                                                      Journal Title XX(X)
+
+
+
+
+Figure 3. Pipeline of the proposed approach, including (1) parameter-augmented base policy learning, (2) probabilistic system
+adaptation with proprioceptive history, and (3) parameter-conditioned policy retrieval. The base policy and parameter-conditioned
+policy are implicitly represented by the corresponding advantage functions A(α, x, u) and Â(x, u), respectively. Blue-shaded
+modules are trained in simulation, and green-shaded ones are used in deployment, with the probabilistic system adaptation module
+bridging both stages.
+
+
+the state space with parameters, treating both the state             To compute V k+1 in TT format, the function B πk V k is
+x and parameter α as inputs and the action u as the               queried iteratively using TT-Cross(B πk V k , ϵ), with batches
+output. This policy serves as the base policy for parameter-      of states (usually ranging from 1000 to 100,000 in prac-
+conditioned policy retrieval in Section 5.3, and is also          tice). This requires computing the policy π k (α, x) =
+used for data collection to train the probabilistic adaptation    arg max Ak (α, x, u) numerous times across several itera-
+                                                                   u∈Ωu
+module discussed in Section 5.2. The resulting parameter-
+augmented bellman equation is                                     tions, making a fast computation of argmaxAk (α, x, u) in
+                                                                                                                    u∈Ωu
+                    X∞                                          batch form crucial.
+    V (α, x) = Eπ        γ t R(xt , ut ) | x0 = x ,                  To resolve the bottleneck, the advantage function Ak is
+                             t=0                                  computed in TT format using TT-Cross. This is efficient as
+    A(α, x, u) = R(x, u) + γ(V (f (α, x, u)) − V (α, x)),         the calculation only requires evaluating V k and R, which
+                                                                  are cheap to compute. This enables the use of TTGO
+         π(α, x) = arg max A(α, x, u).
+                            u∈Ωu                                  (Shetty et al. 2024a), an efficient optimization technique
+                                                          (8)     for a function in TT format. As a result, solutions for
+where V (α, x) is the parameter-augmented state-value             π k (α, x) = argmax Ak (α, x, u) over batches of states can
+function, and A(α, x, u) is the parameter-augmented                             u∈Ωu
+advantage function.                                               be obtained quickly, leading to efficient policy retrieval and
+   Solving (8) is typically a challenging ADP problem due         value iteration. The optimal value function and advantage
+to the curse of dimensionality. In this article, we tackle        function are obtained upon algorithm convergence, resulting
+this challenge by building on our prior work, TTPI (Shetty        in functions in TT format:
+et al. 2024b), which utilizes tensor factorization techniques       V (α, x) ≈ V(α1:d , x1:m )
+for function approximation. The Value Iteration algorithm                                                                                     (10)
+(Pashenkova et al. 1996) is used to determine the optimal                     = V 1:,i1 ,: · · · V d:,id ,: V d+1               d+m
+                                                                                                              :,id+1 ,: · · · V :,id+m ,: ,
+value function. At any iteration k, the (k + 1)-th value
+function approximation is computed as                              A(α, x, u) ≈ A(α1:d , x1:m , u1:l )
+                                                                               = A1:,i1 ,: · · · Ad:,id ,: Ad+1              d+m
+                                                                                                            :,id+1 ,: · · · A:,id+m ,: (11)
+           V k+1 =TT-Cross(B πk V k , ϵ),
+B πk V k (α, x) =R(x, π k (α, x)) + γV k (f (α, π k (α, x)))                      Ad+m+1              d+m+l
+                                                                                   :,id+m+1 ,: · · · A:,id+m+l ,: .
+
+           π k (x) =argmaxAk (α, x, u),
+                           u∈Ωu                                   5.2    Probabilistic System Adaptation
+     k                             k                 k
+ A (α, x, u) =R(x, u) + γ(V (f (α, x, u)) − V (α, x)), The system parameters α (also called privileged environ-
+                                                         (9) ment information) is typically not accessible during execu-
+where ϵ is the accuracy threshold of TT-cross approximation. tion in the real world. However, we can probabilistically
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                                                      7
+
+
+                                                                   The parameter space Ωα is therefore composed of d
+                                                                   subspaces, namely Ωα = Ωα1 × · · · × Ωαd . We assume
+                                                                   each subspace is discretized by Ni points. Let αj =
+                                                                   (αj1 , · · · , αjd ) represents one instance of domain parameter,
+                                                                   at the discretization index j across all d dimensions.
+                                                                   Similarly, the parameter distribution P (α̂) is defined within
+                                                                   ΩP , also composed of d subspaces, namely ΩP = ΩP1 ×
+                                                                   · · · × ΩPd , and each subspace is discretized by Ni points. Let
+                                                                   Pj = P1 (α̂j1 )P2 (α̂j2 ) · · · Pd (α̂jd ) represents the probability
+                                                                   of the estimated value α̂j , where Pi is the probability
+Figure 4. Domain contraction in TT format.                         distribution at dimension i, i ∈ {1, · · · , d}.
+The parameter-augmented advantage function in TT format                Given the estimated parameter distribution P (α̂),
+typically includes separate 3rd-order cores for different          obtaining the corresponding parameter-conditioned policy
+dimensionality, such as parameter, state and action. Given a
+                                                                   π(x|P (α̂)) is not free. It is neither simply averaging
+probabilistic parameter distribution, we can retrieve the                                         PN
+parameter-conditioned policy by making product of parameter        the parameter estimates           j=1 Pj α̂j and directly feeding
+distributions and corresponding TT cores.                          it into π(α, x), nor merely taking the weighted sum of
+                                                                                                        PN
+                                                                   parameter-specific policies              j=1 Pj π(α̂j , x). Instead,
+                                                                   it involves finding the arg max of the weighted sum of
+                                                                   parameter-specific advantage functions, namely
+                                                                                                          N1
+                                                                                                          X             Nd
+                                                                                                                        X
+                                                                            A(x, u|P (α̂)) =                      ···           Pj Aα̂j (x, u).        (13)
+                                                                                                          j1 =1         jd =1
+
+                                                                   We call this process as domain contraction in our previous
+                                                                   work (Xue et al. 2024a), as illustrated in Fig. 4. Intuitively,
+                                                                   domain contraction randomizes over a contracted domain
+                                                                   based on instance-specific parameter distribution, instead of
+Figure 5. Domain contraction unifies domain randomization          randomizing over the full domain by blindly ignoring all
+and domain adaptation by giving different parameter
+                                                                   instance-specific information (as in domain randomization).
+distributions.
+                                                                   We further provide the theoretical proof below:
+                                                                   Proposition 1. Given the estimated parameter distribution
+estimate it as α̂, drawn from a probability distribution P (α̂).   P (α̂), the parameter-conditioned policy can be retrieved
+This distribution can be inferred from the proprioceptive          from the weighted sum of parameter-specific advantage
+history, namely                                                    functions.
+                  P (α̂t ) = ϕ(xt−k:t−1 , ut−k,t−1 ).      (12)    Proof. Obtaining the parameter-conditioned policy involves
+   We name this process as probabilistic system adaptation.        optimizing the parameter-augmented function
+To learn the mapping between the proprioceptive history               A(x, u|P (α̂))
+and P (α̂), a dataset is required containing the state-action                                                   
+history h = {xt−k:t−1 , ut−k:t−1 } and the corresponding             =R(x, u) + γ V f (x, u|P (α̂)) − V (x|P (α̂)) , (14)
+system parameter αt , which is accessible in simulation.
+                                                                     ∀(P, x, u) ∈ ΩP × Ωx × Ωu ,
+Various approaches, such as energy-based models (EBMs)
+LeCun et al. (2006) and diffusion models Ho et al. (2020),         with
+can be employed to learn this distribution. In this article,
+                                                                                             N1           Nd
+the subsequent probabilistic policy retrieval (Section 5.3)                                  X            X
+reduces the strong reliance on precise parameter estimation.       V (x|P (α̂)) =                   ···           P(j1 ,··· ,jd ) V (x|α̂j1 , · · · , α̂jd ),
+                                                                                            j1 =1         jd =1
+We use a straightforward multilayer perceptron (MLP) to
+approximate ϕ, while noting that more sophisticated models          N1
+                                                                    X             Nd
+                                                                                  X
+could be explored in future extensions.                                     ···           P(j1 ,··· ,jd ) = 1.
+   In practice, the loss function is defined as MSE (νt , αt ) =    j1 =1         jd =1
+
+∥νt − αt ∥2 , where νt is the output of MLP. We assume                                                                            (15)
+that P (α̂t ) follows a uniform distribution U(νt − w/2, νt +      For simplicity, we use α̂j to represent (α̂j1 , · · · , α̂jd ) and
+w/2), where w is a hyperparameter representing the                 Pj to represent P( j1 , · · · , jd ). Given that each subspace Ωαi
+bandwidth of U. Note that our framework is flexible and can        of the parameter space Ωα is discretized by Ni points, the
+incorporate other distributions as well.                           parameter-conditioned advantage function can be written as
+
+                                                                     A(x, u|P (α̂))
+5.3      Parameter-conditioned policy retrieval                                           N1         Nd
+                                                                                          X          X
+Without loss of generality, we assume the contact-
+                                                                                                                                             
+                                                                   =R(x, u) +                  ···           Pj γ V f (x, u|α̂j ) − V (x|α̂j ) .
+rich manipulation task involves d types of different                                   j1 =1         jd =1
+parameters, such as mass, size and friction coefficient.                                                                                               (16)
+
+
+Prepared using sagej.cls
+8                                                                                                                                                  Journal Title XX(X)
+
+
+    The right side of (16) can be further rewritten as         can retrieve the parameter-conditioned policy using TTGO
+                                                               (Shetty et al. 2024a), a specialized method for efficiently
+ N1        Nd
+                                                               finding globally optimal solutions given functions in TT
+ X        X                                                format.
+      ···       Pj R(x, u) + γ V f (x, u|α̂j ) − V (x|α̂j ) ,
+j1 =1     jd =1
+                                                                  To retrieve such parameter-conditioned policies, knowing
+                                                        (17)   the  parameter distribution P (α̂) is crucial. Domain
+and the parameter-specific advantage function is defined as    randomization    (DR) and domain adaptation (DA) rely
+                                                             on  assumed    distributions during training, while domain
+ Aα̂j (x, u) = R(x, u) + γ V f (x, u|α̂j ) − V (x|α̂j ) .      contraction (DC) offers a better way to leverage domain
+                                                        (18) knowledge during execution, enabling optimal behaviors
+   From (16), (17), and (18), we can derive that the while preserving generalization capability. We further
+parameter-conditioned advantage function is the weighted demonstrate that DR and DA are two special cases of DC,
+sum of parameter-specific advantage functions, as shown as shown in Figure 5 and detailed in (Xue et al. 2024a).
+in (13), and the parameter-conditioned primitive policy can
+then be computed by                                            5.4 Theoretical analysis of IMA compared with
+                                                                                                   EMA
+                 π(x|P (α̂)) = arg max A(x, u|P (α̂)).                             (19)
+                                                u∈Ωu                                       EMA is a commonly used approach for robust policy
+                                                                                           learning. Given that precise system identification is
+   Note that the parameter-conditioned policy cannot be
+                                                                                           intractable in real-world scenarios, we present a theoretical
+directly computed as the weighted sum of parameter-specific
+                                                                                           proof demonstrating that the control policy obtained by
+policies, since the arg max operation does not have an
+                                                                                           IMA is theoretically superior to that of EMA for practical
+associative property with respect to addition.
+                                                                                           applications.
+   Computing (13) and then retrieve the parameter-                                         Proposition 2. Given an estimate of domain parameter α,
+conditioned policy can be computationally expensive due to                                 the parameter-conditioned policy derived through implicit
+the combinatorial complexity and arg max over an arbitray                                  motor adaptation is more optimal than that obtained through
+function. We address this issue by leveraging the separable                                explicit motor adaptation.
+structure of TT format for efficient algebraic operation, and
+its advantage of finding optimal solutions for functions in TT                             Proof. Knowing the exact parameter α for the real-
+format. In Sec. 5.1, we have approximated the parameter-                                   world domain is intractable, but we can represent
+augmented advantage functions in TT format. We define the                                  it probabilistically. Let P (α̂) denote the probabilistic
+tensor cores related to x and u in (11) as                                                 estimation obtained using any off-the-shelf approach.
+                                                                                           Therefore, the objective of robust policy learning is to find
+   A(x1:m , u1:l ) = Ad+1              d+m              d+m+l
+                      :,id+1 ,: · · · A:,id+m ,: · · · A:,id+m+l ,: ,                      a policy π that maximizes
+                                                                  (20)
+                                                                                                                            ∞
+                                                                                                                       "                              #
+thus the parameter-specific advantage functions can be
+                                                                                                                           hX                       i
+                                                                                                                                 t
+                                                                                            Jπ (x, P (α̂)) = Eα̂∼P (α̂) Eπ     γ R(xt , ut ) x0 = x ,
+extracted as
+                                                                                                                                        t=0
+        Aα̂j (x, u) ≈ A(x1:m , u1:l |α̂j )                                                 s.t.   xt+1 = f (xt , ut , α̂).
+                                                                                   (21)                                                          (24)
+                          = A1:,j1 ,: · · · Ad:,jd ,: A(x1:m , u1:l ),
+                                                                                              The key difference between IMA and EMA lies in the
+   The parameter probability Pj for parameter instance α̂j is                              method used to retrieve the parameter-conditioned policy.
+given by                                                                                   EMA determines the domain parameter α with a single
+                                                                                           estimate, defined as α̂ = fθ (h). The obtained α̂ is then
+                P(j1 ,...,jd ) = P1 (α̂j1 )P2 (α̂j2 ) · · · Pd (α̂jd ).            (22)    used as input to the parameter-augmented base policy. The
+                                                                                           resulting parameter-conditioned policy πe aims to maximize
+   For simplicity, we denote Pd (α̂jd ) as Pjdd . The parameter-
+conditioned advantage function in (13) can then be                                                         V (x|α̂) = V (α̂j1 , · · · , α̂jd , x).                       (25)
+efficiently computed as the weighted sum of parameter-                                        IMA estimates the true parameter α using a probability
+specific advantage functions for each dimension, utilizing the                             distribution α̂ ∼ P (α̂), and then retrieves the parameter-
+separable structure of the TT model, namely                                                conditioned policy πi through domain contraction, with the
+                                                                                           objective of maximizing
+                              N1             Nd
+                              X              X                                                               N1            Nd
+A(x, u|P (α̂)) ≈                       ···           P(j1 ,...,jd ) A(x1:m , u1:l |α̂j )   V (x|P (α̂)) =
+                                                                                                             X
+                                                                                                                     ···
+                                                                                                                           X
+                                                                                                                                   P(j1 ,··· ,jd ) V (α̂j1 , · · · , α̂jd , x),
+                              j1 =1          jd =1
+                                                                                                             j1 =1         jd =1
+        N1
+        X                              Nd
+                                       X                                                                                                          (26)
+    =           Pj11 A1:,j1 ,: · · ·           Pjdd Ad:,jd ,: A(x1:m , u1:l ).             where α̂ ∼ P (α̂).
+        j1 =1                          jd =1                                                  Given the same dataset used in EMA and IMA adaptation
+                                                          (23)                             module training, α̂ can be considered a single sample from
+  The computation of weighted sum is in tensor core level,                                 P (α̂). Therefore, we have
+which is much more efficient than in the function level. After
+obtaining the parameter-conditioned advantage function, we                                                 Jπi (x, P (α̂)) ≥ Jπe (x, P (α̂)).                            (27)
+
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                             9
+
+
+
+
+                (a) Ground truth                         (b) EMA result                               (c) IMA result
+
+Figure 6. Position and velocity responses of a spring-damper system, along with the approximated value functions (figure insets as
+colormaps), for the policies derived from the ground truth, EMA, and IMA.
+
+
+This indicates that the policy obtained by EMA typically          Since the physical dynamics of Hit are fully known, the
+demonstrates poorer performance compared to that obtained         control policy can be derived analytically. For Push and
+by IMA.                                                           Reorientation, TTPI (Shetty et al. 2024b) is used
+                                                                  to compute the parameter-augmented value functions and
+Example 1. Spring-damper System                                   advantage functions.
+   To numerically illustrate the difference, we provide a            Hit: Hitting involves manipulating objects through impact,
+spring-damper system with parameters α = (m, k, b) as a           which is a representative one-shot manipulation task. This
+toy example, where m represents the mass, k the spring            means the object can only be hit once, with no additional
+stiffness, and b the damping coefficient. The system is           actions allowed. Determining an appropriate impact is
+described by the following state-space equations                  therefore crucial and varies significantly depending on
+                                                                  instance-specific domain parameters. In this work, we focus
+                           ẋt = Axt + But ,                      on the planar hitting primitive. The state is the object
+where xt includes the displacement and velocity, and ut is        position, denoted as x = [x, y], and the control input is
+the control input. The system matrices are expressed as           the applied impact u = [Ix , Iy ]. The physical parameters α
+                                                              include the object mass m and the friction coefficient µ.
+                      0     1               0                        Given the mass m, the friction coefficient µ, the initial
+              A=             b ,    B= 1 .
+                    −m k
+                           −m              m
+                                                                  state x0 , and the target xdes , we define the following single-
+                                                                  step reward:
+   The optimal control law and value function can be
+                                                                      r(α, x, u) = − ∥x − xdes ∥2 + 0.01 ∥u∥2 ,
+                                                                                                                      
+obtained by solving the Algebraic Riccati Equation (ARE)                                                                      (28)
+(Lancaster 1995), and they are strongly influenced by the         where
+parameter values.                                                                            u           u
+                                                                                x = x0 +        t − 0.5     µ g t2 .
+   We assume that the real system parameters α = [m, k, b]                                   m          ∥u∥
+are unknown but can be estimated as a probability                 Since the hitting task terminates after a single action, this
+distribution α̂ ∼ P (α̂). Fig. 6 compares the results of          immediate reward function r effectively serves the same role
+EMA and IMA with the ground-truth optimal policy.                 that an “advantage function” would in a multi-step setting,
+The value function obtained by IMA closely aligns                 differing only by a constant. We use TT-cross to approximate
+with the ground truth, effectively stabilizing the mass at        r(α, x, u) across diverse parameter instances in TT format.
+the desired equilibrium position. In contrast, the EMA               Push: Pushing is widely recognized as a challenging task
+policy shows significantly poorer performance. This toy           in robot planning and control, primarily due to its hybrid
+example highlights the effectiveness of probabilistic system      and under-actuated nature (Mason 1986; Lynch and Mason
+adaptation and implicit policy retrieval in a dynamical           1996; Mason 1999). In this work, we further complicate the
+system with unknown parameters.                                   problem by considering diverse parameters and aiming to
+                                                                  find the instance-aware optimal policy for each. The state of
+6     Experimental Results                                        the planar pushing task is characterized by [sx , sy , sθ , ψ, ϕ],
+                                                                  and the action is represented as [fx , fy , ψ̇, ϕ̇]. Here,
+We validate the effectiveness of the proposed method on           [sx , sy , sθ ] ∈ SE(2) denotes the position and orientation
+three contact-rich manipulation tasks: Hit, Push, and             of the object in the world frame. ψ is the relative angle
+Reorientation, as shown in Fig. 1. All the primitives             of the contact point in the object frame, and ϕ represents
+are highly dependent on the physical parameters between the       the distance between the contact point and the object
+object, the robot, and the surroundings.                          surface. The forces exerted on the object are denoted by
+                                                                  f = [fx , fy ]⊤ , while vp = [ψ̇, ϕ̇]⊤ represents the angular
+6.1      Base policy learning                                     and translational velocities of the robot’s end-effector. The
+We first learn the parameter-augmented base policy over           physical parameters include the object mass m, radius r, and
+a range of system parameters using tensor approximation.          the friction coefficient µ between the object and the table.
+
+Prepared using sagej.cls
+10                                                                                                             Journal Title XX(X)
+
+
+  The robot dynamics is defined based on the quasi-static           Table 1. Cumulative reward of three manipulation tasks
+approximation and the limit surface, resulting in a similar                    w=1      w = N/20        w = N/5         w=N
+expression as (Hogan and Rodriguez 2020a). To learn                  Hit        1.0     0.65 ± 0.21    0.01 ± 0.01    0.02 ± 0.05
+the parameter-augmented advantage function, the reward               Push       1.0     0.99 ± 0.01    0.99 ± 0.03    0.93 ± 0.11
+function is defined as                                               Reori.     1.0     0.99 ± 0.04    0.99 ± 0.07    0.85 ± 0.19
+
+               r = −(ρcp + co + 0.01cf + 0.01cv ),          (29)
+                                                                    contraction (DC). This section aims to demonstrate the
+with
+                                                                    unification and flexibility of DC compared to domain ran-
+     cp = ∥xp − xdes
+                 p ∥/lp ,            co = ∥xo − xdes
+                                                 o ∥/lo ,           domization (DR) and domain adaptation (DA). To illustrate
+                                                            (30)    this, we make a simplifying assumption, without loss of
+     cf = ∥f ∥,        cv = ∥vp ∥,
+                                                                    generality, that the system adaptation module provides a
+where xp = [sx , sy ] and xo = θ denote the object’s position       uniform distribution as the probabilistic representation of
+and orientation. Without loss of generality, we set xdes = 0        parameters. This distribution spans a range defined by the
+as the target configuration. f is the control force, while vp       discretization indices of each dimension (denoted as w), as
+is the velocity of the robot’s end-effector. lp and lo are set to   shown in Table 1 and Fig. 7. Specifically, w = 1 indicates
+0.005 and 0.01π, respectively.                                      that the exact value of the physical parameter is known,
+   Reorientation: In this task, we aim to enable the robot          corresponding to DA. w = N reflects no prior knowledge
+to reorient an object using parallel fingers. The state is the      about the model parameters, corresponding to DR. These
+orientation angle θ, and the control input is the normal            two variants can be seen as extreme cases of DC, where w
+force fn between the gripper and object. The physical               determines how finely the distribution is utilized for policy
+parameters are the object mass m, length l and torsional            retrieval. Nonetheless, our framework is general and flexible,
+friction coefficient µ. The gravitational torque and normal         and can accommodate arbitrary parameter distributions, such
+force fn are used as braking mechanisms to slow down                as those produced by diffusion models (Ho et al. 2020).
+the object motion. We build the dynamics model of the                  Table 1 and Fig. 7 demonstrate the comparisons of
+reorientation primitive based on (Viña Barrientos et al. 2016)     cumulative reward and final state error, respectively. The
+as                                                                  state error is quantified as the ℓ2 norm of the difference
+                        I θ̈ = τg + 2τf ,                           between the final state and the target state. The cumulative
+                                                            (31)
+                          θ̇ = θ̇0 − θ̈∆t,                          reward is normalized using the value obtained through DA.
+                                                                    We can observe that DA (w = 1) typically performs the best
+where τf = µt fn1+ξ is the torsional sliding friction between       in all these three tasks, in particular for the Hit primitive, as
+robot gripper and the object. In this work, we set ξ = 0. µt        it resembles an open-loop control. Once the impact is given
+is the torsional friction coefficient, which is related to the      from the robot to the object, there is no way to adjust control
+materials and normal force distribution. τg = mglsin(θ) is          inputs to influence the object movements further. However,
+the gravity torque. We therefore include µt , object mass m         knowing the exactly correct domain parameter is intractable
+and length l as the model parameters. The task is to rotate any     (as shown in Fig. 10). Instead, domain contraction does not
+object from its initial configuration to a vertically upward        require one specific value and accommodate probabilistic
+configuration. To achieve this, the object is given an initial      estimation. For example, results show that a rough range
+angular velocity θ̇0 by swinging the robot arm.                     (w = N/20) is sufficient to achieve the target for the Hit
+   The reward function for Reorientation primitive                  primitive. Furthermore, Push and Reorientation can
+learning is defined as                                              be considered more akin to closed-loop control, which allows
+                                                                    for much more rough parameter estimation. As depicted in
+                           r = −(βcg + cf ),                (32)
+                                                                    Table 1 and Fig. 7, a rough distribution with w = N/5 is
+with cg = ∥xo − xdeso ∥, cf = ∥fn ∥. xo is the orientation          adequate.
+angle θ, and fn is the normal force between the gripper and            Moreover, based on Table 1, we observe that w =
+object. xdes
+         o is set to π as the reorientation goal, and β is set      N results in the lowest cumulative reward. This is
+to 104 .                                                            consistent with our assertion that DR typically leads to
+   In our experiments, we employed an NVIDIA GeForce                conservative behaviors. Although DA(w = 1) yields the
+RTX 3090 GPU with 24GB of memory. The accuracy                      highest cumulative reward, obtaining precise parameter
+parameter for cross approximation was set to ϵ = 10−3               values is often challenging in the real world. DC bridges
+for TT-Cross approximation. The maximum rank rmax and               the gap between domain adaptation and DR, offering greater
+discount factor were set to 100 and 0.99, respectively.             flexibility to generate optimal behaviors while leveraging
+The continuous variables of state, action and parameter             instance-specific rough parameter distributions. This is much
+domains were discretized as 50 to 500 points using uniform          practical for real-world contact-rich manipulation tasks.
+discretization.
+                                                                    6.3    Results of implicit v.s. explicit motor
+6.2      Results of domain contraction for policy                          adaptation
+         retrieval                                                  In this section, we compare the performance of IMA
+Given the parameter-augmented advantage functions learned           and EMA on each task with 10 different instances, by
+in Section 6.1, we can now retrieve the parameter-                  randomizing system parameters and initial conditions while
+conditioned policy for each specific instance through domain        using the same base policy. As shown in Fig. 8, IMA
+
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                            11
+
+
+
+
+                       (a) Hit                                   (b) Push                                (c) Reorientation
+
+Figure 7. Comparison of final state error given different estimated parameter distribution.
+
+
+                                                                       levels of parameter estimation accuracy, as shown in Fig. 10,
+                                                                       and study the impact of different choices for w in DC.
+                                                                       When parameters are precisely estimated, EMA achieves the
+                                                                       lowest final state error, demonstrating optimal performance.
+                                                                       However, as parameter estimation becomes less accurate,
+                                                                       greater randomization (a larger w) is required to obtain
+                                                                       a better policy. The dotted line and gray shaded area in
+                                                                       the figure indicate the estimation accuracy achieved in our
+                                                                       work, with IMA (w = N/3) providing the best results. This
+                                                                       analysis highlights the effectiveness of IMA in real-world
+                                                                       scenarios where system parameters are unknown and can
+Figure 8. Comparison between IMA and EMA on three
+                                                                       only be roughly estimated. It also demonstrates that domain
+manipulation primitives in terms of the final state error, given the   randomization (w = N ) is not always good when some
+same base policy.                                                      domain knowledge is available, even if imperfect. We believe
+                                                                       IMA offers a promising approach to find control policies
+                                                                       when we have limited access to the domain knowledge.
+                                                                          Figures 11 and 12 further illustrate the performance of
+                                                                       IMA and EMA in the pushing and reorientation tasks,
+                                                                       respectively. In Fig. 11, the same base policy is used to
+                                                                       push a sugar box and a mustard bottle toward their target
+                                                                       configurations, including both position and orientation.
+                                                                       While both approaches eventually reach the target positions,
+                                                                       IMA outperforms EMA in terms of orientation. This is
+                                                                       primarily due to the underactuated dynamics of the planar
+                                                                       pushing task, where system parameters such as the friction
+                                                                       coefficient and object mass play a critical role. IMA
+Figure 9. Resulting hitting impact of the policies derived from        estimates these parameters probabilistically and retrieves
+the ground truth, EMA, and IMA.                                        parameter-conditioned policies implicitly. This allows for
+                                                                       increased tolerance of typical system identification errors,
+                                                                       enabling robust contact-rich manipulation with unknown
+generally outperforms EMA on the three contact-rich                    parameters. Similarly, Fig. 12 demonstrates the superior
+manipulation tasks, particularly in the open-loop hitting              performance of IMA over EMA in reorienting an arbitrary
+task. In this paper, we employ a simple MLP with a                     object vertically from the bottom to the top.
+structure of 512 × 256 × 128 × 64 for parameter estimation.
+EMA directly uses the output (denoted as α̂t ) to retrieve
+                                                                       6.4   Results of robust manipulation primitive
+the parameter-conditioned policy from the base policy.
+In contrast, IMA assumes α̂t as the mean νt of a                             learning
+uniform distribution U(νt − w/2, νt + w/2), where the                  We also compared our full pipeline with two widely used
+range w is set to N/20 for Hit and N/5 for Push and                    robust policy learning approaches: reinforcement learning
+Reorientation.                                                         with domain randomization (RL+DR) (Tobin et al. 2017)
+   Fig. 9 illustrates the computed impacts for 10 hitting              and reinforcement learning with explicit motor adaptation
+instances with different physical parameters, where the                (RL+EMA) (Yu et al. 2017; Qi et al. 2023). We utilize
+ground truth values are represented by blue dots. By utilizing         Soft Actor-Critic (SAC) (Haarnoja et al. 2018) for policy
+a probabilistic representation of the estimated parameters             learning in both RL+DR and RL+EMA, as SAC has been
+and domain contraction for policy retrieval, IMA typically             shown to be the state-of-the-art RL algorithm for such
+produces values closely aligned with the ground truth,                 contact-rich manipulation tasks, especially planar pushing,
+whereas EMA often yields suboptimal results. We further                as demonstrated in (Potters 2022; Cong et al. 2022). Our
+analyze the performance of EMA and IMA under varying                   implementation is based on Stable-Baselines3 (Raffin et al.
+
+
+Prepared using sagej.cls
+12                                                                                                              Journal Title XX(X)
+
+
+
+
+                                                                  Figure 12. Trajectories produced by IMA (Left) and EMA
+                                                                  (Right) for the reorientation task. The blue lines depict the
+                                                                  trajectory of an arbitrary object, with the objective of reorienting
+                                                                  it from the bottom configuration to a perfectly vertical top
+Figure 10. Resulting final state error of different motor         configuration. The lengths of the red lines indicate the angular
+adaptation strategies under varying levels of parameter           velocity magnitude, which is indirectly controlled by leveraging
+estimation accuracy. The dotted line and gray shaded area         gravity and friction forces.
+represent the mean and standard deviation of the parameter
+estimation error achieved using the system estimator in this      Table 2. Time required for computing parameter-conditioned
+article.                                                          advantage function using core-level or function-level operations
+                                                                                             core-level        function-level
+                                                                        Hit               0.016s ± 0.002s     0.720s ± 0.236s
+                                                                        Push              0.075s ± 0.003s     18.56s ± 4.748s
+                                                                        Reorientation     0.018s ± 0.003s     8.494s ± 0.561s
+
+
+
+                                                                  The results show that our method requires significantly
+                                                                  less time for base policy training compared to the other
+                                                                  methods, while achieving the lowest base error, highlighting
+                                                                  the advantages of leveraging TT for learning control policies
+                                                                  in contact-rich manipulation tasks.
+                                                                     Furthermore, our method (TT+IMA) achieves the lowest
+                                                                  final state error among the three approaches, demonstrating
+                                                                  the overall effectiveness of our complete approach for
+                                                                  robust contact-rich manipulation tasks, with implicit action
+                                                                  representation playing a crucial role in retrieving robust
+                                                                  policies. An additional observation is that RL+EMA often
+                                                                  exhibits the highest standard deviation, indicating that its
+                                                                  control policies perform extremely poorly in some instances,
+                                                                  whereas IMA has a better statistical performance over the
+                                                                  diverse instances.
+
+                                                                  6.5    Sensitivity analysis and ablation study
+Figure 11. Planar pushing tasks with a sugar box (Top) and a
+mustard bottle (Bottom). Left: Object trajectory produced by      Our framework involves several hyperparameters, such as
+IMA; Right: Object trajectory produced by EMA.                    the maximum TT-rank, the discretization granularity, and
+                                                                  the bandwidth of the uniform distribution. To analyze their
+                                                                  impact on policy performance, we conduct a sensitivity
+2021), using a Multilayer Perceptron (MLP) with a 64 × 64         analysis across a range of values for each hyperparameter.
+× 64 architecture as the policy network. The discount factor      Figure 15 shows how policy performance, measured by the
+is set to 0.99, and the learning rate to 0.001.                   ℓ2 error between the final and target states, varies with
+   The quantitative results are presented in Fig. 13, including   the maximum TT-rank and discretization granularity. For
+the time required for policy training and the state error of      comparability across tasks, the errors are normalized by the
+the retrieved policy. The base error and adaptation error         worst-case performance in each task.
+refer to the final state error of the base policy with the           From Figure 15, we observe that setting the maximum
+true parameter and the parameter-conditioned policy after         rank rmax above 20 leads to consistently low errors across
+motor adaptation, respectively. For RL+DR, the base error         all tasks. For Push and Hit, even lower ranks (e.g.,
+and adaptation error are the same since no motor adaptation       rmax = 10 or 5) are sufficient, indicating that the underlying
+is performed.                                                     policies lie in a low-rank functional space. A relatively
+   Notably, although the Hit task is a one-shot manipulation      low tensor rank is sufficient to capture the essential
+task in which proprioceptive history is unavailable, the motor    structure, and policy performance remains stable when the
+adaptation module works by observing the trajectories of          rank is increased further. Empirically, we observe that
+past rollouts, similarly to how humans perform such tasks.        the piecewise-smooth dynamics (Toussaint et al. 2020)
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                             13
+
+
+
+
+Figure 13. Comparison of different robust primitive learning approaches in terms of training time, and state errors of base policies
+and adapted policies. The unit of training time is seconds for Hit and minutes for Push and Reorientation. Errors are
+calculated based on the ℓ2 norm between the final configuration and the target configuration.
+
+
+
+
+             (a) Initialization              (b) Pushing                 (c) Contact switching              (d) Disturbance
+
+
+
+
+          (e) Contact switching              (f) Pushing                 (g) Contact switching            (h) Target Reaching
+
+Figure 14. An example of planar pushing task: bleach bottle on a metal surface. The system begins in the initial configuration (a),
+aiming to manipulate the bottle to reach the target configuration (h). The robot first makes contact with the bottle and pushes it
+slightly (b), then switches the contact point (c). When an external disturbance (d) is introduced by a human, the robot adapts by
+switching the contact point again (e) to accommodate the unexpected change. It continues pushing the bottle further (f), performs
+another contact switch (g), and ultimately reaches the target configuration (h).
+
+commonly encountered in contact-rich manipulation tasks             a one-shot (open-loop) task, benefits from a more precise
+induce structured, low-dimensional variations in the state-         distribution, with w = N/20 being adequate. In general,
+action space. The corresponding advantage functions often           the bandwidth parameter for other contact-rich tasks can be
+exhibit a low-rank structure, which can be efficiently              determined similarly based on whether the task is open-loop
+captured using the TT representation.                               or closed-loop, without requiring significant tuning effort.
+   Similarly, the policy is robust to the choice of                    To further demonstrate the efficiency of the TT
+discretization granularity. As shown in Figure 15, when the         representation, we compared it against non-TT function
+number of discretization intervals exceeds 8, performance           approximation methods, particularly Neural Networks (NN).
+does not change much with further refinement, indicating            In our framework, both TT and NN can be used to
+insensitivity to this hyperparameter. This robustness can           learn parameter-augmented base policies and to approximate
+be attributed to the fact that low-rank TT models provide           parameter-augmented advantage functions. The key question
+smooth function approximations, which support effective             is which method offers greater efficiency in the subsequent
+interpolation between discretized points (as discussed in           steps: computing the parameter-conditioned advantage
+Section 3.3). While extremely coarse discretization may             function and retrieving the corresponding policy via an
+degrade performance, in practice, setting the number of             arg max operation.
+intervals to 10 or 20 generally yields stable and accurate             Table 2 highlights the significant computational advantage
+results.                                                            of TT in computing the advantage function. Specifically, TT
+   For the influence of the bandwidth for the uniform               models support efficient core-level operations, which avoid
+distribution used in probabilistic domain adaptation, we            combinatorial computation across the multi-dimensional
+refer the readers to Section 6.2 for details. In summary,           parameter space, leading to a complexity of O(N dr2 ), where
+a coarse bandwidth (w = N/5, where N is the number                  N is the number of discretization points per dimension,
+of discretization points) is sufficient for closed-loop tasks       d is the dimensionality of the parameter space, and r is
+such as Push and Reorientation. In contrast, Hit, as                the TT rank, which typically remains small in practice,
+
+
+Prepared using sagej.cls
+14                                                                                                           Journal Title XX(X)
+
+
+Table 3. Comparison of TT and NN representation for parameter-conditioned policy retrieval. Error refers to the task execution
+error using the retrieved policy, while Opt. Time indicates the time required to perform the arg max operation.
+                                 TT Optimization                  TT Refinement                   NN Optimization
+                            Task Error    Opt. Time (s)     Task Error     Opt. Time (s)     Task Error   Opt. Time (s)
+         Hit               0.010 ± 0.008   0.003 ± 0.001   0.002 ± 0.001    0.015 ± 0.001   0.002 ± 0.004   0.346 ± 0.021
+         Push              0.034 ± 0.024   0.013 ± 0.001   0.033 ± 0.024    0.146 ± 0.001   1.469 ± 0.574   2.020 ± 0.002
+         Reorientation     0.061 ± 0.104   0.002 ± 0.001   0.061 ± 0.104    0.062 ± 0.001   0.751 ± 0.680   1.514 ± 0.092
+
+
+                                                                   of TT representation for efficient and robust policy learning
+                                                                   in complex, contact-rich manipulation tasks.
+
+                                                                   6.6      Real-robot experiments: planar push
+                                                                   We validated the proposed method for the planar pushing
+                                                                   task using a 7-axis Franka robot and a RealSense D435
+                                                                   camera. The manipulated objects included a sugar box
+                                                                   and a bleach cleanser from the YCB dataset (Calli et al.
+                                                                   2015), each with different shapes and masses, as shown in
+                                                                   Fig. 1. The friction coefficients between the objects and the
+                                                                   table were varied by using a metal surface and plywood,
+                                                                   respectively. Note that it is easier to control the robot
+                                                                   kinematically rather than using force control. We therefore
+                                                                   leveraged the ellipsoidal limit surface to convert the applied
+                                                                   force to velocity, resulting in the motion equations shown
+Figure 15. Sensitivity analysis of policy performance with         in (Hogan and Rodriguez 2020b; Xue et al. 2023). We
+respect to the maximum TT-rank (solid lines) and discretization
+granularity (dashed lines). The y-axis shows the normalized ℓ2
+                                                                   trained a parameter-augmented policy in simulation and then
+error between the final and target states, scaled by the           applied it in the real world through domain contraction. The
+worst-case performance in each task. The x-axis denotes the        experiments demonstrate the effectiveness of the obtained
+maximum TT-rank and the number of discretization intervals         parameter-conditioned policies in manipulating instances
+(non-uniformly spaced to enhance readability in the low-rank       with diverse parameters. Additionally, external disturbances
+and coarse-discretization regions). The results demonstrate that   were introduced by humans, showcasing the reactivity of the
+policy performance is not highly sensitive to these                retrieved policy. Figure 14 presents keyframes of the learned
+hyperparameters.
+                                                                   planar pushing primitive applied to a bleach bottle on a metal
+                                                                   surface, exemplifying a specific case within a variety of
+                                                                   diverse pushing scenarios. Further results are demonstrated
+as demonstrated in our experiments. In contrast, NN-based          in the accompanying video.
+methods (or any non-TT models) rely on function-level
+operations, resulting in a complexity of O(N d ), which            7       Conclusion and Future Work
+makes the computation substantially slower.
+                                                                   In this article, we propose implicit motor adaptation
+   After computing the parameter-conditioned advantage             for robust manipulation primitive learning, which enables
+function, the next step is policy retrieval via an arg max         parameter-conditioned policy retrieval given a probabilistic
+operation. As shown in Table 3, TT again demonstrates supe-        parameter distribution rather than a single estimate. We
+rior efficiency. Direct TT-based optimization (TT Optimiza-        prove that, to achieve this, the policy must be represented
+tion) yields low-error policies with minimal computation           implicitly as the arg max of the advantage function, rather
+time, achieving near-global solutions within milliseconds. In      than treated as an explicit feed-forward function. The state-
+contrast, NN-based approaches (NN Optimization) typically          value and advantage functions are represented in tensor
+rely on gradient-based solvers. In this work, we specifically      train (TT) format, facilitating efficient policy retrieval
+adopt the Adam optimizer (Kingma and Ba 2015) as a rep-            through operations at the tensor core level instead of at
+resentative method for comparison. The results indicate that       the function level. Our approach differs from the well-
+this approach is slower and more susceptible to suboptimal         known explicit motor adaptation framework, which either
+convergence, particularly in complex tasks such as Push and        requires precise system identification or additional student
+Reorientation.                                                     policy training. Theoretical analysis and numerical results
+   To further improve accuracy, we also evaluated a hybrid         demonstrate the superior performance of implicit motor
+approach (TT Refinement), which uses TT optimization               adaptation over explicit motor adaptation. Simulation and
+for initialization, followed by a gradient-based Newton-           real-world experiments further validate the effectiveness
+type method. While this refinement slightly improves               of our approach in contact-rich manipulation tasks under
+performance, the gain is often marginal compared to the            parameter uncertainty and external disturbances.
+additional computational cost. In the tasks considered in this        Our work paves the way for robust sim-to-real transfer.
+work, TT optimization alone is sufficient to achieve high-         It can be easily integrated with more general policy
+quality results. These findings highlight the strong potential     learning approaches, such as reinforcement learning methods
+
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                                15
+
+
+and classical approaches (e.g., LQR), provided the base                  Ibarz, Peter Pastor, Kurt Konolige, Sergey Levine, and Vincent
+policy can be implicitly represented with a state-action                 Vanhoucke. Using simulation and domain adaptation to
+value function. The key insight is to represent the base                 improve efficiency of deep robotic grasping. In Proc. IEEE Intl
+policy implicitly and retrieve the parameter-conditioned                 Conf. on Robotics and Automation (ICRA), pages 4243–4250,
+policy probabilistically. This concept also holds promise for            2018.
+achieving robust behavior cloning, where the policy can be           Berk Calli, Arjun Singh, Aaron Walsman, Siddhartha Srinivasa,
+represented through energy functions (as in implicit behavior            Pieter Abbeel, and Aaron M Dollar. The YCB object and model
+cloning (Florence et al. 2022)) or denoising functions (as in            set: Towards common benchmarks for manipulation research.
+diffusion policy (Chi et al. 2024)).                                     In 2015 international conference on advanced robotics (ICAR),
+   In this article, we used TT to represent the value                    pages 510–517. IEEE, 2015.
+function and the advantage function, both obtained via TT-           Yevgen Chebotar, Ankur Handa, Viktor Makoviychuk, Miles
+Cross approximation (Oseledets and Tyrtyshnikov 2010;                    Macklin, Jan Issac, Nathan Ratliff, and Dieter Fox. Closing
+Usvyatsov et al. 2022). Although TT-Cross enables efficient              the sim-to-real loop: Adapting simulation randomization with
+global approximation by actively querying function values,               real world experience. In Proc. IEEE Intl Conf. on Robotics
+it struggles to scale to very high-dimensional settings. In              and Automation (ICRA), pages 8973–8979, 2019.
+the future, we plan to combine TT with neural networks in            Shuo Cheng and Danfei Xu. League: Guided skill learning and
+a data-driven manner (Dolgov et al. 2023; Shetty 2024) to                abstraction for long-horizon manipulation. IEEE Robotics and
+address this limitation.                                                 Automation Letters (RA-L), 8(10):6451–6458, 2023.
+   Additionally, we employed a simple MLP for system                 Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau, Yilun Du,
+identification, assuming that the parameters follow a uniform            Benjamin Burchfiel, Russ Tedrake, and Shuran Song. Diffusion
+distribution. This approach could be extended by adopting                policy: Visuomotor policy learning via action diffusion.
+more advanced models, such as diffusion models (Ho et al.                International Journal of Robotics Research (IJRR), 0(0), 2024.
+2020). Large Visual-Language Models (Gao et al. 2024)                Lin Cong, Hongzhuo Liang, Philipp Ruppel, Yunlei Shi, Michael
+could also be explored to leverage their commonsense                     Görner, Norman Hendrich, and Jianwei Zhang. Reinforcement
+understanding of domain knowledge from scenario images.                  learning with vision-proprioception model for robot planar
+                                                                         pushing. Frontiers in Neurorobotics, 16:829437, 2022.
+Acknowledgments                                                      Sergey Dolgov, Dante Kalise, and Luca Saluzzi. Data-driven
+                                                                         tensor train gradient cross approximation for hamilton–jacobi–
+This work was supported by the China Scholarship Council
+                                                                         bellman equations. SIAM Journal on Scientific Computing, 45
+(grant No.202106230104), and by the State Secretariat for
+                                                                         (5):A2153–A2184, 2023.
+Education, Research and Innovation in Switzerland for
+                                                                     Danny Driess, Fei Xia, Mehdi SM Sajjadi, Corey Lynch,
+participation in the European Commission’s Horizon Europe
+                                                                         Aakanksha Chowdhery, Brian Ichter, Ayzaan Wahid, Jonathan
+Program through the INTELLIMAN project (https://
+                                                                         Tompson, Quan Vuong, Tianhe Yu, Wenlong Huang, Chebotar
+intelliman-project.eu/, HORIZON-CL4-Digital-
+                                                                         Yevgen, Pierre Sermanet, Daniel Duckworth, Sergey Levine,
+Emerging Grant 101070136) and the SESTOSENSO
+                                                                         Vincent Vanhoucke, Karol Hausman, Marc Toussaint, Klaus
+project (http://sestosenso.eu/, HORIZON-CL4-
+                                                                         Greff, Andy Zeng, Igor Mordatch, and Pete Florence. Palm-
+Digital-Emerging Grant 101070310). We thank Jiacheng Qiu
+                                                                         e: An embodied multimodal language model. In International
+for suggestions about the implementation of RL baselines.
+                                                                         Conference on Machine Learning, pages 8469–8488. PMLR,
+                                                                         2023.
+References                                                           Yilun Du and Igor Mordatch. Implicit generation and modeling
+Veronica Adetola and Martin Guay. Robust adaptive mpc for                with energy based models. In Advances in Neural Information
+    constrained uncertain nonlinear systems. International Journal       Processing Systems (NIPS), volume 32, 2019.
+    of Adaptive Control and Signal Processing, 25(2):155–167,        Christopher Edwards and Sarah Spurgeon. Sliding mode control:
+    2011.                                                                theory and applications. CRC Press, 1998.
+Veronica Adetola, Darryl DeHaan, and Martin Guay. Adaptive           Pete Florence, Corey Lynch, Andy Zeng, Oscar A Ramirez,
+    model predictive control for constrained nonlinear systems.          Ayzaan Wahid, Laura Downs, Adrian Wong, Johnny Lee, Igor
+    Systems & Control Letters, 58(5):320–326, 2009.                      Mordatch, and Jonathan Tompson. Implicit behavioral cloning.
+Karol Arndt, Murtaza Hazara, Ali Ghadirzadeh, and Ville Kyrki.           In Conference on Robot Learning, pages 158–168. PMLR,
+    Meta reinforcement learning for sim-to-real domain adaptation.       2022.
+    In Proc. IEEE Intl Conf. on Robotics and Automation (ICRA),      Ana Lùcia D Franco, Henri Bourles, Edson R De Pieri, and Herve
+    pages 2725–2731, 2020.                                               Guillard. Robust nonlinear control associating robust feedback
+Bibit Bianchini, Mathew Halm, and Michael Posa. Simultaneous             linearization and H∞ control. IEEE Transactions on Automatic
+    learning of contact and continuous dynamics. In Conference           Control, 51(7):1200–1207, 2006.
+    on Robot Learning, pages 3966–3978. PMLR, 2023.                  Jensen Gao, Bidipta Sarkar, Fei Xia, Ted Xiao, Jiajun Wu, Brian
+Aude Billard, Sylvain Calinon, Ruedige Dillmann, and Stefan              Ichter, Anirudha Majumdar, and Dorsa Sadigh. Physically
+    Schaal. Robot programming by demonstration. In B. Siciliano          grounded vision-language models for robotic manipulation. In
+    and O. Khatib, editors, Handbook of Robotics, pages 1371–            Proc. IEEE Intl Conf. on Robotics and Automation (ICRA),
+    1394. Springer, Secaucus, NJ, USA, 2008.                             pages 12462–12469. IEEE, 2024.
+Konstantinos Bousmalis, Alex Irpan, Paul Wohlhart, Yunfei Bai,       Carlos E Garcia, David M Prett, and Manfred Morari. Model
+    Matthew Kelcey, Mrinal Kalakrishnan, Laura Downs, Julian             predictive control: Theory and practice—a survey. Automatica,
+
+
+Prepared using sagej.cls
+16                                                                                                                   Journal Title XX(X)
+
+
+    25(3):335–348, 1989.                                                Brett T Lopez, Jean-Jacques E Slotine, and Jonathan P How.
+Malik Ghallab, Adele Howe, Craig Knoblock, Drew McDermott,                  Dynamic tube mpc for nonlinear systems. In 2019 American
+    Ashwin Ram, Manuela Veloso, Daniel Weld, David Wilkins,                 Control Conference (ACC), pages 1655–1662. IEEE, 2019.
+    Anthony Barrett, Dave Christianson, Marc Friedman, Chung            Kevin M Lynch and Matthew T Mason. Stable pushing: Mechanics,
+    Kwok, Keith Golden, Scott Penberthy, David E Smith, Ying                controllability, and planning. International Journal of Robotics
+    Sun, and Daniel Weld. PDDL|The Planning Domain Definition               Research (IJRR), 15(6):533–556, 1996.
+    Language. Technical report, Yale Center for Computational           Matthew T Mason. Mechanics and planning of manipulator pushing
+    Vision and Control, 1998.                                               operations. International Journal of Robotics Research (IJRR),
+Tuomas Haarnoja, Haoran Tang, Pieter Abbeel, and Sergey Levine.             5(3):53–71, 1986.
+    Reinforcement learning with deep energy-based policies. In          Matthew T Mason. Progress in nonprehensile manipulation.
+    International conference on machine learning, pages 1352–               International Journal of Robotics Research (IJRR), 18(11):
+    1361. PMLR, 2017.                                                       1129–1141, 1999.
+Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey                 Bhairav Mehta, Manfred Diaz, Florian Golemo, Christopher J Pal,
+    Levine. Soft actor-critic: Off-policy maximum entropy deep              and Liam Paull. Active domain randomization. In Conference
+    reinforcement learning with a stochastic actor. In International        on Robot Learning, pages 1162–1176. PMLR, 2020.
+    conference on machine learning, pages 1861–1870. PMLR,              Manfred Morari and Jay H Lee. Model predictive control: past,
+    2018.                                                                   present and future. Computers & chemical engineering, 23(4-
+Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion              5):667–682, 1999.
+    probabilistic models.       Advances in neural information          Fabio Muratore, Felix Treede, Michael Gienger, and Jan
+    processing systems, 33:6840–6851, 2020.                                 Peters. Domain randomization for simulation-based policy
+Francois R Hogan and Alberto Rodriguez. Reactive planar non-                optimization with transferability assessment. In Conference on
+    prehensile manipulation with hybrid model predictive control.           Robot Learning, pages 700–713. PMLR, 2018.
+    International Journal of Robotics Research (IJRR), 39(7):755–       Fabio Muratore, Theo Gruner, Florian Wiese, Boris Belousov,
+    773, 2020a.                                                             Michael Gienger, and Jan Peters. Neural posterior domain
+François Robert Hogan and Alberto Rodriguez. Feedback control of           randomization. In Conference on Robot Learning, pages 1532–
+    the pusher-slider system: A story of hybrid and underactuated           1542. PMLR, 2022.
+    contact dynamics. In Algorithmic Foundations of Robotics            Román Orús. Tensor networks for complex quantum systems.
+    XII: Proceedings of the Twelfth Workshop on the Algorithmic             Nature Reviews Physics, 1(9):538–550, 2019. ISSN 2522-
+    Foundations of Robotics, pages 800–815. Springer, 2020b.                5820.
+Leslie Pack Kaelbling, Michael L Littman, and Andrew W Moore.           Ivan Oseledets and Eugene Tyrtyshnikov. TT-cross approximation
+    Reinforcement learning: A survey.           Journal of artificial       for multidimensional arrays.         Linear Algebra and its
+    intelligence research, 4:237–285, 1996.                                 Applications, 432(1):70–88, 2010.
+Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic          Ivan V Oseledets. Tensor-train decomposition. SIAM Journal on
+    optimization. In Proc. Intl Conf. on Learning Representations           Scientific Computing, 33(5):2295–2317, 2011.
+    (ICLR), 2015.                                                       Elena Pashenkova, Irina Rish, and Rina Dechter. Value iteration
+Jens Kober, J Andrew Bagnell, and Jan Peters. Reinforcement                 and policy iteration algorithms for Markov decision problem.
+    learning in robotics: A survey. The International Journal of            In AAAI’96: Workshop on Structural Issues in Planning and
+    Robotics Research, 32(11):1238–1274, 2013.                              Temporal Reasoning, volume 39. Citeseer, 1996.
+Ashish Kumar, Zipeng Fu, Deepak Pathak, and Jitendra Malik.             Xue Bin Peng, Marcin Andrychowicz, Wojciech Zaremba, and
+    RMA: Rapid motor adaptation for legged robots. In Proc.                 Pieter Abbeel. Sim-to-real transfer of robotic control with
+    Robotics: Science and Systems (RSS), 2021.                              dynamics randomization. In Proc. IEEE Intl Conf. on Robotics
+P Lancaster. Algebraic Riccati Equations. Oxford Science                    and Automation (ICRA), pages 3803–3810, 2018.
+    Publications/The Clarendon Press, Oxford University Press,          Karl Pertsch, Youngwoon Lee, and Joseph Lim. Accelerating
+    1995.                                                                   reinforcement learning with learned skill priors. In Conference
+Yann LeCun, Sumit Chopra, Raia Hadsell, M Ranzato, and Fujie                on robot learning, pages 188–204. PMLR, 2021.
+    Huang. A tutorial on energy-based learning. Predicting              Susan Potters. Learning-based control for pushing with a non-
+    structured data, 1(0), 2006.                                            holonomic mobile robot. Master’s thesis, Delft University of
+Joonho Lee, Jemin Hwangbo, Lorenz Wellhausen, Vladlen Koltun,               Technology, Delft, 2022.
+    and Marco Hutter. Learning quadrupedal locomotion over              Warren B Powell. Approximate Dynamic Programming: Solving
+    challenging terrain. Science robotics, 5(47):eabc5986, 2020a.           the curses of dimensionality, volume 703. John Wiley & Sons,
+Michelle A Lee, Yuke Zhu, Peter Zachares, Matthew Tan, Krishnan             2007.
+    Srinivasan, Silvio Savarese, Li Fei-Fei, Animesh Garg, and          Haozhi Qi, Ashish Kumar, Roberto Calandra, Yi Ma, and Jitendra
+    Jeannette Bohg. Making sense of vision and touch: Learning              Malik. In-hand object rotation via rapid motor adaptation.
+    multimodal representations for contact-rich tasks.         IEEE         In Conference on Robot Learning, pages 1722–1732. PMLR,
+    Transactions on Robotics, 36(3):582–596, 2020b.                         2023.
+Minghuan Liu, Menghui Zhu, and Weinan Zhang.                   Goal-    Antonin Raffin, Ashley Hill, Adam Gleave, Anssi Kanervisto,
+    conditioned reinforcement learning: Problems and solutions. In          Maximilian Ernestus, and Noah Dormann. Stable-baselines3:
+    Proc. Intl Joint Conf. on Artificial Intelligence (IJCAI), pages        Reliable reinforcement learning implementations. Journal of
+    5502–5511, 2022.                                                        Machine Learning Research, 22(268):1–8, 2021.
+
+
+
+Prepared using sagej.cls
+Xue et al.: Implicit Motor Adaptation                                                                                                    17
+
+
+Fabio Ramos, Rafael Carvalhaes Possas, and Dieter Fox. Bayessim:        Zhendong Wang, Jonathan J Hunt, and Mingyuan Zhou. Diffusion
+    adaptive domain randomization via probabilistic inference for           policies as an expressive policy class for offline reinforcement
+    robotics simulators. In Proc. Robotics: Science and Systems             learning. In Proc. Intl Conf. on Learning Representations
+    (RSS), 2019.                                                            (ICLR), 2022.
+Dmitry V. Savostyanov and Ivan V. Oseledets. Fast adaptive              Paul Werbos. Approximate dynamic programming for real-time
+    interpolation of multi-dimensional arrays in tensor train format.       control and neural modeling. Handbook of intelligent control,
+    The 2011 International Workshop on Multidimensional (nD)                1992.
+    Systems, pages 1–8, 2011.                                           Teng Xue, Hakan Girgin, Teguh Santoso Lembono, and Sylvain
+Stefan Schaal. Is imitation learning the route to humanoid robots?          Calinon. Demonstration-guided optimal control for long-term
+    Trends in cognitive sciences, 3(6):233–242, 1999.                       non-prehensile planar manipulation. In Proc. IEEE Intl Conf.
+Suhan Shetty, Teguh Lembono, Tobias Löw, and Sylvain Calinon.              on Robotics and Automation (ICRA), pages 4999–5005, 2023.
+    Tensor train for global optimization problems in robotics.          Teng Xue, Amirreza Razmjoo, Suhan Shetty, and Sylvain
+    International Journal of Robotics Research (IJRR), 43(6):811–           Calinon. Robust manipulation primitive learning via domain
+    839, 2024a. doi: 10.1177/02783649231217527.                             contraction. In Proc. Conference on Robot Learning (CoRL),
+Suhan Shetty, Teng Xue, and Sylvain Calinon. Generalized policy             2024a.
+    iteration using tensor approximation for hybrid control. In         Teng Xue, Amirreza Razmjoo, Suhan Shetty, and Sylvain Calinon.
+    Proc. Intl Conf. on Learning Representations (ICLR), 2024b.             Logic-Skill Programming: An Optimization-based Approach
+Suhan Narayana Shetty. Robot Learning using Tensor Networks.                to Sequential Skill Planning. In Proc. Robotics: Science and
+    PhD thesis, EPFL, Lausanne, 2024.                                       Systems (RSS), 2024b.
+Yuri Shtessel, Christopher Edwards, Leonid Fridman, and Arie            Ling Yang, Zhilong Zhang, Yang Song, Shenda Hong, Runsheng
+    Levant. Sliding mode control and observation, volume 10.                Xu, Yue Zhao, Wentao Zhang, Bin Cui, and Ming-Hsuan Yang.
+    Springer, 2014.                                                         Diffusion models: A comprehensive survey of methods and
+Konstantin Sozykin, Andrei Chertkov, Roman Schutski, Anh-Huy                applications. ACM Computing Surveys, 56(4):1–39, 2023.
+    Phan, Andrzej S Cichocki, and Ivan Oseledets. Ttopt: A              Wenhao Yu, Jie Tan, C Karen Liu, and Greg Turk. Preparing for
+    maximum volume quantized tensor train-based optimization                the unknown: Learning a universal policy with online system
+    and its application to reinforcement learning. Advances                 identification. In Proc. Robotics: Science and Systems (RSS),
+    in neural information processing systems, 35:26052–26065,               2017.
+    2022.
+Edwin Stoudenmire and David J Schwab. Supervised learning with
+    tensor networks. Advances in neural information processing
+    systems, 29, 2016.
+Ezra Tal, Alex Gorodetsky, and Sertac Karaman. Continuous tensor
+    train-based dynamic programming for high-dimensional zero-
+    sum differential games. In 2018 Annual American Control
+    Conference (ACC), pages 6086–6093. IEEE, 2018.
+Josh Tobin, Rachel Fong, Alex Ray, Jonas Schneider, Wojciech
+    Zaremba, and Pieter Abbeel. Domain randomization for
+    transferring deep neural networks from simulation to the real
+    world. In Proc. IEEE/RSJ Intl Conf. on Intelligent Robots and
+    Systems (IROS), pages 23–30, 2017.
+Faraz Torabi, Garrett Warnell, and Peter Stone. Behavioral cloning
+    from observation. In Proc. Intl Joint Conf. on Artificial
+    Intelligence (IJCAI), pages 4950–4957, 2018.
+Marc Toussaint, Jung-Su Ha, and Danny Driess. Describing physics
+    for physical reasoning: Force-based sequential manipulation
+    planning. IEEE Robotics and Automation Letters (RA-L), 5(4):
+    6209–6216, 2020.
+Marc Toussaint, Jason Harris, Jung-Su Ha, Danny Driess, and
+    Wolfgang Hönig. Sequence-of-constraints mpc: Reactive
+    timing-optimal control of sequential manipulation. In Proc.
+    IEEE/RSJ Intl Conf. on Intelligent Robots and Systems (IROS),
+    pages 13753–13760, 2022.
+Mikhail Usvyatsov, Rafael Ballester-Ripoll, and Konrad Schindler.
+    tntorch: Tensor network learning with pytorch. Journal of
+    Machine Learning Research, 23(208):1–6, 2022.
+Francisco Viña Barrientos, Yiannis Karayiannidis, Christian Smith,
+    and Danica Kragic. Adaptive control for pivoting with visual
+    and tactile feedback. In Proc. IEEE Intl Conf. on Robotics and
+    Automation (ICRA), 2016.
+
+
+
+Prepared using sagej.cls
+

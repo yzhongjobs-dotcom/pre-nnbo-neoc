@@ -2,6 +2,8 @@
 
 2026-10-19.The user authorizes search,design,rapid tests and iteration within the original question. This follows [candidate definitions](optimal_impedance_question_and_methods.md),without changing requirements or adding journal-acceptance gates. Revise conclusions with evidence.
 
+Current literature entry (2026-10-22): [field state](field_state.md) follows the user's moving/heterogeneous tissue question. Wang TIE2026 and Roveda AI2022 are now local as G02 and G08; the access descriptions below record the earlier review. The current review did not rerun these historical pilots or select a final method.
+
 ## 1. Design-specific search and reading
 
 Searches on2026-10-19 include MHE variable impedance control,moving parameters optimization adaptive impedance,Sobolev approximate nonlinear MPC,impedance guidance learning,model predictive impedance gradient neural,and specific titles/author sources. Ranking/nonretrieval does not prove absence. Abstract screening is not full-text auditing.

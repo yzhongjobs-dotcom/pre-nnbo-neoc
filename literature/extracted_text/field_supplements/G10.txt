@@ -1,0 +1,1138 @@
+         IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026                                                                                      7504018
+
+
+
+
+                     Symmetry-Optimized Image Guidance and
+                    Biomechanics-Driven Force Measurement for
+                     Robotic Ultrasound: A Control Framework
+                         Enhancing Sonographic Quality
+                Yizhao Qian, Student Member, IEEE, Jiayuan Luo , Yameng Zhang , Graduate Student Member, IEEE,
+                        Kai Long , Yixuan Yuan , Senior Member, IEEE, Max Q.-H. Meng , Fellow, IEEE,
+                                                   and Li Liu , Member, IEEE
+
+
+            Abstract—Robotic ultrasound systems (RUSS) face significant                    for high-precision, autonomous sonography in diverse clinical
+         challenges in maintaining optimal image quality and contact force                 scenarios.
+         across complex, deformable anatomical structures. This article
+         proposes a control framework integrating symmetry-optimized                          Index Terms—Autonomous ultrasound scanning, coupled sta-
+         image guidance with biomechanics-driven force measurement.                        bility, force control, medical robotics, ultrasound imaging quality.
+         We introduce a column similarity (CS) method for rapid in-plane
+         tracking and a Young–Laplace (Y–L) model to predict surface                                                  I. I NTRODUCTION
+         curvature changes for out-of-plane adaptation. To ensure clinical
+         safety during autonomous operation, a dual-layer protection
+         mechanism combining global force thresholds with adaptive
+         image-gain limits is integrated. To validate the efficiency of the
+                                                                                           A      UTONOMOUS ultrasound imaging system has become
+                                                                                                  a promising solution for early disease screening, espe-
+                                                                                           cially in the absence of skilled ultrasound technicians [1].
+         proposed visual algorithm, the in-plane module was tested on an                   Robotic systems are integrated with ultrasound transducers
+         embedded platform (NVIDIA Jetson), achieving a processing rate                    and multimodal sensors (e.g., force-torque sensor) to localize
+         of 66 Hz. Extensive in vivo experiments were conducted on highly                  internal lesions and reconstruct 3-D biomechanical volume
+         heterogeneous anatomical structures, including the curvature-
+         rich supraclavicular region and the deformable abdominal aorta.                   of potential pathological regions, enabling quantifiable sub-
+         Results demonstrate that the proposed framework elevates a                        strate characterization for precision diagnostics. The overall
+         composite image quality score (IQS) by 27.2% compared to                          architecture and representative autonomous scanning workflow
+         conventional methods, with the gap between the proposed method                    of the proposed system are illustrated in Fig. 1. Compared
+         and human expert within 5%. Furthermore, the autonomous                           to conventional imaging techniques such as X-ray or com-
+         system completes in vivo abdominal aorta volumetric scans
+         in 49 s, achieving vessel reconstruction quality comparable                       puted tomography (CT), ultrasound offers a noninvasive,
+         to manual scanning by expert sonographers (dice similarity                        radiation-free, and cost-effective alternative [2], [3]. However,
+         coefficient (DSC) 0.85 and average symmetric surface distance                     robot-assisted ultrasound reconstruction often suffers from
+         (ASSD) 2.9 mm). The findings confirm the system’s capability                      suboptimal imaging quality, as precise control of both the con-
+                                                                                           tact force and the angle between the probe and the epidermal
+           Received 4 December 2025; revised 20 February 2026; accepted 1 March            surface normal is critical for high-fidelity ultrasound imaging.
+         2026. Date of publication 20 March 2026; date of current version 8 May
+         2026. This work was supported in part by the National Key Research and            Even for experienced operators, maintaining consistent probe
+         Development Program of China under Grant 2019YFB1312400, in part by               alignment and contact force can be challenging [4]. As a result,
+         Hong Kong Research Grants Council (RGC) Theme-Based Research Scheme               integrating multisensor robotic ultrasound systems (RUSSs)
+         (TRS) under Grant T42-409/18-R, and in part by Hong Kong RGC General
+         Research Fund (GRF) under Grant 14204321 and Grant 14220622. The                  capable of tracking surface normals while suppressing artifacts
+         Associate Editor coordinating the review process was Dr. Ernst Csencsics.         and mitigating acoustic coupling deficiencies has emerged as
+         (Corresponding author: Li Liu.)                                                   a critical frontier in ultrasound imaging system research.
+           Yizhao Qian, Yameng Zhang, and Yixuan Yuan are with the
+         Department of Electronic Engineering, The Chinese University of Hong                 Various control strategies have been proposed to address
+         Kong, Hong Kong, SAR, China (e-mail: 1155204337@link.cuhk.edu.hk;                 this challenge, many of which leverage high-precision force
+         zhangyameng@link.cuhk.edu.hk; yxyuan@ee.cuhk.edu.hk).                             sensors and robotic arms. Early studies by Pierrot et al. [5] and
+           Jiayuan Luo and Li Liu are with the School of Advanced Engineering and
+         Dongguan Great Bay Institute for Advanced Study, Great Bay University,            Conti et al. [6] combined force sensors with ultrasound imag-
+         Dongguan 523000, China (e-mail: liuli@gbu.edu.cn).                                ing to reconstruct internal body structures. Subsequent works,
+           Kai Long is with Dongguan Great Bay Institute for Advanced Study, Great         including those by Chatelain et al. [7] and Virga et al. [8],
+         Bay University, Dongguan 523000, China (e-mail: mKevinlib@outlook.com).
+           Max Q.-H. Meng is with Shenzhen Key Laboratory of Robotics Perception           investigated the relationship between contact force magnitude
+         and Intelligence, Department of Electronic Engineering, Southern University       and image quality. Burcher et al. [9] developed a hybrid system
+         of Science and Technology, Shenzhen 518055, China, and also with the              that utilized both force sensor feedback and positional data
+         Department of Electronic Engineering, The Chinese University of Hong Kong,
+         Hong Kong, SAR, China (e-mail: max.meng@ieee.org).                                for correction. Similarly, Wang et al. [10] proposed a contact
+           Digital Object Identifier 10.1109/TIM.2026.3676192                              model to mitigate the effects of tissue deformation caused
+                       1557-9662 © 2026 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and
+                                 similar technologies. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                               See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+         by probe movement. Further advances by Wang et al. [11]                              This study aims to achieve high-quality, fully autonomous
+         introduced a six-degree-of-freedom (6-DoF) hybrid control                         robotic 3-D ultrasound volume acquisition on the human
+         scheme to improve the stability of probe-patient interactions,                    body. We propose a novel scanning framework that relies
+         while Ma et al. [12] designed a mechanical system equipped                        solely on ultrasound imaging and contact force feedback,
+         with sensors to measure the distance between the probe and                        eliminating the need for complex stereo vision calibration
+         the skin. Additional studies by Bao et al. [13] and Fu et al.                     and the probability of error accumulation [29]. To address
+         [14] focused on force control strategies to enhance operational                   these issues, we propose a hybrid control framework. For in-
+         safety, efficiency, and patient comfort. Despite these advances,                  plane adjustments, we utilize a column similarity (CS) method
+         many of these approaches rely solely on force feedback, lead-                     to ensure rapid feature tracking. For out-of-plane adaptation,
+         ing to inconsistent imaging quality across different anatomical                   we employ a Young–Laplace (Y–L) model, which efficiently
+         regions due to the lack of real-time ultrasound image feedback.                   estimates surface curvature from pressure distribution under
+            In addition to force control, accurate alignment of the                        quasi-static conditions, avoiding the computational complexity
+         ultrasound probe with the epidermal surface normal has been                       of finite element modeling. Experimental results demonstrate
+         shown to significantly improve imaging quality. The informa-                      the effectiveness of this framework in autonomous scanning
+         tion provided by ultrasound images can help identify in-plane                     of phantom surfaces without prior surface information. On
+         normals, a process referred to as in-plane motion. Boezaart                       phantom models, the system achieves a surface reconstruction
+         and Ihnatsenka [15] demonstrated that optimal ultrasound                          accuracy of 4.9 mm/7.8◦ and completes a phantom scan in
+         image quality is achieved when the probe is axially aligned                       259 s, a significant improvement in efficiency that meets clin-
+         with the surface normal. Most existing in-plane servo control                     ical time requirements. More importantly, its clinical viability
+         methods rely on ultrasound confidence map (CM) algorithms,                        has been validated on complex human anatomies. Beyond
+         first introduced by Karamalis et al. [16]. This technique,                        the initial tests on the proximal humerus, the system suc-
+         which simulates sound wave propagation through biological                         cessfully performed high-precision reconstructions of highly
+         tissues and assigns confidence scores to each pixel, has been                     curved regions like the clavicle and ribs, as well as deep
+         widely adopted in autonomous scanning systems [10], [17],                         structures such as the abdominal aorta. In the latter task,
+         [18], [19], [20]. Enhancements to in-plane control have also                      the system demonstrated high clinical agreement with expert
+         been achieved by integrating image moments [21] or using                          scans, achieving a dice similarity coefficient (DSC) of 0.85.
+         force/torque sensors for normal estimation [22]. For instance,                       1) A lightweight in-plane servo control algorithm based
+         Raina et al. [23] employed Bayesian optimization for in-plane                            on CS, offering superior control bandwidth and robust-
+         control. In contrast, the force-based method by Jiang et al.                             ness compared to conventional methods. The algorithm
+         [22], while accurate in static situations, relies on a fan-                              was implemented on an embedded platform (NVIDIA
+         like exploratory motion. This approach is incompatible with                              Jetson), demonstrating real-time processing capabilities
+         continuous scanning, resulting in an inefficient “stop-and-go”                           (66 Hz).
+         procedure, and its underlying mechanical model fails under                           2) An out-of-plane servo control method grounded in
+         dynamic forces like friction. Improving the robustness and                               biomechanics, leveraging the Y–L equation for superior
+         speed of in-plane control methods remains a key challenge                                imaging quality on irregular surfaces.
+         in autonomous ultrasound scanning research.                                          3) A comprehensive autonomous scanning strategy that
+            Out-of-plane motion, which involves probe movement per-                               predicts epidermal surfaces to determine optimal scan-
+         pendicular to the ultrasound image plane and the epidermal                               ning orientations, facilitating high-quality coverage of
+         surface, is another critical factor in achieving comprehen-                              unknown surfaces and human subjects.
+         sive scanning coverage. Unlike in-plane motion, out-of-plane                         4) A series of in vivo experiments on diverse anatom-
+         adjustments lack direct feedback, requiring integration of in-                           ical structures (e.g., aorta and clavicle) verify that
+         plane image data or force/torque sensor readings. Jiang et al.                           the autonomous system achieves reconstruction quality
+         [22] estimated out-of-plane normals using a force/torque                                 comparable to expert sonographers.
+         sensor, but the method was sensitive to probe movement.
+         To improve stability, Welleweerd et al. [24] analyzed probe                            II. S YSTEM OVERVIEW AND S CANNING S TRATEGY
+         movement to estimate out-of-plane normals in phantom exper-
+         iments. Recent advancements have explored machine learning                          To achieve autonomous US scanning, it is necessary to
+         approaches to integrate multimodal sensor data for out-of-                        describe the scanning process and establish the framework of
+         plane motion control [25], [26]. For example, Duan et al.                         the scanning system. This section starts with an evaluation
+         [26] introduced a machine learning framework incorporat-                          of factors affecting probe motion and image quality. Next, a
+         ing external force constraints, while Yang et al. [27] and                        physical model is developed to describe the scanning task.
+         Huang et al. [28] demonstrated autonomous ultrasound scan-                        Finally, the control framework proposed in this study is
+         ning in the spine and carotid artery. However, many of these                      presented.
+         methods fail to account for the geometric characteristics of
+         the scanned surface, which is critical for accurate out-of-plane                  A. Image Quality With Different Probe Direction
+         motion control. Consequently, further research is needed to                          To rigorously quantify the impact of probe orientation on
+         enhance the robustness and accuracy of out-of-plane servo                         sonographic outcomes, we first establish a unified evaluation
+         mechanisms.                                                                       standard, the image quality score (IQS). This composite metric
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                 7504018
+
+
+
+
+         Fig. 1. Overview of the autonomous scanning system, including (a) system
+         overview, (b) phantom scanning and surface estimation, and (c) autonomous
+         reconstruction of the upper arm 3-D volume model.
+
+
+
+         integrates the zeroth-order moment of the US CM (Icon f )
+         [16]—which assesses structural integrity—with three stan-
+         dard clinical indicators: signal-to-noise ratio (SNR), relative
+         contrast (Crel ), and contrast-to-noise ratio (CNR). They are
+         formulated as                                                                     Fig. 2. Impact of various probe motion on image quality in phantom and
+                                                                                           volunteers’ body, including out-of-plane motion, in-plane motion, and Z-axis
+                                                               µ sig
+                            ZZ
+                                                                                           motion.
+                   Icon f =       C (x, y) , dxdy, SNR =              (1)
+                                Ω                            σ  noise
+                            µ sig − µbg             |µ sig − µbg |
+                    Crel =               , CNR =                      (2)
+                                 µbg                     σnoise
+         where µ sig and µbg denote the mean intensities of the signal
+         and background regions of interest (ROI), respectively. The
+         final IQS is the average of these four metrics after min-max
+         normalization, defined as follows:
+                                       4
+                                   1X   Mi − min (Mi )
+                          IQS =                                                     (3)
+                                   4  max (Mi ) − min (Mi )
+                                      i=1
+
+         where Mi represents the measurement value for the ith index,                      Fig. 3. Ultrasound probe-skin contact model.
+         and Mmax and Mmin denote the maximum and minimum value
+         among the set.
+           Equal weights (1/4) are chosen for control stability: in                           Sensitivity Analysis and Metric Complementarity: Analysis
+         a closed-loop robotic system, dynamically adapting weights                        against probe motion (Fig. 2) shows that contact force and
+         based on real-time noise levels would produce a time-varying                      out-of-plane tilt affect all four metrics consistently, confirming
+         objective function, potentially causing motion oscillations.                      their dependence on acoustic coupling. However, in-plane
+         Since all four submetrics are normalized to [0, 1], uniform                       rotation (θin-plane ) reveals a divergence: standard metrics (SNR,
+         weighting yields an unbiased composite score that remains                         Crel , and CNR) remain insensitive, whereas Icon f peaks sharply
+         sensitive to both structural degradation (via Icon f ) and acoustic               at optimal alignment. This occurs because in-plane rotation
+         degradation (via SNR and CNR) simultaneously. This ensures                        affects the geometric centering of the anatomy rather than
+         the controller responds consistently regardless of the dominant                   signal strength. This justifies our composite IQS: relying
+         degradation mode.                                                                 solely on SNR or CNR fails to guide in-plane alignment.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+         Consequently, our framework uses Icon f as the primary feed-                              the computationally intensive Y–L fitting, we implement
+         back for in-plane servoing, utilizing the full IQS for global                             a trajectory planning strategy that minimizes forward
+         validation.                                                                               curvature. This decouples the orientation adjustments,
+            Regarding contact force, the IQS plateau (e.g., ∼9N) does                              ensuring the slower out-of-plane controller has sufficient
+         not imply a universal optimal force but highlights the limita-                            convergence time.
+         tion of fixed-force strategies during dynamic scanning over
+         varying tissue. Therefore, our control framework aims to                               III. C ONTACT F ORCE AND N ORMAL S EARCHING IN
+         maintain surface normality while actively modulating contact                                        I N -P LANE O RIENTATION
+         force to sustain a consistently high IQS, rather than targeting                      Stable imaging quality and precise in-plane servo control
+         a static force value.                                                             are essential for autonomous US scanning. The variability in
+                                                                                           anatomical structures across patients means that employing a
+         B. System Model and Problem Description                                           constant contact force often results in inconsistent imaging
+             In this study, Cartesian coordinates are used to define the                   quality. To achieve stable imaging quality across different
+         position and orientation of the US probe and contact point, as                    areas and individuals, this chapter proposes a Z-motion con-
+         shown in Fig. 3. Within the tool center point (TCP) frame {T},                    trol method based on fusion filtering. In addition, the study
+         which is fixed to the US probe, T z represents the axial direction                proposes a novel in-plane servo algorithm that utilizes CS to
+         of the probe, while T y indicates the direction normal to the US                  ensure both high accuracy and high bandwidth for in-plane
+         image plane. Similarly, the frame {C} is used to describe the                     motion.
+         pose of the contact point, where Cz corresponds to the normal
+         direction of the anatomical surface at the contact point, and                     A. Z Motion Control in US Scanning
+         Cy denotes the scanning direction. To achieve optimal imaging                        As established in Section II-A, the ultimate goal of z-motion
+         quality, it is crucial that T z aligns with Cz . Consequently, the                control is to achieve and maintain stable, high-quality imaging.
+         control framework developed in this research endeavors to                         Conventional RUSSs often employ a constant-force control
+         regulate the robotic arm such that θin-plane and θout-o f -plane are              strategy, which assumes that a stable contact force ensures
+         maintained near zero, while simultaneously estimating Cy to                       consistent image quality. However, this assumption does not
+         guide the scanning trajectory of the probe.                                       hold in practice due to the dynamic nature of biological
+             In conclusion, this study concentrates on two aspects of                      tissues. Our approach departs from this notion by designing
+         probe motion. The first aspect aims to enhance image quality                      a closed-loop controller that uses contact force merely as a
+         and involves rotation around T x , T y , and translation along                    control variable, while the actual target is to stabilize image
+         T z . The second aspect is to achieve comprehensive scanning                      quality itself. Through real-time Bayesian fusion and adaptive
+         coverage, which involves rotation around T z and translation                      motion regulation, the system is capable of compensating for
+         along T y . Section II-C will concentrate on controlling these                    anatomical variability during scanning.
+         probe movements.                                                                     Physical metrics like SNR are impractical in this context
+                                                                                           due to nonstandard anatomical structures, dynamic motion
+         C. Scanning Strategy and Control Framework                                        precluding temporal analysis, and the unavailability of ROIs
+            The proposed system regulates Z-motion, θin-plane , and                        during the search. Instead, we employ a CM as a task-oriented
+         θout-o f -plane to autonomously track the epidermal surface nor-                  evaluator of anatomical recognizability. Its zero-order moment
+         mal without external vision systems. The control framework,                       quantifies semantic presence, serving as the high-level prior
+         depicted in Fig. 4, addresses three core challenges as follows.                   P(θ) in our probabilistic model.
+            1) Adaptive Z-Motion: To ensure uniform imaging across                            To combine this perceptual prior with physical sensing,
+                  heterogeneous tissues, we propose a fusion filtering                     Bayesian estimation is employed to fuse the confidence-map
+                  strategy. This integrates the CM (as prior knowledge)                    information with force sensor data, formulated as
+                  with force sensor data using Bayesian estimation to                                                     P (X | θ) P (θ)
+                                                                                                            P (θ | X) = R                   .           (4)
+                                                                                                                         Θ (X | θ) P (θ) dθ
+                  dynamically determine the optimal contact force. Cru-                                                   P
+                  cially, a dual-layer safety mechanism is embedded
+                  within this loop, enforcing both a global hard force                       Given a dataset X with each measurement xi ∼ N (µ x , σ2x )
+                  threshold and an adaptive soft limit to prioritize patient               and a prior θ ∼ N (µ0 , σ20 ), the posterior is
+                  safety.                                                                                                 1 (µ − µN )2
+                                                                                                                                      
+                                                                                                          1
+                                                                                             P (θ|X) = √                                  → N µN , σ2N (5)
+                                                                                                                                                      
+            2) High-Bandwidth In-Plane Servo: We introduce a                                                   exp −
+                                                                                                         2πσN             2    σN2
+                  lightweight CS algorithm to calculate θin-plane . Unlike                                               N
+                  pixel-wise CM methods, this approach significantly                                      Nσ02
+                                                                                                                   1 X                σ2x
+                                                                                                 µN =                       xi +             µ0
+                  reduces computational latency, enabling high-frequency                               Nσ0 + σ x N i=1
+                                                                                                          2     2                Nσ0 + σ2x
+                                                                                                                                     2
+
+                  real-time tracking.
+                                                                                                             σ20 σ2x
+            3) Biomechanics-Informed Out-of-Plane Strategy: We                                    σ2N =               .                                               (6)
+                  employ the Y–L equation to model the epidermal                                           Nσ20 + σ2x
+                  surface and predict θout-o f -plane . To address the band-                 The updated mean µN represents the dynamic optimal
+                  width mismatch between the fast in-plane servo and                       contact force Fm , which achieves the desired image quality
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                 7504018
+
+
+
+
+         Fig. 4. Algorithmic diagram of the US autonomous scanning system targeting an unknown epidermal surface.
+
+
+         under current anatomical conditions. A low-level admittance
+         controller then enforces this force target compliantly along the
+         Z-axis
+                        km ẍe + kd ẋe + k s xe = Fm − Fext .        (7)
+
+            Here, km , kd , and k s denote the virtual mass, damping,
+         and stiffness; xe is the probe displacement; and Fext is the
+         externally measured contact force. The term (Fm − Fext )
+         drives compliant motion to realize smooth force adaptation
+         and minimize tissue deformation.
+            To ensure that this responsive control remains both safe
+         and comfortable for patients, a dual-layer intelligent safety
+         mechanism is further integrated. This mechanism operates                          Fig. 5. Impact of tissue-probe interaction modes, including (a) quasi-contact,
+                                                                                           (b) fully contact, and (c) contact with in-plane error.
+         in parallel with the control loop, acting as a supervisor to
+         constrain the target force Fm in (7).
+            1) Layer 1 (Global Hard Safety Threshold): A global upper                      technique in numerous autonomous US scanning systems.
+         bound of 25 N is conservatively set according to human-                           However, the CM method necessitates substantial computa-
+         subject testing. This hard safety limit acts as a fail-safe                       tional resources to compute the random walk probability for
+         condition: once exceeded, all motion commands are imme-                           each point and is prone to noise interference. To address this
+         diately suspended to prevent any potential harm.                                  issue, the current study presents an innovative computational
+            2) Layer 2 (Adaptive Soft Force Limit): To maintain                            approach grounded in CS, which ensures enhanced control
+         comfort and avoid redundant pressing, a soft safety layer                         frequency and augmented accuracy for such tasks.
+         continuously monitors the gradient of image quality with                             The anatomical structures in the human body typically
+         respect to force (dIquality /dF). When the improvement in qual-                   consist of multiple layers, each characterized by distinct
+         ity saturates (i.e., the gradient approaches zero), the algorithm                 acoustic properties, as illustrated in Fig. 5(a). US images often
+         dynamically lowers the operational force ceiling. This effec-                     depict these layers as varying degrees of brightness. Under the
+         tively clamps the target force Fm , preventing it from increasing                 standard pressure applied by an ultrasound probe—particularly
+         further into the zone of diminishing returns. This mechanism                      a convex type—these layers tend to develop strains that are
+         enhances both user comfort and scanning efficiency without                        concentrated around the probe’s contact point. In ultrasound
+         compromising image integrity.                                                     imagery, this effect manifests as bands that appear roughly
+            Together, these two layers form an intelligent safety                          concentric, as depicted in Fig. 5(b).
+         framework that maintains a balance between robust imaging                            However, when the pressure from the US probe is mis-
+         performance and strict patient protection standards.                              aligned with the surface normal, the structures do not form
+                                                                                           concentric bright bands, as depicted in Fig. 5(c). Furthermore,
+                                                                                           if any part of the US probe’s array loses contact with the skin,
+         B. Extraction of Normal Direction From US Image                                   the corresponding area appears black in the image, indicating
+           To determine the normal direction within the plane, various                     an absence of returned signals.
+         methods have been developed and explored [17], [19], [22],                           Therefore, when tissue is compressed in alignment with
+         [24]. The CM method [16] is recognized as the predominant                         the normal direction, similar reflection waves are generated
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+
+                                                                                           Fig. 7. Conceptual illustration of the mechanical model for the abdominal
+                                                                                           wall. The system is modeled as a “composite bio-membrane” (representing
+                                                                                           the abdominal wall) separating an “external medium” (air) from an “internal
+                                                                                           medium” (an effective fluid representing the abdominal contents).
+
+         Fig. 6.    Virtual transducer and deformed US image. (a) Illustrates the          distribution of CS, the angle between the probe’s normal and
+         fundamental ultrasound scanning scenario under tissue compression. (b)
+         Schematically details the analytical method based on a virtual transducer         the epidermal surface’s normal in the in-plane direction is
+         and the principle of column similarity. The acoustic waves from individual        determined. The experimental results remarkably demonstrate
+         transducers are assumed to propagate independently along paths defined by a       the stability of the algorithm. Compared to traditional methods,
+         common focus. By analyzing the correlation of echo intensities from adjacent
+         transducers, the tissue’s normal direction can be inferred.                       the proposed method in this article reduces the computing
+                                                                                           time by 84.6% and decreases the average error by 33.0%. The
+         by various transducers. This study posits that the US waves                       algorithm has been verified on various phantoms and human
+         produced by each transducer operate without interference. In                      body parts, proving its strong robustness.
+         addition, it is assumed that the sound waves propagate along
+         the paths defined by the focus and each respective transducer.                              IV. N ORMAL D ETECTION IN O UT- OF -P LANE
+         Consequently, the echo signal received by each transducer                                    O RIENTATION AND S CANNING S TRATEGY
+         corresponds to the echo intensity along its respective ray, as                       In addition to in-plane motion, controlling the US probe’s
+         illustrated in Fig. 6(b). By analyzing the correlation between                    movement beyond the plane is essential for acquiring vol-
+         echo intensities of adjacent transducers, it is possible to                       umetric information about the tissue. This section describes
+         identify changes in anatomical structures, thereby determining                    the method developed to control the probe’s motion beyond
+         the normal direction within the θin-plane orientation.                            the plane, including Y-axis translation T T y , Z-axis rotation
+                                                                                           RT z , and X-axis rotation RT x , as illustrated in Fig. 3. Among
+         Algorithm 1 Calculate θin-plane Base on CS                                        these movements, RT x corresponds to the out-of-plane rotation,
+           Input: Ultrasound image Ωoriginal                                               aimed at obtaining a high-quality image. Meanwhile, T T y and
+           Output: θin-plane                                                               RT z determine the probe’s subsequent direction of movement.
+           if Probe type is Convex probe                                                   This section first introduces the use of the Y–L equation
+                  Interpolate Ω According polar coordinate;                                in US scanning. It then derives the local epidermal surface
+           Ω shi f t ← Bit cycle shift of Ωoriginal                                        equation based on previous points and a liquid surface model,
+           mux2 ← Square of average of Ωoriginal by column                                 through which the surface normal and principal directions are
+           muy2 ← Square of average of √      Ω shi f t by column                          determined. Finally, we leverage this information to develop
+                                                          √
+           muxy ← Bit multiplication of mux2, muy2                                         an out-of-plane decomposition and describe subsequent steps
+           sigmax2 ← (Average of Ω2shi f t by column) - mux2                               in the scanning strategy.
+           sigmay2 ← (Average of Ω2shi f t by column) - muy2
+           sigmaxy ← (Average of Ω shi f t ∗ Ω shi f t by column) - muxy                   A. Y–L Equation and Surface Representation
+           C(r, θ)         ←     Calculate     column         similarity by                   To accurately predict and track the dynamically changing
+                   ((2∗muxy+C1)∗(sigmaxy+C3)∗2)
+             ((mux2+muy2+C1)∗(sigmax2+sigmay2+C2))                                         body surface during autonomous robotic scanning, we intro-
+             Cm (θ) ← Average of C(r, θ) by column                                         duce a physics-based surface representation. The core of this
+             Cl (θ) ← Low-pass   filtering on Cm (θ)                                       method is to model the local body region under probe pressure,
+             θin-plane ← θ θCl (θ) dθ
+                          R
+                                                                                           such as the abdomen, as a mechanical system whose behavior
+             return θin-plane                                                              is governed by the Y–L equation from biomechanics.
+                                                                                              The theoretical foundation of this model lies in simplify-
+            Based on this principle, the study assesses whether the US                     ing the complex biological structure into a three-component
+         probe is perpendicular to the skin by evaluating the structural                   mechanical system, as illustrated in Fig. 7. This model com-
+         similarity of column pixels, which correspond to each angle in                    prises: 1) an external medium, which is the ambient air; 2) an
+         the polar coordinate system. The experiment utilizes a probe                      interfacial layer, representing the abdominal wall, which we
+         equipped with 1024 virtual transducers, each capturing 512                        model as a single “composite bio-membrane” that includes
+         echo signals. Algorithm 1 delineates the pseudocode represen-                     the skin, fat, and muscle layers, collectively exhibiting the
+         tation of the method. Initially, the US image is interpolated and                 mechanical properties of an elastic membrane; and 3) an inter-
+         converted into polar coordinates. Subsequently, the structural                    nal medium, consisting of the organs, tissues, and fluids within
+         similarity of the image is computed. Finally, by analyzing the                    the abdominal cavity, whose collective mechanical response
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                 7504018
+
+
+
+         is homogenized into an “effective fluid.” This approach of                        three terms: the first is a geometric position fitting term,
+         simplifying a pressurized biological tissue into an interface                     ensuring the surface passes through the historical waypoints;
+         between an elastic membrane and a fluid is a well-established                     the second is a geometric tangent constraint, enforcing that
+         paradigm in fields like cell biomechanics and soft tissue                         the surface gradient aligns with the known probe tangent
+         mechanics [30], [31], providing a solid theoretical basis for                     direction; and the third is the physical constraint term, ensuring
+         our model.                                                                        the fit surface’s shape (represented by its principal curvatures
+            A critical consideration is that the Y–L equation describes                    Ri1 , Ri2 ) adheres to the Y–L equation. The coefficients wt
+         a static fluid interface, whereas robotic scanning is inherently                  and w p are weights that balance these terms. We use the 50
+         a dynamic process. We address this by invoking the “quasi-                        most recent waypoints, remove outliers using the RANSAC
+         static approximation.” The validity of this assumption stems                      algorithm, and solve this optimization problem via nonlinear
+         from the significant separation in time scales: the robot’s                       least squares.
+         scanning velocity (typically in the order of cm/s) is much                           Especially, when the probe moves to regions where thin
+         slower than the propagation speed of shear waves in soft tissue                   soft tissue directly overlays bone (e.g., the clavicle apex
+         (typically in the order of m/s). This means that at each instant                  or ribs), the “effective fluid” assumption weakens. In this
+         during the robot’s movement, the mechanical state within the                      case, the framework does not require an explicit fallback
+         tissue can rapidly reach equilibrium. Therefore, at any given                     strategy. The optimization in (9) contains three terms; when
+         moment during the scan, the static Y–L equation can be used                       the Y–L physical constraint becomes less representative, its
+         to accurately approximate the relationship between the surface                    residual grows, and the two geometric terms (position fitting
+         morphology and the applied pressure.                                              and tangent constraint) naturally dominate the solution. The
+            The classic Y–L equation relates the pressure difference ∆p                    Y–L term thus degrades to a smoothness regularizer rather
+         across a static fluid interface to the interfacial tension and                    than a strict physical constraint. In addition, RANSAC treats
+         principal curvatures                                                              sharp curvature fluctuations from underlying bone as outliers,
+                               
+                                  1    1
+                                                                                          and the sliding window of 50 waypoints ensures that abrupt
+                             γ      +       − ρgz = ∆p                (8)                  tissue-to-bone boundaries are absorbed gradually rather than
+                                 R1   R2
+                                                                                           encountered as discontinuities.
+         where γ is the surface tension coefficient, R1 and R2 are the                        As demonstrated by the experiments in Section V, this
+         principal radii of curvature at a point on the surface, ρ is                      method accurately and robustly reconstructs the local convex
+         the fluid density, g is the gravitational acceleration, and z is                  structures of the body surface.
+         the height. In our application, the pressure changes induced
+         by the probe’s contact force are significantly larger than the
+         minute pressure gradients caused by gravity (the ρgz term).                       B. Localization of Normal Direction and Principle
+         Consequently, this gravitational term can be safely neglected,                    Curvature Calculation
+         simplifying the equation to a direct relationship between the                        To estimate the out-of-plane orientation and ascertain the
+         pressure difference and the mean curvature.                                       scanning direction for the US probe at the surface coordinate
+            However, solving this nonlinear partial differential equation                  P0 = (x0 , y0 , z0 ) (which is the next scanning point), it is crucial
+         in real-time is highly challenging, especially in the presence of                 to determine the normal and principal directions. We first
+         physiological disturbances like respiration and cardiac motion.                   calculate the normal vector N     ~ of the quadratic surface at next
+         To achieve robust and efficient surface fitting, we locally                       scanning point P0
+         approximate the body surface with a quadratic function and                             
+                                                                                                  ∂z ∂z
+                                                                                                                 
+         employ an optimization framework that integrates geometric                        ~
+                                                                                           N=         , , −1 = (2ax0 + cy0 + d, 2by0 + cx0 + e, −1)
+                                                                                                  ∂x ∂y
+         information with the physical constraint. Specifically, we use                                                                                      (10)
+         the previously acquired waypoints Pi (xi , yi , zi ) and their cor-               where a, b, c, d, e denote the parameters of the quadratic
+         responding tangent directions d~i (obtained from the in-plane                     surface, while N   ~ represents the normal vector at that point. To
+         servoing) as geometric priors. The surface fitting is then for-                   further determine the principal curvature directions, we next
+         mulated as the following nonlinear least-squares optimization                     compute the Hessian matrix of the quadratic surface
+         problem:
+                                                                                                                     ∂2 z    ∂2 z
+                                                                                                                                  !          
+                                                                                                                     ∂x2    ∂x∂y      2a    c
+                                             n
+                                             X                                                              H = ∂2 z         ∂ z
+                                                                                                                              2    =             .           (11)
+                            min                     zi − axi2 + by2i                                                ∂y∂x     ∂y2
+                                                                                                                                       c   2b
+                      a,b,c,d,e, f ,{∆pi }
+                                              i=1
+                                                                         2                  Therefore, by solving the eigenvectors vi = (vix , viy ) of the
+                                      + cxi yi + dxi + eyi + f                              Hessian matrix H, the principal curvature directions ~dR1 and
+                                   n                     2                               ~dR2 can be computed as
+                                      ∇S (xi , yi ) · d~i
+                                   X
+                              + wt
+                                                                                                               ~dR1 = v1x , v1y , −∇z0 · v1
+                                                                                                                                            
+                                        i=1
+                                   n                     2
+                                                                                                             ~dR2 = v2x , v2y , −∇z0 · v2 .
+                                                   
+                                   X      1     1                                                                                         
+                                                                                                                                                         (12)
+                              + wp    γ      +       − ∆pi                          (9)
+                                         Ri1   Ri2
+                                         i=1
+                                                                                              In Sections IV and V, this study clarifies the methodology
+         where S (x, y) = ax2 + by2 + cxy + dx + ey + f is the quadratic                   used to determine the scanning direction from the principal
+         surface to be determined. The objective function comprises                        directions ~dR1 and ~dR2 .
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                       IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+                                                                                             violates the time constraint. The chosen values represent a
+                                                                                             task-level tradeoff, not an anatomy-dependent parameter. We
+                                                                                             applied the identical weights to the flat abdominal phantom
+                                                                                             and the high-curvature clavicle (Section V-F) without any
+                                                                                             adaptation, and both achieved consistent accuracy, confirming
+                                                                                             robustness across geometrically distinct regions. Clinically, the
+                                                                                             most common offline scanning path involves parallel lines
+                                                                                             [10], typically oriented from top to bottom or from left to
+                                                                                             right, ensuring comprehensive coverage of the entire body.
+                                                                                             In this article, our planned paths are aligned along parallel
+         Fig. 8. Ultrasonic autonomous scanning strategy. First, the robot generates         lines from bottom to top, as depicted in Fig. 8. To achieve
+         waypoints based on the scanning region [red region in (a)]. Next, it determines     optimal imaging quality through precise positioning of the US
+         the scanning direction ~p, then estimates the principal direction ~dR2 based        probe, we define C ~ z = N,
+                                                                                                                      ~ with C x derived from the Cartesian
+         on the Y–L surface, and finally solves for the scanning direction Cy .
+         (a) Generating the scanning direction projection ~p. (b) Solving for the scanning   coordinate system. The transformations W         C
+                                                                                                                                         T R, W R ∈ S O(3)
+         direction Cy .                                                                      denote the rotations from the world frame to the US probe
+                                                                                             frame and from the world frame to the epidermal surface
+                                                                                             frame, respectively. The translation from the US probe frame
+         C. Scanning Strategy and Motion Planning                                            to the epidermal surface frame is represented by
+            The algorithm described in Section IV-B involves fitting
+                                                                                                                       CR = T R
+                                                                                                                       T    W −1 W
+         a surface using a series of in-plane tangents to determine                                                             · C R.                              (14)
+         the out-of-plane decomposition and compute the principal
+                                                                                                The motion sequence is defined by the control frequencies,
+         directions of the surface. Due to the complexity of the
+                                                                                             arranged in descending order from high to low frequency,
+         algorithm, the out-of-plane decomposition loop is typically
+                                                                                             which enhances motion precision. Specifically, the control
+         several times slower than the in-plane loop. As a result, the
+                                                                                             sequence commences with z-axis motion, advances to in-plane
+         out-of-plane adjustment of the US probe is relatively slow.
+                                                                                             motion, proceeds to out-of-plane motion, and culminates in the
+         This performance disparity between the high-bandwidth in-
+                                                                                             scanning motion. These actions are executed in the order of
+         plane controller and the low-bandwidth out-of-plane controller
+                                                                                             T T z , RT y , RT x , RT z and T T y . The deduced angles of rotation
+         is a critical challenge. A sharp turn in the scanning path
+                                                                                             for the x-axis and z-axis are specified as follows:
+         would demand a rapid change in the probe’s out-of-plane
+                                                                                                                                                  
+         orientation. The slow controller, unable to track this demand,                                                                 q
+         would introduce significant transient error, compromising the                                          θT x = arctan 2 −r32 , r31 + r33
+                                                                                                                                           2     2
+
+         probe’s normal alignment to the skin and degrading image                                           θT z = arctan 2 (r21 , r11 ) .                          (15)
+         quality. By proactively minimizing the forward curvature,
+         we generate a smoother, more predictable path. This strat-                          In the aforementioned equation, r32 denotes the (i, j) element
+         egy effectively decouples the fast translational motion from                        of the transformation matrix CT R, and the translation along the
+         the slow orientational adjustments, granting the out-of-plane                       y-axis is defined as 0.2 cm per step. These parameters facilitate
+         controller sufficient time to converge and ensuring stable, high-                   the out-of-plane decomposition and, respectively, define the
+         quality imaging throughout the scan. Therefore, the goal of the                     scanning direction for the US probe.
+         scanning strategy is to minimize the curvature along the T y
+         direction. In addition, the scan path should comprehensively
+                                                                                                             V. E XPERIMENTS AND R ESULTS
+         cover the entire volume. Consequently, in this article, Cy ,
+         which represents the scanning orientation, is determined using                         Several experiments were conducted to validate the sys-
+         the equation below                                                                  tem. First, to assess the control method for z-axis motion,
+                                                                                             experiments were performed on different body regions of
+                                          ω1 ~dR2 + ω2 ~p
+                                  Cy =                      .                       (13)     15 volunteers (the BMI ranged from 17.9 to 31.2, including
+                                         kω1 ~dR2 + ω2 ~pk2                                  five females and 11 males). This section evaluates the proposed
+         In the preceding equation, Cy denotes the y-axis direction in                       autonomous scanning framework by addressing five critical
+         the coordinate system {C} of the contact point. The variables                       questions as follows.
+         ω1 and ω2 represent weights, while ~dR2 and ~p indicate the                            1) Does the Bayesian optimization-based force control
+         directions of minimum curvature and the planned offline next                               method ensure consistent imaging quality across hetero-
+         scanning direction, respectively. In our implementation, we set                            geneous tissues?
+         the weights to ω1 = 0.3 and ω2 = 0.7. The weight ω2 = 0.7 is                           2) Can the CS-based in-plane servo method achieve high-
+         determined by a clinical constraint: the full scan must complete                           precision positioning with low latency in an embedded
+         within 5 minutes, requiring the path-following term to dom-                                low-power platform?
+         inate. The remaining ω1 = 0.3 provides sufficient authority                            3) Does the Y–L equation-based out-of-plane servo outper-
+         for local surface orientation adjustment. When ω1 → 0, the                                 form competing models in ultrasound-guided scanning?
+         probe ignores local curvature, degrading image quality; when                           4) Is the proposed framework capable of autonomous
+         ω1 → 1, the probe over-conforms to local topology and                                      exploration on arbitrary unknown surfaces?
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                    7504018
+
+
+
+
+         Fig. 9. Supporting structure. (a) Exploded view. (b) Physical diagram.
+
+
+
+             5) Can the integrated framework autonomously scan human
+                tissues and anatomical structures? Can the reconstruction
+                accuracy of a specific anatomical structure be compara-
+                ble to that of human experts?                                              Fig. 10. Comparison of control strategies on different body parts. (a) Strategy
+                                                                                           A (constant force control) maintains a stable force but results in highly variable
+                                                                                           image quality due to the tissue’s different stiffness. (b) Strategy B (fusion
+         A. System Setup                                                                   image quality control) maintains a stable, high image quality by dynamically
+            In our experiment, the UR5 robotic manipulator (Universal                      adjusting the contact force. The periodic force modulation on the abdomen
+                                                                                           compensates for breathing motion. Note the periodic force modulation on the
+         Robots, Denmark) was utilized. A 6-axis force/torque sensor,                      abdomen (green line), which actively compensates for respiratory motion.
+         model M3701A (Sunrise Instrument, China), was mounted
+         to the robot’s flange via a supporting structure, as shown in
+         Fig. 9. This supporting structure allows for the application of
+         Z-axis pressure on the sensor while limiting forces in other
+         dimensions, ensuring that the force system is exclusively used
+         to maintain contact between the probe and the skin.
+            In our experimental setup, an Intel Core i5-8400 CPU and
+         an NVIDIA GTX1060 GPU were utilized. The experiments
+         were carried out on a personal computer equipped with 16 GB
+         of memory, serving as the external controller for our robotic
+         system. Ubuntu 20.04 was the operating system of choice,
+         with the Robot Operating System (ROS) enabling seamless
+         communication and control. Evaluation of all controllers was
+         conducted using Python 3.8 and C++. This hardware and
+         software configuration ensured the efficient execution of algo-                   Fig. 11. Representative ultrasound frames from the abdominal scan under
+         rithms and reliable performance throughout our experiments.                       Strategy A and Strategy B. Top row: With constant force control, the abdom-
+            To verify the real-time performance of the in-plane method                     inal aorta is intermittently lost, indicating diagnostic unreliability. Bottom row:
+                                                                                           With our fusion image quality control, the aorta is consistently identified in
+         on the embedded low-power platform, a Jetson Orin Nano                            all frames, ensuring continuous diagnostic value.
+         8 GB was utilized. Moreover, the algorithm underwent testing
+         with a portable US scanner, model M7, equipped with a sector
+         2-D US probe 35C50EA (Mindray Corporation, China), noted                          an experiment to directly compare the conventional constant
+         for its heightened sensitivity in the in-plane direction.                         force control (Strategy A) against our proposed fusion image
+            Multimodal data alignment is handled by ROS’s message                          quality control (Strategy B). The experiment was conducted
+         synchronization mechanism, which matches force and image                          on various body parts of a volunteer to assess the strategies’
+         messages by header timestamps with a tolerance of 33 ms (the                      robustness across different tissue stiffness (anisotropy) and
+         vision system’s update period). At the scanning speed of less                     under physiological motion.
+         than 10 mm/s, a worst case 33-ms mismatch corresponds to                             Strategy A implements a constant force objective, a common
+         0.33-mm probe displacement, which is below the ultrasound                         approach in robotic ultrasound. As shown in Fig. 10(a), when
+         image resolution (0.449 mm/pixel). The temporal mismatch,                         a target force of 9N was applied, the system successfully
+         therefore, falls within subpixel range and does not affect                        maintained a stable contact force (solid lines) on the abdomen,
+         control stability.                                                                leg, and hand. However, the resulting IQS (dashed lines) varied
+                                                                                           significantly. While acceptable quality was achieved on the
+                                                                                           compliant abdomen, it was substantially lower on the leg and
+         B. Dynamic Performance: Constant Force Versus Image                               poor on the bony hand, demonstrating that a fixed force does
+         Quality Control                                                                   not guarantee consistent image quality across anatomically
+           To address the need for dynamic performance validation                          diverse regions. More critically, during a continuous scan of
+         and to clarify our force regulation strategy, we designed                         the abdomen, this strategy’s inability to adapt to physiological
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+                                                                                           aimed to assess the algorithms’ recognition speed and accuracy
+                                                                                           across various angles. In the scanning experiment, the robotic
+                                                                                           arm was programmed to move from an in-plane direction from
+                                                                                           −25◦ to +25◦ , performing scans on the human abdomen, upper
+                                                                                           arm, and thigh. During the scans of the abdomen and thigh,
+                                                                                           parts of the probe array detached from the epidermal surface
+                                                                                           at approximately ±19◦ and ±15◦ , respectively. The US probe
+                                                                                           acquired images at a frequency of 30 Hz, which were sub-
+                                                                                           sequently stored for algorithmic processing. The experimental
+                                                                                           results are depicted in Fig. 12. The temporal correlation of
+                                                                                           the results for the two algorithms during the abdominal, upper
+                                                                                           arm, and thigh scans yielded coefficients of (0.9976, 0.9932),
+                                                                                           (0.9982, 0.9891), and (0.9787, 0.9501), respectively. Greater
+                                                                                           linearity correlates with enhanced detection accuracy and
+                                                                                           robustness.
+                                                                                              The processing speed determines the execution time of
+                                                                                           the algorithm. This experiment assesses the algorithm’s com-
+         Fig. 12. Comparative experiments of in-plane normal search algorithms. The
+                                                                                           plexity and execution speed by calculating the floating-point
+         experiments include scanning of the thigh, upper arm, and abdomen.                operations (FLOPs) and computation time. As shown in
+                                                                                           Table I, for a single 640 × 480 image acquired by the US
+         motions like breathing resulted in intermittent loss of the target                probe, the FLOPs for the CM method and the method proposed
+         structure. Fig. 11 (top row) provides representative frames                       in this article are 1.15E+9 and 1.56E+7, respectively. In the
+         where the abdominal aorta, a key diagnostic target, could not                     experimental environment described, the average processing
+         be identified at certain moments (e.g., IQS = 0.366), rendering                   frequencies are 4.7 and 29.7 Hz, respectively.
+         the scan diagnostically unreliable.                                                  2) Real-Time Challenge and GPU Acceleration: Despite
+            In contrast, Strategy B utilizes our proposed method, which                    the significant speed advantage of a CPU, the initial processing
+         dynamically adjusts the contact force to maintain a constant,                     latency of 33 ms (corresponding to a frame rate of 32 Hz) still
+         high level of image quality. The results are presented in                         falls short of the stringent requirements for real-time clinical
+         Fig. 10(b). The system successfully kept the IQS (dashed                          ultrasound guidance. Standard medical ultrasound machines
+         lines) stable at a high value (approx. 0.5) on the abdomen,                       and their data acquisition cards typically output image streams
+         thigh, and upper arm. To achieve this, the contact force                          at 60 Hz. To ensure the algorithm can process every frame
+         (solid lines) became a dynamic variable. Notably, for the                         without delay, thereby preventing visual stutter and artifacts
+         abdominal scan, the force exhibited periodic fluctuations,                        caused by data loss or processing lag, the processing speed
+         which actively compensated for the tissue deformation caused                      must match or exceed the input frame rate. Therefore, achiev-
+         by the volunteer’s breathing. This adaptive behavior ensures                      ing 60 Hz (i.e., a per-frame processing time of less than
+         that the probe maintains optimal acoustic coupling through-                       16.7 ms) is the critical threshold for providing smooth and
+         out the respiratory cycle. Crucially, despite these dynamic                       reliable real-time visual feedback.
+         adjustments, the applied force remained well within the global                       This performance gap motivated us to develop a
+         safety threshold (25 N) defined in Section III-A, ensuring                        GPU-accelerated version to overcome the computational
+         patient safety. The practical benefit of this approach is clearly                 bottleneck. As shown in Table II, by migrating the com-
+         illustrated in Fig. 11 (bottom row). Throughout the scan, the                     putationally intensive parts of the algorithm (such as the
+         abdominal aorta remained clearly identifiable in all frames,                      polar transformation and the core similarity computation) to
+         ensuring the continuous acquisition of diagnostically valuable                    the GPU for parallel processing, the algorithm’s latency on
+         images.                                                                           a desktop PC (GPU: NVIDIA GTX 1060) was drastically
+            This comparative experiment unequivocally demonstrates                         reduced to 3.5 ms, corresponding to a frame rate of 285 Hz,
+         the superiority of our fusion image quality control strategy. By                  which far exceeds the real-time requirement.
+         closing the loop on image quality rather than force, our system                      3) Embedded Platform Deployment and Robustness Valida-
+         can intelligently adapt to both static anatomical differences and                 tion: To further validate the algorithm’s practical deployment
+         dynamic physiological disturbances, ensuring consistent and                       potential on portable robotic or medical devices, we success-
+         reliable diagnostic imaging, which is a critical failure point                    fully ported it to the resource-constrained NVIDIA Jetson
+         for conventional constant-force methods.                                          AGX Orin embedded platform. The results demonstrate that
+                                                                                           even with significantly lower power consumption and com-
+         C. Experiment of Normal Detection in In-Plane Orientation                         putational power compared to a desktop PC, the algorithm
+                                                                                           can still operate stably with an average latency of 15.1 ms,
+           1) Performance Comparison With Traditional Methods:
+                                                                                           corresponding to a frame rate of 66 Hz. This successfully
+         To evaluate the effectiveness of the in-plane method, this
+                                                                                           crosses the 60 Hz real-time threshold, proving its feasibility
+         experiment examined two algorithms: the CM and the CS.
+                                                                                           in real-world applications. The experiment results are shown
+         This experiment focused on in-plane angle recognition and
+                                                                                           in Table III.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                 7504018
+
+
+
+                                                                                     TABLE I
+                                                 C OMPARATIVE E XPERIMENT OF IN -P LANE N ORMAL S EARCH A LGORITHMS
+
+
+
+
+                                           TABLE II
+                    P ERFORMANCE C OMPARISON B ETWEEN CPU-BASED
+                           AND GPU-ACCELERATED M ETHODS
+
+
+
+
+                                                                                           Fig. 14. Comparison of phantom surface models and scanning paths. The left
+                                                                                           panel illustrates the phantom surface model featuring three distinct surface
+                                                                                           structures. The right panel displays the offline planned scanning path.
+
+
+                                                                                           in Fig. 13 shows that there was no statistically significant
+                                                                                           difference in tracking accuracy or processing speed for the
+                                                                                           obese patient group. This strongly demonstrates that our
+                                                                                           method possesses excellent generalization ability and stability
+                                                                                           across different body types and image qualities.
+
+                                                                                           D. Irregular Phantom Scanning
+                                                                                              While the ultimate application of our system is on human
+                                                                                           subjects, the nonrigid nature, physiological motion, and inher-
+                                                                                           ent lack of a ground truth for human tissues preclude a
+                                                                                           rigorous and repeatable quantitative assessment of the con-
+                                                                                           trol framework’s performance, particularly concerning surface
+                                                                                           reconstruction accuracy and normal alignment. To overcome
+                                                                                           this limitation and enable a controlled, quantitative validation,
+                                                                                           we designed a sophisticated physical phantom, as depicted in
+                                                                                           Fig. 14 (left). This phantom is not a simplistic model; it delib-
+                                                                                           erately incorporates three distinct surface structures—a Y–L
+                                                                                           surface, an irregular convex surface, and a planar region—to
+                                                                                           emulate the diverse anatomical topographies encountered in
+                                                                                           clinical practice. The experimental task required the robotic
+                                                                                           system to autonomously execute a predefined scanning tra-
+                                                                                           jectory designed for comprehensive coverage of this complex
+                                                                                           surface, as shown in Fig. 14 (right).
+                                                                                              To holistically evaluate the system’s performance, we estab-
+         Fig. 13. In-plane tracking performance in multiple BMI volunteers across          lished a multifaceted evaluation scheme encompassing both
+         three distinct anatomical locations: the thigh, arm, and abdomen.                 geometric accuracy and imaging quality. Geometric perfor-
+                                                                                           mance was quantified by the surface reconstruction accuracy,
+                                                                                           measured as the root-mean-square error (RMSE) between the
+            4) Validation on Multivolunteers: Finally, we assessed the                     estimated surface and the ground-truth model, and the probe-
+         algorithm’s robustness in challenging clinical scenarios. We                      to-surface normal alignment, assessed by the total angular
+         specifically selected ultrasound sequences from volunteers                        error. Crucially, imaging performance was evaluated using the
+         (BMI from 16.9 to 31) for testing, as their thicker subcuta-                      composite IQS, as defined in Section II-A. This score pro-
+         neous fat layers often lead to a lower SNR in images, posing                      vides a comprehensive measure by averaging four normalized
+         a significant challenge for tracking algorithms. The box plot                     metrics: the zero-order moment of the US CM (Icon f ), SNR,
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+
+         Fig. 15. Visualization of autonomous scanning performance on the irregular
+         phantom. (a) 3-D perspective view showing the executed probe trajectory
+         (red asterisks) closely following the phantom’s surface. The blue dots are
+         the surface contact points estimated in real-time by our framework. (b) Top-
+         down view illustrating the high-fidelity tracking of the predefined coverage
+         path. These plots demonstrate the system’s capability for simultaneous path
+         following and surface adaptation.
+
+
+                                           TABLE III
+            P ERFORMANCE C OMPARISON B ETWEEN PC AND J ETSON P LATFORMS
+
+
+
+
+                                                                                           Fig. 16. Comparison of phantom surface models and scanning paths. The left
+                                                                                           panel illustrates the phantom surface model featuring three distinct surface
+                                           TABLE IV
+                                                                                           structures. The right panel displays the offline planned scanning path.
+                   ANOVA A NALYSIS OF I RREGULAR P HANTOM S CANNING
+
+
+                                                                                              The qualitative results of the phantom scanning experiment
+                                                                                           are presented in Fig. 15, which visualizes the robot’s executed
+                                                                                           trajectory and the corresponding real-time surface estimation.
+                                                                                           Fig. 15(a) offers a 3-D perspective, where the red asterisks
+                                                                                           trace the path of the probe’s center-point, and the blue dots rep-
+                                                                                           resent the surface points estimated by our framework. The tight
+                                                                                           adherence of the probe’s trajectory to the phantom’s complex
+         Crel , and CNR. Finally, to rigorously validate the superiority                   geometry provides compelling evidence of the system’s ability
+         and necessity of each component in our framework, we                              to perform real-time adaptation. Specifically, it demonstrates
+         conducted comparative experiments against a traditional CM-                       that our visual servoing controller successfully adjusted the
+         based approach and ablation studies using simpler surface                         probe’s height and orientation to conform to the varying
+         models (plane and quadratic).                                                     curvatures of the Y–L and irregular surfaces. Furthermore,
+            To isolate the variables and rigorously evaluate the intrinsic                 the top-down view in Fig. 15(b) confirms that the system
+         performance of the six distinct path planning and orientation                     precisely followed the predefined sweeping pattern, ensuring
+         servoing strategies, the Z-axis controller for this specific                      comprehensive coverage of the target areas. The close spatial
+         experiment was configured to maintain a constant contact force                    correspondence between the executed probe locations (red)
+         (e.g., approx. 9N). This deliberate design choice deviates from                   and the estimated surface points (blue) across the entire scan
+         the IQS-stabilizing control mode discussed earlier. By doing                      validates the accuracy and stability of our online surface
+         so, we ensure that any observed variations in image quality are                   modeling. Collectively, these results provide strong qualitative
+         directly attributable to the efficacy of the path and orientation                 validation that our proposed framework can achieve robust and
+         control method being tested, thus providing an unbiased basis                     accurate autonomous scanning over challenging, unstructured
+         for comparison.                                                                   surfaces, setting the stage for a detailed quantitative analysis.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                 7504018
+
+
+
+                                                                                    TABLE V
+                                                            C OMPARATIVE E XPERIMENTS IN P HANTOM S CANNING
+
+
+
+
+            Following the qualitative validation, a comprehensive quan-                    comprehensive path planning strategy, ensuring 100% cov-
+         titative analysis was conducted to evaluate the performance                       erage without the variability inherent in manual operation.
+         of our proposed Y–L+CS framework against five alternatives.                       Unlike human scanning, which may inadvertently miss regions
+         The descriptive statistics and box plot visualizations for the                    or vary in speed, the robotic framework guarantees procedural
+         five key metrics are presented in Fig. 16.                                        repeatability. This standardized workflow is critical for longi-
+            To assess the statistical significance of the observed dif-                    tudinal studies and screening applications where consistency
+         ferences, we first performed a one-way analysis of variance                       outweighs raw speed.
+         (ANOVA). As summarized in Table IV, the results confirm that
+         highly significant differences exist among the method groups
+         for all five metrics (p < 0.001). This foundational finding                       E. Limitation Analysis on a Planar Phantom
+         validates that the choice of method has a profound impact                            To investigate the performance boundaries of our frame-
+         on performance. To identify which specific methods differ,                        work, we designed an experiment on a planar phantom. The
+         a Tukey’s HSD post hoc test was then conducted, with the                          plane represents a degenerate geometric case, as its normal
+         results indicated by significance brackets in Fig. 16.                            curvature is theoretically zero in all directions. This poses
+            The post hoc analysis provides several key insights. First,                    a challenge for our out-of-plane servo method, which is
+         our Y–L+CS method demonstrated statistically significant                          grounded in the Y–L equation. The Y–L model assumes a
+         superiority in image quality over all five alternatives (pairwise                 nonzero pressure differential (∆p) and, consequently, nonzero
+         p < 0.001). It also achieved the lowest mean values for                           principal curvatures. Therefore, this experiment serves as a
+         total error, in-plane error, and sampling mean error, with                        stress test to evaluate the system’s robustness and behavior
+         these improvements being statistically significant against every                  when operating at the theoretical limits of its underlying
+         other method (p < 0.001). Furthermore, the analysis of                            biomechanical model.
+         out-of-plane error effectively isolates the contribution of the                      The plane scanning experiment utilized a phantom system.
+         CS feedback; while statistically comparable to other CS-                          This system comprises a sound-permeable silicone gel that
+         based methods, Y–L+CS significantly outperformed its direct                       mimics the acoustic properties and firmness of human skin,
+         counterpart Y–L+CM (p < 0.001).                                                   an adjustable platform also with sound-permeable properties,
+            Collectively, these quantitative results provide robust statis-                and a base, as illustrated in Fig. 18. Specifically, the silicone
+         tical evidence that the proposed Y–L+CS framework is the                          gel skin features a multilayer structure to accurately emulate
+         superior approach, excelling in both high-quality imaging and                     the genuine acoustic characteristics and texture of human
+         precise geometric control. Results of this experiment is show                     skin. The platform is perforated with arrays of holes aligned
+         in Table V.                                                                       both horizontally and vertically to reflect structures within
+            Quantitative comparison with expert manual scanning                            the human body that exhibit significant acoustic reflectivity.
+         highlights the system’s precision. The proposed framework                         Moreover, the platform’s angle can be modified using a screw
+         achieved a significantly lower RMSE (4.92 ± 1.52 mm)                              rod to mimic various surface tilts.
+         compared to the expert (8.65 ± 1.53 mm), indicating supe-                            In this experiment, the scanning area was predefined, with
+         rior geometric reconstruction capabilities. While the expert                      the robot autonomously planning waypoints along parallel
+         achieved a marginally higher IQS (0.73 versus 0.70), this                         lines to establish the trajectory, as introduced in Section IV-C.
+         was associated with higher and more variable contact forces                       The robotic arm’s initial position was assigned randomly.
+         applied by the human operator. In contrast, the robotic sys-                      After reaching the first waypoint, the robot executes in-plane
+         tem prioritized a stable, lower force profile to minimize                         movements to explore the normal plane, capturing the point
+         tissue deformation and ensure patient safety, demonstrating a                     cloud data near the normal, as detailed in Section III-B.
+         favorable tradeoff between reconstruction accuracy and image                      Subsequently, the point cloud is aligned to the epidermal
+         quality. The scanning process is as shown in Fig. 17.                             surface using the LS method, facilitating out-of-plane control,
+            Regarding efficiency, the autonomous scan required 259 s,                      as shown in Sections IV-A and IV-B. Ultimately, the surface’s
+         approximately 33% longer than the expert’s 153 s. However,                        principal direction is calculated to guide the motion for the
+         this duration reflects the system’s strict adherence to the                       next frame, as demonstrated in Section IV-C.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+
+         Fig. 17. Results of the phantom scanning experiment. Each column represents a distinct scanning path. The results demonstrate full coverage of the system
+         by the ultrasound scanning frame, and stable tracking of the surface normal by the probe. Each column corresponds to a distinct scanning path on the pahtom.
+         Rows (1)–(3) represent sequential stages of the scanning motion. (a-1)–(g-3) Demonstrate consistent, full coverage of the phantom surface and stable real-time
+         tracking of its normal direction by the robotic probe across all tested paths.
+
+                                                                                    TABLE VI
+                                                                 R ESULTS OF P LANE S CANNING E XPERIMENTS
+
+
+
+
+         Fig. 18. Plane phantom scanning experimental setup. (a) Ultrasound probe
+         is positioned at θ = 0◦ and (b) at θ = 20◦ . The platform allows for precise      Fig. 19. Plane scanning experiments at various angles. The diagram presents
+         control of the phantom’s tilt angle to evaluate ultrasound imaging performance    isometric, side, and top views for scans conducted at 0◦ , 10◦ , and 20◦ angles.
+         under different incident angles.
+                                                                                           corresponds to a column in the figure, while the three rows
+           The experimental results are depicted in Fig. 19, wherein                       represent different viewing angles. The findings reveal that
+         the system was evaluated at three distinct angles (0◦ , 10◦ ,                     the algorithm’s-plane fitting (indicated by the blue spots) and
+         and 20◦ ), as depicted in the first row of Fig. 19. Each angle                    probe location (marked by the red spots) align closely with the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                 7504018
+
+
+
+
+         Fig. 20. Angle error analysis for different types of motion. The graph
+         compares the angle errors in in-plane motion, out-of-plane motion, and total
+         motion.
+
+         scanned surface across varying viewing angles. Notably, there
+         are abrupt shifts in the in-plane and out-of-plane angles when
+         transitioning between parallel lines, as evidenced in Fig. 20.
+         Moreover, the convergence speed of in-plane, out-of-plane,
+         and total motion progressively diminishes, likely due to the
+         sequentially decreasing control bandwidth. By averaging the
+                                                                                           Fig. 21. 3-D volume reconstruction of the proximal humerus and upper arm.
+         fitting surface information at each waypoint, the orientation                     The reconstruction includes (a) distal portion of the humerus and (b) proximal
+         of the probing plane in different planes can be determined.                       portion of the humerus.
+         Table VI presents the in-plane error, out-of-plane error, and
+         total error of the algorithm for each angle. It is crucial to                     volunteers. The control framework ensures physical contact
+         highlight that the algorithm’s performance remains largely                        and correct alignment of the robotic probe with the body
+         consistent despite increasing angles. This implies that this                      surface, utilizing a CM for ultrasound image segmentation.
+         method, based on the Y–L equation, is effective for surfaces                      Due to the nonrigid nature of the tissues and the lack of
+         with a horizontal angle within 20◦ , meeting the requirements                     a ground truth for evaluation, assessing image quality is
+         of most scanning tasks conducted in a supine position.                            challenging. Fig. 21 displays the reconstructed 3-D model of
+             As theoretically anticipated, the scanning trajectory exhib-                  the body. Fig. 21(a) and (b) shows cross-sectional views of the
+         ited a minor drift and did not strictly adhere to the preplanned                  proximal and distal humerus, respectively. The application of
+         parallel path. This deviation stems from the uniform geometric                    3-D perception allows sonographers to easily identify critical
+         properties of a plane, which make the determination of a                          anatomical features, such as the humerus or brachial artery,
+         unique principal direction (d~R2 ) ill-defined. In the absence                    confirming the clinical diagnostic utility of our algorithm.
+         of a strong curvature gradient, the scanning direction com-
+                                                                                              2) Geometric Accuracy on Highly Curved Anatomy: To
+         ponent of the control law [see (12)] is susceptible to small
+                                                                                           rigorously test the proposed framework’s ability to handle
+         numerical errors. However, it is crucial to note that despite
+                                                                                           challenging geometries, we conducted an in vivo validation
+         this path drift, the system successfully maintained stable
+                                                                                           study on a highly curved anatomical region—the clavicle of a
+         normal alignment throughout the scan, as evidenced by the
+                                                                                           healthy volunteer. This area is characterized by significant and
+         consistently low total angular errors (below 7.5◦ ) in Table VI.
+                                                                                           rapidly changing curvature, presenting a stringent test for the
+         This result demonstrates the framework’s robustness: even
+                                                                                           system’s surface tracking and normal estimation capabilities.
+         when operating on a degenerate surface that challenges its
+                                                                                           The reconstructed surface was quantitatively compared against
+         path-planning component, the core objective of high-quality
+                                                                                           a ground-truth model derived from a CT scan of the same
+         image acquisition via normal tracking is preserved.
+                                                                                           subject.
+                                                                                              Fig. 22 illustrates the results of this validation. The plot
+         F. In Vivo Validation and Clinical Feasibility                                    visualizes the robot’s TCP trajectory (UR frame points, red),
+            1) Qualitative Evaluation on Upper Arm: To verify the                          the surface point cloud estimated in real-time by our algorithm
+         effectiveness of the algorithm, we conducted a 3-D reconstruc-                    (estimated point cloud, blue), and the final reconstructed
+         tion of the humerus in volunteers. In this study, we employ                       isosurface. As depicted, the robotic system successfully
+         an autonomous scanning method to capture the upper arms of                        maintained stable contact and followed the complex contour
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                      IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+
+         Fig. 22. In vivo validation on the highly curved clavicular region. The system
+         accurately tracks the complex anatomical surface, with the robot’s trajectory
+         (red), the algorithm’s estimated point cloud (blue), and the final reconstructed
+         surface (gray isosurface) showing strong correspondence.
+
+
+
+         of the clavicular region, demonstrating the robustness of our
+         Y–L-based normal tracking and scanning strategy.
+            To quantify the accuracy, the reconstructed surface was
+         compared against a ground-truth model derived from a CT
+                                                                                            Fig. 23. Comparison of 3-D abdominal aorta models. The reconstruction from
+         scan of the same subject. The analysis yielded a mean absolute                     our autonomous system (green) shows excellent morphological alignment with
+         error (MAE) of 6.21 mm and an RMSE of 6.35 mm. The                                 the model manually generated by an expert sonographer (red).
+         error distribution was consistent, as indicated by a standard
+         deviation (SD) of 1.31 mm, with the maximum observed
+         error being 7.69 mm. These findings validate that our system                         2) Surface Distance: The average symmetric surface dis-
+         can reliably operate on and accurately map highly nonplanar                             tance (ASSD) was computed to quantify the mean
+         biological surfaces, which is a critical capability for scanning                        distance between the surfaces of the two models. The
+         many parts of the human body.                                                           resulting ASSD was 2.9 mm, demonstrating high surface
+            3) Clinical Utility in Abdominal Aortic Reconstruction: To                           reconstruction accuracy.
+         demonstrate the clinical potential and diagnostic-level accu-                        3) Measurement of Key Clinical Parameters: We mea-
+         racy of our autonomous scanning framework, we performed                                 sured the vessel diameter of the abdominal aorta at
+         a complete 3-D reconstruction of the abdominal aorta on                                 three distinct anatomical landmarks (e.g., just below the
+         a healthy volunteer. This experiment serves as the ultimate                             renal arteries, mid-aorta, and just above the bifurcation).
+         validation, assessing the system’s performance in a clini-                              The measurements from our model showed a mean
+         cally relevant task that requires both stable contact on soft,                          difference of less than 10% compared to the experts’
+         deformable tissue and the ability to generate high-quality                              measurements, which is well within the range of clinical
+         images for accurate modeling. The robotic reconstruction was                            acceptability.
+         compared against a 3-D model manually created by an expert
+                                                                                               Furthermore, the entire autonomous scanning procedure was
+         sonographer who performed a separate scan on the same
+                                                                                            completed in just 49 s, demonstrating the system’s efficiency
+         subject.
+                                                                                            for clinical workflow. Collectively, these results provide strong
+            Fig. 23 presents a direct visual comparison of the 3-D
+                                                                                            evidence for two key conclusions. First, our algorithm is
+         models. The model reconstructed by our autonomous robotic
+                                                                                            effective for autonomous scanning on the relatively flat but
+         system is rendered in red, while the expert’s manual recon-
+                                                                                            highly deformable abdominal region. Second, the resulting
+         struction is shown in green. A high degree of morphological
+                                                                                            3-D reconstruction achieves an accuracy, in terms of both
+         agreement is immediately apparent, particularly in the overall
+                                                                                            geometric fidelity and clinical parameter measurement, that
+         shape, trajectory, and bifurcation of the aorta. This visual evi-
+                                                                                            is comparable to the standard of care set by a trained human
+         dence suggests that our method can capture the key anatomical
+                                                                                            expert.
+         features with high fidelity.
+                                                                                               This experiment also empirically validates the graceful
+            For a rigorous quantitative assessment, we evaluated the
+                                                                                            degradation discussed in Section IV-A. The probe traversed
+         two models using standard metrics for volumetric overlap and
+                                                                                            from compliant soft tissue to the bony clavicle apex without
+         surface distance, and also compared a key clinical parameter.
+                                                                                            parameter adaptation or manual intervention. The low and
+             1) Volumetric Overlap: We calculated the DSC to measure                        consistent error (SD = 1.31 mm) across the entire surface
+                the volumetric overlap between the two models. Our                          indicates no systematic degradation at tissue–bone transition
+                framework achieved a DSC of 0.85, indicating excellent                      zones, confirming that the geometric terms in the optimization
+                volumetric agreement.                                                       effectively compensated for the weakened Y–L constraint.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         QIAN et al.: SYMMETRY-OPTIMIZED IMAGE GUIDANCE AND BIOMECHANICS-DRIVEN FORCE MEASUREMENT                                                                   7504018
+
+
+
+                                     VI. C ONCLUSION                                        [15] A. Boezaart and B. Ihnatsenka, “Ultrasound: Basic understanding and
+                                                                                                 learning the language,” Int. J. Shoulder Surgery, vol. 4, no. 3, p. 55,
+            This article presents a control framework for autonomous                             2010.
+         robotic ultrasound integrating symmetry-optimized image                            [16] A. Karamalis, W. Wein, T. Klein, and N. Navab, “Ultrasound confi-
+                                                                                                 dence maps using random walks,” Med. Image Anal., vol. 16, no. 6,
+         guidance with biomechanics-driven force measurement. By                                 pp. 1101–1112, Aug. 2012.
+         combining a lightweight CS method with a Y–L surface                               [17] M. K. Welleweerd, A. G. de Groot, S. O. H. de Looijer, F. J. Siepel, and
+         model, the system achieves real-time tracking (66 Hz on                                 S. Stramigioli, “Automated robotic breast ultrasound acquisition using
+                                                                                                 ultrasound feedback,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA),
+         NVIDIA Jetson) and elevates the composite IQS by 27.2%                                  May 2020, pp. 9946–9952.
+         compared to conventional methods, with the gap between                             [18] P. Chatelain, A. Krupa, and N. Navab, “Confidence-driven control of an
+         the proposed method and human expert within 5%. In vivo                                 ultrasound probe,” IEEE Trans. Robot., vol. 33, no. 6, pp. 1410–1424,
+                                                                                                 Dec. 2017.
+         experiments on complex anatomies, such as the abdominal                            [19] Z. Jiang et al., “Automatic normal positioning of robotic ultra-
+         aorta, confirm that the system achieves volumetric reconstruc-                          sound probe based only on confidence map optimization and force
+         tion accuracy (DSC 0.85) comparable to expert sonographers.                             measurement,” IEEE Robot. Autom. Lett., vol. 5, no. 2, pp. 1342–1349,
+                                                                                                 Apr. 2020.
+         While effective for convex probes, the current method relies                       [20] Z. Jiang et al., “Precise repositioning of robotic ultrasound: Improving
+         on specific array geometries. Future work will focus on                                 registration-based motion compensation using ultrasound confidence
+         extending the algorithm’s adaptability to linear array probes                           optimization,” IEEE Trans. Instrum. Meas., vol. 71, pp. 1–11, 2022.
+                                                                                            [21] R. Mebarki, A. Krupa, and F. Chaumette, “2-D ultrasound probe
+         and integrating semantic understanding for pathological tissue                          complete guidance by visual servoing using image moments,” IEEE
+         scanning.                                                                               Trans. Robot., vol. 26, no. 2, pp. 296–306, Apr. 2010.
+                                                                                            [22] Z. Jiang, M. Grimm, M. Zhou, Y. Hu, J. Esteban, and N. Navab,
+                                                                                                 “Automatic force-based probe positioning for precise robotic ultra-
+                                                                                                 sound acquisition,” IEEE Trans. Ind. Electron., vol. 68, no. 11,
+                                        R EFERENCES                                              pp. 11200–11211, Nov. 2021.
+                                                                                            [23] D. Raina, A. Mathur, R. M. Voyles, J. Wachs, S. Chandrashekhara,
+         [1]  B. Niu et al., “Dynamic arm impedance regulation: Experiences from                 and S. K. Saha, “RUSOpt: Robotic ultrasound probe normalization with
+              medical ultrasound scanning experts,” IEEE Trans. Instrum. Meas.,                  Bayesian optimization for in-plane and out-plane scanning,” in Proc.
+              vol. 73, pp. 1–10, 2024.                                                           IEEE 19th Int. Conf. Autom. Sci. Eng. (CASE), Aug. 2023, pp. 1–7.
+         [2] Z. Deng, X. Hou, C. Chen, X. Gu, Z.-G. Hou, and S. Wang, “A                    [24] M. K. Welleweerd, A. G. de Groot, V. Groenhuis, F. J. Siepel, and
+              portable robot-assisted device with built-in intelligence for autonomous           S. Stramigioli, “Out-of-plane corrections for autonomous robotic breast
+              ultrasound acquisitions in follow-up diagnosis,” IEEE Trans. Instrum.              ultrasound acquisitions,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA),
+              Meas., vol. 73, pp. 1–10, 2024.                                                    May 2021, pp. 12515–12521.
+         [3] T. Chen et al., “Real-time deformable registration for robotic ultrasound      [25] C. Luo, Y. Chen, H. Cao, M. A. A. Sibahee, W. Xu, and
+              surgical guidance based on vectorized trust-region optimization,” IEEE             J. Zhang, “Multi-modal autonomous ultrasound scanning for efficient
+              Trans. Instrum. Meas., vol. 73, pp. 1–11, 2024.                                    human–machine fusion interaction,” IEEE Trans. Autom. Sci. Eng.,
+         [4] R. Kojcev et al., “On the reproducibility of expert-operated and robotic            vol. 22, pp. 4712–4723, 2024.
+              ultrasound acquisitions,” Int. J. Comput. Assist. Radiol. Surgery, vol. 12,   [26] A. Duan et al., “Safe learning by constraint-aware policy optimization
+              no. 6, pp. 1003–1011, Jun. 2017.                                                   for robotic ultrasound imaging,” IEEE Trans. Autom. Sci. Eng., vol. 22,
+         [5] F. Pierrot et al., “Hippocrate: A safe robot arm for medical applications           pp. 2349–2360, 2025.
+              with force feedback,” Med. Image Anal., vol. 3, no. 3, pp. 285–300,           [27] C. Yang, M. Jiang, M. Chen, M. Fu, J. Li, and Q. Huang, “Automatic 3-
+              Sep. 1999.                                                                         D imaging and measurement of human spines with a robotic ultrasound
+         [6] F. Conti, J. Park, and O. Khatib, “Interface design and control strategies          system,” IEEE Trans. Instrum. Meas., vol. 70, pp. 1–13, 2021.
+              for a robot assisted ultrasonic examination system,” in Experimental          [28] Q. Huang, B. Gao, and M. Wang, “Robot-assisted autonomous ultra-
+              Robotics, vol. 79. Cham, Switzerland: Springer, 2014, pp. 97–113.                  sound imaging for carotid artery,” IEEE Trans. Instrum. Meas., vol. 73,
+         [7] P. Chatelain, A. Krupa, and N. Navab, “Optimization of ultrasound                   pp. 1–9, 2024.
+              image quality via visual servoing,” in Proc. IEEE Int. Conf. Robot.           [29] H. Yang et al., “Robot-assisted automatic ultrasound calibration without
+              Autom. (ICRA), May 2015, pp. 5997–6002.                                            external trackers,” IEEE Trans. Instrum. Meas., vol. 74, pp. 1–10, 2025.
+         [8] S. Virga et al., “Automatic force-compliant robotic ultrasound screening       [30] N. R. Zinner, R. C. Ritter, A. M. Sterling, and P. J. Donker, “The physical
+              of abdominal aortic aneurysms,” in Proc. IEEE/RSJ Int. Conf. Intell.               basis of some urodynamic measurements,” J. Urology, vol. 117, no. 6,
+              Robots Syst. (IROS), Oct. 2016, pp. 508–513.                                       pp. 682–689, Jun. 1977.
+         [9] M. R. Burcher, J. A. Noble, L. Man, and M. Gooding, “A system                  [31] C. W. Chung, M. J. A. Girard, N.-J. Jan, and I. A. Sigal, “Use and
+              for simultaneously measuring contact force, ultrasound, and position               misuse of Laplace’s law in ophthalmology,” Investigative Opthalmology
+              information for use in force-based correction of freehand scanning,”               Vis. Sci., vol. 57, no. 1, pp. 236–245, Jan. 2016.
+              IEEE Trans. Ultrason., Ferroelectr., Freq. Control, vol. 52, no. 8,
+              pp. 1330–1342, Aug. 2005.
+         [10] Z. Wang et al., “Full-coverage path planning and stable interaction
+              control for automated robotic breast ultrasound scanning,” IEEE Trans.
+              Ind. Electron., vol. 70, no. 7, pp. 7051–7061, Jul. 2023.
+         [11] J. Wang, C. Lu, Y. Lv, S. Yang, M. Zhang, and Y. Shen, “Task
+              space compliant control and six-dimensional force regulation toward
+              automated robotic ultrasound imaging,” IEEE Trans. Autom. Sci. Eng.,
+              vol. 21, no. 3, pp. 3652–3663, Jul. 2024.
+         [12] X. Ma, W.-Y. Kuo, K. Yang, A. Rahaman, and H. K. Zhang, “A-SEE:
+              Active-sensing end-effector enabled probe self-normal-positioning for
+              robotic ultrasound imaging applications,” IEEE Robot. Autom. Lett.,                                     Yizhao Qian (Student Member, IEEE) received the
+              vol. 7, no. 4, pp. 12475–12482, Oct. 2022.                                                              B.S. degree in electronic engineering from Beijing
+         [13] X. Bao, S. Wang, L. Zheng, R. J. Housden, J. V. Hajnal, and K. Rhode,                                   University of Technology, Beijing, China, in 2020,
+              “A novel ultrasound robot with force/torque measurement and control                                     and the M.S. degree in control engineering from
+              for safe and efficient scanning,” IEEE Trans. Instrum. Meas., vol. 72,                                  Beijing Institute of Technology, Beijing, in 2023.
+              pp. 1–12, 2023.                                                                                         He is currently pursuing the Ph.D. degree with the
+         [14] J. Fu, I. Burzo, E. Iovene, J. Zhao, G. Ferrigno, and E. De Momi,                                       Department of Electronic Engineering, The Chinese
+              “Optimization-based variable impedance control of robotic manipulator                                   University of Hong Kong, Hong Kong.
+              for medical contact tasks,” IEEE Trans. Instrum. Meas., vol. 73, pp. 1–8,                                 His research interests include control in medical
+              2024.                                                                                                   robotics.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+         7504018                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 75, 2026
+
+
+
+                                   Jiayuan Luo received the B.S. degree in mechanical                                Yixuan Yuan (Senior Member, IEEE) received the
+                                   design, manufacturing, and automation from Shen-                                  B.S. degree from the College of Information Coun-
+                                   zhen University, Shenzhen, China, in 2025. He is                                  termeasure, Northwestern Polytechnical University,
+                                   currently pursuing the M.S. degree in intelligent                                 Xi’an, China, in 2010, and the Ph.D. degree from
+                                   manufacturing jointly with Shenzhen University and                                the College of Biomedical Engineering, The Chinese
+                                   Great Bay University, Dongguan, China.                                            University of Hong Kong, Hong Kong, China, in
+                                                                                                                     2016.
+                                                                                                                        Since 2022, she has been an Assistant Professor
+                                                                                                                     with The Chinese University of Hong Kong. Her
+                                                                                                                     research interests include biomedical image analysis
+                                                                                                                     and deep learning.
+
+
+
+
+                                                                                                                     Max Q.-H. Meng (Fellow, IEEE) received the Ph.D.
+                                                                                                                     degree in electrical and computer engineering from
+                                                                                                                     the University of Victoria, Victoria, BC, Canada,
+                                                                                                                     in 1992.
+                                                                                                                        He was a Professor and the Director of the
+                                                                                                                     Advanced Robotics and Teleoperation (ART) Lab-
+                                   Yameng Zhang (Graduate Student Member, IEEE)                                      oratory, Department of Electrical and Computer
+                                   received the B.S. degree in vehicle engineering from                              Engineering, University of Alberta, Edmonton, AB,
+                                   Beijing Institute of Technology, Beijing, China, in                               Canada, from 1994 to 2004. He is currently with the
+                                   2017, and the M.S. degree in mechanical engineer-                                 Department of Electronic and Electrical Engineer-
+                                   ing from Shanghai Jiao Tong University, Shanghai,                                 ing, Southern University of Science and Technology,
+                                   China, in 2021. He is currently pursuing the Ph.D.      Shenzhen, China, on leave from the Department of Electronic Engineering,
+                                   degree with the Department of Electronic Engi-          The Chinese University of Hong Kong, Hong Kong, and also affiliated with
+                                   neering, The Chinese University of Hong Kong,           Shenzhen Research Institute of The Chinese University of Hong Kong, Shen-
+                                   Hong Kong.                                              zhen. His primary research interests include medical and surgical robotics,
+                                      His research interests include electromagnetic       active medical devices and wireless capsule endoscopy, medical image-based
+                                   actuation and control in medical robotics.              automatic diagnosis systems, telemedicine and telehealthcare systems, biosen-
+                                                                                           sors and multisensor fusion, rehabilitation and robotic assistive technologies,
+                                                                                           adaptive and intelligent systems, and related applications.
+                                                                                             Dr. Meng is a fellow of Hong Kong Institution of Engineers and a fellow
+                                                                                           of the Canadian Academy of Engineering. He was a recipient of the IEEE
+                                                                                           Millennium Medal.
+
+
+
+
+                                                                                                                    Li Liu (Member, IEEE) received the Ph.D. degree in
+                                                                                                                    biomedical engineering from the University of Bern,
+                                                                                                                    Bern, Switzerland, in 2016.
+                                   Kai Long received the bachelor’s and master’s                                       He was a Research Assistant Professor with the
+                                   degrees in optical engineering from Jinan University,                            Department of Electronic Engineering, The Chinese
+                                   Guangzhou, China, in 2023.                                                       University of Hong Kong, Hong Kong, from 2020
+                                     He is currently a Research Assistant with the                                  to 2024. He is currently an Associate Professor
+                                   College of Advanced Engineering, Great Bay Uni-                                  with Dongguan Great Bay Institute for Advanced
+                                   versity, Dongguan, China. His research interests                                 Study, Great Bay University, Dongguan, China. His
+                                   include photoacoustic microscopy and biomedical                                  research focuses on intelligent medicine.
+                                   image processing.                                                                   Dr. Liu has chaired publication committees for
+                                                                                           IEEE ICIA and served as the Program Chair for ICIA 2019, as well as
+                                                                                           reviewed for multiple journals and conferences.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 09:52:33 UTC from IEEE Xplore. Restrictions apply.
+

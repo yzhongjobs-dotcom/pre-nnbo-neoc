@@ -1,0 +1,753 @@
+       IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 74, 2025                                                                                      4018511
+
+
+
+
+               Respiratory Motion-Robust Robotic Ultrasound
+                   Acquisitions via Vision-Haptic Fusion
+                       Control and 3-D Compensation
+                              Guanglin Cao (                  ) , Danqian Cao (                    ) , and Hongbin Liu (                     )
+
+
+
+          Abstract—Robotic 3-D ultrasound (US) has demonstrated                             Index Terms—3-D visualization, interaction control, respira-
+       potential for reliable organ volume acquisition. However, res-                    tory motion, robotic 3-D ultrasound (US) acquisition.
+       piratory motion during scanning critically reduces volume
+       measurement accuracy, presenting a clinical limitation that
+                                                                                                                    I. I NTRODUCTION
+       affects not only cardiovascular but also all abdominal and
+       spinal US diagnoses. To address this, we develop a robotic
+       system integrating vision-based motion monitoring and inter-
+       action control for respiratory motion-robust US acquisition.
+                                                                                         U      LTRASOUND (US) imaging has become a widely used
+                                                                                                diagnostic modality for visualizing and quantifying inter-
+                                                                                         nal tissue diseases due to its noninvasiveness, absence of
+       The motion monitoring module constructs a self-calibrating
+       predictive model that dynamically estimates respiratory motion                    ionizing radiation, low cost, and real-time capabilities [1].
+       and predicts the desired contact position. We further propose a                   For instance, abdominal aortic aneurysm (AAA), a localized
+       vision-haptic fusion motion control framework that integrates                     bulge in the abdominal aorta, necessitates early detection as
+       predicted position feedback into the force-sensing admittance                     most patients remain asymptomatic until rupture [2]. Ultra-
+       controller, equipping it with model predictive capabilities. After-               sonography is the primary method used to screen for AAA
+       ward, to ensure accurate volume measurements, a compensation
+       framework is presented to reduce respiratory motion-induced                       in primary care because of its high sensitivity (94%–100%)
+       distortions by reconstructing in a relatively static frame and                    and specificity (98%–100%) [3]. The key objective of this
+       refining results using anatomical priors. Finally, the whole system               screening is to accurately measure and assess the size of
+       was validated using a vessel phantom mounted on a six-axis                        the aneurysm. However, grayscale US images are typically
+       platform simulating respiratory motion. The experimental results                  less intuitive than those from computed tomography (CT) or
+       demonstrate that the robotic system ensures interaction stability
+       (0.295-N force tracking accuracy) for US acquisition. The com-                    magnetic resonance imaging (MRI). Furthermore, US image
+       pensation framework significantly improves volume measurement                     quality is highly operator-dependent, relying on visual and
+       accuracy, achieving a mean spatial distortion of 0.48 mm. These                   tactile expertise, which introduces variability and subjectivity
+       improvements highlight the robotic system’s capacity for stable                   in diagnoses [4]. Recent studies have addressed this limitation
+       US acquisition and accurate volume measurements across US                         by integrating robotic systems to automate probe manipulation,
+       diagnoses, which are crucial for diagnoses affected by respiratory
+       motion.                                                                           thereby ensuring consistent US acquisition and accurate 3-D
+                                                                                         volume measurements. The precision of robotic positioning
+          Received 26 March 2025; revised 4 August 2025; accepted 3 September            enhances the reliability of quantitative assessments, facilitating
+       2025. Date of publication 29 September 2025; date of current version              the tracking of small volume changes, particularly important
+       13 October 2025. This work was supported by the InnoHK Program. The
+       Associate Editor coordinating the review process was Dr. Wilson Wang.             in evaluating aneurysm progression under treatment.
+       (Corresponding author: Hongbin Liu.)                                                 Nevertheless, as a continuous contact-based imaging modal-
+          Guanglin Cao is with the State Key Laboratory of Multimodal Artificial         ity, US faces reduced image acquisition stability and volume
+       Intelligence Systems, Institute of Automation, Chinese Academy of Sci-
+       ences,100190, China, also with the Centre for Artificial Intelligence and         measurements accuracy due to respiratory motion. This clin-
+       Robotics, Hong Kong Institute of Science and Innovation, Chinese Academy          ical limitation affects not only cardiovascular but also all
+       of Sciences, Hong Kong, and also with the School of Artificial Intelligence,      abdominal and spinal US diagnoses [5], [6]. Specifically,
+       University of Chinese Academy of Sciences (UCAS), Beijing 100049, China
+       (e-mail: caoguanglin2021@ia.ac.cn).                                               maintaining stable contact between the probe and moving
+          Danqian Cao is with the Centre for Artificial Intelligence and Robotics,       skin is particularly important for US acquisition, but this is
+       Hong Kong Institute of Science and Innovation, Chinese Academy of Sci-            a challenging process as patients cannot sustain prolonged
+       ences, Hong Kong, and also with the School of Biomedical Engineering and
+       Imaging Sciences, King’s College London, SE1 7EU London, U.K. (e-mail:            breath-holding during scanning. Excessive contact risks patient
+       danqian.cao@cair-cas.org.hk).                                                     discomfort or tissue injury, while insufficient contact results
+          Hongbin Liu is with the State Key Laboratory of Multimodal Artificial          in poor-quality US images. Additionally, respiratory motion
+       Intelligence Systems, Institute of Automation, Chinese Academy of Sciences,
+       Beijing 100190, China, also with the Centre for Artificial Intelligence and       introduces substantial distortions in volume acquisition, which
+       Robotics, Hong Kong Institute of Science and Innovation, Chinese Academy          can significantly affect diagnostic accuracy, especially when
+       of Sciences, Hong Kong, and also with the School of Biomedical Engineering        diagnosing stenosis by measuring the shape of arteries. During
+       and Imaging Sciences, King’s College London, SE1 7EU London, U.K.
+       (e-mail: liuhongbin@ia.ac.cn).                                                    respiration, the probe must follow the up-and-down movement
+          Digital Object Identifier 10.1109/TIM.2025.3612625                             of the skin to maintain contact. Simply stacking 2-D US vessel
+                     1557-9662 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and
+                               similar technologies. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                             See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       4018511                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 74, 2025
+
+
+
+                                                                                         we review the prior art in these domains and evaluate the
+                                                                                         applicability of existing methods.
+
+                                                                                         A. Interaction Control
+                                                                                            Effective interaction control is fundamental for achieving
+                                                                                         compliant contact in robotic US systems. To ensure patient
+                                                                                         comfort and acquire high-quality US images during scanning,
+                                                                                         various force control methods have been proposed, including
+                                                                                         PID control [7], stiffness control [8], and Cartesian compliant
+                                                                                         control [9]. Additionally, impedance control has been imple-
+                                                                                         mented to improve the compliance of robotic arms during
+                                                                                         interactions. For example, Jiang et al. [10] employed an
+       Fig. 1. Illustration of the impact of respiratory motion on US volume             impedance controller to maintain stable contact forces using
+       measurements. (a) Probe moves up and down along with respiratory motion to
+       maintain stable contact. (b) Reconstructed volume under stationary conditions.    built-in joint torque sensors in all seven joints of the robotic
+       (c) Reconstructed volume under respiratory motion.                                arm. However, since not all robotic arms are equipped with
+                                                                                         joint torque sensors, an effective alternative is to install a force
+       segmentations in 3-D space based on their poses will cause                        sensor at the robot end-effector to detect contact forces and use
+       distortions in the reconstructed volume, as demonstrated in                       an admittance controller to maintain stability [11].
+       Fig. 1.                                                                              Respiratory motion during scanning introduces dynamic
+          This study introduces a robotic 3-D US imaging system                          changes in tissue stiffness and surface compliance, mak-
+       designed for stable US acquisition and accurate volume                            ing fixed-parameter impedance controllers insufficient. To
+       measurements under respiratory motion. To achieve this, the                       address this, variable impedance control algorithms have been
+       system employs a vision-based motion monitoring module to                         developed. Some strategies employ online optimization to
+       construct a self-calibrating predictive model that dynamically                    continuously identify the optimal robot stiffness by minimiz-
+       estimates respiratory motion and predicts the desired contact                     ing the contact force error [12]. Other approaches employ
+       position. Based on this, we propose a vision-haptic fusion                        machine learning, such as offline reinforcement learning
+       motion control framework that integrates this prediction into                     [13] or confidence-driven adaptive schemes [14], to adjust
+       a force-sensing admittance controller for stable US acqui-                        impedance parameters. However, their high computational
+       sition. To correct distortions in the volume measurements,                        demands limit real-time performance, and frequent adjust-
+       a 3-D compensation framework reconstructs the US volume                           ments to controller parameters can lead to system instability.
+       in a relatively static frame and refines the results using a                      An alternative strategy to achieve more flexible and adap-
+       probability distribution model derived from anatomical priors.                    tive interaction is to incorporate environmental awareness.
+       Compared to prior studies, the main contributions are listed as                   For instance, in the context of robotic needle insertion,
+       follows.                                                                          Cho et al. [15] developed a hybrid vision-based variable
+          1) A novel respiratory motion-robust robotic 3-D US imag-                      impedance controller. Their system uses a vision system to
+              ing system. This system facilitates stable US acquisition                  estimate respiratory motion velocity and dynamically adjusts
+              and precise volume measurements, which is particularly                     the controller’s damping parameters to improve compensa-
+              beneficial for clinical applications affected by respiratory               tion. Building on this, Kim et al. [16] directly compared
+              motion, such as cardiovascular, abdominal, and spinal                      impedance and admittance control for this task, conclud-
+              imaging.                                                                   ing that admittance control offered superior performance in
+          2) The innovative integration of self-calibrating predictive                   tracking respiratory motion. While these methods effectively
+              position feedback into a force-sensing admittance con-                     compensate for zero-force respiratory motion during discrete,
+              troller. This approach equips the system with model                        point-based insertions, they are less suitable for continuous
+              predictive capabilities, enabling it to effectively com-                   US scanning, which demands a stable, compliant contact
+              pensate for respiratory variations.                                        force over a dynamic surface. Moreover, in contrast to these
+          3) A 3-D compensation framework that combines posi-                            methods that rely on real-time visual information, our method
+              tion compensation and anatomical priors to correct                         employs a predictive model to generate forward-looking infor-
+              respiratory motion-induced distortions in volume mea-                      mation, enabling for more effective compensation for dynamic
+              surements. This represents the first application of                        changes.
+              anatomical priors for US volume compensation.                                 Robotic systems with environmental awareness can also
+          To validate its efficacy, the system was thoroughly evaluated                  leverage model predictive control (MPC) for robust interac-
+       on a vessel phantom with a six-axis parallel platform simulat-                    tive control. Vrooijink et al. [17] developed an MPC-based
+       ing respiratory motion.                                                           approach to compensate for beating heart motions in robot-
+                                                                                         ically actuated delivery sheaths. Their method employed a
+                            II. R ELATED W ORK                                           two-term Fourier series to describe the periodic motion of
+          To provide a comprehensive foundation, the related work                        the aortic annulus, using preoperatively segmented positions
+       from the literature is categorized into two main areas: inter-                    from US images to derive the model [17]. However, this
+       action control and US volume compensation. In this section,                       reliance on offline data for model fitting makes it unsuitable
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       CAO et al.: RESPIRATORY MOTION-ROBUST ROBOTIC ULTRASOUND ACQUISITIONS                                                                                    4018511
+
+
+
+       for dynamic motion variations. To address real-time chal-
+       lenges, Duan et al. [18] proposed an admittance-MPC method
+       for robotic lung puncture that integrates image-based distur-
+       bance observers to compensate for respiratory motion in real
+       time. However, solving the required quadratic optimization
+       problem in real time increases computational complexity. In
+       contrast, our predictive model can analytically calculate the
+       predicted position, making the computation faster and more
+       efficient.
+
+       B. US Volume Compensation
+          Respiratory motion can substantially degrade the accuracy
+       of volume measurements, especially in cases involving long                        Fig. 2. (a) System setup and coordinate definition. (b) Temporal calibration
+       and complex anatomical structures, such as arteries. Vision-                      system setup.
+       based methods for monitoring the movement of the imaged
+       object have proven to be effective for US volume compen-
+                                                                                         frame and refining the results with anatomical priors. Further-
+       sation. Jiang et al. [19] proposed a vision-based robotic US
+                                                                                         more, our work includes a thorough evaluation against ground
+       system capable of monitoring the imaged object’s motion
+                                                                                         truth to validate its clinical applicability.
+       and automatically updating the sweep trajectory. The visual
+       component employs a depth camera with passive markers
+       to extract manually planned sweep trajectories. By enabling                                                     III. M ETHODS
+       motion detection and compensation, the system can generate                        A. Hardware Overview
+       high-quality compounded 3-D images. To further address                               The robotic 3-D US imaging system consists of two main
+       motion-related challenges, Jiang et al. [20] developed another                    components: a robot-assisted probe motion system and a
+       vision-based system that registers the surface point clouds of                    vision-based motion monitoring system. The robot system
+       the object before and after movement using the iterative clos-                    includes an ultralightweight humanoid robotic arm, a medical
+       est point (ICP) algorithm. This approach facilitates seamless                     US device, and a six-axis force/torque (F/T) sensor. In this
+       acquisition of a complete 3-D image of the target anatomy.                        study, the US device (Pioneer H20, Shenzhen Angell Tech-
+       However, these methods interrupt scanning after detecting                         nology, China), equipped with a linear probe (L12-4), is used
+       motion and require trajectory updates before resuming. As                         to acquire B-mode images. The probe is attached to the F/T
+       a result, they are effective only for discrete rigid motions                      sensor (M3815D, Sunrise Instruments, China) via a custom
+       and cannot accommodate continuous motion. To address this                         3-D-printed holder. The F/T sensor is mounted on the end-
+       limitation, Heunis et al. [21] introduced a visual-servo-based                    effector of the robotic arm (RM65-B, RealMan Intelligent
+       framework that employs an external motion capture system to                       Technology, China) to accurately measure the contact force
+       continuously adjust the scan trajectory, thereby enabling unin-                   applied to the probe. The vision-based motion monitoring
+       terrupted 3-D reconstruction during periodic motion. However,                     system comprises a depth camera (D455, Intel RealSense
+       the reliance on a high-accuracy optical tracking system signifi-                  Technology, USA) and a custom 3-D-printed AprilTag marker
+       cantly complicates the clinical workflow and limits its practical                 board, which is rigidly connected to the imaged object. The
+       feasibility.                                                                      camera is positioned in front of the marker board and provides
+          Directly extracting respiratory motion patterns from US                        full six-degree-of-freedom (6-DOF) localization of the imaged
+       images to improve the spatial accuracy of volume measure-                         object from the captured images. This precise monitoring capa-
+       ments is another effective method. Fu et al. [22] proposed                        bility ensures accurate tracking of motion during respiratory
+       a system that integrates sparse respiratory signal match-                         movements. The entire system is depicted in Fig. 2(a).
+       ing with 2-D US slices for reconstruction. Using manifold                            In this study, US images are transmitted to the work-
+       learning techniques, respiratory signals are extracted directly                   station via a USB stream capture device (CM410, UGreen,
+       from US slices without requiring external devices, enabling                       China) at a rate of 30 frames/s. Simultaneously, the work-
+       efficient alignment of signals across varying positions. Simi-                    station updates the robotic pose at a frequency of 100 Hz,
+       larly, Velikova et al. [23] introduced an innovative approach                     ensuring temporal consistency between the US images and
+       that incorporates implicit neural representations (INRs) for                      pose data. The detailed US acquisition parameters are set as
+       breathing-compensated volume reconstruction. Their INR                            follows—imaging depth: 50 mm, focus: 25 mm, frequency:
+       model is trained on tracked US images and corresponding                           7.5 MHz, and gain: 66 dB.
+       segmentation masks. This process generates a continuous 3-D
+       function that compensates for noisy or missing segmentation
+       frames, thereby producing smoother and more detailed 3-D                          B. System Calibrations
+       reconstructions. However, their analysis focused exclusively                         1) Spatial Calibration: To ensure accurate US volume mea-
+       on assessing volume surface roughness and lacked ground                           surements, spatial calibration of the system is required based
+       truth comparisons. Our 3-D compensation framework differs                         on its mechanical configuration. The coordinate systems used
+       by explicitly reconstructing the volume in a relatively static                    to project pixels from 2-D US images onto voxels in 3-D space
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       4018511                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 74, 2025
+
+
+
+       are as follows: {C} denotes the camera frame, {B} denotes the                     By moving the robot to various poses, a set of transformations
+                                                                                         B                C
+       robot base frame, {E} denotes the robot end-effector frame, {S }                  E T1,2,...,N and A T1,2,...,N can be obtained from the robot kine-
+       denotes the probe tip frame, and {I} denotes the US image                         matics model and the AprilTag detection algorithm using the
+       uv frame, as shown in Fig. 2(a). In this configuration, the                       captured images [24], respectively. The transformation CB T can
+       US image is positioned within the yz plane of {S }, and the                       be obtained by optimizing the following equation:
+       midpoint at the top of the US image is aligned with the origin                                                  N
+       of {S }. The homogeneous representation of an image pixel                                                 1 X         E B        E A     2
+                                                                                                             min             B Ti C T − A TC Ti                     (5)
+       (u, v) can be written as I P = [0, u, v, 1]T . Based on the spatial                                    B
+                                                                                                              CT
+                                                                                                                 N
+                                                                                                                       i=1
+       calibration and the image depth DI set on the US machine, the
+       relationship between a physical voxel B P and an image pixel                      where N represents the number of poses. The optimal trans-
+       I
+         P is mapped as follows:                                                         formation CB T can be calculated using the least-squares method
+                                                                                         as follows:
+                                    B
+                                        P = EB TSE TSI TI P                       (1)                        2 E 3†        2E A 3
+                                                                                                                B T1          A TC T1
+                 j                                                                                           6 EB T2 7     6 EA TCA T2 7
+       where     iT
+                  is the transformation matrix used to transfer the
+                                                                                                       C T = 6 .. 7
+                                                                                                       B
+                                                                                                                           6 .. 7                     (6)
+                                                                                                             6       7     6           7
+       position from frame {i} to frame { j}. The term EB T can be                                           4 . 5         4 . 5
+       calculated from the robot forward kinematics model, and                                                 E              E A
+                                                                                                                B Tn 4×4 n    A TC Tn 4n×4
+       since {S } has the same orientation as {E}, the combined
+       transformation SE TSI T is represented as follows:                                where A† = (AT A)−1 AT is the Moore–Penrose pseudoinverse
+                               2
+                                 1     0    0        0
+                                                           3                             of A.
+                               60 D     I
+                                            0         I DI 7
+                                                  − W2H
+                     E S
+                      T
+                     S I  T  = 6      HI
+                                            D
+                                                         I 7
+                                                                (2)
+                               40      0    HI
+                                              I
+                                                    Ld 5                                 C. Vision-Based Motion Monitoring
+                                 0     0    0        1                                      As previously discussed, incorporating motion awareness
+       where WI and HI represent the width and height of the US                          into a robotic US imaging system can significantly enhance
+       image in pixels, respectively, and Ld denotes the physical                        US acquisition stability and volume measurements accuracy.
+       distance from the tip of probe to the center of the robot                         In this study, motion awareness is achieved through a vision-
+       end-effector. During scanning, reconstruction is performed by                     based motion monitoring system capable of determining
+       transforming pixels from the US image into 3-D space using                        the 6-DOF localization of the imaged object from captured
+       (1) and (2).                                                                      images. Consistent with established literature [15], [25], this
+          2) Temporal Calibration: However, data transmission and                        study models respiratory motion as a displacement predom-
+       processing delays can cause a temporal mismatch between the                       inantly in the vertical direction. This approach is justified
+       robot kinematics EB T and the pixels I P, leading to displace-                    because vertical movement is the primary factor affecting the
+       ment errors in the reconstructed volume. Temporal calibration                     stability of US acquisition. With the respiratory motion aligned
+       involves identifying the relative delay between the two data                      along the z-axis of the robot base frame, the real-time position
+       streams, enabling the synchronized use of matched US images                       of the imaged object, denoted as zc , is determined by the
+       and poses for reconstruction. Based on spatial calibration,                       following equation:
+       physical distances in the real world can be measured with                                                   zc = Sz CB TC P                     (7)
+       US images. Therefore, by affixing an US-visualized marker in                      where C P represents the homogeneous coordinates of the
+       space, the distance from the tip of the probe S P0 to the marker                  imaged object’s position in the camera frame and Sz =
+       Pm can be calculated by both the robot kinematics and the US                      [0, 0, 1, 0] is a selection matrix. A sinusoidal model is
+       image, denoted as Drbt and Dimg , respectively, as illustrated in                 employed to describe the respiratory motion according to the
+       Fig. 2(b)                                                                         following equation:
+                         Drbt (t1 ) =     B        E S         B
+                                          E T (t1 )S T P0 − Pm 2
+                                                                                                                                          
+                                                                                                                                 2π
+                                                                                                         zm (t) = z0 + A s sin      t + φs        (8)
+                        Dimg (t2 ) =      S
+                                            P0 − SI TI Pm (t2 ) 2 .               (3)                                            Ts
+       When the robot performs movements at scanning speed, Drbt                         where zm (t) represents the predicted position of the imaged
+       and Dimg are recorded. The average temporal mismatch tmis                         object as a function of time t and z0 refers to the initial position
+       can be calculated by tmis = t1 − t2 when Drbt (t1 ) = Dimg (t2 ).                 of the probe tip. The value of z0 is determined by positioning
+          3) Hand–Eye Calibration: Hand–eye calibration is essen-                        the probe in contact with the imaged object under stationary
+       tial for transforming the position of the imaged object from                      conditions using the desired force. Parameters A s , T s , and
+       the camera frame {C} to the robot base frame {B}. By attaching                    φ s correspond to the amplitude, period, and phase of the
+       a calibration board with AprilTag markers to the robot end-                       motion, respectively. These parameters are initially optimized
+       effector, the transformation equation is expressed as follows:                    by minimizing the following cost equation:
+                                                                                                                   N                                        2
+                                     B TC T = A TC T
+                                     E B      E A
+                                                                                                                                              
+                                                                                  (4)                             X                              2π
+                                                                                           f (A s , T s , φ s ) =      zc (ti ) − z0 + A s sin      ti + φ s
+                                                                                                                                                 Ts
+       where {A} denotes the calibration board frame, and the trans-                                              i=1
+       formation EA T can be determined from the mechanical design.                                                                                             (9)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       CAO et al.: RESPIRATORY MOTION-ROBUST ROBOTIC ULTRASOUND ACQUISITIONS                                                                                    4018511
+
+
+
+                                                                                         the F/T sensor. The contact force is controlled by adjusting
+                                                                                         z p (t).
+                                                                                             To enhance the robot’s responsiveness and stability, the
+                                                                                         concept of MPC was employed. The self-calibrating predictive
+                                                                                         model estimates the position of the imaged object at the
+                                                                                         next control cycle, which serves as the desired position for
+                                                                                         the improved admittance controller to follow. During model
+                                                                                         recalibration, the real-time position zc (t), obtained from the
+                                                                                         vision-based motion monitoring system, is set as the desired
+                                                                                         position. Therefore, the desired position for the controller is
+                                                                                         defined as follows:
+                                                                                                           (
+                                                                                                             zm (t + ∆t) , if |zm (t) − zc (t)| < λz
+       Fig. 3. Our proposed vision-haptic fusion motion control framework, includ-                zd (t) =                                           (11)
+       ing vision-based motion monitoring system, self-calibrating predictive model,                         zc (t) ,      if |zm (t) − zc (t)| > λz
+       real-time contact force measurement, and robot motion control.
+                                                                                         where ∆t represents the control time interval. The velocity
+                                                                                         z˙p (t) is obtained from (10). Subsequently, the error ek ∈ R6
+       using the Levenberg–Marquardt (LM) algorithm on N sam-                            between the current and target probe pose is given by the
+       pled data points. During the US acquisition, the model                            following equation:
+       predicts the position of the imaged object. However, varia-                                                                                  T
+                                                                                                           ek = d x , dy , z˙p (t) , drx , dry , drz .
+                                                                                                               
+                                                                                                                                                       (12)
+       tions in respiratory motion frequency may cause discrepancies
+       between predicted (zm (t)) and observed (zc (t)) movements. To                    The terms d x and dy denote the translational steps for scanning
+       address this, a self-calibrating module is constructed using the                  velocity and direction, whereas drx , dry , and drz represent the
+       vision-based motion monitoring system, enabling continuous                        angular orientation changes. These parameters are established
+       evaluation of model discrepancies. If the positional error                        through trajectory planning and are independent of our control
+       |zm (t) − zc (t)| remains within a predefined tolerance threshold                 variables. Therefore, we utilized a preset scanning trajectory
+       λz , it indicates that the current movements still align with the                 and parameters for evaluation in this work. The robot arm
+       model and no parameter updates are required. Conversely, if                       joints ∆θ(t) ∈ R6 are the control signal for the robot servo
+       the error exceeds λz , the model acquires zc (t) and recalibrates                 system, which is expressed as follows:
+       the parameters A s , T s , and φ s using (9). After each param-                                                                −1 T
+       eter update, the self-calibrating module verifies whether the                           ∆θ (t) = J T (θ (t)) J (θ (t)) + λ2θ I    J (θ (t)) ek (13)
+       recalculated positional error lies within λz . Once the threshold                 where J(θ(t)) ∈ R6×6 represents the robot Jacobian matrix
+       is satisfied, the model terminates recalibration and resumes                      and λθ is a nonzero damping constant [27]. During the US
+       predicting desired contact positions.                                             acquisition, the proposed vision-haptic fusion motion control
+                                                                                         framework employs the visual module to predict the res-
+       D. Robot Motion Control                                                           piratory motion, enabling preemptive adjustments to probe
+          To acquire stable and clear US images, the probe must                          movements. Concurrently, the haptic module monitors the con-
+       follow the respiratory motion of the imaged object. However,                      tact force, ensuring stable interaction during motion changes.
+       the conventional force-sensing admittance controller lacks the
+       ability to perceive this motion, making it ineffective under                      E. 3-D US Imaging Compensation
+       highly dynamic conditions. In this study, we enhanced the                            To address respiratory motion-induced distortions in volume
+       robotic US system by integrating motion awareness through a                       measurements, we propose a 3-D US imaging compensation
+       vision-haptic fusion motion control framework, as illustrated                     framework that integrates position compensation and anatomi-
+       in Fig. 3. Specifically, the self-calibrating predictive model                    cal priors, as depicted in Fig. 4. Initially, the movement of the
+       continuously updates the desired position of the probe. The                       imaged object is monitored, facilitating the reconstruction in
+       position error between the desired and real-time positions is                     a relatively static frame. We then incorporate vessel anatomy
+       incorporated into the force-sensing admittance controller to                      to construct a probability distribution model for the vessel
+       dynamically adjust the movements of the probe                                     centerline, applying filtering techniques to further refine the
+           m f z¨p (t) + d f z˙p (t) + k f z p (t) − zd (t) = fz (t) − fd
+                                                           
+                                                                          (10)           results.
+                                                                                            1) Position Compensation: To compensate for distortions
+       where m f , d f , k f ∈ R represent the mass, damping, and                        caused by respiratory motion, the primary idea is to perform
+       stiffness parameters, respectively, while z p (t) and zd (t) denote               reconstruction within a frame where the imaged object remains
+       the real-time and desired positions of the probe tip in the z-axis                relatively static. To achieve this, a fixed frame {O} is estab-
+       of the robot base frame, respectively. The desired contact force                  lished on the imaged object, and the vision-based monitoring
+        fd is set as a constant before scanning, and fz (t) represents                   system is used to continuously track its movements. During
+       the real-time contact force. To ensure accurate contact force                     scanning, the calibration board is rigidly connected to the
+       measurement, a gravity compensation method proposed in [26]                       imaged object, enabling real-time calculation of the transfor-
+       was employed to eliminate the effect of the probe’s weight on                     mation matrix CO T from frame {O} to the camera frame {C}.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       4018511                                                                      IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 74, 2025
+
+
+
+
+       Fig. 4. Pipeline of the 3-D US imaging compensation framework consists of the following. (a) Acquisition of US images and volumes under respiratory
+       motion. (b) Reconstruction in a relatively static frame using the vision-based motion monitoring system. (c) Establishing a probability distribution model of
+       the vessel centerline using anatomical priors and calibrating the vessel mask by maximizing the product of the probability density functions of the observations
+       and prior distributions.
+
+
+
+       Consequently, the pixel coordinates I P are transformed into                      aligned with the anatomical volume using the x-coordinate
+       voxel coordinates O P using the following equation:                               values. The anatomical volume is then used to establish a
+                                                                                         probability distribution model of the vessel centerline. Due to
+                           O
+                               P = CO TCB TB P = CO TCB TEB TSE TSI TI P          (14)
+                                                                                         individual anatomical variations, the anatomical information
+       where CB T is derived from hand–eye calibration, EB T is obtained                 from the learning-based network is not absolutely accurate.
+       from robot forward kinematics, and SE T and SI T are constants                    Therefore, we assume that the distribution of the accurate
+       determined by the mechanical design. As discussed earlier, a                      vessel centerline points follows a 2-D Gaussian distribution
+       temporal mismatch exists between EB T and I P. Incorporating                      N (µ, Σ) within the yz plane. The mean µ of this distribution
+       mismatch time tmis from temporal calibration, (14) can be                         represents a point on the centerline, while the variance Σ
+       revised as follows:                                                               reflects the shape of the vessel. Based on this assumption,
+                                                                                         the distribution from the current vessel mask is denoted as
+                    O
+                        P (t) = CO T (t) CB TEB T (t) SE TSI TI P (t + tmis ) .   (15)
+                                                                                         Ni (µi , Σi ), while the distribution from the anatomical volume
+       Using (15), a 3-D volume of imaged vessels can be acquired                        is represented as N p (µ p , Σ p ). By incorporating the principles
+       within a relatively static frame.                                                 of Kalman filtering, we integrate both the observation (the
+          2) Anatomical Priors: In freehand US scanning, experi-                         current US image) and the prediction (the anatomical priors)
+       enced clinicians can mentally reconstruct the 3-D volume of                       to estimate the most accurate position of the vessel centerline.
+       imaged arteries. Their anatomical knowledge provides crucial                      The position µc is determined by maximizing the product
+       prior information about the direction and shape of imaged                         of the probability density functions of the two Gaussian
+       vessels, significantly aiding in accurate 3-D imaging. Due to                     distributions
+       location errors in the motion monitoring system, the volume                                                       i µi + Σ p µ p
+                                                                                                                        Σ−1       −1
+                                                                                                                  µc =                  .               (16)
+       after position compensation still deviates from the ground                                                           i + Σp
+                                                                                                                          Σ−1     −1
+
+       truth. To further refine this volume, this study replicates the
+                                                                                         Because anatomical priors are only statistically reliable, adjust-
+       expertise of clinicians by integrating anatomical priors into the
+                                                                                         ments are applied exclusively to the vessel centerline, leaving
+       3-D imaging compensation framework.
+                                                                                         the vessel mask segmented from the US image initially
+          Our previous research [28] developed a deep learning-based
+                                                                                         unchanged. This mask is subsequently shifted by a distance
+       network to reconstruct a patient’s skinned multiperson linear
+                                                                                         of µc − µi .
+       model (SMPL) with internal bone and artery models from
+       RGB-D images. By integrating this network with hand–eye
+                                                                                                                    IV. E XPERIMENTS
+       calibration, we can determine the anatomical priors, such as
+       the direction and shape of the imaged artery, within frame                        A. Evaluation of Calibrations
+       {S }. In this study, cross-sectional imaging is performed along                     To evaluate the accuracy of spatial calibration, a cus-
+       the x-axis of frame {S }. Consequently, the 2-D image is                          tom 3-D-printed, US-visible marker (Material Resin, Wenext,
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       CAO et al.: RESPIRATORY MOTION-ROBUST ROBOTIC ULTRASOUND ACQUISITIONS                                                                                    4018511
+
+
+
+
+                                                                                         Fig. 6. Performance of the contact force tracking under respiratory motion
+       Fig. 5. Temporal calibration results. The red line represents distance from       ( f s = 0.2 Hz and A s = 5 mm). The proposed vision-haptic fusion motion
+       robot forward kinematics and the blue line represents distance from US images     controller with predictive position feedback (red line). Admittance controller
+       and spatial calibration. (a) Results before temporal mismatch compensation.       with real-time position feedback (blue line). Admittance controller [11] with
+       (b) Results after temporal mismatch compensation.                                 only force sensing (green line).
+
+
+
+       China) was utilized. The marker’s top was designed with                           B. Evaluation of Robot Motion Control
+       a protuberance that could be easily identified in B-mode                             To fully evaluate the proposed vision-haptic fusion motion
+       images to facilitate measurement. During the experiment, the                      control framework, a specialized experimental platform was
+       marker was placed in a water-filled tank, and the coordinates                     devised, as shown in Fig. 2(a). Since the quality of US images
+       of the protuberance in the robot base frame, denoted as                           is highly dependent on the contact force, we employed real-
+       Mrbt , were determined through mechanical design. Subse-                          time contact force measurements to quantitatively evaluate
+       quently, the probe position was adjusted to ensure that the                       the stability of US acquisition. A US vessel phantom with
+       protuberance remained visible in the US images. Using the                         flat surface was mounted on a six-axis platform (LJ-6D-06,
+       spatial calibration (1), the coordinates of the protuberance                      Nanjing Lingjin Automation Equipment, China), which was
+       were transformed from the US image frame to the robot                             used to simulate respiratory motion. To facilitate evaluation,
+       base frame, denoted as Mimg . Data were collected at dif-                         we utilized a preset scanning trajectory and parameters for
+       ferent probe positions and the Euclidean distance between                         the phantom to achieve full coverage imaging: a scanning
+       Mrbt and Mimg was calculated, resulting in a spatial cali-                        velocity of 10 mm/s, a scanning direction along the vessel,
+       bration accuracy (mean ± SD) of 0.355 ± 0.018 mm.                                 and a vertical imaging angle. Considering human respiratory
+       Additionally, the mean errors along the three axes were                           motion, the platform was driven to move up and down along
+       measured as follows: x-axis 0.154 mm, y-axis 0.235 mm, and                        the z-axis in a sinusoidal form and the desired contact force
+       z-axis 0.217 mm.                                                                  was set to 5 N. To effectively demonstrate the advantages
+          Furthermore, we evaluated the results of temporal calibra-                     of the improved admittance controller with visual position
+       tion. To simplify the calibration process, the probe was con-                     feedback, we compared it with a state-of-the-art admittance
+       trolled to move up and down along the z-axis of the robot base                    controller that relies solely on force sensing [11]. Additionally,
+       frame. During this process, the distance between the probe                        to highlight the contribution of the predictive model, we tested
+       tip and the protuberance was calculated in real time using                        a controller that uses only real-time positions obtained from
+       the robot forward kinematics, denoted as Drbt (t1 ). Similarly,                   the vision-based motion monitoring system as feedback. This
+       the same distance was determined using US images and the                          method was the same as the control framework used during
+       spatial calibration, denoted as Dimg (t2 ). The time-dependent                    the predictive model recalibration. The respiratory amplitude
+       curves of the distances obtained from the two methods are                         was set to 5 mm with a frequency of 0.2 Hz, which aligns
+       shown in Fig. 5(a). It is evident that the distance calculated                    with the respiratory motion settings in [25].
+       from the US images exhibits a temporal lag, with an average                          The contact force tracking errors are shown in Fig. 6. After
+       time of 352.9 ms. After compensating for this temporal                            contact occurred, the proposed method maintained contact
+       mismatch, the experiment was repeated, as shown in Fig. 5(b).                     forces ranging from 4.26 to 6.14 N, while the real-time
+       The results demonstrate a significant improvement in the                          position feedback method exhibited contact forces ranging
+       temporal synchronization between the robot pose and the US                        from 1.44 to 8.37 N. The force-sensing admittance controller
+       images.                                                                           performed the worst, with contact forces ranging from 1.68
+          To evaluate the accuracy of the hand–eye calibration, a                        to 9.15 N. The contact force tracking errors (mean ± SD)
+       calibration marker was fixed in the robot base frame, and the                     of these methods were 0.29 ± 0.21 N, 1.28 ± 0.83 N,
+       coordinates of fixed points on the marker were determined                         and 2.10 ± 1.00 N. These results demonstrated that the
+       through mechanical configuration. Meanwhile, the coordinates                      proposed vision-haptic fusion motion control framework sig-
+       of these fixed points in the camera frame were obtained                           nificantly enhances the system to maintain contact force and
+       using the Intel RealSense Viewer software. The experimental                       acquire stable US images under respiratory motion. However,
+       results indicated that the mean coordinate error following the                    we observed that using real-time position feedback did not
+       hand–eye calibration was 1.55 mm.                                                 achieve satisfactory results. This shortcoming is primarily due
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       4018511                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 74, 2025
+
+
+
+       to the lack of temporal predictive capability, preventing the
+       system from responding to movements in advance. Neverthe-
+       less, compared to the admittance controller relying solely on
+       force sensing, the integration of visual position feedback still
+       improved US acquisition stability under respiratory motion.
+           To further evaluate the performance of the proposed motion
+       control framework, experiments were conducted under con-
+       ditions of changing respiratory frequency. The respiratory
+       amplitude was set to 5 mm, while the frequency was reduced
+       from 0.4 to 0.2 Hz and then stopped. The deviations in contact
+       force during the experiment are shown in Fig. 7. Based on the
+       controller’s response, the process was divided into five stages.
+           1) Stage I: The respiratory frequency was 0.4 Hz. During                      Fig. 7. Contact force tracking performance of the proposed motion control
+              this stage, the predictive model accurately predicted the                  framework under respiratory frequency changes.
+              desired position, resulting in contact forces ranging from
+              4.22 to 6.17 N and a tracking error (mean ± SD) of
+              0.37 ± 0.23 N.
+           2) Stage II: The frequency suddenly decreased to 0.2 Hz.
+              At this point, discrepancies arose between the predicted
+              and actual movements. Real-time position feedback
+              was used, and the self-calibrating predictive model
+              recalibrated parameters. As a result, the contact force
+              ranged from 2.15 to 6.94 N, with a tracking error of
+              1.12 ± 0.70 N.
+           3) Stage III: The frequency remained at 0.2 Hz. The
+              parameters of the predictive model were successfully
+              updated, enabling accurate prediction of the desired
+              position. The contact force ranged from 4.16 to 5.47 N,                    Fig. 8. Impact of visual, force, and robot control signal latency on contact
+              and the tracking error was 0.34 ± 0.21 N.                                  force tracking performance of the proposed motion control framework.
+           4) Stage IV: Respiratory motion suddenly stopped, with the
+              frequency dropping to 0. At this stage, discrepancies
+              reappeared, and real-time position feedback was used                       100-Hz control frequency of the system, these results indicate
+              again. The contact force ranged from 4.30 to 6.98 N,                       an inherent latency in the visual signal, whereas force feedback
+              with a tracking error of 0.78 ± 0.72 N.                                    is received in real time within each cycle. The impact of each
+           5) Stage V: Respiratory motion remained stopped, and the                      signal latency on tracking accuracy was further investigated
+              predictive model parameters were fully updated. The                        through respiratory tracking experiments with induced delays.
+              contact force ranged from 4.99 to 5.19 N, with a tracking                  The experimental results, as shown in Fig. 8, indicate that
+              error of 0.12 ± 0.05 N.                                                    the contact force error increases with signal latency. Notably,
+           When the frequency decreases from 0.4 to 0.2 Hz, the                          for delays below 50 ms, the robot control signal resulted in
+       predictive model takes longer to accurately recalibrate param-                    the largest mean tracking error. However, visual signal latency
+       eters compared to the frequency decrease from 0.2 Hz to                           caused the most significant performance degradation for delays
+       stop. This is because the update requires data collection for                     exceeding 50 ms. This shift occurs because the predictive
+       fitting, and stationary conditions facilitate this process. Addi-                 model can compensate for short delays but fails as latency
+       tionally, a noticeable jump in contact force occurred during                      exceeds 50 ms. Conversely, force signal latency had a minimal
+       frequency switching. When the motion status changed, the                          impact on overall performance. The visual loop compensates
+       six-axis platform returned to its zero position before resuming                   for the majority of respiratory motion, which helps maintain
+       movement at the new frequency. This rapid and unpredictable                       a small contact force error. Consequently, the force feedback
+       return-to-zero action was one of the primary reasons for the                      loop acts as a minor corrective term, making it less sensitive
+       contact force tracking errors in Stages II and IV. Overall, the                   to delay. Overall, the system demonstrates robust performance
+       contact force ranged from 2.15 to 6.98 N, with a tracking                         for signal latencies below 50 ms, maintaining the mean contact
+       error of 0.51 ± 0.52 N, demonstrating that the proposed                           force error within 1 N.
+       robotic system effectively achieves stable US acquisition under                      The desired contact force of 5 N in our experiments is a
+       dynamic respiratory motion.                                                       representative value commonly used in robotic US research
+           To evaluate system latency, the update times for the key                      and is frequently referenced in studies involving vessel phan-
+       signals of the proposed motion control framework were mea-                        toms [29], abdominal phantoms [8], and clinical spine imaging
+       sured. The mean (±SD) update times were 64.38 ± 7.84 ms                           [30]. However, the optimal contact force in clinical practice
+       for the visual signal, 4.61 ± 0.19 ms for the force signal,                       is not fixed. Sonographers adjust the force based on the
+       and 10.06 ± 0.06 ms for the robot control signal. Given the                       specific anatomical region and diagnostic goals of the US
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       CAO et al.: RESPIRATORY MOTION-ROBUST ROBOTIC ULTRASOUND ACQUISITIONS                                                                                    4018511
+
+
+
+                                                                       TABLE I
+                             P ERFORMANCE OF THE P ROPOSED AND OTHER M ETHODS U NDER VARIOUS R ESPIRATORY M OTION S ETTINGS
+
+
+
+
+       Fig. 9. Force tracking performance at various desired contact force.
+                                                                                         Fig. 10. (a) and (b) Performance of the 3-D US imaging compensation
+                                                                                         framework on a straight-line vessel. (c) and (d) Polyline vessel mimicking
+                                                                                         a human vascular bifurcation.
+
+       examination. The existing literature on robotic US systems
+       indicates the commonly used contact force ranges, such as                         even when the frequency increased to 0.4 Hz or the ampli-
+       2–4 N [31], 8 N [9], and 15 N [32]. To verify the ability                         tude reached 10 mm. At the maximum amplitude setting of
+       of the proposed motion control framework to cover common                          12.5 mm, the proposed framework achieved a peak error
+       safe force ranges, experiments were conducted with desired                        of 2.5 N and an average error of 0.85 N. In contrast, the
+       contact forces ranging from 2.5 to 15 N. As depicted in Fig. 9,                   admittance controller exceeded the 20-N safety threshold in all
+       the mean contact force error was maintained within 1 N,                           three repeated experiments under the same conditions, failing
+       with the maximum error remaining below 3 N. A notable                             to perform the scan. These results demonstrate that the pro-
+       observation is the positive correlation between the contact                       posed motion control framework provides robust performance
+       force error and the desired contact force. This occurs because,                   in tracking the desired contact force and acquiring stable US
+       at higher contact forces, the same probe displacement results                     images under respiratory motion.
+       in a larger change in contact force. Therefore, the error within
+       the predicted position feedback loop increases, leading to an
+       overall increase in force tracking error. In conclusion, the                      C. Evaluation of 3-D US Imaging Compensation
+       experimental results demonstrate that the proposed motion                           To qualitatively and quantitatively validate the 3-D US
+       control framework can accommodate common scanning forces                          imaging compensation framework, the US volume of the
+       without causing patient discomfort or deforming the imaged                        vessel phantom was obtained using temporally aligned
+       target.                                                                           B-mode images and corresponding pose data. To effectively
+          Additional experiments with various respiratory motion                         demonstrate the performance, the experiment was conducted
+       settings were conducted to further evaluate the performance                       with simulated respiratory motion (10-mm amplitude and
+       of the motion control framework. The respiratory amplitude                        0.2-Hz frequency). Meanwhile, the movement of the phantom
+       was set from 5 to 12.5 mm, covering the range of normal and                       was tracked by the motion monitoring system. To intuitively
+       deep respiratory motion for most individuals. The frequency                       present the results, the internal vessels were automatically
+       was varied from 0.2 to 0.4 Hz, aligning with the typical human                    segmented from cross-sectional US images using a pretrained
+       respiratory frequency range of 0.16–0.33 Hz. Each respiratory                     U-Net model. The robotic pose data and tracking information
+       motion setting was repeated three times, with the statistical                     were aligned through timestamps, allowing the corresponding
+       results presented in Table I. The proposed motion control                         vessel masks to be transformed into a relatively static frame
+       framework consistently maintained a contact force tracking                        {O} for 3-D reconstruction through (14). The same method
+       range within ±2 N, with an average error below 0.6 N,                             was applied to generate the 3-D volume of the imaged vessel
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       4018511                                                                     IEEE TRANSACTIONS ON INSTRUMENTATION AND MEASUREMENT, VOL. 74, 2025
+
+
+
+                                                                                         geometry. Thus, the integration of both components in the 3-D
+                                                                                         US imaging compensation framework is crucial for achieving
+                                                                                         accurate volume measurements.
+                                                                                            Furthermore, we performed additional evaluations of the
+                                                                                         compensation framework under varying respiratory motion
+                                                                                         conditions. The amplitude was set to 5 mm, with frequencies
+                                                                                         of 0.3 and 0.4 Hz. At a frequency of 0.3 Hz, the Chamfer
+                                                                                         distance before compensation was 3.27 mm, which was sig-
+                                                                                         nificantly reduced to 0.67 mm after compensation. Similarly,
+                                                                                         at a frequency of 0.4 Hz, the CD decreased from 2.41 to
+                                                                                         0.89 mm after compensation. These results demonstrate that
+       Fig. 11. Ablation study of the 3-D US imaging compensation framework.
+                                                                                         the proposed compensation framework effectively reduces res-
+                                                                                         piratory motion-induced distortions in volume measurements.
+       under stationary conditions, which served as the ground truth.
+                                                                                         This improvement has important clinical implications for the
+       To validate the robustness of the compensation framework,
+                                                                                         diagnosis of vessel diseases, as it facilitates the measurement
+       the experiment utilized two vessel shapes: a straight line
+                                                                                         of small volume changes.
+       and a polyline simulating human vascular bifurcation. The
+       distribution of these vessels, known from the phantom fabri-                                      V. D ISCUSSION AND C ONCLUSION
+       cation, served as anatomical priors. Therefore, a probability
+       distribution model of the vessel centerline was established                          Respiratory motion presents significant challenges for stable
+       in the frame {O}, and the reconstructed volume was filtered                       US acquisition and accurate volume measurements, limiting
+       using (16). To better compare and illustrate the perfor-                          its reliability in cardiovascular, abdominal, and spinal clinical
+       mance, the vessel volume was also reconstructed without the                       diagnoses. This study addresses these limitations by devel-
+       3-D compensation framework. The reconstructed volumes are                         oping a respiratory motion-robust robotic 3-D US system.
+       shown in Fig. 10.                                                                 First, the system employs a vision-based motion monitoring
+          The results demonstrated that the compensation framework                       system to construct a self-calibrating predictive model that
+       effectively addressed the distortions caused by respiratory                       dynamically estimates respiratory motion and predicts the
+       motion. Additionally, the Chamfer distance (dCD ) was used                        desired contact position. And then the vision-haptic fusion
+       for quantitative accuracy evaluation. The Chamfer distance                        motion control framework integrates predicted position feed-
+       measures the distance between two point clouds, S 1 and S 2 ,                     back into the force-sensing admittance controller. Furthermore,
+       where smaller values indicate greater similarity between the                      the controller is enhanced with model predictive capabilities by
+       point clouds. The calculation formula is as follows:                              the self-calibrating predictive model. This approach achieves
+                                                                                         tracking errors of 0.29 ± 0.21 N and maintains contact
+                               1 X                     1 X                               forces between 4.26 and 6.14 N under respiratory motion
+         dCD (S 1 , S 2 ) =           min kx − yk22 +         min kx − yk22 .
+                              S 1 x∈S y∈S 2           S 2 y∈S x∈S 1                      (5-mm amplitude and 0.2-Hz frequency). Consequently, the
+                                    1                            2
+                                                                                (17)     system is able to acquire stable, high-quality US images
+                                                                                         under respiratory motion for volume reconstruction. Second,
+       The Chamfer distances between the uncompensated point                             the 3-D compensation framework reduces respiratory motion-
+       cloud and the ground truth were 5.39 mm for the straight-line                     induced distortions in volume measurements by reconstructing
+       vessel and 5.73 mm for the polyline vessel. After compen-                         volumes in a relatively static frame and refining results using
+       sation, these distances were significantly reduced to 0.48 and                    anatomical priors. The experimental results demonstrate that
+       0.53 mm.                                                                          the compensation framework reduces the Chamfer distance
+          To demonstrate the individual contributions of position                        between the reconstructed and the ground truth volumes from
+       compensation and anatomical priors within the framework, we                       5.4 to 0.48 mm.
+       compared the results of applying each component separately.                          However, several limitations of the proposed system require
+       As illustrated in Fig. 11, the volume using only position                         further discussion. First, this work employs a sinusoidal model
+       compensation exhibits noticeable surface irregularities, which                    with dynamically updated parameters to describe respira-
+       are caused by system calibration and motion tracking errors.                      tory motion and address frequency variations. However, this
+       Conversely, employing anatomical priors alone proved insuf-                       approach is restricted to the vertical component of the motion.
+       ficient to eliminate the primary respiratory motion-induced                       In clinical practice, respiratory motion is often irregular,
+       distortions. Quantitatively, the Chamfer distance between the                     requiring more sophisticated modeling techniques. Second, the
+       point cloud reconstructed using only position compensation                        rigidly connected calibration board used for 6-DOF localiza-
+       and the ground truth was 0.98 mm. Using only anatomi-                             tion of the imaged object may limit the clinical applicability,
+       cal prior compensation, this distance increased to 2.26 mm.                       as human bodies exhibit flexibility. These physical markers
+       Both error metrics are larger than the 0.48 mm achieved by                        could potentially be replaced by advanced, marker-less track-
+       the proposed full framework. These results demonstrate that                       ing methods. For instance, techniques like FoundationPose
+       the two components serve complementary functions. Position                        [33] leverage CAD models or reference images for 6-DOF
+       compensation primarily corrects distortions induced by res-                       tracking. Registration-based methods also present a promising
+       piratory motion, while anatomical priors refine the surface                       approach for motion tracking [20]. These advanced approaches
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+       CAO et al.: RESPIRATORY MOTION-ROBUST ROBOTIC ULTRASOUND ACQUISITIONS                                                                                    4018511
+
+
+
+       could provide the detailed motion information required by our                     [13] L. Yao, B. Zhao, X. Xu, Z. Wang, P. K. Wong, and Y. Hu, “Efficient
+       framework. Another limitation is the constrained application                           incremental offline reinforcement learning with sparse broad critic
+                                                                                              approximation,” IEEE Trans. Syst., Man, Cybern., Syst., vol. 54, no. 1,
+       of anatomical priors. While effective for regular, statistically                       pp. 156–169, Jan. 2024.
+       consistent structures like blood vessels, their utility diminishes                [14] J. Li, L. Zhang, W. Zheng, H. Huang, J. Guo, and S. Chen, “Confidence-
+       when applied to complex and soft organs, such as the liver.                            driven adaptive optimal impedance control base on ultrasound robot
+                                                                                              system,” in Proc. IEEE Int. Conf. Cybern. Intell. Syst. (CIS) IEEE Int.
+       Significant interpatient variability makes constructing an accu-                       Conf. Robot., Autom. Mechatronics (RAM), Aug. 2024, pp. 255–260.
+       rate probability distribution model challenging. In addition, US                  [15] C. N. Cho, J. H. Seo, H. R. Kim, H. Jung, and K. G. Kim, “Vision-based
+       imaging requires the application of contact force to acquire                           variable impedance control with oscillation observer for respiratory
+                                                                                              motion compensation during robotic needle insertion: A preliminary
+       images. Although our motion control framework reduces                                  test,” Int. J. Med. Robot. Comput. Assist. Surgery, vol. 11, no. 4,
+       contact force variations during scanning, tissue deformation                           pp. 502–511, Dec. 2015.
+       caused by preset probe pressure remains an unaddressed                            [16] Y. J. Kim, J. H. Seo, H. R. Kim, and K. G. Kim, “Impedance and
+                                                                                              admittance control for respiratory-motion compensation during robotic
+       challenge that requires further compensation in future work.                           needle insertion—A preliminary test,” Int. J. Med. Robot. Comput.
+          In conclusion, this study presents a respiratory motion-                            Assist. Surgery, vol. 13, no. 4, p. 1795, Dec. 2017.
+       robust robotic 3-D US imaging system. The primary contri-                         [17] G. J. Vrooijink, A. Denasi, J. G. Grandjean, and S. Misra, “Model
+                                                                                              predictive control of a robotically actuated delivery sheath for beating
+       bution is the synergistic integration of three key elements: a                         heart compensation,” Int. J. Robot. Res., vol. 36, no. 2, pp. 193–209,
+       self-calibrating predictive model for respiratory motion, the                          Feb. 2017.
+       incorporation of predicted position feedback into the force-                      [18] X. Duan, R. He, Q. Zhao, X. Chen, and C. Li, “Unified admittance
+                                                                                              control for accurate puncture and respiration following based on distur-
+       sensing admittance controller, and the first use of anatomical                         bance observation and model predictive control,” IEEE Robot. Autom.
+       priors for US volume compensation. Such improvements we                                Lett., vol. 10, no. 4, pp. 3526–3533, Apr. 2025.
+       believe represent a critical step toward enabling the application                 [19] Z. Jiang et al., “Motion-aware robotic 3D ultrasound,” in Proc. IEEE
+                                                                                              Int. Conf. Robot. Autom. (ICRA), May 2021, pp. 12494–12500.
+       of robotic US acquisition and volume measurements in clinical                     [20] Z. Jiang et al., “Precise repositioning of robotic ultrasound: Improving
+       diagnoses affected by respiratory motion.                                              registration-based motion compensation using ultrasound confidence
+                                                                                              optimization,” IEEE Trans. Instrum. Meas., vol. 71, pp. 1–11, 2022.
+                                      R EFERENCES                                        [21] C. Heunis, F. Šuligoj, C. Fambuena Santos, and S. Misra, “Real-time
+                                                                                              multi-modal sensing and feedback for catheterization in porcine tissue,”
+       [1]  K. Li, Y. Xu, and M. Q.-H. Meng, “An overview of systems and                      Sensors, vol. 21, no. 1, p. 273, Jan. 2021.
+            techniques for autonomous robotic ultrasound acquisitions,” IEEE Trans.      [22] T. Fu et al., “Four-dimensional wide-field ultrasound reconstruction
+            Med. Robot. Bionics, vol. 3, no. 2, pp. 510–524, May 2021.                        system with sparse respiratory signal matching,” IEEE Trans. Comput.
+       [2] M. A. Cooper and G. R. Upchurch, “The society of vascular surgery                  Imag., vol. 7, pp. 234–247, 2021.
+            practice guidelines on the care of patients with abdominal aortic            [23] Y. Velikova, M. F. Azampour, W. Simson, M. Esposito, and N. Navab,
+            aneurysms,” JAMA Surg., vol. 154, no. 6, p. 553, 2019.                            “Implicit neural representations for breathing-compensated volume
+       [3] J. M. Guirguis-Blake, T. L. Beil, C. A. Senger, and E. L. Coppola,                 reconstruction in robotic ultrasound,” in Proc. IEEE Int. Conf. Robot.
+            “Primary care screening for abdominal aortic aneurysm: Updated evi-               Autom. (ICRA), May 2024, pp. 1316–1322.
+            dence report and systematic review for the us preventive services task       [24] J. Wang and E. Olson, “AprilTag 2: Efficient and robust fiducial
+            force,” JAMA, vol. 322, no. 22, pp. 2219–2238, 2019.                              detection,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst. (IROS),
+       [4] Z. Jiang, S. E. Salcudean, and N. Navab, “Robotic ultrasound imaging:              Oct. 2016, pp. 4193–4198.
+            State-of-the-art and future perspectives,” Med. Image Anal., vol. 89,        [25] J. Zhang et al., “Self-adaptive ultrasound scanning system for imaging
+            Oct. 2023, Art. no. 102878.                                                       human spine,” IEEE Trans. Ind. Electron., vol. 69, no. 1, pp. 570–581,
+       [5] Y. Wu et al., “Current research status of respiratory motion for thorax            Jan. 2022.
+            and abdominal treatment: A systematic review,” Biomimetics, vol. 9,          [26] G. Cao, M. Chen, J. Hu, and H. Liu, “An ultra-fast intrinsic contact
+            no. 3, p. 170, Mar. 2024.                                                         sensing method for medical instruments with arbitrary shape,” IEEE
+       [6] C. Yang, M. Jiang, M. Chen, M. Fu, J. Li, and Q. Huang, “Automatic                 Robot. Autom. Lett., vol. 8, no. 11, pp. 6955–6962, Nov. 2023.
+            3-D imaging and measurement of human spines with a robotic ultra-            [27] S. R. Buss, “Introduction to inverse kinematics with Jacobian transpose,
+            sound system,” IEEE Trans. Instrum. Meas., vol. 70, pp. 1–13, 2021.               pseudoinverse and damped least squares methods,” IEEE J. Rob. Autom.,
+       [7] G. Ma, R. Siobhan, Y. Zhu, P. J. Codd, and D. M. Buckland,                         vol. 17, nos. 1–19, p. 16, 2004.
+            “A novel robotic system for ultrasound-guided peripheral vascular            [28] T. Zhou, M. Chen, G. Cao, J. Hu, and H. Liu, “Inverse kinematics
+            localization,” in Proc. IEEE Int. Conf. Robot. Automat. (ICRA),                   embedded network for robust patient anatomy avatar reconstruction
+            Jun. 2021, pp. 12321–12327.                                                       from multimodal data,” IEEE Robot. Autom. Lett., vol. 9, no. 4,
+       [8] C. Hennersperger et al., “Towards MRI-based autonomous robotic                     pp. 3395–3402, Apr. 2024.
+            U.S. acquisitions: A first feasibility study,” IEEE Trans. Med. Imag.,       [29] F. Langsch, S. Virga, J. Esteban, R. Göbl, and N. Navab, “Robotic
+            vol. 36, no. 2, pp. 538–548, Feb. 2017.                                           ultrasound for catheter navigation in endovascular procedures,” in
+       [9] Q. Huang, B. Gao, and M. Wang, “Robot-assisted autonomous ultra-                   Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst. (IROS), Jun. 2019,
+            sound imaging for carotid artery,” IEEE Trans. Instrum. Meas., vol. 73,           pp. 5404–5410.
+            pp. 1–9, 2024.                                                               [30] K. Li et al., “Autonomous navigation of an ultrasound probe towards
+       [10] Z. Jiang, F. Duelmer, and N. Navab, “DopUS-Net: Quality-aware robotic             standard scan planes with deep reinforcement learning,” in Proc. IEEE
+            ultrasound imaging based on Doppler signal,” IEEE Trans. Autom. Sci.              Int. Conf. Robot. Autom. (ICRA), May 2021, pp. 8302–8308.
+            Eng., vol. 21, no. 3, pp. 3229–3242, Jul. 2024.                              [31] K. Su et al., “A fully autonomous robotic ultrasound system for thyroid
+       [11] Z. Deng, X. Hou, C. Chen, X. Gu, Z. Hou, and S. Wang, “A portable                 scanning,” Nature Commun., vol. 15, no. 1, p. 4004, May 2024.
+            robot-assisted device with built-in intelligence for autonomous ultra-       [32] Z. Wang et al., “Full-coverage path planning and stable interaction
+            sound acquisitions in follow-up diagnosis,” IEEE Trans. Instrum. Meas.,           control for automated robotic breast ultrasound scanning,” IEEE Trans.
+            vol. 73, pp. 1–10, 2024.                                                          Ind. Electron., vol. 70, no. 7, pp. 7051–7061, Jul. 2023.
+       [12] J. Fu, I. Burzo, E. Iovene, J. Zhao, G. Ferrigno, and E. De Momi,            [33] B. Wen, W. Yang, J. Kautz, and S. Birchfield, “FoundationPose:
+            “Optimization-based variable impedance control of robotic manipulator             Unified 6D pose estimation and tracking of novel objects,” in Proc.
+            for medical contact tasks,” IEEE Trans. Instrum. Meas., vol. 73, pp. 1–8,         IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR), Jun. 2024,
+            2024.                                                                             pp. 17868–17879.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 10,2026 at 10:55:09 UTC from IEEE Xplore. Restrictions apply.
+

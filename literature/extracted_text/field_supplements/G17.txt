@@ -1,0 +1,765 @@
+        3166                                               IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING, VOL. 70, NO. 11, NOVEMBER 2023
+
+
+
+
+             Autonomous Robotic Ultrasound Vascular
+             Imaging System With Decoupled Control
+          Strategy for External-Vision-Free Environments
+                                      Guochen Ning , Member, IEEE, Hanying Liang, Xinran Zhang ,
+                                                and Hongen Liao , Senior Member, IEEE
+
+
+           Abstract—Objective: Ultrasound (US) probes scan over                              Index Terms—Robotic ultrasound imaging system, vas-
+        the surface of the human body to acquire US images in                             cular ultrasound imaging, ultrasound image segmentation,
+        clinical vascular US diagnosis. However, due to the de-                           force control.
+        formation and specificity of different human surfaces, the
+        relationship between the scan trajectory of the skin and
+        the internal tissues is not fully correlated, which poses a                                                   I. INTRODUCTION
+        challenge for autonomous robotic US imaging in a dynamic
+                                                                                                 UTONOMOUS robotic ultrasound imaging systems
+        and external-vision-free environment. Here, we propose a
+        decoupled control strategy for autonomous robotic vascu-
+        lar US imaging in an environment without external vision.
+                                                                                          A      (RUS) offer advantages over freehand ultrasound imaging
+                                                                                          in terms of stability and reduced manual workload and have
+        Methods: The proposed system is divided into outer-loop
+        posture control and inner-loop orientation control, which                         attracted much attention in recent years [1]. In some existing
+        are separately determined by a deep learning (DL) agent                           systems, RUS has been applied to various scenarios, such as
+        and a reinforcement learning (RL) agent. First, we use a                          autonomous vascular, spine, and liver imaging [2]. Although
+        weakly supervised US vessel segmentation network to es-                           RUS has many specific structures and frameworks for different
+        timate the probe orientation. In the outer loop control, we                       scanned targets, it still has many limitations and has not been
+        use a force-guided reinforcement learning agent to main-
+        tain a specific angle between the US probe and the skin                           widely used in clinical applications. In addition to the high
+        in the dynamic imaging processes. Finally, the orientation                        cost, the complex clinical environment poses many challenges
+        and the posture are integrated to complete the imaging                            for reliable autonomous imaging processes. One of the major
+        process. Results: Evaluation experiments on several vol-                          challenges is that the clinical imaging environment is unstruc-
+        unteers showed that our RUS could autonomously per-                               tured, which limits the robust RUS control especially when
+        form vascular imaging in arms with different stiffness, cur-
+        vature, and size without additional system adjustments.                           external vision is disturbed. Furthermore, the spatial relationship
+        Furthermore, our system achieved reproducible imaging                             between the skin and internal targets of the human body is
+        and reconstruction of dynamic targets without relying on                          uncertain in different subjects [3]. All these uncertainties mean
+        vision-based surface information. Conclusion and Signifi-                         the system and control processes still need to be adapted to
+        cance: Our system and control strategy provides a novel                           different subjects even if the same target is imaged. Compared
+        framework for the application of US robots in complex and
+        external-vision-free environments.                                                to freehand imaging, system adjustments are unacceptable in the
+                                                                                          clinical environment.
+                                                                                             Vascular ultrasound imaging can provide valid diagnostic
+                                                                                          information on vascular distensibility, vascular stiffness as-
+                                                                                          sessment, and carpal tunnel syndrome, including vessel mor-
+           Manuscript received 4 February 2023; revised 6 April 2023; accepted            phology, vessel wall thickness, and blood flow velocity [4],
+        17 May 2023. Date of publication 25 May 2023; date of current version             [5], [6]. Vascular ultrasound imaging usually relies on manual
+        20 October 2023. This work was supported by the National Natural                  manipulation. Several studies have proposed the use of RUS
+        Science Foundation of China under Grants 82027807, 62201315, and
+        U22A2051, in part by China Postdoctoral Science Foundation under                  for automated vascular scanning and 3D reconstruction [7], [8].
+        Grant 2021M701928, in part by Beijing Municipal Natural Science Foun-             The RUS can be controlled in some simple imaging scenarios
+        dation under Grant 7212202, and in part by the National Key Research              based on a standardized control framework and single-modality
+        and Development Program of China under Grant 2022YFC2405200.
+        (Corresponding author: Hongen Liao.)                                              information. For example, the probe is easily contacted with
+           Guochen Ning, Hanying Liang, and Xinran Zhang are with the Depart-             the scanned surface, and there is little tissue deformation in the
+        ment of Biomedical Engineering, School of Medicine, Tsinghua Univer-              spine scanning task. Hase et al. and Li et al. focused on US image
+        sity, China.
+           Hongen Liao is with the Department of Biomedical Engineering,                  processing and guidance methods and proposed an image-based
+        School of Medicine, Tsinghua University, Beijing 100084, China (e-mail:           reinforcement learning-based (RL) RUS control framework for
+        liao@tsinghua.edu.cn).                                                            spine scanning [9], [10]. In their work, ultrasound image features
+           This article has supplementary downloadable material available at
+        https://doi.org/10.1109/TBME.2023.3279114, provided by the authors.               guided the ultrasound probe to follow continuous spinal struc-
+           Digital Object Identifier 10.1109/TBME.2023.3279114                            tures, but the skin-probe contact in the imaging process needed
+                            0018-9294 © 2023 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                          See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+       NING et al.: AUTONOMOUS RUS VASCULAR IMAGING SYSTEM WITH DECOUPLED CONTROL STRATEGY                                                                        3167
+
+
+
+       to be fully considered. Also focusing on scan direction and                       ultrasound image to the 3D surface for vascular imaging [24].
+       image guidance, Deng et al. proposed an ultrasound image-based                    In addition, Victorova et al. used decoupled ultrasound image
+       control method for kidney scanning and verified it on a single                    landmarks and contact force to guide robotic spinal imaging
+       phantom [11]. In their work, the imaging area was flat, and tissue                [25]. They used a PID method to maintain a specific 1-DoF
+       deformation and surface-internal relationships were ignored. In                   angle between the probe and the back. In recent research, Wang
+       some soft and more complex environments, Jiang et al. proposed                    et al. proposed to use of a 3D point cloud to generate a complete
+       a deformation-aware RUS for image deformation correction by                       scan path to the breast, combined with a hybrid force-velocity
+       contact force sensing [12]. Welleweerd et al. proposed an auto-                   control framework to perform a full coverage scanning process
+       mated imaging method for breast imaging based on predefined                       [26]. Based on 3D surface reconstruction and contact force
+       imaging trajectories [13]. Although their imaging targets were                    information, Tan et al. also presented a dual-arms RUS for
+       more complex, the unstable contact caused by subject and target                   performing breast ultrasound scans [27]. Separating internal
+       changes still needs to be thoroughly discussed.                                   and external information seems straightforward, and dealing
+          To improve the unstable coupling of RUS with more complex                      with the uncertain relationship between surface and internal
+       surfaces, some researchers have integrated surface information                    tissue is more feasible. 3D reconstructed models were used
+       into the control loop. Vision-based 3D surface reconstruction                     to guide the posture of the probe and to decouple the posture
+       and scan path planning are typical approaches. Huang et al.                       control from the ultrasound image. The decoupled framework is
+       reconstructed the entire scanned area with a depth camera and                     a potential solution for complex imaging tasks and autonomous
+       further outputted 6 degrees-of-freedom (DoF) control com-                         RUS. However, vision-based methods suffer from occlusion and
+       mands for full-path imaging [14]. Based on reconstructed 3D                       the inability to detect tissue deformation because ultrasound
+       surfaces, Hennersperger et al. proposed to perform automatic                      scanning requires constant contact between the probe and the
+       ultrasound image acquisition in combination with MRI infor-                       skin. 3D reconstruction-based methods are not feasible when
+       mation [15]. While these works improved the interaction by                        external vision is unavailable or severely disturbed. The insta-
+       reconstructing and imaging the entire area, scanning of areas                     bility caused by the dynamic environment of automated imaging
+       outside the target was redundant. To reduce the time required                     affects image quality and system safety, which must also be
+       for full-path planning, Kojcev et al. proposed a combination                      considered.
+       of 3D point clouds and manual trajectory to further filter scan                      Rather than proposing a standard imaging framework, our
+       paths further [16]. Ning et al. proposed an automatic RUS system                  goal is to improve the robustness of RUS for dynamic and
+       based on RL and state representation learning to overcome the                     uncertain targets. The solution focuses on decoupling the con-
+       occlusion problem of visual methods [17]. Vision-based path                       trol strategy from the force-controlled trajectory generation. In
+       planning can generate more complex commands for complex                           manual ultrasound imaging, the operator scans by observing the
+       surface imaging, but the need for internal target information                     ultrasound image and sensing the contact force after the probe
+       makes the scanning process to be redundant. In addition to visual                 contacts the body. The spatial position of the skin is usually not
+       information, the contact force is also introduced to control the                  precisely located. Referring to the manual operation, we propose
+       probe posture. In [18], Tirindelli et al. integrated the relationship             a decoupled control strategy to perform an autonomous robotic
+       between ultrasound images and force information to improve                        ultrasound vascular imaging process for different dynamic tar-
+       the connection of the probe to the surface. In addition, Virga                    gets. The proposed strategy divides the imaging task into ori-
+       et al. used force information to correct the trajectory in RUS                    entation and posture control, corresponding to the “Where to
+       for 3D reconstruction [19]. Force information was fused with                      go” and “How to go” in manual operations. First, the location
+       US images to perform targeted autonomous imaging commands                         of the vessel in the ultrasound image guides the orientation of
+       [20]. Goel et al. proposed to collect the ultrasound image and the                the ultrasound probe. To this end, we use a weakly-supervised
+       pose information at the probed point to estimate regions based on                 segmentation network for vessel identification and localization,
+       Bayesian optimization and hybrid force control [21]. The fusion                   consisting of a transformer structure network with Doppler
+       of multimodality information has improved the accuracy and                        images as the label. For posture control, the contact force is
+       robustness. Surface modeling and path planning still correlate                    used as guidance information and is decoupled from spatial
+       internal information with external information, which is also                     information. Building on our previous work [37], we use an
+       limited in the face of different subjects.                                        RL agent to establish the relationship between contact force and
+          Some researchers have treated the ultrasound image informa-                    posture and to maintain a certain angle between the probe and the
+       tion separately from the surface information to address more                      skin. Finally, the command from the two independent agents is
+       general application scenarios. In [22], Balter et al. proposed                    integrated and executed through a force control method to ensure
+       to use of stereo vision and ultrasound images for position and                    smooth interaction with the skin. Our main contributions are
+       posture control. Spatial and posture information were decoupled                   as follows: 1) With reference to manual operation, we propose
+       to cope with different forearm morphologies. In further work,                     a novel decoupling control strategy for environments without
+       they integrated a near-infrared beam to improve the accuracy                      external vision. Probe orientation and posture are decided by two
+       of vessel detection and the spatial positioning accuracy of the                   independent agents, including an image-guided deep learning
+       system [23]. Similar to the decoupling of the ultrasound probe                    (DL) agent and a force-guided RL agent. 2) Instead of presenting
+       control commands, Jiang et al. used the 3D point cloud to correct                 a 3D surface reconstruction framework, we propose to use
+       the spatial position of the probe instead of directly fusing the                  a combination of ultrasound segmentation masks and contact
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+        3168                                                                IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING, VOL. 70, NO. 11, NOVEMBER 2023
+
+
+
+
+        Fig. 1. General overview of the proposed control strategy. Automatic RUS imaging is divided into two independent control parts, including image-
+        guided orientation control and force-guided posture control.
+
+
+        forces to improve the efficiency and robustness of the system.
+        3) The proposed control strategy and methods allow autonomous
+        vascular imaging of different subjects while avoiding extra sys-
+        tem adjustments. The imaging results of our system are feasible
+        and stable and can also be used for reconstruction.
+
+                                      II. METHODS
+        A. Control Strategy Overview
+           To cope with external-vision-free environments, we propose
+        to decouple the skin surface from the internal tissues and further
+        perform autonomous robotic vascular imaging. The framework
+        of our control strategy is illustrated in Fig. 1. The imaging
+        control process is divided into the outer-loop posture control and
+        the inner-loop orientation control. In the orientation control, a                 Fig. 2. Ultrasound calibration with a cross-wire phantom, based on
+                                                                                          which the vessel pixel positions in the image coordinate system are
+        weakly-supervised neural network model is used to segment and                     mapped into the tool coordinate system for orientation control of the
+        localize the vessel in the ultrasound images and to control the                   US probe.
+        orientation of the probe. The 2-DoF command Tori ∈ R2 in
+        the orientation control includes the movement (Xbase ,Ybase ) in
+        the base coordinate system. In the outer-loop control, the probe                  coordinate system. As shown in Fig. 2, a cross-wire phantom
+        is maintained at a specific angle to the skin under the control of a              is mounted in the water tank for ultrasound calibration [28]. The
+        force-guided RL agent for stable ultrasound image acquisition.                    cross-wire point was manually located by moving the robotic
+        The posture control command includes the roll angle (Rxbase ),                    arm and detecting the point in the US images. To mitigate the ef-
+        pitch angle (Rybase ) and Z-directional (Zbase ) movement of the                  fects of localization errors, the imaging procedure was repeated
+        probe in the base coordinate system. Finally, the two parts of the                twenty times and imaging data were recorded from different
+        commands are merged for complete imaging.                                         positions and orientations. We set the origin of the phantom
+                                                                                          coordinate system P h at the cross point for convenience, and the
+        B. System Calibration Before Contact                                              pixel (u, v) at the center of the cross-wire point should satisfy
+                                                                                          the transformation relation as:
+           Spatial calibration of the RUS is performed for image-based
+                                                                                                      ⎛ ⎞                                ⎛      ⎞
+        orientation guidance. There are three coordinate systems in our                                 0                                  sx u
+        RUS, as shown in Fig. 1, including a Base coordinate system                                   ⎜0⎟                                ⎜ sy v ⎟
+                                                                                                      ⎜ ⎟ = TBase Ph
+                                                                                                                       · TTBase    T ip  ⎜
+                                                                                                                             ip · TImg · ⎝ 0 ⎠
+                                                                                                                                                ⎟        (1)
+        Base for robot control, a tooltip coordinate system T ip for probe                            ⎝0⎠
+        positioning, and an image coordinate system Img. There are                                      1                                   1
+        the tip coordinate system calibration and the ultrasound image
+        coordinate system calibration.                                                    where sx , sx are scale factors of the ultrasound images. The
+           To acquire the posture of the ultrasound image, we conducted                   transformation matrix TTBase
+                                                                                                                    ip can be calculated directly accord-
+        ultrasound calibration to determine the transformation matrix                     ing to the robot system configurations. The robust Levenberg-
+          T ip
+        TImg   between the image coordinate system and the tooltip                        Marquardt algorithm iteratively optimizes the parameters [29].
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+       NING et al.: AUTONOMOUS RUS VASCULAR IMAGING SYSTEM WITH DECOUPLED CONTROL STRATEGY                                                                        3169
+
+
+
+                                                                                         the image size. After IU S is split into m image patches of size
+                                                                                         p, the feature sequence fm ∈ Rd×m with dimension d can be
+                                                                                         generated by a linear layer after flattening the image patches,
+                                                                                         where m = (W/p) × (H/p). The global dependencies between
+                                                                                         the image patch are captured by the Vision Transformer structure
+                                                                                         [32]. Feature vectors are positional-embedded by a learnable
+                                                                                                                                       2
+                                                                                         vector Epos = [pos1 , . . . , posn ] ∈ R(HW/P )×d to retain the
+                                                                                         position information in this procedure, which can be formulated
+                                                                                         as:
+
+                                                                                                                     Z0 = fm + Epos                                (2)
+
+                                                                                            In the encoder, each Transformer block consists of L layers
+                                                                                         of multi-head self-attention blocks. Further, each self-attention
+                                                                                         model consists of three linear layers representing intermediate
+                                                                                         features with queries Q ∈ Rn×d , keys K ∈ Rn×d and value
+                                                                                         V ∈ Rn×d :
+                                                                                                                                  
+                                                                                                                                    QK T
+                                                                                                    MSA (Q, K, V ) = softmax         √       V         (3)
+                                                                                                                                        d
+                                                                                            The network is employed by the multilayer perceptron (MLP)
+       Fig. 3. Weakly-supervised vessel segmentation network based on                    model. After the MLP model, a LayerNorm (LN) and resid-
+       Doppler images. The Doppler image is used as the pseudo label.
+                                                                                         ual connections are applied and connected [33]. Finally, ZL
+                                                                                         is fed into an LN lay er which outputs the encoded features
+                                                                                                  2
+                                                                                         Y ∈ RP ×d :
+          Tooltip coordinate system calibration involves determining
+       the relationship between the tooltip coordinate system and the                            Z i = MSA (LN (Zi−1 )) + Zi−1 , i = 1, 2 · · · L                 (4)
+       base coordinate system, which can be done accurately according
+                                                                                                                                     
+       to a basic calibration procedure [12]. Since the ultrasound im-                           Zi = MLP (LN (Z i−1 )) + Z i−1 , i = 1, 2 · · · L                 (5)
+       ages and tooltip positions are recorded under static conditions,                           Y = LN (Z i )                                                   (6)
+       additional time calibration is not required. In addition, the initial
+       position of the arm in the workspace is determined manually.                         In addition, a multi-level encoding structure containing three
+                                                                                         cascaded Transformer blocks is utilized for feature extraction
+                                                                                         from coarse to fine [31]. A 3 × 3 convolutional layer for feature
+       C. Weakly-Supervised Vascular Segmentation and
+                                                                                         map downsampling is contacted after each Transformer block.
+       Orientation Guidance
+                                                                                            To match to the multi-level structure of the encoder, a decoder
+          The principle of Doppler imaging of blood vessels is to                        consisting of three CNN blocks is used to upsample the feature
+       measure blood flow velocity using the Doppler effect. In contrast                 vectors [34]. Each CNN consists of a 3×3 convolutional layer,
+       to B-model ultrasound images, Doppler images can provide mor-                     a bilinear sampling operation, and a transform operation, and
+       phologic and spatial information about the vessels and further                    produces the multi-level feature maps Xi ∈ Rd×H×W . After
+       guide vascular diagnosis. However, Doppler images can vary                        dimensionality reduction and Argmax operation, the segmen-
+       and be unstable as the heart beats. Compression of the vessel                     tation map is output from the stacked feature map X = [Xi |i =
+       by the probe can also cause temporary closure of the vessel and                   1, . . . m] ∈ R(m×d)×H×W [34]:
+       further lead to failure of Doppler-based guidance. In addition,
+       Doppler imaging requires the probe to be angled toward the                               Xi = Bilinear (H, W ) (Conv (Yi )) , i = 1, 2 · · · , m (7)
+       vessel, which can be difficult in a dynamic environment. To                         Mclass = Conv (Concat (Xi ))                                            (8)
+       obtain vessel guidance information, we decided to segment and
+       identify vessels using Doppler images as segmentation labels to                      M ask = Argmax (Mclass )                                               (9)
+       reduce the time consumption of vessel labeling time.
+                                                                                           The loss function consists of a segmentation loss Lseg be-
+          Transformer structure-based segmentation networks have
+                                                                                         tween the possibility map and the label, and a structure loss
+       demonstrated advanced global feature extraction capabilities
+                                                                                         LN RDice between the segmentation mask and the label:
+       and have been widely used in various image segmentation
+       applications [30]. Based on [31], we use a Transformer encoder                                            L = Lseg + LN RDice                              (10)
+       for the global image feature extraction and a convolutional
+       neural network (CNN) decoder for upsampling, as shown in                             In our RUS, Doppler images corresponding to vessel images
+                             W ×H×n
+       Fig. 3. The input Ius         to the network is n continuous                      can be acquired simultaneously during data acquisition. The
+       ultrasound images stacked in the channel dimension to enhance                     segmentation loss function is the commonly used cross-entropy
+       the contextual information in the sequence, where (W, H) is                       loss. The structure loss function is the noise-robust dice score to
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+        3170                                                                IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING, VOL. 70, NO. 11, NOVEMBER 2023
+
+
+
+        deal with the voids in Doppler images [35]:
+                                               HW
+                                                   | pi − g i | τ
+                         LN RDice =            i
+                                             HW 2
+                                                                                 (11)
+                                             i   pi + HW i        gi2
+        where pi ∈ RHW and gi ∈ RHW denote the value of each pixel
+        in the segmented mask and Doppler mask. The hyperparameter
+        τ ∈ [1, 2] is the accuracy of Doppler masks for balancing the
+        pseudo labels.
+           Labeling unseen data with labeled data can effectively im-
+        prove the results, which is called self-training [36]. Some
+        Doppler masks in the dataset are missing due to vascular pulsa-
+        tions, so the corresponding pseudo-label needs to be corrected.
+        To reduce the noise interference in the Doppler image and ensure
+        that the largest vessels are identified for directional guidance,
+        the segmentation result is processed by the largest connective
+        component module and used as the label for the self-training.
+           In addition to the pulsation of the vessel itself, the pressure
+        and the associated spatial position between the imaging plane
+        and the vessel can also change the morphology of the vessel
+        in the image. Therefore, to simplify the orientation estimation
+        process and improve efficiency, the position of the segmentation
+        center of the mask in the ultrasound image is directly used
+        to guide the probe movement. Meanwhile, the Doppler and
+        segmentation masks are combined to guide the direction and                        Fig. 4. RUS system logic. Force-based commands and image-based
+        improve the feasibility. According to the transformation matrix                   commands are generated in parallel and executed in sequence to en-
+        from the image coordinate system to the tool coordinate system                    sure correct and smooth system logic.
+        in Section B, the pixel values can be converted to the distance
+        values of the probe.
+                                                                                          RUS, the state for posture control s = (Fx , Fy , Fz , Tx , Ty , Tz )T
+        D. Force-Guided Posture Control                                                   is the sensed 6-DoF force and torque.
+                                                                                             As shown in Fig. 1, the 3-DoF posture control commands
+           Probe posture control affects contact with the scanned surface
+                                                                                          include roll angle (Rxbase ), pitch angle (Rybase ) and Z-direction
+        and determines the effectiveness of image segmentation and ori-
+                                                                                          (Zbase ) movement in a base coordinate system. This means
+        entation guidance. In the absence of external visual information,
+                                                                                          that the image coordinate system is only rotated around the
+        the contact force is used as the only information to guide probe
+                                                                                          probe tip in the absence of image information. To execute the
+        contact with the skin. Factors that affect the contact force during
+                                                                                          3-DoF command, we propose a hybrid force-position control
+        scanning include friction, surface deformation and pressure. We
+                                                                                          loop to combine and map the previous orientation and posture
+        have found that conventional linear force controllers (such as the
+                                                                                          commands to the action space at , which will be introduced in
+        PID method) have significant limitations in RUS posture adjust-
+                                                                                          the next section. The reward function R is a negative value of
+        ment [37]. The performance of conventional linear controllers
+                                                                                          the square root of the torque in the Rx and Ry directions, which
+        for force control relies on hyperparameter tuning according to
+                                                                                          encourages minimizing the torque on the probe:
+        the environment, which is effective in 3D reconstruction-based
+        RUS [26]. However, conventional controllers cannot deal with                                               R = Tx − (Ty − τ )                            (12)
+        the non-linear relationship between posture and perceived force
+        in environments without external visual information. The al-                      where τ is a constant to adjust the angle of the probe in the
+        ready adjusted hyperparameters are difficult to adapt to the dy-                  sweep direction and to approximate the angle during the previous
+        namic environment. Therefore, a learnable force-based control                     ultrasound image acquisition setup. The parameterised policy
+        method is proposed for RUS in a soft environment [37].                            πθ (a|s) is a multi-layer perceptron model with three hidden
+           The principle of our force-guided approach is to build an RL                   layers. Each hidden layer consists of a 256-dimensional fully
+        agent that learns a direct relationship between the probe posture                 connected layer and an activation layer. The training setup is
+        and the force sensed, avoiding complex force analysis and pa-                     posed in the framework of proximal policy optimization [39].
+        rameter tuning. An RL process in a Markov decision process can
+        be defined by the sets of states S, the continuous action space A,
+                                                                                          E. System Logic for Command Execution
+        the stochastic dynamics p(st+1 |st , at ), the reward function
+        R (s, a) = r ∈ R and the discount factor γ ∈ [0, 1) [38]. In                         As shown in Fig. 4, the decoupled control commands include
+        the system-environment interaction at time step t, the expected                   an image-guided orientation command (Xbase , Ybase )T and a
+        reward is maximized by the parameterized policy πθ (a|s). In our                  force-guided posture command (Rxbase , Rybase , Zbase )T . The
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+       NING et al.: AUTONOMOUS RUS VASCULAR IMAGING SYSTEM WITH DECOUPLED CONTROL STRATEGY                                                                        3171
+
+
+
+       two agents are computed in parallel, and the generated com-                       Doppler images. After a simple thresholding process, the images
+       mands are combined to ensure the smoothness of the imaging                        in the pseudo-colour region were extracted as Doppler masks. In
+       process. In the posture control framework, the characteristics                    addition, Doppler images that were completely missing during
+       of the skin (morphology, stiffness) are uncertain, which poses                    data acquisition due to cardiac pulsation were automatically
+       a challenge to the force control of the probe. We assume that                     discarded. A total of 15000 RA images were acquired, of which
+       the factors affecting the output force include the displacement                   20% were used for validation and 10% were manually labelled
+       and speed of the probe, which correspond to the force value and                   for testing. The training setup involved training 300 epochs with
+       the control efficiency. Up to this point, it is natural to consider               batch size 16 using the Adam optimiser with an initial learning
+       displacement and velocity as the action space of the posture.                     rate of 0.01, decreasing by half to 0.0001 after every 20 epochs.
+       However, in our system, the spatial information on the skin                       To increase computational speed, the region associated with
+       surface is not available. Therefore, we use a force-displacement                  blood vessels in the acquired ultrasound images was selected
+       method based on admittance control to achieve a stable interac-                   and resized to 100×100.
+       tion with the skin [17].                                                             RL model training setup: The training process of the RL agent
+           In this method, the spatial variables of the probe (angle                     was performed on the real RUS [37]. The agent established the
+       and displacement) are mapped onto the force space according                       relationship between the contact force and the probe posture
+       to the admittance controller. Finally, the action space men-                      through repeated contact with a known phantom. A total of
+       tioned in the previous section is defined as the expected con-                    20000 timesteps of training were performed.
+       tact forces (T xext , T yext , F zext ) and corresponding velocities                 System setup: The proposed RUS consists of a lightweight
+          ·    ·
+       (rx, ry, ẋz ) in the three relevant rotational directions [40].                  6-DoF UR3 robot (UR3, Universal robot, Denmark), a 6-DoF
+       According to the force-displacement method, the expected force                    force sensor (FT300 Force/Torque Sensor, Robotiq, Canada)
+       and velocity output by the RL agent can be mapped to the rotation                 for force measurement. B-mode US images of blood vessels in
+       and displacement values:                                                          the upper limb were acquired using a 2D linear probe (L12-4s,
+                                                                                         Mindray DC 6E Ⅱ, Mindray, China) with a centre frequency
+          Fext = M (ẍext − ẍ0 ) + B (ẋext − ẋ0 ) + K (xext − x0 )                    of 9.8 MHz and delay-and-sum (DAS) beamforming technique.
+                                                                  (13)                   The depth, spacing, and dynamic range of the US images were
+         xext = M −1 Fext − B ẋtext − K ẍtext                                 (14)     set to 1.5 cm, 0.046 mm and 110 dB, respectively. The working
+                                                                                         area and output force of the RUS were limited to ensure safety.
+          These parameter matrices [M , K, B] are set to constant.                       The safety threshold for contact force is 15 N. All network cal-
+          After combining with the orientation values, the complete                      culations were performed on a workstation (Intel Core i7-8700K
+       control command is fed into the inner-loop orientation control                    CPU, NVIDIA RTX 3080 GPU).
+       and executed. The time consumption for each posture con-                             All data collection and experiments involved in this paper
+       trol step is uncertain. To ensure the correctness of the system                   were approved by the local IRB (No. 20220152).
+       control logic, the computation process at time step t is performed
+       in parallel with the command execution at time step t − 1. This
+       is because image processing requires more computation time                        B. Segmentation and Orientation Guidance Evaluation
+       and resources. The following command is only executed after                          First, we verify the segmentation accuracy of the method
+       the previous action has been completed. With the control logic                    (Our) under noisy labels. The test objects include test sets in
+       shown in Fig. 4, image errors do not lead to posture errors,                      the dataset and five continuously acquired ultrasound image
+       because posture control is only guided by force. This means that                  sequences. Each sequence consists of 200 images. The metric
+       posture control can be performed regardless of the presence or                    used to evaluate the segmentation accuracy was DICE. In the ab-
+       absence of ultrasound images. The posture of the probe deter-                     lation experiment, we first evaluated the effects of the number of
+       mines the state of the ultrasound image. To dissociate orientation                encoder-decoder layers (Our-n layers), the number of continuous
+       from posture, we used a segmentation network to identify and                      input images (Our-n images), the self-training procedure (Our-
+       localise vessels in the image and estimate the direction. Posture                 w/o-SelfTraining), and the NRDice loss (Our-w/o-NRDice) on
+       errors, such as failed vessel identification, can still lead to image             the segmentation accuracy.
+       errors. In response, the system stops and restarts when a vessel                     Compared to single image input (78.6±7.8%), the evaluation
+       identification error occurs.                                                      results of three continuous images (79.6±5.5%) indicated that
+                                                                                         the introduction of contextual information improved segmen-
+                         III. EXPERIMENTS AND RESULTS                                    tation accuracy and was more applicable to continuous image
+                                                                                         sequences (83.3±4.1%). This conclusion was also valid for
+       A. System Setup and Implementation Details
+                                                                                         the evaluation results of the number of encoder-decoder layers
+         CNN Model Training Setup: The clinical radial artery (RA)                       (82.3±4.1%). The improvement of the segmentation results with
+       dataset for DL agent training included ultrasound and corre-                      more image inputs and network layers was small but led to an
+       sponding Doppler images. The acquired dataset consists of 20                      increase of the parameters. Therefore, we chose a compromise
+       subjects manually scanned by two sonographers. The sonog-                         setting for our RUS (3 images, five layers). Both the self-training
+       rapher controlled the probe to maintain a specific angle to the                   procedure and the NRDice loss were effective in improving the
+       vessel to perform the scan and acquire stable and continuous                      accuracy. Some qualitative segmentation results are shown in
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+        3172                                                                IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING, VOL. 70, NO. 11, NOVEMBER 2023
+
+
+
+                                                                                          guidance of two types of information in the experiment. The
+                                                                                          segmented mask-guided RUS performed a complete scanning
+                                                                                          process in all five imaging processes, and quantitative details
+                                                                                          were demonstrated in the following experiments. In contrast,
+                                                                                          the Doppler mask-guided RUS failed to complete the imaging
+                                                                                          process due to compression and vasoconstriction, as shown
+                                                                                          in Fig. 6(b). Although Doppler masks were not available for
+                                                                                          various reasons, blood vessels in ultrasound images could still be
+                                                                                          segmented by neural networks and provided effective guidance
+                                                                                          information.
+
+
+                                                                                          C. Image Acquisition and Posture Adjustment Evaluation
+                                                                                             The purpose of posture control is to achieve correct contact
+        Fig. 5.   Segmentation results of the segmentation network.                       with the skin without external visual information. To verify that
+                                                                                          convincing ultrasound images could also be obtained under force
+                                                                                          guidance, the RUS was only controlled by the outer loop part,
+                                                                                          i.e., the probe was centred on the tip (contact point) and rotated at
+                                                                                          the pitch and roll angles. There was no relative motion between
+                                                                                          the probe and the skin. For the static evaluation, a phantom was
+                                                                                          fixed in three different postures (Pot). The probe contacted four
+                                                                                          predefined positions (Pos) on the phantom in each posture and
+                                                                                          investigated the stable posture. The spatial position of the contact
+                                                                                          points is predefined in the robot coordinate system and could be
+                                                                                          repeated by RUS and manual operation. Each contact process
+                                                                                          was repeated five times to calculate the average value. The
+                                                                                          experiment used a phantom and a human arm as test subjects.
+                                                                                          The structural similarity (SSIM) between the acquired images
+                                                                                          of the same position was used as the evaluation metric.
+                                                                                             Manually taken images at the same position were also used
+                                                                                          for comparison. The experimental procedure and quantitative
+                                                                                          results are shown in Fig. 7(a1) and (a2). The mean SSIM of
+                                                                                          all image pairs from repeated experiments and manual acqui-
+                                                                                          sitions in the same posture and position was 84.5±3.0% and
+                                                                                          79.7±2.8%, respectively. The acquired images had high SSIM
+        Fig. 6. Evaluation of the orientation guide. (a) RUS was moved accord-            when the probe contacted the same points on the phantom
+        ing to the position of the segmentation masks in the image. The curve
+        shows the difference between the actual displacement of the probe                 in different postures. This indicated that the posture control
+        during movement and the displacement based on the segmentation                    effectively achieved a repeatable relative angular relationship
+        results. (b) Vasoconstriction, compression, and improper angulation can           with the contact surface under force guidance. The average SSIM
+        lead to a failed Doppler acquisition.
+                                                                                          of images taken at the same position between different postures
+                                                                                          was 79.8±2.8%. Comparison with manual control showed that
+        Fig. 5. Since the segmentation mask was used here for guidance                    posture control could achieve the correct angular relationship
+        rather than for precise tissue delineation, this segmentation                     with the contact surface.
+        accuracy was considered feasible for our task.                                       In a further dynamic evaluation, the RUS acquired images of
+           In the orientation guidance evaluation, the RUS imaged a cus-                  the human arm. As with the static evaluation, only the posture
+        tom cubic silicone phantom with internal simulated blood ves-                     of the ultrasound probe was adjusted with the arm. The probe
+        sels and was moved according to the position of the segmentation                  did not scan after contact with the skin and there was no friction
+        masks in the image. The mean error between probe displacement                     between the probe and the skin. To achieve this, the subject
+        and vessel phantom displacement was 1.1±0.5 mm. The RUS                           controlled their arm to maintain a fixed contact relationship with
+        was also moved in the y-direction and imaged the human arm                        the probe. As shown in Fig. 7(b), the posture of the probe was ad-
+        as shown in Fig. 6(a). The mean error between the displacement                    justed with the movement of the arm after the contact point was
+        obtained from the segmentation mask was 1.3±1.0 mm. The                           reached. The arm then stopped moving and the probe followed
+        computation time for each ultrasound image segmentation was                       to maintain a stable posture. The SSIM of the images acquired
+        0.02 s.                                                                           in the initial and stable postures was calculated to evaluate the
+           To further compare the performance of the segmentation mask                    effect of the arm movement on the reproducibility of the image
+        and the Doppler mask as orientation guidance information, we                      acquisition. This process has performed a total of 10 times to
+        performed five repetitive RUS imaging processes under the                         obtain better statistics for performance evaluation. The average
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+       NING et al.: AUTONOMOUS RUS VASCULAR IMAGING SYSTEM WITH DECOUPLED CONTROL STRATEGY                                                                        3173
+
+
+
+
+       Fig. 7. (a) SSIM results of images acquired by the probe at the same position of phantoms with different postures under force control. (b) The
+       posture of the probe was adjusted by moving the arm after reaching the contact point. The SSIM of the images acquired in the initial and the stable
+       postures were calculated.
+
+
+
+       SSIM of the images acquired after the probe reached different
+       stable postures was 49.7±8.5%. Although there was a decrease
+       compared to the static repeat results, the same human structures
+       could still be identified in the image. Overall, the SSIM of
+       images acquired by RUS at the same position showed that our
+       system could maintain a correct angular relationship with the
+       arm during static and dynamic testing. This further ensured
+       the reproducibility of the acquired images and the feasibility
+       of using them for orientation guidance.
+          To evaluate the efficiency of the posture control process, a
+       custom cubic silicone phantom with internal simulated blood
+       vessels was placed in the workspace at a specific and known
+       angle. As shown in Fig. 8, the probe quickly reached a perpen-
+       dicular posture to the phantom after contact with the surface. Due
+       to the surface deformation, the probe did not remain stationary
+       after reaching the angle, but performed decreasing oscillations
+       like a sine wave. Finally, the probe oscillated with one amplitude
+       around the angle. After the change reaches stability (the variance
+       tends to stabilise), the mean value of the angle of the probe is
+       taken as the phase of the oscillation and is defined as the stable
+       angle. In the repeated tests, the average time taken for a 10°
+       gap was 0.9 s and the average time taken to reach stability
+       was 4.0 s. As with the definition of time, the angular error                      Fig. 8.   Posture control efficiency for 10° gap.
+       was the error between the phase of the sinusoidal oscillation
+       and the phantom angle. The error between the stabilized angle
+       of the probe and the actual phantom angle was 0.45±2.72°.                         compression and deformation of the phantom, the error and
+       The significant peak in some of the shallower red lines was the                   time results were also different. The larger error and longer
+       amplitude of the sinusoidal oscillation. A large gap caused the                   adjustment time shown in Case 5 were due to the phantom being
+       RL agent to produce an overshoot value.                                           slightly displaced by the contact. The adjustment time of up
+          The results of each case represent each contact and control                    to 3.7 s was the time for the probe to reach stability with an
+       process, and are shown in Table II. The results show that the                     error adjustment of 10°. In fact, the time for the probe to reach
+       probe could quickly reach an angular gap of 10° and remained                      the correct angle was 0.9 s, followed by an error oscillation
+       in a range of oscillations. As each contact caused different                      adjustment of about 2–3°. Firstly, an error of 2–3° can meet the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+        3174                                                                IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING, VOL. 70, NO. 11, NOVEMBER 2023
+
+
+
+
+        Fig. 9. Fully autonomous robotic vascular imaging procedures. Test subjects included static and dynamic left and right arms of different volunteers.
+        The figure shows the position of the vessel in the ultrasound image and the trajectories of the probe during the imaging procedures.
+
+
+
+                                       TABLE I                                            to the initial position in Section B and was guided by the force
+                           SEGMENTATION ACCURACY EVALUATION
+                                                                                          information and ultrasound image for the vascular imaging task.
+                                                                                          The subjects in the experiment included one adult Asian male
+                                                                                          and one adult Asian female with upper arm lengths of 26 cm
+                                                                                          and 21 cm, respectively. In the static imaging test, the arm was
+                                                                                          naturally placed in the working space of the RUS.
+                                                                                             In general, subjects do not move significantly during rou-
+                                                                                          tine clinical ultrasound examinations. However, subject motion
+                                                                                          can affect the imaging quality and safety of RUS. In previous
+                                                                                          experiments, we have verified the robustness of inner-loop im-
+                                                                                          age guidance to motion. To demonstrate the advantages of our
+                                                                                          system, volunteers performed a significant motion in dynamic
+                                    TABLE II                                              experiments. On the one hand, the movement can cover the
+          ADJUSTMENT TIME RESULTS AND ANGULAR ERROR FOR EACH CONTACT
+                                                                                          daily ultrasound examination environment and, on the other
+                                                                                          hand, provide a reference for some specific scenarios. In the
+                                                                                          dynamic test, the arm was deliberately moved during the imaging
+                                                                                          process. Manual imaging procedures of the same vessels were
+                                                                                          also performed and used as a gold standard. Each trial was
+                                                                                          repeated three times. Spatial position, posture, probe contact
+                                                                                          force, and acquired images were recorded during the experiment.
+                                                                                             First, the acquired images were evaluated to verify the basic
+                                                                                          feasibility of our RUS. A total of 24 sequences were obtained,
+                                                                                          each containing an average of 245 images. To demonstrate the
+        requirements of vascular ultrasound imaging. It also means that
+                                                                                          validity of the acquired images, the ratio of the number of images
+        the probe can receive the next motion command before it has
+                                                                                          with vessels in the sequence was defined as the acquisition suc-
+        fully reached stability. And the adjustment time of 0.9 s to cope
+                                                                                          cess rate. The average number of images without blood vessels
+        with the 10° difference can also cope with radical movements,
+                                                                                          in the static sequence was 3.1, and the average number in the
+        especially as the control speed has been limited to ensure safety.
+                                                                                          dynamic test was 3.6. Some parts of the vessels were temporarily
+                                                                                          occluded due to probe compression and heart pulsation, causing
+        D. Performance in Human Vascular Imaging                                          the segmentation method to fail.
+           Human vascular imaging was performed on the RUS with                              To further evaluate the quality of the acquired ultrasound
+        the complete control framework. As shown in Fig. 9, the RUS                       images, the mean confidence of the ultrasound image sequences
+        contacted the volunteer’s left and right upper arms according                     was used as an evaluation metric based on the confidence map,
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+       NING et al.: AUTONOMOUS RUS VASCULAR IMAGING SYSTEM WITH DECOUPLED CONTROL STRATEGY                                                                        3175
+
+
+
+
+       Fig. 10.   Reconstructed 3D model based on acquired images and probe trajectories.
+
+
+
+       which indicates which part of the transducer area is in contact                   used 3D Slicer [43] for model visualization and adjusted the
+       with the surface [41], [42]. As shown in Fig. 11, the upper part of               voxel transparency of the volume to avoid occlusion and ensure
+       the confidence map was selected to highlight the areas where the                  better visualization of the vascular structures. As shown in
+       probe was in contact with the skin and to ignore shadows from the                 Fig. 10, the acquired ultrasound image was reconstructed as a
+       depths. The mean confidence of the ultrasound image sequences                     3D model based on the previous calibration matrix and probe
+       in the static test was 0.873. In comparison, the mean confidence                  trajectory to demonstrate the repeatability and robustness of the
+       of the dynamic test was 0.839. No probe detachment from the                       proposed method. The hollow voxels appearing in the volume
+       skin was detected in any of the acquired image sequences. The                     are caused by transparency adjustment for better visualization.
+       mean confidence of the manually acquired images was 0.912.                        In three 3D models from the static tests, vessels could be detected
+       Fig. 9 shows four autonomous imaging procedures, including                        and reconstructed with a smooth continuous structure.
+       dynamic, static, and two different subjects. In order to access                      In comparison, during the dynamic test, the arm was moved
+       the stability and accuracy of image guidance in the continuous                    up and down significantly, and the 3D model generated di-
+       acquisition, the mean distances of the vessels from the image                     rectly from the trajectory had to be corrected. According to
+       center (vessel distance) were calculated in each sequence. In                     the characteristics of the proposed decoupling control strategy,
+       the static test, the mean vessel distance was 2.1±1.8 mm. Due                     i.e., the spatial information was decoupled from the posture,
+       to arm movement, the mean distance in the dynamic tests was                       and the image acquired in the dynamic test was reconstructed
+       2.5±1.9 mm. The manually acquired images were more stable                         from the trajectory in the static test. The joint reconstruction
+       and had a mean length of 1.7±0.9 mm. The completeness of                          results in the bottom right of Fig. 10 show a model-to-model dis-
+       the acquired images showed that the level of coupling and the                     tance of 0.832 mm compared to the vessel model reconstructed
+       accuracy of posture adjustment were close to the manual level.                    from the static scan. The result shows that our method can
+          The contact force between the probe and the skin indicated                     perform reproducible and safe RUS scanning even in unstable
+       the stability and safety of the system. In the static tests on two                dynamic environments. Several complete imaging sequences
+       subjects, the average contact force of the probe was 10.3±2.3 N.                  can be found in the supplementary video.
+       In contrast, the contact force in the dynamic tests showed a
+       significant variation (11.1±4.5 N). The maximum measured
+       contact force was 15.3 N in a dynamic test when the subject                       E. Comparison With Vision-Based Coupled/Decoupled
+       moved the arm up in the imaging process. The quantitative                         Control Strategy
+       evaluation results of the different ultrasound image sequences                       The conventional RUS with coupled control strategy was
+       acquired are shown in Table II.                                                   compared with the proposed system built according to [14].
+          3D ultrasound volume reconstruction requires reproducible                      The 3D reconstruction system used for comparison had essential
+       spatial surface information and ultrasound images in a dynamic                    functions, including real-time arm reconstruction and position-
+       environment. 3D point cloud reconstruction and registration are                   ing. A depth camera (RealsenseD457, Intel) was calibrated in
+       very effective for obtaining reproducible surface information.                    the system and used for 3D model acquisition and reconstruc-
+       However, safe and reproducible dynamic imaging in environ-                        tion. We reconstructed the 3D surface and accurate predefined
+       ments without external vision is much more challenging. We                        scan trajectories on the reconstructed model according to the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+        3176                                                                IEEE TRANSACTIONS ON BIOMEDICAL ENGINEERING, VOL. 70, NO. 11, NOVEMBER 2023
+
+
+
+                                                                                          and dynamic environments. Herein, we propose an automated
+                                                                                          robotic vascular ultrasound imaging system with a decoupled
+                                                                                          control strategy for environments without external vision. In the
+                                                                                          proposed system, the “Where to go” and “How to go” of the probe
+                                                                                          correspond to the probe orientation and posture and are deter-
+                                                                                          mined by two independent agents. First, the ultrasound image is
+                                                                                          used to guide the orientation of the probe. In the deep learning
+                                                                                          agent, we propose a weakly supervised segmentation method
+                                                                                          based on Doppler images to identify and localize blood vessels
+                                                                                          in ultrasound images. A transformer structure is introduced to
+                                                                                          improve the segmentation accuracy. We integrate and refine the
+                                                                                          system based on our previous work in the second reinforcement
+                                                                                          learning agent. Instead of conventional 3D reconstruction, con-
+        Fig. 11. Comparison with vision-based systems in dynamic tests. Due               tact force information is used to control posture and is decoupled
+        to occlusion caused by the probe, the probe did not make full contact             from the ultrasound image.
+        with the skin due to non-reconstructable skin deformation.
+                                                                                             Quantitative and qualitative experiments were performed to
+                                                                                          verify the feasibility of the proposed system. Image segmen-
+        morphology of the blood vessels. Based on the transformation                      tation and orientation guidance were evaluated in the case of
+        matrix between the camera coordinate system and the robot co-                     posture decoupling and achieved accuracies of 83.3 ± 4.1%
+        ordinate system, the probe performed imaging under the control                    and 1.3 ± 1.0 mm, respectively. In the evaluation of posture
+        of 6-DoF commands.                                                                control, the probe achieved 79.8±2.8% SSIM for repeatedly
+           In the static environment, the scan could be performed based                   acquired images of the same target without spatial informa-
+        on the reconstructed surface, although the deformation of the                     tion. Finally, our system performed complete vascular imaging
+        skin surface could lead to errors. The success rate, mean                         processes on different arms of two volunteers for both static
+        confidence, vessel distance, and contact force of the static arm                  and dynamic situations. The experimental results showed that
+        imaging results for the static right arm of subject 1 were 100%,                  our system can perform vascular imaging on different subjects
+        0.875, 1.1±0.5 mm, and 10±0.5 N. The static comparison with                       without additional adjustments or external visuals. The images
+        the 3D reconstruction method showed that our approach could                       acquired from the static and dynamic experiments could be
+        reach the level of this typical frame. However, the predefined                    reconstructed and recognized as 3D models. The results of the
+        trajectory compared to our method could not be directly trans-                    dynamic experiments demonstrate the robustness of our system
+        ferred to the left arm of subject 1 or other subjects but had to be               to large movements, even when the subject’s movements are
+        reconstructed and replanned.                                                      unusual. The stable interaction and imaging performance of
+           Vision-based decoupling control strategies were also com-                      RUS in large and rapidly changing environments provides a
+        pared. Unlike the predefined trajectory, the dynamic probe tra-                   reference for more complex environments, such as on-board
+        jectory was updated based on the real-time reconstructed 3D                       RUS. Compared with basic conventional vision-based systems,
+        model. Compared to the predefined trajectories, the dynamic                       our control strategy avoids the occlusion problem in vision
+        trajectories were able to cope with moving targets. The proposed                  systems and avoids the full-path scanning method to improve
+        system was designed for an environment without external vision,                   the imaging efficiency of the target.
+        but the comparison would only be meaningful if full occlusion                        In terms of limitations, our system cannot cope with the
+        was present. Therefore, we chose a 3D reconstruction frame with                   sudden movements of subjects. This is because the ultrasound
+        minimal occlusion, where the probe occludes the contact points,                   images used for orientation guidance and contact force for
+        for comparison. As shown in Fig. 11, when the arm moved in                        posture guidance are assumed to be always available. When the
+        the direction of occlusion, the deformation of the skin could                     arm is moved rapidly, a brief detachment of the probe from the
+        not be reconstructed due to the lack of a procedure to deal with                  skin causes both parts to fail. A potential solution would be to
+        deformation and occlusion, such as registration. The results in                   incorporate the stereo camera used for calibration into a real-time
+        spatial positioning-based postures were unreliable when the arm                   control loop to provide roughly rapid target localization.
+        was moved and resulted in incomplete contact between the probe                       Another limitation is that the vessels in the ultrasound images
+        and the skin. The evaluation metrics for subject 1’s right arm                    are not clear during the scan. In the case of multiple targets,
+        were 88%, 0.710, 3.1±1.5 mm, and 14±3.7 N. In addition, the                       correction of the identified blood vessels will be necessary.
+        scanning paths had to be replanned for different subjects. In a                   Fortunately, due to the continuity of vessel structure and sim-
+        dynamic comparison, these basic functions were not sufficient                     ple morphology, imaging can still be done with other vessels
+        to cope with occlusion compared to our system.                                    tracked. Our future work will focus on more accurate target
+                                                                                          identification and segmentation. We will also attempt to image
+                                                                                          more challenging targets, such as abdomens with more complex
+                                    IV. CONCLUSION                                        tissues and discontinuous structures. In addition, system termi-
+           Automated robotic ultrasound systems face many challenges                      nation due to vessel identification errors must be considered in
+        from clinical environments, such as uncertain imaging targets                     future work due to the lack of global information. We will focus
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+       NING et al.: AUTONOMOUS RUS VASCULAR IMAGING SYSTEM WITH DECOUPLED CONTROL STRATEGY                                                                            3177
+
+
+
+       on global information acquisition to improve the robustness of                     [17] G. Ning, X. Zhang, and H. Liao, “Autonomic robotic ultrasound imaging
+       the system against errors. One potential solution is ultrasound                         system based on reinforcement learning,” IEEE Trans. Biomed. Eng.,
+                                                                                               vol. 68, no. 9, pp. 2787–2797, Sep. 2021.
+       image-preoperative image registration to obtain the relative spa-                  [18] M. Tirindelli et al., “Force-ultrasound fusion: Bringing spine robotic-
+       tial relationship of the current image to the arm.                                      ultrasound to the next ‘level’,” IEEE Robot. Automat. Lett., vol. 5, no. 4,
+          Our control strategy shows that orientation control can be                           pp. 5661–5668, Oct. 2020.
+                                                                                          [19] S. Virga et al., “Use the force: Deformation correction in robotic 3D ultra-
+       guided by more ultrasound image information by decoupling                               sound,” Int. J. Comput. Assist. Radiol. Surg., vol. 13, no. 5, pp. 619–627,
+       orientation from posture control. This means that our work has                          2018.
+       the potential to be extended to other imaging of different targets,                [20] Z. Jiang et al., “Automatic force-based probe positioning for precise
+                                                                                               robotic ultrasound acquisition,” IEEE Trans. Ind. Electron., vol. 68, no. 11,
+       such as abdominal organs, as long as valid ultrasound image                             pp. 11200–11211, Nov. 2021.
+       guidance information can be obtained. Another potential area                       [21] R. Goel et al., “Autonomous ultrasound scanning using Bayesian optimiza-
+       of future research is targeted posture control. In our work, we                         tion and hybrid force control,” in Proc. IEEE Int. Conf. Robot. Automat.,
+                                                                                               2022, pp. 8396–8402.
+       control the probe to remain at a specific angle to the skin to                     [22] M. L. Balter et al., “Adaptive kinematic control of a robotic venipuncture
+       scan blood vessels. Clinical ultrasound diagnosis requires more                         device based on stereo vision, ultrasound, and force guidance,” IEEE
+       complex control modes such as oscillation and rotation. Control                         Trans. Ind. Electron., vol. 64, no. 2, pp. 1626–1635, Feb. 2017.
+                                                                                          [23] A. I. Chen et al., “Deep learning robotic guidance for autonomous vascular
+       modes other than sweeping are also worth developing. Overall,                           access,” Nature Mach. Intell., vol. 2, pp. 104–115, Feb. 2020.
+       our system is feasible for autonomous robotic vascular ultra-                      [24] Z. Jiang et al., “Precise repositioning of robotic ultrasound: Improving
+       sound in uncertain environments and offers a potential solution                         registration-based motion compensation using ultrasound confidence op-
+                                                                                               timization,” IEEE Trans Instrum. Meas., vol. 71, 2022, Art. no. 5020611.
+       for clinical applications.                                                         [25] A. Priester, S. Natarajan, and M. Culjat, “Robotic ultrasound systems in
+                                                                                               medicine,” IEEE Trans. Ultrason. Ferroelect. Freq. Control, vol. 60, no. 3,
+                                                                                               pp. 507–523, Mar. 2013.
+                                     REFERENCES                                           [26] Z. Wang et al., “Full coverage path planning and stable interac-
+                                                                                               tion control for automated robotic breast ultrasound scanning,” IEEE
+        [1] M. C. Roshan, A. Pranata, and M. Isaksson, “Robotic ultrasonography                Trans. Ind. Electron., vol. 70, no. 7, pp. 7051–7061, Jul. 2023,
+            for autonomous non-invasive diagnosis—A systematic literature review,”             doi: 10.1109/TIE.2022.3204967.
+            IEEE Trans. Med. Robot. Bionics, vol. 4, no. 4, pp. 863–874, Nov. 2022.       [27] J. Tan et al., “A flexible and fully autonomous breast ultra-
+        [2] K. Li, Y. Xu, and M. Q.-H. Meng, “An overview of systems and techniques            sound scanning system,” IEEE Trans. Automat. Sci. Eng., 2022,
+            for autonomous robotic ultrasound acquisitions,” IEEE Trans. Med. Robot.           doi: 10.1109/TASE.2022.3189339.
+            Bionics, vol. 3, no. 2, pp. 510–524, May 2021.                                [28] R. W. Prager et al., “Rapid calibration for 3-D freehand ultrasound,”
+        [3] A. M. Priester, S. Natarajan, and M. O. Culjat, “Robotic ultrasound systems        Ultrasound Med. Biol., vol. 24, no. 6, pp. 855–869, Jul. 1998.
+            in medicine,” IEEE Trans. Ultrason. Ferroelect. Freq. Control, vol. 60,       [29] J. J. Moré, “The Levenberg-Marquardt algorithm: Implementation and
+            no. 3, pp. 507–523, Mar. 2013.                                                     theory,” in Proc. Numer. Anal.: Biennial Conf. Held Dundee, Berlin,
+        [4] N. Kobi et al., “Diagnosis of carpal tunnel syndrome using shear wave              Heidelberg, Germany, 1978, vol. 630, pp. 105–116.
+            elastography and high-frequency ultrasound imaging,” Acad. Radiol.,           [30] K. Han et al., “A survey on vision transformer,” IEEE. Trans. Pattern.
+            vol. 28, no. 9, pp. e278–e287, Sep. 2021.                                          Anal. Mach. Intell., vol. 45, no. 1, pp. 87–110, Jan. 2023.
+        [5] P. M. Nabeel et al., “Image-free ultrasound for local and regional vascular   [31] X. Enze, W. Wenhai, and Y. Zhiding, “SegFormer: Simple and efficient
+            stiffness assessment: The ARTSENS plus,” J. Hypertension, vol. 40, no. 8,          design for semantic segmentation with transformers,” in Proc. Int. Conf.
+            pp. 1537–1544, Aug. 2022.                                                          Neural Inf. Process. Syst., 2021, pp. 12077–12090.
+        [6] M. A. Funes-Lora et al., “Ultrasound measurement of vascular distensibil-     [32] A. Dosovitskiy et al., “An image is worth 16x16 words: Transformers
+            ity based on edge detection and speckle tracking using ultrasound DICOM            for image recognition at scale,” in Proc. Int. Conf. Learn. Representation,
+            data,” Amer. Soc. Artif. Intern. Organs J., vol. 68, no. 1, pp. 112–121,           2021, pp. 1–21.
+            Jan. 2022.                                                                    [33] L. Ru et al., “Learning affinity from attention: End-to-end weakly-
+        [7] N. Zevallos et al., “Toward robotically automated femoral vascular access,”        supervised semantic segmentation with transformers,” in Proc. Comput.
+            in Proc. Int. Symp. Med. Robot., 2021, pp. 1–7.                                    Vis. Pattern Recognit., 2022, pp. 16825–16834.
+        [8] Z. Jiang et al., “Autonomous robotic screening of tubular structures based    [34] K. Lekadir et al., “A convolutional neural network for automatic charac-
+            only on real-time ultrasound imaging feedback,” IEEE Trans. Ind. Elec-             terization of plaque composition in carotid ultrasound,” IEEE J. Biomed.
+            tron., vol. 69, no. 7, pp. 7064–7075, Jul. 2022.                                   Health Inform., vol. 21, no. 1, pp. 48–555, Jan. 2017.
+        [9] H. Hase et al., “Ultrasound-guided robotic navigation with deep reinforce-    [35] G. Wang et al., “A noise-robust framework for automatic segmentation of
+            ment learning,” in Proc. IEEE/RSJ Int. Conf. Intell. Robot . Syst., 2020,          COVID-19 pneumonia lesions from CT images,” IEEE Trans. Med. Imag.,
+            pp. 5534–5541.                                                                     vol. 39, no. 8, pp. 2653–2663, Aug. 2020.
+       [10] K. Li et al., “Autonomous navigation of an ultrasound probe towards           [36] L. Yang et al., “ST++: Make self-training work better for semi-supervised
+            standard scan planes with deep reinforcement learning,” in Proc. IEEE              semantic segmentation,” in Proc. Comput. Vis. Pattern Recognit., 2022,
+            Int. Conf. Robot. Automat., 2021, pp. 8302–8308.                                   pp. 4258–4267.
+       [11] X. Deng et al., “Learning robotic ultrasound scanning skills via human        [37] G. Ning et al., “Force-guided autonomous robotic ultrasound scanning
+            demonstrations and guided explorations,” in Proc. IEEE Int. Conf. Robot.           control method for soft uncertain environment,” Int. J. Comput. Assist.
+            Biomimetics, 2021, pp. 372–378.                                                    Radiol. Surg., vol. 16, pp. 2189–2199, Aug. 2021.
+       [12] Z. Jiang et al., “Deformation-aware robotic 3D ultrasound,” IEEE Robot.       [38] R. S. Sutton and A. G. Barto, “Reinforcement learning: An introduction,”
+            Automat. Lett., vol. 6, no. 4, pp. 7675–7682, Oct. 2021.                           IEEE Trans. Neural. Netw., vol. 9, no. 5, pp. 1054–1054, Sep. 1998.
+       [13] M. K. Welleweerd et al., “Automated robotic breast ultrasound acquisition     [39] J. Schulman et al., “Proximal policy optimization algorithms,” 2017.
+            using ultrasound feedback,” in Proc. IEEE Int. Conf. Robot. Automat.,              [Online]. Available: https://arxiv.org/abs/1707.06347
+            2020, pp. 9946–9952.                                                          [40] G. Ning et al., “Inverse-reinforcement-learning-based robotic ultrasound
+       [14] Q. Huang, J. Lan, and X. Li, “Robotic arm based automatic ultrasound               active compliance control in uncertain environments,” IEEE Trans. Ind.
+            scanning for three-dimensional imaging,” IEEE Trans. Ind. Informat.,               Electron., vol. 71, no. 2, pp. 1686–1696, Feb. 2024.
+            vol. 15, no. 2, pp. 1173–1182, Feb. 2019.                                     [41] A. Karamalis et al., “Ultrasound confidence maps using random walks,”
+       [15] C. Hennersperger et al., “Towards MRI-based autonomous robotic ultra-              Med. Image Anal., vol. 16, no. 6, pp. 1101–1112, Aug. 2012.
+            sound acquisitions: A first feasibility study,” IEEE Trans. Med. Imag.,       [42] Y. Song et al., “Medical ultrasound image quality assessment for au-
+            vol. 36, no. 2, pp. 538–548, Feb. 2017.                                            tonomous robotic screening,” IEEE Robot. Automat. Lett., vol. 7, no. 3,
+       [16] R. Kojcev et al., “On the reproducibility of expert-operated and robotic           pp. 6290–6296, Jul. 2022.
+            ultrasound acquisitions,” Int. J. Comput. Assist. Radiol. Surg., vol. 12,     [43] S. Pieper, M. Halle, and R. Kikinis, “3D slicer,” in Proc. IEEE 2nd Int.
+            no. 6, pp. 1003–1011, Jun. 2017.                                                   Symp. Biomed. Imag.: Nano Macro, 2004, vol. 1, pp. 632–635.
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:38 UTC from IEEE Xplore. Restrictions apply.
+

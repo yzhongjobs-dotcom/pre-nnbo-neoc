@@ -1,0 +1,805 @@
+       21674                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+
+                     Dual-Agent-Based Robotic Ultrasound Path
+                        Planning and Interaction Control in
+                     External-Vision-Independent Environments
+                     Xinye Wang , Zhiyuan He , Peng Chen , Zhe Wang, and Tao Sun , Senior Member, IEEE
+
+
+
+          Abstract—Ultrasound imaging has emerged as a crucial tool                      our research offers valuable insights for the implementation of
+       for the diagnosis and navigation of spinal diseases. However,                     robotic ultrasound scanning systems applicable to other human
+       high-quality image acquisition heavily relies on experienced sono-                tissues.
+       graphers, which restricts its further popularization. In this paper,
+       a robotic system designed for automated spinal ultrasound scan-                     Index Terms—Interaction control, medical robotics, robot
+       ning is proposed. Drawing inspiration from the spinal anatomy                     decision-making, robotic ultrasound.
+       and the actions of seasoned sonographers, the system integrates
+       both a deep learning agent and a reinforcement learning agent to
+       collaboratively guide the adjustment of the ultrasound probe in                                              I. I NTRODUCTION
+       external-vision-independent environments, relying on real-time
+       ultrasound images and contact force. Then, a hybrid force-
+       to-velocity control framework is proposed to ensure proper
+       ultrasound coupling during the scanning process. Experimental
+                                                                                         S    PINAL diseases represented by scoliosis and tumors are
+                                                                                              prevalent worldwide, affecting more than 900 million
+                                                                                         people, with roughly 20% of these cases necessitating sur-
+       results on a phantom and human participants demonstrated that                     gical intervention [1], [2]. While X-ray currently serves as
+       this system can accurately track spinal features (mean error: less
+       than 1 mm) and maintain normal probe orientation (out-of-plane                    a prevalent navigation technique in minimally invasive spine
+       angular error: 1.61 ± 1.1◦ , in-plane angular error: 1.27 ± 0.9◦ ),               surgery, it comes with the drawback of exposing patients and
+       resulting in high-quality and reproducible ultrasound images.                     clinicians to radiation over prolonged periods [3]. Ultrasound
+       Overall, our system shows great potential for clinical applications.              (US) has emerged as a promising surgical navigation tool
+          Note to Practitioners—This paper is motivated by the increas-                  due to its low cost, radiation-free, and accessibility [4], [5],
+       ing needs of human-robot interaction in medical applications,                     [6], [7]. However, the quality of US images heavily depends
+       with a specific emphasis on robotic ultrasound imaging. Clinical                  on the operator’s skill, and achieving precise control of
+       sonographers suffer from repetitive workload during the diagnos-                  acquisition parameters remains a challenge, even for seasoned
+       tic process, highlighting the significance of automated scanning                  sonographers [8]. To address these hurdles, automatic robotic
+       solutions. In this work, we propose a modular control framework
+       for ultrasound probe positioning that supports a multi-modal                      ultrasound scanning systems (ARUSS) have been introduced
+       autonomous ultrasound scanning system. The system operates                        in scanning bones, offering superior accuracy and repeatability.
+       independently of external optics or prior geometric knowledge of                     A crucial prerequisite for high-quality image acquisition
+       the scanning object. Comprehensive experimental results demon-                    is to plan the scan path to ensure comprehensive coverage
+       strate that the system can effectively cover the region of interest of            of the region of interest (ROI) [9]. Current path plan-
+       the spine, facilitating high-quality ultrasound image acquisition
+       and related disease assessment. This advancement is expected to                   ning approaches often rely on global data from preoperative
+       enhance the efficiency of human-robot interaction in healthcare                   CT/MRI scans or surface data from external RGB-D cameras.
+       settings and holds promising clinical applications. Furthermore,                  Hennersperger et al. [10] planned the scan path utilizing
+                                                                                         preoperative MRI data and subsequently transferred it to
+         Received 25 September 2024; revised 30 March 2025 and 19 June 2025;
+       accepted 22 September 2025. Date of publication 26 September 2025; date of        the robot’s task space via surface registration with real-time
+       current version 2 October 2025. This article was recommended for publication      RGB-D images. Similar approaches have been employed by
+       by Associate Editor H. Lu and Editor L. Zhang upon evaluation of the              [11] and [12]. However, in cases such as scoliosis diagno-
+       reviewers’ comments. This work was supported in part by the National
+       Natural Science Foundation of China under Grant 52505031, in part by              sis, preoperative medical images are usually unavailable. As
+       Tianjin Natural Science Foundation under Grant 24JCQNJC01360 and Grant            a result, path planning directly using patient surface data
+       22JCJQJC00050, and in part by Guizhou Provincial Science and Technology           from RGB-D cameras has been developed [13], [14]. Given
+       Support Project under Grant 2025-136. (Corresponding author: Zhiyuan He.)
+         Xinye Wang, Peng Chen, and Zhe Wang are with the Key Laboratory of              the inherent variability in individual anatomy and poten-
+       Mechanism Theory and Equipment Design of Ministry of Education, Tianjin           tial body movements, performing scanning tasks based on
+       University, Tianjin 300350, China (e-mail: wangxinye 2002@tju.edu.cn;             predefined trajectories is challenging. To address this issue,
+       peng chen@tju.edu.cn; wzwhm@tju.edu.cn).
+         Zhiyuan He and Tao Sun are with the Key Laboratory of Mechanism Theory          Zhou et al. [15] proposed a two-step scanning strategy that
+       and Equipment Design of Ministry of Education, Tianjin University, Tianjin        integrates initial positioning based on RGB-D data with servo
+       300350, China, and also with the International Institute for Innovative Design    control guided by US images to achieve comprehensive thyroid
+       and Intelligent Manufacturing of Tianjin University, Zhejiang, Shaoxing
+       312077, China (e-mail: hezhiyuan@tju.edu.cn; stao@tju.edu.cn).                    screening. This approach demonstrates the potential of real-
+         Digital Object Identifier 10.1109/TASE.2025.3614996                             time US image information to enhance probe pose control
+                     1558-3783 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and
+                               similar technologies. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                             See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       WANG et al.: DUAL-AGENT-BASED ROBOTIC ULTRASOUND PATH PLANNING AND INTERACTION CONTROL                                                                     21675
+
+
+
+       in the presence of anatomical variability and body move-                          external interference. Compliance control algorithms [37],
+       ments. Similarly, Chatelain et al. [16], [17] used a real-time                    [38], such as impedance control and admittance control, have
+       parametric active contour algorithm to dynamically adjust the                     also been introduced to address this problem. Wang et al. [39]
+       probe position, thereby ensuring the target remains centered                      demonstrated full-coverage scanning of the breast by the
+       within US images. Although this method is effective, it takes                     integration of a predefined path from a 3D point cloud with
+       approximately 10 seconds to reduce the centering error to                         an admittance control algorithm. However, this approach may
+       below 3 mm, indicating that there is still room for improve-                      encounter constraints in situations where the external visual
+       ment in terms of time efficiency. Yang et al. [18] extended                       environment is disturbed or inaccessible.
+       this approach to spinal scanning tasks using deep learning                           In order to eliminate the aforementioned obstacles, we
+       (DL). However, the chain-like anatomical structure of the spine                   developed an end-to-end framework for ARUSS based on
+       [19] was not considered, which could result in the loss of                        dual agents, aiming to achieve high-quality spinal US imaging
+       target structure during the scanning process. This limitation                     in external-vision-independent environments for diagnostic or
+       highlights the potential of leveraging such anatomical priors                     surgical tasks. The proposed approach is inspired by the
+       to enable more reliable scan path planning, particularly in the                   principles of manual sonographic techniques and the intricate
+       absence of external vision.                                                       structural characteristics of the spine. Although the focus of
+          Another key technique for high-quality image acquisition                       this work is exclusively on the spine, the framework has the
+       is to maintain the correct orientation of the probe relative                      potential for broader application in US imaging of diverse
+       to the scanned surface [20]. When the relative angle is                           human tissues. The main contributions of this article are listed
+       close to 0◦ , high-quality US images can be achieved. This                        as follows:
+       is particularly crucial in orthopedic applications, as the dis-                      1) To enable effective scan path planning in external-vision-
+       tinct reflection characteristics at soft tissue-bone interfaces                          independent environments, a multi-task DL model and
+       [21]. While the human back is often assumed to be flat, it                               an anatomy-aware feature tracking algorithm are devised
+       actually presents physiological curvature [22] that necessitates                         to leverage the chain-like characteristics of the spine for
+       active probe orientation adjustment during scanning. Various                             reliable probe guidance.
+       strategies have been proposed to optimize probe orientation.                         2) To accurately establish the desired relative orientation
+       Based on surface data from an RGB-D camera, Huang et al.                                 between the US probe and human tissues, an orientation-
+       [13] adjusted the probe orientation by estimating the normal                             sensitive RL agent is proposed to simulate the probe-
+       vector of the triangular plane around the scanning point.                                tissue contact dynamics, subsequently establishing the
+       However, the vision-based methods tend to overlook deviations                            relationship between the applied contact force and the
+       in the normal vector caused by contact deformation. Recent                               resulting probe orientation.
+       advancements have introduced real-time information, includ-                          3) To maintain a normal probe orientation and a stable
+       ing US images [23], [24], [25] and contact force [26], [27], to                          contact force during US scanning, a hybrid control
+       guide the probe orientation optimization. Huang et al. [28]                              framework integrating the aforementioned RL agent
+       categorized US images into diverse suboptimal types by                                   and a force-to-velocity (F2V) algorithm is introduced
+       detecting vertebral landmarks, and subsequently adjusted the                             to reduce decision-making anomalies in the RL agent
+       probe orientation to an optimal state using corresponding                                arising from fluctuating contact forces.
+       strategies. Similarly, Jiang et al. [26] developed a mechanical                      The rest of this article is organized as follows. Section II
+       force model for probe-tissue contact to accurately adjust the                     describes the system framework. Section III presents the spinal
+       probe orientation. However, obtaining a precise estimation of                     scan path planning algorithm. Section IV introduces the probe
+       the normal vector necessitates rotating the probe at specific                     orientation adjustment approach via the RL agent. Section V
+       positions, which limits its clinical applicability. In addition,                  briefly discusses the F2V algorithm and the implementation
+       learning-based techniques have shown potential for enhancing                      details of the closed-loop controller. Experimental results are
+       stable US scanning in unstructured environments [29], [30],                       presented in Section VI. Finally, Section VII concludes this
+       [31]. Ning et al. [27], [32] employed a reinforcement learning                    article.
+       (RL) agent to simultaneously adjust probe orientation and
+       contact force. However, this coupled adjustment method may
+       exacerbate the detrimental effects of unstable contact force                                 II. S YSTEM OVERVIEW AND C ALIBRATION
+       on orientation adjustment, ultimately restricting the robustness                     The proposed ARUSS consists of four main components: a
+       and efficiency of probe orientation optimization.                                 robotic arm (UR3, Universal Robots, Denmark), a US imaging
+          Due to the attenuation characteristics of US imaging, the                      system (HD60, Hisense Medical, China), a force/torque (F/T)
+       quality of US images is significantly affected by the stability                   sensor (M4325B, SRI, China) and a desktop computer (Intel
+       of probe-tissue contact [33]. Previous research has primarily                     i9-13900 CPU, NVIDIA RTX 4060 GPU), as shown in Fig. 1.
+       focused on maintaining stable contact force during scan-                             The proposed ARUSS integrates force and US image data
+       ning via mechanical structures [22], [34] or external control                     for precise and repeatable probe pose control in environ-
+       [35], [36]. External control, renowned for its simplicity, has                    ments without external vision. This integration enhances the
+       garnered widespread attention. Gilbertson and Anthony [35]                        clarity of input data for downstream tasks, such as image
+       utilized a single degree of freedom force control algorithm on                    segmentation and registration, which are crucial for precise
+       a handheld US device to maintain constant contact force under                     navigation in orthopedic procedures. It is worth noting that
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       21676                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+
+       Fig. 1. Overview of the proposed ARUSS, including US image artifacts, corresponding patterns, and adjusted results.
+
+
+
+       a decoupled framework was adopted to handle the distinct                          A. Multi-Task Network for Spinal Features
+       characteristics of US image and force information, rather
+                                                                                            The predefined scan path may be ineffective in scenarios
+       than a single unified framework. Specifically, a DL agent is
+                                                                                         involving unexpected motion, posing particular challenges in
+       employed for probe positioning based on US images, while
+                                                                                         conditions such as scoliosis, where accurately predicting spinal
+       a RL agent is utilized for probe orientation control based
+                                                                                         position is difficult. For continuous coverage of the ROI, the
+       on force feedback, reflecting the distinct nature of these
+                                                                                         application of real-time image analysis becomes imperative. In
+       tasks. This separation effectively mitigates the dimensional
+                                                                                         spinal US imaging, the spinous process (SP) can be regarded
+       asymmetry between US images and force data, which compli-
+                                                                                         as a pivotal anatomical feature. The stability of the ARUSS can
+       cates joint training. It also enhances the modularity of the
+                                                                                         be greatly improved by ensuring that the SP remains centered
+       system, enabling flexible adaptation to different anatomical
+                                                                                         within US images. As a result, we investigated a DL agent to
+       regions through selective updating of task-specific compo-
+                                                                                         extract the position of the SP from each US image.
+       nents. Furthermore, the unstructured nature of flexible human
+                                                                                            Inspired by facial keypoint detection, we employed a
+       tissue poses a challenge for achieving accurate force analysis
+                                                                                         heatmap-based approach for the SP localization. The heatmap
+       during continuous scanning. To avoid artificial modeling of
+                                                                                         was generated by using the Gaussian distribution centered
+       the scanning process, a discrete single step scanning strategy
+                                                                                         around the SP label, where each pixel indicated the probability
+       (4S) is utilized instead of complete trajectory generation.
+                                                                                         that the corresponding location represented the SP. In contrast
+       The 4S methodology allows for probe orientation adjustment
+                                                                                         to direct CNN-based coordinate regression, the heatmap-based
+       based on real-time force before proceeding to the subse-
+                                                                                         approach encourages the network to focus more intently on
+       quent scanning position. Overall, the ARUSS for the spine
+                                                                                         the ROI, leading to more precise and stable predictions.
+       has three basic functions: ensuring that the spinal feature
+                                                                                         In addition, considering the real physical attributes of the
+       remains centered in the view during scanning, keeping a
+                                                                                         spine, spinous processes are not continuously distributed.
+       normal probe orientation, and maintaining stable contact force
+                                                                                         A single-task keypoint localization network may not provide
+       between the probe and human tissues for optimal acoustic
+                                                                                         meaningful position information within intervertebral gaps
+       coupling.
+                                                                                         (IVG). Hence, we defined two distinct views derived from
+          To control the robot using US images, the pixel positions
+                                                                                         the structural information in US images: the SP view and the
+       must be mapped from the US image to the robot base frame
+                                                                                         IVG view.
+       as:
+                                                                                            To simplify the model, a multi-task network instead of
+                              TIB = TFB · TFP · TPI                (1)                   separate networks was proposed for SP localization and view
+       where Tij is the transformation matrix transferred from frame                     classification. Given that previous research has demonstrated
+       {i} to frame { j}.                                                                the superior performance of ResNet [40], [41] on US images,
+                                                                                         the pre-trained ResNet18 was selected as the encoder for
+                                                                                         extracting shared features. For the regression of the heatmap
+         III. S CAN PATH P LANNING VIA D EEP L EARNING AGENT                             in the feature localization, the FPN architecture [42] was
+         To devise an optimal scan path that covers the ROI                              utilized as the decoder. The overall network structure can
+       while simultaneously compensating for any potential target                        achieve a good balance between performance and efficiency.
+       motion, a DL-based online planning technique for optimizing                       In addition, a two-step training method was proposed to
+       US scan paths is developed in this section, as shown in                           mitigate overfitting with limited samples: pre-training on a
+       Fig. 2.                                                                           mixed dataset including two types of views, followed by
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       WANG et al.: DUAL-AGENT-BASED ROBOTIC ULTRASOUND PATH PLANNING AND INTERACTION CONTROL                                                                     21677
+
+
+
+
+       Fig. 2. Workflow of the scan path planning, including the multi-task network and feature tracking algorithm.
+
+
+
+       fine-tuning on a smaller SP dataset. Using customized coeffi-                     pixel error between the SP and the centerline can be calculated
+       cients for each stage, the same composition of the loss function                  by:                                   
+       was utilized in both training stages as follows:                                                              x̂(k)    1
+                                                                                                          eimg =            −     wimg               (4)
+                                                                                                                   wheatmap 2
+                                Ltotal = λ1 Lloc + λ2 Lcls                        (2)
+                                                                                         where wimg and wheatmap denote the pixel width of the US
+       where the localization loss function Lloc is the mean square                      image (430 pixels) and the pixel width of the predicted
+       error (MSE) loss, and the classification loss function Lcls is                    heatmap (56 pixels), respectively. x̂(k) is the position of SP
+       the binary cross-entropy (BCE) loss.                                              along the X-axis in control cycle k. The pixel error eimg must
+                                                                                         be mapped to the error in the physical world ∆x using the scale
+                                                                                         factor s x before being used for robot. To avoid the problem of
+       B. Control Strategy for Spinal Features Tracking                                  robotic trembling arising from high-frequency position control,
+                                                                                         the position error ∆x is converted into a velocity command,
+          The analysis of US images provides guidance for robotic
+                                                                                         thereby facilitating a smoother motion. To further enhance the
+       path control. The captured US images serve as inputs to the
+                                                                                         stability of velocity, a first-order filter was implemented as
+       proposed multi-task network for the generation of real-time
+                                                                                         follows:
+       predictive heatmaps and view classification. The coordinate of
+       the SP corresponds to the index value of the largest element                                           ∆x = s x eimg                                         (5)
+       in the heatmap, which can be calculated as follows:
+                                                                                                           vy (k) = αvyB (k − 1) + (1 − α)K x ∆x
+                                                                                                            B
+                                                                                                                                                                    (6)
+                           pose(x, y) = arg max(heatmap)                          (3)    where vyB (k) denotes the discrete velocity along the Y-axis in
+                                                                                         the robot base frame {B}, α is a filter parameter, and K x is
+       where x and y represent the horizontal and vertical coordinate                    the proportional control gain between position and velocity.
+       positions of the SP in the frame of US image {I}, respectively.                   During continuous scanning, the velocity vBx along the X-axis
+           Due to the existence of IVG, the meaningful information                       in the base frame {B} is preset to a constant value.
+       obtained from the DL agent is discrete. To prevent the loss
+       of SP during tracking, a Kalman filter was used to generate
+       a continuous path. When the US image contains SP (i.e., the                        IV. N ORMAL O RIENTATION A DJUSTMENT VIA RL AGENT
+       classification is the SP view), the position of SP derived from                      Previous study has demonstrated that deviations of the probe
+       the neural network is integrated with the position estimated by                   exceeding 15◦ from the normal direction can significantly hin-
+       the Kalman filter to determine the position of SP at the next                     der the visualization of the bone boundaries [26]. Therefore,
+       moment. Otherwise, the position of SP at the next moment                          achieving an optimal probe orientation is crucial for obtaining
+       is predicted based on the position estimated by the Kalman                        high-quality US imaging. While previous efforts have explored
+       filter and the velocity of the robot. Furthermore, the integration                various approaches [26], [39] to achieve this objective, most
+       of the Kalman filter can also effectively link the outputs of                     rely on explicit mechanical modeling or complex controller
+       consecutive frames, thereby providing more stable trajectories                    parameter tuning. Such reliance limits their generalizability
+       for the robot.                                                                    and practicality in the presence of nonlinear tissue contacts.
+           Full coverage of the spine can be confirmed when the SP                       In contrast, the RL-based approach eliminates the need for
+       is aligned with the centerline in the width direction of US                       explicit modeling or parameter tuning by directly learning
+       images. Once meaningful location information is obtained, the                     an optimal orientation adjustment strategy. It holds promise
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       21678                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+       for enabling accurate and robust probe orientation control,                       Subsequent to the rotation, new contact force data can be
+       particularly in unstructured human tissue conditions. This                        obtained from the sensor and used to update the observations.
+       section presents an RL-based algorithm designed for real-time                       3) Reward: The rigidity in the back tissues prompts the
+       probe orientation adjustment, enabling it to dynamically follow                   generation of contact torques {T rx , T ry } upon the application of
+       the curvature of human back.                                                      a constant force. Friction can be ignored because the contact
+                                                                                         region is usually pre-coated with US gel. Consequently, it is
+                                                                                         indicated that the desired contact torques should be 0 when
+       A. Problem Formulation                                                            the probe orientation is normal to the constraint surface. To
+           For US imaging of bone, the probe orientation is typi-                        achieve this, the reward function devised for training should
+       cally optimized to maintain a perpendicular alignment with                        encourage the agent to minimize contact torques as follows:
+       the constraint surface, ensuring optimal imaging quality. In
+                                                                                                                 Rtorque = − (T rx , T ry ) 2                       (7)
+       external-vision-independent environments, the sole reliance is
+       placed on contact force information to direct the adjustment                      where k·k2 represents the L2 norm. To facilitate the learning
+       of probe orientation. To establish the nonlinear relationship                     process of the agent, a sparse reward of + 100 is assigned for
+       between contact force and relative probe orientation, an RL                       goal achievement on the dense reward. In addition, penalties
+       agent was developed for implicit modeling of the contact                          were imposed for safety-related constraints [44]. For instance,
+       environment.                                                                      the loss of probe contact or exceeding the normal contact force
+           1) States and Observations: The full state of the agent can                   threshold would obtain a penalty (-1) for the agent. These
+       be characterized by the actual and desired probe orientation,                     reward parameters were initially established according to the
+       along with the corresponding contact force. However, as the                       work of [29] and were further validated for their effectiveness
+       inherent unobservability of the constraint surface, the agent                     in guiding the learning of the agent within simulation settings.
+       is unable to directly perceive the desired probe orientation                      Hence, the reward at any given timestamp t can be formulated
+       and contact force. Therefore, in our system, the real-time                        as follows:
+       contact force F ∈ R6 acquired by the agent was used as                                      8
+       the observation at timestamp t, facilitating the formulation of                             < Rtorque − 1, if the force is not desired
+                                                                                                   ˆ
+       subsequent action decisions [43].                                                      Rt = Rtorque + 100, if the objective is reached         (8)
+           2) Actions and State Transition: The policy π(at |st ) is a                                         Rtorque , otherwise
+                                                                                                   ˆ
+                                                                                                   :
+       mapping from the current observation st to an action decision
+                                                                                         4) Terminations and Truncations: Three termination criteria
+       at . Traditionally, the robot actions within the world frame
+                                                                                         were set: 1) the target with the threshold set to 0.02 N·m,
+       have been represented by a transformation matrix TP , which
+                                                                                         empirically determined through extensive experimentation to
+       serves as the basis for computing the subsequent probe pose by
+                                                                                         strike a balance between stability and efficiency, is achieved.
+       TPB ← TPB TP . Although not all 16 parameters within this matrix
+                                                                                         2) the probe exceeds the predefined maximum range of motion.
+       are necessary for orientation control, directly learning param-
+                                                                                         3) the maximum time step is reached.
+       eters in the rotation matrix remains challenging. This stems
+       from inherent mathematical constraints of the rotation matrix
+       that may be violated due to numerical instability in predictions,                 B. Deep Reinforcement Learning Algorithm
+       thereby leading to unacceptable orientation changes in clinical                      The RL process was proposed within the framework of the
+       settings. To address this issue, embedding prior constraints                      Markov Decision Process [27]. It can be described by S, A,
+       into the training process could be a promising approach.                          p, R, and γ, where S = {s&1 , s2 , . . . , st } represents theˇ state
+       It simplifies training by reducing the dimensionality of the                      space, A = {a1 , a2 , . . . , at } is the action space, p( st+1 ˇ st , at )
+       parameters to be predicted and mitigates the risk of uncontrol-                   denotes the state transition probability of a given action,
+       lable orientation changes. While prior constraints help improve                   R(s, a) = r is the reward function, and γ ∈ [0, 1) is the discount
+       training stability, practical deployment requires additional                      factor. The objective of the training process was to identify the
+       considerations, such as hardware compatibility. Specifically,                     policy with optimal parameters θ to maximize the expected
+       on the UR robotic platform, position-based commands can                           return, as follows:
+       introduce unintended oscillations, potentially compromising                                                            "                   #
+       task performance. To address these challenges, we deployed                                        θ = arg max E
+                                                                                                          ∗
+                                                                                                                                X
+                                                                                                                                   γ rt [s0 , πθ ]
+                                                                                                                                    t
+                                                                                                                                                                (9)
+       a strategy where the action is directly applied to the end-                                                    θ           t
+       effector’s velocity. This approach strikes a balance between
+       practical implementation and training effectiveness, ensuring                       This optimization problem can be addressed by gradient
+       the feasibility and reliability of the robotic system in real-                    ascent, using the following formula to derive the gradient of
+       world applications. Considering safety constraints in real US                     the objective function:
+       scanning, the outputs were further set to control torques rather
+                                                                                                              X          X
+                                                                                                    ∇θ J(θ) =    pπθ (s)   Qπθ (s, a)∇θ πθ (a|s)
+       than angular velocity values. Specifically, these torques were                                         s∈S       a∈A
+       converted into angular velocities using a compliance control                                       = Eπθ Qπθ (s, a)∇θ log πθ (a|s)
+                                                                                                                                           
+                                                                                                                                                        (10)
+       framework (as detailed in Section V), enabling the probe to
+                                                                                         where pπθ (s) =     t γ p(st = s|s0 , πθ ), Qπθ (s, a) is the state-
+                                                                                                          P t
+       rotate around its tip in a controlled manner. Furthermore, the
+       maximum control torque was limited to ensure patient safety.                      action value function. Considering the limitations of training
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       WANG et al.: DUAL-AGENT-BASED ROBOTIC ULTRASOUND PATH PLANNING AND INTERACTION CONTROL                                                                     21679
+
+
+
+       in real environments, the proximal policy optimization (PPO)
+       method based on actor-critic structure was utilized [45]. The
+       optimization objective in the form of PPO-Clip was as follows:
+                                                       πθ (a|s)
+               θ∗ = arg max E s∼pπ Ea∼πθold (·|s) min              Aπθold ,
+                                                 
+                        θ                             π θold (a|s)
+                              πθ (a|s)
+                                                      
+                                         , 1 − ε, 1 + ε Aπθold
+                                                                 
+                    × clip                                                  (11)
+                             πθold (a|s)
+       where Aπθold = Aπθold (s, a) denotes the advantage estimator.
+       The policy was set up as a multilayer perceptual model. On
+       this basis, the agent can continuously optimize the policy to
+       autonomously adjust the normal probe orientation.                                 Fig. 3. Control logic of the proposed ARUSS.
+
+
+        V. C ONTACT F ORCE AND OVERALL C ONTROL S TRATEGY                                B. Overall Control Logic
+          As another pivotal factor in image quality, stable contact                        The commands for path tracking, orientation adjustment,
+       force is crucial for obtaining US images and observations for                     and stable contact force are decoupled from each other. This
+       the aforementioned tasks. To ensure optimal acoustic coupling                     decoupling allows for the adjustment of the probe orientation,
+       during continuous scanning, this section introduces the F2V                       with or without the aid of US images, as the RL agent relies
+       control algorithm and the implementation logic of the ARUSS.                      solely on force data for its decision-making. However, to
+                                                                                         ensure smooth imaging, these commands are combined before
+                                                                                         being given to the controller. As shown in Fig. 3, the combined
+       A. Compliance Control for Stable Contact Force                                    linear velocities for position control and angular velocities for
+         Traditional admittance control involves the modeling of the                     orientation control are input into the controller for execution.
+       end-effector as a spring-damper system and adjusting three                        Moreover, considering patient safety and the primary objec-
+       parameters to modify its dynamic characteristics:                                 tive of our system, a safety mechanism is implemented to
+                                                                                         address potential probe occlusions or hardware malfunctions.
+                      Fd = M(z̈ − z̈d ) + B(ż − żd ) + K(z − zd )             (12)     In the event of such incidents, the system immediately halts
+                                                                                         operation and prompts manual inspection before resuming
+       where Fd denotes the desired force. M, B, and K are the                           the scanning process. To optimize computational efficiency,
+       virtual inertia, virtual damping, and virtual stiffness. z and                    the decision-making processes of the dual agents operate
+       zd denote the current pose and desired pose, respectively.                        concurrently in parallel. This parallel structure results in a
+       To mitigate oscillations, a velocity-based admittance control                     total latency of approximately 6.21 ± 4.13 ms between US
+       approach was proposed. In the acoustic coupling task, where                       image acquisition and control command output. Despite this
+       predefined motion trajectories are absent, the robot’s move-                      latency, the system maintains high scanning accuracy and
+       ment is adjusted in response to the deviation between the                         stability, as evidenced by the subsequent experimental results
+       actual and desired contact force. The F2V method discretizes                      in Section VI.
+       (12) by setting z̈d = żd = zd = 0 and K = 0 to establish the
+       relationship between contact force error and robotic velocity                                        VI. E XPERIMENT AND R ESULT
+       as follows:                                                                          The method and algorithm proposed in this study are
+                                         (v(k) − v(k − 1))                               evaluated with the ARUSS shown in Fig. 1. Datasets used
+             ∆Fz = Fz − Fzd = M ·                          + B · v(k)           (13)     for training the DL agent included 5193 spinal US images
+                                                ∆T
+                                                                                         obtained from a phantom (CT-A02, Truephantom, Canada)
+         The velocity along the Z-axis direction for robot control can                   and 3440 spinal US images sourced from 5 young volunteers.
+       be calculated as follows:                                                         Our researchers explained the entire process to all volunteers
+                     ∆Fz + M · vz (k − 1)/∆T                                             and obtained their consent. All US images and labels were
+          vz (k) =                           = α∆Fz + βvz (k − 1)               (14)     collected under the guidance of experienced sonographers.
+                          B + M/∆T
+                                                                                         The original US images are 430 × 455 pixels in size, which
+          In general, the F2V algorithm directly translates force                        are normalized and resized to 224 × 224 pixels before input
+       values into velocity commands, driving the robot to adapt to                      to the network. The training setup involved using the Adam
+       variations in tissue properties. When the end-effector is not                     optimizer with a learning rate of 0.0003 for 30 epochs with
+       in contact with the environment, the robot operates in free-                      batch size 12. To prevent overfitting, 5-fold cross-validation
+       motion mode until the actual contact force matches the desired                    was employed. The entire process was executed on a server
+       force. To maintain the stability and precision of force data, all                 (NVIDIA Tesla V100, 32GB). Given challenges in accu-
+       signals are denoised before returning to the controller, and                      rately obtaining the flexible environment and contact force
+       the gravitational effect on the probe is compensated using the                    in simulation, the RL agent was trained for 35,000 timesteps
+       method in [26].                                                                   in a real environment. A total of four sets of experiments
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       21680                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+                                    TABLE I
+                 P ERFORMANCE C OMPARISON OF VARIOUS N ETWORKS
+
+
+
+
+       were conducted, including scanning path planning, orientation
+       adjustment, contact force control, and assessment of US image
+       quality.
+
+       A. Effectiveness of the Scan Path Planning
+          1) Evaluation of the multi-task network: To evaluate the
+       performance of the proposed multi-task network, a con-
+       trol experiment using single-task networks was conducted.
+       Inspired by the percentage of correct keypoints (PCK), the
+       localization accuracy was determined by measuring the dis-
+       tance between detected and actual SP values and comparing
+       it against a predefined threshold. Real-time performance was
+       quantified in terms of frames per second (FPS). The com-
+       parisons are shown in Table I. Across both phantom and
+       human datasets, our method exhibited a higher accuracy in
+       view classification compared to the ResNet18, with gains of
+       0.59% and 0.34%, respectively. Furthermore, compared to the                       Fig. 4. Results of the feature tracking experiments. (a) The robotic scan tra-
+       ResNet18-FPN, our method demonstrated enhanced accuracy                           jectories. (b) Spinous process (SP) positions and the corresponding continuous
+                                                                                         paths. (c) Centering errors during scanning. (d) Adaptation of the system to
+       in SP localization by 0.82% and 1.52% for the two datasets.                       small-scale lateral movements.
+       The results indicate the efficacy of the proposed multi-task net-
+       work in outperforming single-task networks, meeting accuracy
+       and real-time usage requirements in practical scenarios.                          centering error (see Fig. 4(c)) was 0.86 mm for phantom trials
+          2) Evaluation of the feature tracking strategy: To validate                    and 0.76 mm for human trials. These results demonstrate the
+       the effectiveness of the proposed approach in maintaining SP                      high accuracy of our approach in maintaining the probe posi-
+       features in the center of the US view, we conducted automatic                     tion. Furthermore, Table III provides a quantitative comparison
+       scanning trials on a phantom and human volunteers with                            with other state-of-the-art robotic US systems, highlighting
+       diverse BMI levels. The phantom trials evaluated the robust-                      the superior tracking accuracy achieved by our approach. This
+       ness of our tracking strategy across three types of scoliosis                     high level of accuracy allows our system to effectively handle
+       (mild: <20◦ , moderate: 20◦ -40◦ , severe: >40◦ ). In human trials,               sudden changes in the environment, including unexpected
+       volunteer postures were modified to simulate various scoliosis                    patient movements, as shown in Fig. 4(d). A comparison video
+       conditions, testing the generalizability of the system across                     of the scanning process can be found in Movie Part I.
+       different patient profiles. Experimental results are presented                       In addition, we adopted the method described in [47] to fit
+       in Fig. 4. The comparison between the detected SP and actual                      the detected SP points using a sixth-order polynomial curve.
+       SP positions from US image sequences, as shown in Fig. 4(b),                      The Cobb angle, which serves as an angular measure to
+       illustrates high localization accuracy of our method in practical                 evaluate the degree of spinal curvature, can be calculated by:
+       scenarios. However, the existence of noisy detection outcomes
+                                                                                                                               λi−1 − λi
+                                                                                                                                         
+       may have an impact on robotic control and feature tracking.                                     CobbAngle = arctan                           (15)
+       Consequently, to address this problem, the Kalman filter                                                               1 + λi−1 λi
+       was employed to generate continuous paths, resulting in an                        where λ is the slope between the stationary points with zero
+       effective reduction in noise interference, as shown in Fig. 4(b).                 partial derivatives of the fitting curve.
+       This observation is reinforced by the actual robotic motion                          Ten independent tests were conducted to compare the values
+       trajectory illustrated in Fig. 4(a), especially at the markers                    of Cobb angle with ground truth (X-ray images) across various
+       corresponding to the IVG. Notably, trials involving volunteers                    scoliosis types. Statistical results are shown in Table II. The
+       with different BMIs demonstrated that our approach maintains                      mean relative error (MRE) and root mean square error (RMSE)
+       high tracking accuracy regardless of individual anatomical                        remain relatively consistent under different conditions, and the
+       variations. During continuous scanning, the average real-time                     overall measurement error falls within the clinically acceptable
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       WANG et al.: DUAL-AGENT-BASED ROBOTIC ULTRASOUND PATH PLANNING AND INTERACTION CONTROL                                                                     21681
+
+
+
+
+       Fig. 5. Results of experiments B and C. (a) Experimental records. (b) Angular errors in accuracy experiments. (c) Adjustment results on various constraint
+       surface. (d) Orientation adjustment efficiency for 10◦ error. (e)-(f) Variations in torque and contact force during continuous scanning.
+
+
+
+                                         TABLE II                                                                      TABLE III
+                  M EASUREMENT R ESULTS IN P HANTOM E XPERIMENT                                    P ERFORMANCE OF D IFFERENT M ETHODS ON P HANTOM
+
+
+
+
+       range (5◦ ) [18]. It indicates the robustness of our path planning
+       algorithm in precisely centering features during continuous
+       scanning. This capability facilitates accurate estimation of the
+       Cobb angle, which can assist clinicians in diagnosing spinal
+       disorders, particularly scoliosis.
+                                                                                         The average out-of-plane error (mean ± standard deviation,
+                                                                                         SD) and in-plane error (mean ± SD) across all tests are
+       B. Effectiveness of the Probe Orientation Adjustment                              1.61 ± 1.10◦ and 1.27 ± 0.90◦ , respectively. The proposed
+          1) Accuracy of the probe orientation adjustment algo-                          method demonstrates superior accuracy compared to manual
+       rithm:The accuracy of the probe orientation adjustment is                         scanning, which has been reported to yield an angular error of
+       evaluated based on the angular error between the stable                           3.20±1.70◦ [39]. It is noteworthy that the in-plane adjustment
+       orientation of the probe and the normal direction of the contact                  exhibits a lower overall error margin, possibly due to the
+       surface. To ensure the proposed algorithm is independent of                       mechanical design of the probe. Specifically, the high length-
+       prior knowledge regarding the initial probe orientation, a series                 to-width ratio of the linear probe enhances its sensitivity to
+       of out-of-plane adjustment tests with various initial errors and                  angle changes during in-plane adjustment, resulting in more
+       in-plane angular offsets were implemented. Similarly, the in-                     precise outcomes. Furthermore, a quantitative comparison of
+       plane tests were set. Five experiments were performed for                         our method with existing state-of-the-art approaches is sum-
+       each initial condition, and the mean error was computed as the                    marized in Table III. The accuracy of the proposed method
+       final result. To simulate the non-planar nature of human back                     is comparable to that of the state-of-the-art approach [26],
+       tissues observed in clinical practice, all tests were conducted                   which reports an out-of-plane error of 2.50 ± 1.30◦ and
+       on a gel phantom placed on a tilted surface, as shown                             an in-plane error of 1.00 ± 0.70◦ . However, our method is
+       in Fig. 5(a).                                                                     considered more appropriate for clinical applications, since
+          The results of the probe orientation adjustment, obtained at                   the approach presented in [26] necessitates continuous rotation
+       a constant contact force of 13 N [19], are listed in Fig. 5(b).                   at a given position, which would affect the efficiency of US
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       21682                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+       scanning. A genuine probe adjustment process can be found                            4) Validation of the performance in continuous scan-
+       in Movie Part II.                                                                 ning:Guided by the relationship between torque and angular
+          2) Robustness of the probe orientation adjustment algo-                        error in the efficiency experiment, the torque variation was
+       rithm: To investigate the robustness of the proposed probe                        employed to validate the performance of our probe orienta-
+       orientation adjustment algorithm, validations were conducted                      tion adjustment method in continuous scanning. The desired
+       using a gel phantom placed at various angles (0◦ , 5◦ , 10◦ ,                     contact force was set at 13 N, the scanning speed at 4 mm/s,
+       15◦ ). These angles were selected to reflect the typical sur-                     and controller parameters were specified as α = 0.001 m/Ns
+       face tilts observed in the human back due to physiological                        and β = 0.001. From Fig. 5(e), it can be seen that the
+       curvature and individual variability. For the out-of-plane                        actual torque values along the X-axis and Y-axis closely
+       tests, 5 trials were carried out for different initial in-plane                   match the desired values (0 N·m) for both the phantom
+       angular offsets (-10◦ , -5◦ , 0◦ , 5◦ , and 10◦ ) and initial errors              and human tissues. Particularly, in the case of the phantom,
+       (-15◦ , -10◦ , -5◦ , 5◦ , 10◦ , 15◦ ). Similar conditions were set                smaller torque errors were observed, with maximum torque
+       for the in-plane tests. The statistical results obtained from                     errors of 0.05 N·m along the X-axis and 0.01 N·m along the
+       1200 trials are shown in Fig. 5(c). It can be seen that both                      Y-axis. In the volunteer trials, despite larger variations in actual
+       out-of-plane and in-plane adjustments implemented by our                          torque values due to respiratory motion, the mean torque errors
+       method exhibit higher accuracy compared to manual opera-                          along the X-axis and the Y-axis are only 0.01 ± 0.04 N·m
+       tions. Specifically, the mean error for the 600 out-of-plane                      and - 0.01 ± 0.03 N·m, respectively. Overall, these results
+       trials is 1.60 ± 1.11◦ , with over 93% of the trials achieving                    demonstrate that the normal probe orientation can be main-
+       errors below 3.20◦ . Similarly, for the 600 in-plane trials, the                  tained using the proposed probe orientation adjustment method
+       mean error is 1.34 ± 0.92◦ , and over 97% of these trials                         during continuous scanning. Several autonomic continuous
+       exhibit errors below 3.20◦ . Notably, errors exceeding 4◦ were                    scanning processes can be found in Movie Part III and IV.
+       primarily encountered during out-of-plane adjustments, partic-
+       ularly when a 15◦ constraint surface and an initial error of 15◦                  C. Validation of the Stable Contact Force Control
+       were present. This phenomenon can be attributed to potential
+                                                                                            To further evaluate the proposed control algorithm for stable
+       fluctuations in contact force during large-angle adjustments
+                                                                                         contact force, two sub-experiments were conducted using the
+       on tilted surfaces. Overall, the proposed probe orientation
+                                                                                         phantom and volunteers. In both trials, identical controller
+       adjustment algorithm has demonstrated robust performance
+                                                                                         parameters were employed as the same as in continuous
+       across a wide range of constraint surfaces with various tilted
+                                                                                         scanning trials, with resulting contact force measurements
+       angles, effectively satisfying the requirements for unstructured
+                                                                                         being presented in Fig. 5(f). Initial transient variations in
+       human tissues.
+                                                                                         contact force were observed due to the manual placement
+          3) Efficiency of the probe orientation adjustment algorithm:
+                                                                                         of the probe. During the stable phase on the phantom, the
+       Given the surface properties of the human back, a set of out-
+                                                                                         mean error (±SD) was 0.34 ± 0.25 N. Our method indicated
+       of-plane adjustment trials with a specific initial error of 10◦
+                                                                                         efficacy even under respiratory movements, as evidenced by a
+       were executed to assess the efficiency of the proposed method.
+                                                                                         force tracking error of 1.01 ± 0.75 N in human tissues. This
+       To analyze probe motion patterns during optimization, the
+                                                                                         performance is deemed satisfactory for spinal US imaging,
+       termination condition of the algorithm was modified from the
+                                                                                         validating the effectiveness of our proposed algorithm across
+       attainment of a predefined threshold to the completion of a
+                                                                                         different contact environments and physiological movement
+       fixed timestep. Statistical outcomes from 10 repeated trials are
+                                                                                         interferences.
+       shown in Fig. 5(d). The results demonstrate that the orientation
+       of the probe could be rapidly adjusted to the desired angle, but
+       it subsequently exhibits oscillations that resemble a sine wave                   D. Assessment of Ultrasound Image Quality
+       rather than remaining stationary. Upon modification of the                           1) Repeatability of US image acquisition: The ARUSS
+       termination condition, oscillations are expected to occur, as the                 is designed to optimize contact with human tissues, aiming
+       RL agent is trained to reach a predefined threshold. The mean                     for the acquisition of high-quality US images with good
+       angle during the oscillation process is defined as the stable                     repeatability. In this test, as shown in Fig. 6(a), the US probe
+       angle, with the probe taking an average of 0.87 s to initially                    was maneuvered to engage three predefined positions on the
+       converge to the stable angle. It is better than the mean adjust-                  test object, adopting three initial orientations. Subsequently,
+       ment time of 0.9 s reported in [27]. Furthermore, an additional                   the structural similarity (SSIM) index [48] was used to analyze
+       duration of 3.1 s is requisite for stabilizing the probe, as noted                the consistency among the stable US images. Each test was
+       in [27]. A broader comparison of efficiency across different                      repeated five times on both a phantom and a human volunteer.
+       methods is presented in Table III, which further highlights                       The statistical analysis of SSIM values across all trials is
+       the advantages of our approach. Once the stable angle is                          presented in Fig. 6(b). In both the phantom and human
+       reached, the torque correspondingly decreases to 0.023 N·m,                       tissue scenarios, the proposed ARUSS demonstrated superior
+       signifying that the predefined threshold termination meets the                    performance, achieving higher mean SSIM values (Phantom:
+       task requirements. Our proposed probe orientation adjustment                      0.91; Human: 0.36) compared to manual scanning (Phantom:
+       method indicates satisfactory efficiency, with a stable error of                  0.85; Human: 0.32). To further illustrate the consistency of
+       0.54◦ , which meets the precision requirements for US imaging                     the acquired images, Fig. 6(c) and (d) display representative
+       applications.                                                                     US images acquired from identical positions in phantom and
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       WANG et al.: DUAL-AGENT-BASED ROBOTIC ULTRASOUND PATH PLANNING AND INTERACTION CONTROL                                                                     21683
+
+
+
+                                                                                         where Ω = [1 · · · H] × [1 · · · W] and CΩ =
+                                                                                                                                      P
+                                                                                                                                        C(h, w) denote
+                                                                                         the collection of US image pixels and the total confidence,
+                                                                                         respectively. Fig. 6(f) shows a typical spinal US image and
+                                                                                         its corresponding confidence map. Fig. 6(e) documents the
+                                                                                         variations in the mean confidence value and the X-axis offset
+                                                                                         of the weighted barycenter during the scanning process. The
+                                                                                         average (±SD) of the Cmean is 0.51 ± 0.09, which concurs
+                                                                                         with our anticipations. Notably, bone tissues exhibit lower
+                                                                                         mean confidence values than general soft tissues, since their
+                                                                                         higher acoustic impedance causes the inherent shading in
+                                                                                         confidence maps. In addition, the observed cyclic variation
+                                                                                         in mean confidence aligns with the physiological chain of
+                                                                                         the spine. The mean (±SD) of the µ x consistently approxi-
+                                                                                         mates 0 (1.24 ± 0.99 pixels), indicating an appropriate probe
+                                                                                         orientation. These results demonstrate the reliability of the
+                                                                                         proposed ARUSS in acquiring high-quality spinal US images.
+                                                                                         All experiments were conducted under the safety mechanism
+                                                                                         demonstrated in Movie Part VI.
+
+                                                                                                                    VII. C ONCLUSION
+                                                                                            In this study, we introduced an end-to-end ARUSS based
+                                                                                         on dual agents for the spine in external-vision-independent
+                                                                                         environments. The system allows for precise adjustment of
+                                                                                         the probe’s position and orientation, enabling the acqui-
+                                                                                         sition of high-quality US images. To address the unique
+                                                                                         challenges posed by the chain-like structure of the spine, a
+                                                                                         multi-task network and a feature tracking algorithm based
+                                                                                         on real-time US images were proposed. On this basis, a
+                                                                                         learning-based approach was presented to establish the non-
+                                                                                         linear relationship between contact force and relative probe
+                                                                                         orientation. This framework was integrated with an F2V
+       Fig. 6. Results of experiment D. (a) Experimental setup for the ARUSS             algorithm for multi-objective optimization, maintaining the
+       repeatability. (b) SSIM results of US images. (c) Typical US images and           normal probe orientation and stable contact force. Exper-
+       overall SSIM from phantom. (d) Typical US images and overall SSIM from            imental results on phantoms and volunteers demonstrated
+       human tissues. (e) Mean confidence values and the offsets of confidence
+       map weighted barycenter during scanning. (f) Typical US image and its             the system’s autonomous capability in performing spinal US
+       corresponding confidence map.                                                     scanning and accurately tracking spinal features. The system
+                                                                                         provides robust performance in optimizing probe orientation
+       human tissues, respectively, using both manual and robotic                        and contact force, facilitating repeated acquisition of high-
+       scanning. These qualitative examples complement the statisti-                     quality US images.
+       cal analysis, visually underscoring the enhanced repeatability                       However, there are still some limitations to our study.
+       achieved by ARUSS. These results indicate that the proposed                       Firstly, our system is not yet fully autonomous, as it necessi-
+       ARUSS has an outstanding ability to accurately detect nuanced                     tates manual intervention to establish the initial probe position,
+       variations in orientation and position, which has proved to be                    although this procedure can be concurrently executed with
+       challenging for human operators. A comparison video can be                        the application of the US gel. Secondly, the proposed control
+       found in Movie Part V.                                                            framework only uses the contact force as the observation,
+          2) US image quality assessment for continuous scanning:                        whereas the potential information of US images can also
+       The objective of this study is to obtain high-quality US images                   benefit for enhanced scanning control. In the future, we plan
+       of the spine. To validate this, we used the confidence map                        to utilize both the force and image information to improve the
+       algorithm [49] to assess the sequential US images procured                        quality of robotic image acquisition.
+       from human tissues. Evaluation metrics included the mean
+       confidence value Cmean and the offset µ x of the weighted                                                        R EFERENCES
+       barycenter, measured along the X-axis of the image frame {I}.                     [1]   W. Tian, Y. Lv, Y. Liu, B. Xiao, and X. Han, “The high prevalence
+                                    1      X                                                   of symptomatic degenerative lumbar osteoarthritis in Chinese adults:
+                        Cmean =                  C(h, w)          (16)                         A population-based study,” Spine, vol. 39, no. 16, pp. 1301–1310,
+                                 H·W                                                           Jul. 2014.
+                                         (h,w)∈Ω
+                                                                                         [2]   T. Vos et al., “Global, regional, and national incidence, prevalence, and
+                                  1 X                                                          years lived with disability for 310 diseases and injuries, 1990–2015: A
+                            µx =              w · C(h, w)         (17)                         systematic analysis for the global burden of disease study 2015,” Lancet,
+                                 CΩ
+                                            (h,w)∈Ω                                            vol. 388, no. 10053, pp. 1545–1602, Oct. 2016.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       21684                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+       [3]  B. D. Giordano, J. N. Grauer, C. Miller, T. L. Morgan, and                   [27] G. Ning, H. Liang, X. Zhang, and H. Liao, “Autonomous robotic
+            G. R. Rechtine, “Radiation exposure issues in orthopaedics,” J. Bone              ultrasound vascular imaging system with decoupled control strategy for
+            Joint Surg., vol. 93, no. 12, p. 69, Jun. 2011.                                   external-vision-free environments,” IEEE Trans. Biomed. Eng., vol. 70,
+       [4] Z. Jiang, S. E. Salcudean, and N. Navab, “Robotic ultrasound imaging:              no. 11, pp. 3166–3177, Nov. 2023.
+            State-of-the-art and future perspectives,” Med. Image Anal., vol. 89,        [28] Q. Huang, Y. Wang, H. Luo, and J. Li, “On mimicking human’s
+            Oct. 2023, Art. no. 102878.                                                       manipulation for robot-assisted spine ultrasound imaging,” Robotic
+       [5] Y. Wang, H. Chen, J. Law, X. Du, and J. Yu, “Ultrafast miniature                   Intell. Autom., vol. 43, no. 4, pp. 373–381, Aug. 2023.
+            robotic swimmers with upstream motility,” Cyborg Bionic Syst., vol. 4,       [29] K. Li, Y. Xu, J. Wang, D. Ni, L. Liu, and M. Q.-H. Meng, “Image-
+            Jan. 2023, Art. no. 0015.                                                         guided navigation of a robotic ultrasound probe for autonomous
+       [6] Z. Li and Q. Xu, “Multi-section magnetic soft robot with multirobot                spinal sonography using a shadow-aware dual-agent framework,”
+            navigation system for vasculature intervention,” Cyborg Bionic Syst.,             IEEE Trans. Med. Robot. Bionics, vol. 4, no. 1, pp. 130–144,
+            vol. 5, Nov. 2024, Art. no. 0188.                                                 Feb. 2022.
+       [7] T. Zhang et al., “Application of ultrasound localization microscopy in        [30] Y. Bi, Z. Jiang, F. Duelmer, D. Huang, and N. Navab, “Machine
+            evaluating the type 2 diabetes progression,” Cyborg Bionic Syst., vol. 6,         learning in robotic ultrasound imaging: Challenges and perspectives,”
+            Jan. 2025, Art. no. 0117.                                                         Annu. Rev. Control, Robot., Auto. Syst., vol. 7, no. 1, pp. 335–357,
+       [8] S. E. Salcudean, H. Moradi, D. G. Black, and N. Navab, “Robot-assisted             Jul. 2024.
+            medical imaging: A review,” Proc. IEEE, vol. 110, no. 7, pp. 951–967,        [31] X. Deng, J. Jiang, W. Cheng, C. Yang, and M. Li, “Learning freehand
+            Jul. 2022.                                                                        ultrasound through multimodal representation and skill adaptation,”
+       [9] J. Tan et al., “Automatic generation of autonomous ultrasound scanning             IEEE Trans. Autom. Sci. Eng., vol. 22, pp. 5117–5130, 2025.
+            trajectory based on 3-D point cloud,” IEEE Trans. Med. Robot. Bionics,       [32] G. Ning, H. Liang, X. Zhang, and H. Liao, “Inverse-reinforcement-
+            vol. 4, no. 4, pp. 976–990, Nov. 2022.                                            learning-based robotic ultrasound active compliance control in uncer-
+       [10] C. Hennersperger et al., “Towards MRI-based autonomous robotic                    tain environments,” IEEE Trans. Ind. Electron., vol. 71, no. 2,
+            U.S. acquisitions: A first feasibility study,” IEEE Trans. Med. Imag.,            pp. 1686–1696, Feb. 2024.
+            vol. 36, no. 2, pp. 538–548, Feb. 2017.                                      [33] Q. Huang, J. Zhou, and Z. Li, “Review of robot-assisted medical
+       [11] C. Graumann, B. Fuerst, C. Hennersperger, F. Bork, and N. Navab,                  ultrasound imaging systems: Technology and clinical applications,”
+            “Robotic ultrasound trajectory planning for volume of interest coverage,”         Neurocomputing, vol. 559, Nov. 2023, Art. no. 126790.
+            in Proc. IEEE Int. Conf. Robot. Autom. (ICRA), May 2016, pp. 736–741.        [34] X. Bao, S. Wang, L. Zheng, R. J. Housden, J. Hajnal, and K. Rhode,
+       [12] M. K. Welleweerd, A. G. de Groot, S. O. H. de Looijer, F. J. Siepel, and          “SAPM: Self-adaptive parallel manipulator with pose and force adjust-
+            S. Stramigioli, “Automated robotic breast ultrasound acquisition using            ment for robotic ultrasonography,” IEEE Trans. Ind. Electron., vol. 70,
+            ultrasound feedback,” in Proc. IEEE Int. Conf. Robot. Autom. (ICRA),              no. 10, pp. 10333–10343, Oct. 2023.
+            May 2020, pp. 9946–9952.                                                     [35] M. W. Gilbertson and B. W. Anthony, “Force and position control
+       [13] Q. Huang, J. Lan, and X. Li, “Robotic arm based automatic ultrasound              system for freehand ultrasound,” IEEE Trans. Robot., vol. 31, no. 4,
+            scanning for three-dimensional imaging,” IEEE Trans. Ind. Informat.,              pp. 835–849, Aug. 2015.
+            vol. 15, no. 2, pp. 1173–1182, Feb. 2019.                                    [36] G. Peng, C. L. P. Chen, and C. Yang, “Neural networks enhanced optimal
+       [14] C. Yang, M. Jiang, M. Chen, M. Fu, J. Li, and Q. Huang, “Automatic                admittance control of robot–environment interaction using reinforce-
+            3-D imaging and measurement of human spines with a robotic ultra-                 ment learning,” IEEE Trans. Neural Netw. Learn. Syst., vol. 33, no. 9,
+            sound system,” IEEE Trans. Instrum. Meas., vol. 70, pp. 1–13, 2021.               pp. 4551–4561, Sep. 2022.
+       [15] J. Zhou, H. Tian, W. Wang, and Q. Huang, “Fully automated thyroid            [37] J. Fu, I. Burzo, E. Iovene, J. Zhao, G. Ferrigno, and E. De Momi,
+            ultrasound screening utilizing multi-modality image and anatomical                “Optimization-based variable impedance control of robotic manipulator
+            prior,” Biomed. Signal Process. Control, vol. 87, Jan. 2024, Art. no.             for medical contact tasks,” IEEE Trans. Instrum. Meas., vol. 73, pp. 1–8,
+            105430.                                                                           2024.
+       [16] P. Chatelain, A. Krupa, and N. Navab, “Confidence-driven control of          [38] J. Wang, C. Lu, Y. Lv, S. Yang, M. Zhang, and Y. Shen, “Task
+            an ultrasound probe: Target-specific acoustic window optimization,” in            space compliant control and six-dimensional force regulation toward
+            Proc. IEEE Int. Conf. Robot. Autom. (ICRA), May 2016, pp. 3441–3446.              automated robotic ultrasound imaging,” IEEE Trans. Autom. Sci. Eng.,
+       [17] P. Chatelain, A. Krupa, and N. Navab, “Confidence-driven control of an            vol. 21, no. 3, pp. 3652–3663, Jul. 2024.
+            ultrasound probe,” IEEE Trans. Robot., vol. 33, no. 6, pp. 1410–1424,        [39] Z. Wang et al., “Full-coverage path planning and stable interaction
+            Dec. 2017.                                                                        control for automated robotic breast ultrasound scanning,” IEEE Trans.
+       [18] C. Yang, M. Chen, H. Xu, J. Li, and Q. Huang, “Fully automatic spinal             Ind. Electron., vol. 70, no. 7, pp. 7051–7061, Jul. 2023.
+            scanning and measurement based on multi-source vision information,”          [40] K. Su et al., “A fully autonomous robotic ultrasound system for thyroid
+            Measurement, vol. 224, Jan. 2024, Art. no. 113955.                                scanning,” Nature Commun., vol. 15, no. 1, May 2024, Art. no. 4004.
+       [19] M. Tirindelli et al., “Force-ultrasound fusion: Bringing spine robotic-      [41] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image
+            U.S. to the next ‘Level,”’ IEEE Robot. Autom. Lett., vol. 5, no. 4,               recognition,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., Jun.
+            pp. 5661–5668, Oct. 2020.                                                         2016, pp. 770–778.
+       [20] M. Marsousi, K. Plataniotis, and S. Stergiopoulos, “Computer-assisted        [42] T.-Y. Lin, P. Dollar, R. Girshick, K. He, B. Hariharan, and S. Belongie,
+            3-D ultrasound probe placement for emergency healthcare applications,”            “Feature pyramid networks for object detection,” in Proc. IEEE Conf.
+            IEEE Trans. Ind. Informat., vol. 12, no. 4, pp. 1380–1391, Aug. 2016.             Comput. Vis. Pattern Recognit. (CVPR), Jul. 2017, pp. 2117–2125.
+       [21] P. R. Hoskins, K. Martin, and A. Thrush, Diagnostic Ultrasound: Physics      [43] V. Mnih, “Human-level control through deep reinforcement learning,”
+            and Equipment. Boca Raton, FL, USA: CRC Press, 2019.                              Nature, vol. 518, no. 7540, pp. 529–533, Feb. 2015.
+       [22] J. Zhang et al., “Self-adaptive ultrasound scanning system for imaging       [44] A. Duan et al., “Safe learning by constraint-aware policy optimization
+            human spine,” IEEE Trans. Ind. Electron., vol. 69, no. 1, pp. 570–581,            for robotic ultrasound imaging,” IEEE Trans. Autom. Sci. Eng., vol. 22,
+            Jan. 2022.                                                                        pp. 2349–2360, 2025.
+       [23] Z. Jiang, Y. Bi, M. Zhou, Y. Hu, M. Burke, and N. Navab, “Intelligent        [45] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov,
+            robotic sonographer: Mutual information-based disentangled reward                 “Proximal policy optimization algorithms,” 2017, arXiv:1707.06347.
+            learning from few demonstrations,” Int. J. Robot. Res., vol. 43, no. 7,      [46] M. Victorova, M. K.-S. Lee, D. Navarro-Alarcon, and Y. Zheng,
+            pp. 981–1002, Jan. 2024.                                                          “Follow the curve: Robotic ultrasound navigation with learning-based
+       [24] C. Luo, Y. Chen, H. Cao, M. A. Al Sibahee, W. Xu, and J. Zhang,                   localization of spinous processes for scoliosis assessment,” IEEE Access,
+            “Multi-modal autonomous ultrasound scanning for efficient human-                  vol. 10, pp. 40216–40229, 2022.
+            machine fusion interaction,” EEE Trans. Autom. Sci. Eng., vol. 22,           [47] T. A. Sardjono, M. H. F. Wilkinson, A. G. Veldhuizen, P. M. A. van
+            pp. 4712–4723, 2024.                                                              Ooijen, K. E. Purnama, and G. J. Verkerke, “Automatic cobb angle
+       [25] L. Yao et al., “A decision-making algorithm for robotic breast                    determination from radiographic images,” Spine, vol. 38, no. 20,
+            ultrasound high-quality imaging via broad reinforcement learning                  pp. E1256–E1262, Sep. 2013.
+            from demonstration,” IEEE Robot. Automat. Lett., vol. 9, no. 4,              [48] Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, “Image
+            pp. 3886–3893, Apr. 2024.                                                         quality assessment: From error visibility to structural similarity,” IEEE
+       [26] Z. Jiang, M. Grimm, M. Zhou, Y. Hu, J. Esteban, and N. Navab,                     Trans. Image Process., vol. 13, no. 4, pp. 600–612, Apr. 2004.
+            “Automatic force-based probe positioning for precise robotic ultra-          [49] A. Karamalis, W. Wein, T. Klein, and N. Navab, “Ultrasound confi-
+            sound acquisition,” IEEE Trans. Ind. Electron., vol. 68, no. 11,                  dence maps using random walks,” Med. Image Anal., vol. 16, no. 6,
+            pp. 11200–11211, Nov. 2021.                                                       pp. 1101–1112, Aug. 2012.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+       WANG et al.: DUAL-AGENT-BASED ROBOTIC ULTRASOUND PATH PLANNING AND INTERACTION CONTROL                                                                     21685
+
+
+
+                                 Xinye Wang received the B.S. degree in mechanical                                 Zhe Wang is currently a Professor of mechan-
+                                 design, manufacturing, and automation from the                                    ical engineering with the School of Mechanical
+                                 School of Mechanical Engineering, Tianjin Univer-                                 Engineering, Tianjin University, Tianjin, China. His
+                                 sity, Tianjin, China, in 2023, where he is currently                              research interests include mechanisms and robotics,
+                                 pursuing the M.S. degree.                                                         mechanical transmission, and mechatronics control.
+                                    His research interests include medical robotics,
+                                 robot learning, and human–robot interaction.
+
+
+
+
+                                 Zhiyuan He received the B.S., M.S., and Ph.D.
+                                 degrees in mechanical engineering from the School
+                                 of Mechanical Engineering, Tianjin University, Tian-
+                                 jin, China, in 2015, 2017, and 2023, respectively.
+                                    He is currently a Post-Doctoral Researcher with
+                                 the School of Mechanical Engineering, Tianjin
+                                 University. His research interests include optimal
+                                 design, accuracy improvement, and control of med-
+                                 ical robots.
+
+
+
+
+                                                                                                                  Tao Sun (Senior Member, IEEE) received the
+                                                                                                                  B.S. degree in mechanical design, manufacturing,
+                                 Peng Chen received the B.S. and M.S. degrees in                                  and automation from Shandong Jiaotong University,
+                                 mechanical engineering from Yanshan University,                                  Jinan, China, in 2006, and the M.S. and Ph.D.
+                                 Qinhuangdao, China, in 2019 and 2022, respectively.                              degrees in mechanical design and theory from Tian-
+                                 He is currently pursuing the Ph.D. degree with the                               jin University, Tianjin, China, in 2008 and 2012,
+                                 School of Mechanical Engineering, Tianjin Univer-                                respectively.
+                                 sity, Tianjin, China.                                                               He is currently a Professor of mechanical engi-
+                                    His research interests include mechanisms and                                 neering with the School of Mechanical Engineering,
+                                 robotics, medical service robots, and human–robot                                Tianjin University. His research interests include
+                                 interaction.                                                                     mechanisms and robotics, industrial robots, ortho-
+                                                                                         pedic surgery, and rehabilitation robots.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on March 01,2026 at 06:28:36 UTC from IEEE Xplore. Restrictions apply.
+

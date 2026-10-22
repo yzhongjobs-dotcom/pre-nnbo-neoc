@@ -1,0 +1,523 @@
+       IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 9, NO. 1, JANUARY 2024                                                                                            119
+
+
+
+
+                Composite Learning Variable Impedance Robot
+                Control With Stability and Passivity Guarantees
+                  Yongping Pan , Senior Member, IEEE, Zhiwen Li , Tian Shi , Graduate Student Member, IEEE,
+                                             and Changyun Wen , Fellow, IEEE
+
+
+          Abstract—Variable impedance control (VIC) is paramount for                     control with fixed impedance parameters does not meet task
+       robots to improve safety and effectiveness in physical human-robot                requirements [3]. Variable impedance control (VIC) not only
+       interaction. However, achieving variable target impedance with                    allows controlling the dynamic relationship between external
+       guaranteed stability is not trivial, particularly under parametric
+       uncertainty in the robot dynamics. This letter proposes a composite               forces and robot motions but also gives the flexibility to change
+       learning-based VIC (CL-VIC) strategy with three control modes,                    these dynamics continuously during task execution [4].
+       including robot-dominant, human-dominant, and collaboration                          Impedance variation methods include impedance learning and
+       modes, to achieve target impedance under parametric uncertainty.                  impedance adaptation [3]. Impedance learning varies impedance
+       A multi-mode adaptive control scheme is defined by well-designed                  parameters using optimal control, imitation learning, iterative
+       weighting functions to ensure smooth mode transitions. A compos-
+       ite learning mechanism is employed for exact parameter estimation                 learning, or reinforcement learning [5]. Stability is a critical
+       such that target impedance models can be achieved under interval                  problem for impedance learning, and some efforts have been
+       excitation that is much weaker than persistent excitation, where                  made to address this problem (e.g., see [6], [7], [8]). However,
+       the latter is a sufficient condition for exact parameter estimation in            impedance learning methods usually require a sizeable amount
+       classical system identification. The proposed method can achieve                  of iterative updates to obtain optimal impedance parameters.
+       variable active stiffness and damping with guaranteed exponential
+       stability and passivity of the closed-loop system, which ensures                  Impedance adaptation utilizes adaptive control laws rather than
+       safe interaction. Experiments on a collaborative robot with seven                 complex optimization algorithms to adjust impedance param-
+       degrees of freedom named Franka Emika Panda have validated the                    eters. A common solution to achieve impedance adaptation is
+       effectiveness of the proposed CL-VIC method.                                      to build a prescribed reference human-robot interaction (HRI)
+         Index Terms—Adaptive control, compliance and impedance                          model with uncertain parameters and approximate this model by
+       control, parameter convergence, robot safety, physical human-                     tuning these impedance parameters [9], [10], [11]. Impedance
+       robot interaction.                                                                adaptation usually has rigorous stability analysis but depends on
+                                                                                         the modeling of external environments (including humans).
+                                   I. INTRODUCTION                                          An intuitive way for VIC is to map target impedance param-
+                                                                                         eters as a specially designed function of measurable signals
+           MPEDANCE control is an indirect force control approach
+       I   that shapes the mechanical impedance of robotic systems,
+       and it is desirable for robots to ensure safe interaction while in
+                                                                                         from robots and/or external environments such that iterative
+                                                                                         updates in impedance adaptation and learning become unnec-
+                                                                                         essary. Such an attractive feature has made VIC with direct
+       contact with different environments [1]. There are two meth-
+                                                                                         adjustment mechanisms popular in recent developments, where
+       ods of implementing impedance control [2]: Force-controlled
+                                                                                         one of its crucial aspects is a stability guarantee. An intuitive
+       impedance control and position-controlled impedance control
+                                                                                         approach to guarantee stability is restricting variable impedance
+       (also called admittance control). In many scenarios, impedance
+                                                                                         parameters to their stable regions determined by experiments
+                                                                                         rather than rigorous theoretical analysis such that environment
+          Manuscript received 17 June 2023; accepted 8 October 2023. Date of publica-
+       tion 25 October 2023; date of current version 21 November 2023. This letter was   modeling can be avoided [12], [13], [14]. Yet, obtaining effective
+       recommended for publication by Associate Editor F. Pierri and Editor Clement      stable regions requires numerous trials, and such regions only
+       G. upon evaluation of the reviewers’ comments. This work was supported in         work in similar experimental environments. Frequency response
+       part by the Guangdong Provincial Pearl River Talents Program, China, under
+       Grant 2019QN01X154, and in part by the Fundamental Research Funds for the         analysis in classical control theory has been applied to evaluate
+       Central Universities, Sun Yat-sen University, China, under Grant 23lgzy004.       stable regions of impedance parameters [15], [16], [17]. Critical
+       (Corresponding author: Yongping Pan.)                                             impedance parameters were derived by virtue of Lyapunov the-
+          Yongping Pan is with the School of Advanced Manufacturing, Sun Yat-sen
+       University, Shenzhen 518100, China (e-mail: panyongp@mail.sysu.edu.cn).           ory in [18]. In the above-mentioned VIC methods, determining
+          Zhiwen Li and Tian Shi are with the School of Computer Science and             the stable regions or critical values of impedance parameters
+       Engineering, Sun Yat-sen University, Guangzhou 510006, China (e-mail:             requires prior knowledge of environmental models.
+       lizhw63@mail2.sysu.edu.cn; shit23@mail2.sysu.edu.cn).
+          Changyun Wen is with the School of Electrical and Electronic Engineering,         Passivity can guarantee safety when robots are in contact with
+       Nanyang Technological University Singapore, Singapore 639798 (e-mail: ecy-        passive environments without prior knowledge of environmental
+       wen@ntu.edu.sg).                                                                  models [19]. One way to ensure passivity in VIC with direct
+          This letter has supplementary downloadable material available at
+       https://doi.org/10.1109/LRA.2023.3327675, provided by the authors.                adjustment is to monitor and control the power/energy injected
+          Digital Object Identifier 10.1109/LRA.2023.3327675                             into the system. In [19], [20], [21], [22], a virtual energy tank
+
+                                2377-3766 © 2023 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                              See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+        120                                                                                  IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 9, NO. 1, JANUARY 2024
+
+
+
+        acting as an energy reservoir was designed to track the energy                    variable target stiffness and damping to adapt to different contact
+        dissipated by the system so that impedance parameters can vary                    environments while ensuring exponential stability and passivity
+        under preserved passivity. In [23], a valve-based virtual energy                  of the closed-loop system, and 2) high-accuracy tracking under
+        tank was applied to multi-manual object manipulation tasks,                       low impedance parameters, attributed to the exact estimation of
+        where the power flows between the tank and system were also                       the unknown robot dynamics. Experiments are conducted on a
+        controlled in addition to tank energy, such that this tank can han-               collaborative robot with 7 degrees of freedom (DoF) to validate
+        dle several potentially non-passive ports based on task-execution                 the effectiveness of the proposed CL-VIC method.
+        hierarchy. In [24], potential energy storage was applied to vary                     In this letter, R, R+ , Rn and Rm×n represent the spaces
+        stiffness, providing a clearer physical interpretation than the                   of real numbers, positive real numbers, real n-vectors and real
+        virtual energy tank. A major drawback of energy tank-based                        m × n-matrices, respectively, N denotes a set of natural num-
+        VIC approaches is that the lower and upper bounds of the energy                   bers, λmin (A) and λmax (A) are the minimum and maximum
+        stored in the tank should be determined previously for a specific                 eigenvalues of A ∈ Rn×n , respectively, min{·} and max{·} are
+        task, making them impractical for some complex situations. A                      the minimum and maximum operators, respectively, L∞ is the
+        power envelope to limit the power injected into the human-robot                   space of bounded signals, x is the Euclidean norm of x ∈ Rn ,
+        coupled system was developed in [25], where the bounds of the                     and diag(x1 , x2 , · · · , xn ) is a diagonal matrix with diagonal
+        tank energy are not required in advance for VIC.                                  elements xi ∈ R with i = 1 to n, where n, m ∈ N.
+           Another way to ensure passivity in VIC is to apply passivity
+        conditions directly, which does not require tracking dissipative                                        II. PROBLEM FORMULATION
+        power or energy online [26], [27], [28], [29], [30], [31], [32]. A
+                                                                                            Consider a class of n-DoF robots described by the following
+        passivity filter was designed in [26] to modify the non-passive
+                                                                                          Euler-Lagrange formulation [34]:
+        impedance profile in a way that guarantees passivity, where it is
+        allowed to be used either offline or online. In [27], a passivity                           M (q)q̈ + C(q, q̇)q̇ + F (q̇) + G(q) = τ + τ e                   (1)
+        preservation method was applied to VIC of flexible-joint robots
+                                                                                          in which q(t) = [q1 (t), q2 (t), . . . , qn (t)] ∈ R denotes a joint
+                                                                                                                                            T        n
+        (FJRs) for safe impedance variation in regulation tasks. This
+                                                                                          angular position vector, M (q) ∈ Rn×n is an inertia matrix,
+        method was extended to tracking tasks of FJRs in [28]. In [29],
+                                                                                          C(q, q̇) ∈ Rn×n is a matrix of centripetal-Coriolis terms, and
+        a passive VIC method was developed for humanoid robots with
+                                                                                          F (q̇) ∈ Rn , G(q) ∈ Rn , τ ∈ Rn , and τ e ∈ Rn are friction,
+        series elastic actuators (SEAs). In some scenarios, the robot
+                                                                                          gravity, control, and contact torque vectors, respectively. It is
+        needs to change working modes to adapt its task stages. A passive
+                                                                                          assumed that q and q̇ are measurable, and q̈ is not accessible
+        VIC method with variable stiffness was proposed in [30] for
+                                                                                          for measurement. The following properties and definitions are
+        SEA-driven robots to guarantee stable and smooth HRI under
+                                                                                          presented to facilitate control design [35].
+        robot-in-charge and human-in-charge modes. This work was
+                                                                                             Property 1: M (q) is symmetric and positive-definite, and
+        extended to design a passive VIC method with variable damping
+                                                                                          satisfies m0 x2 ≤ xT M (q)x ≤ m̄(q)x2 , ∀x ∈ Rn , with
+        for HRI with augmentation and autonomous modes in [31], and
+                                                                                          m̄ : Rn → R+ and m0 ∈ R+ being a constant.
+        also extended to a human intention-based VIC method with
+                                                                                             Property 2: Ṁ (q) − 2C(q, q̇) is skew-symmetric such that
+        assistance and passive modes for SEA-driven robots in [32].
+                                                                                          xT (Ṁ (q) − 2C(q, q̇))x = 0, ∀x ∈ Rn , which implies that the
+           To achieve target impedance models, the above-mentioned
+                                                                                          internal forces do not work.
+        VIC methods depend on the assumption of perfect inner-loop
+                                                                                             Property 3: The left-hand side of the robotic system (1) can
+        position control or on exact robot modeling with only a few
+                                                                                          be linearly parameterized as follows:
+        exceptions resorting to adaptive control as in [30], [31]. How-
+        ever, a stringent condition termed persistent excitation (PE) must                  G(q) + F (q̇) + C(q, q̇)v + M (q)v̇ = ΦT (q, q̇, v, v̇)W (2)
+        be fulfilled to realize target impedance in [30], [31]. On the
+        other hand, in contrast to position-controlled impedance control                  in which v ∈ Rn is an auxiliary variable, Φ : R4n → RN ×n is
+        (e.g., [6], [31]), force-controlled impedance control can work at                 a known smooth regressor, W ∈ RN is an unknown parameter
+        low impedance parameters [33], such that it is stable even for                    vector, and N is the number of parameters.
+                                                                                             Definition 1: A bounded signal Φ(t) ∈ RN ×n is of PE, if ∃
+        very stiff environments [2]. But in this case, it suffers from poor                                             t
+        tracking accuracy in free motion [33].                                            σ, ςd ∈ R+ such that t−ςd Φ(ς)ΦT (ς)dς ≥ σI, ∀t ≥ 0.
+           Motivated by the above fact, this letter proposes a composite                     Definition 2: A bounded signal Φ(t) ∈ RN ×n is of IE at
+                                                                                                                                     t
+        learning-based VIC (CL-VIC) strategy that belongs to force-                       t = te , if ∃ te , ςd , σ ∈ R+ so that tee−ςd Φ(ς)ΦT (ς)dς ≥ σI.
+        controlled impedance control. A composite learning mechanism                         It is clear from Definitions 1 and 2 that the PE condition is
+        is developed for exact robot modeling online, such that the target                stronger as it requires that excitation exists for all time t ≥ 0,
+        impedance can be easier to achieve under interval excitation (IE)                 and the IE condition is strictly weaker than the PE condition as
+        that only requires rich data within a certain period, as compared                 it only requires excitation to occur at a particular time t = te
+        to PE, which requires persistent and rich data at all times. A                    which may be fulfilled during transient processes. Let q d (t)
+        multi-mode adaptive control scheme with three control modes,                      = [qd1 (t), qd2 (t), · · · , qdn (t)]T ∈ Rn be a desired output that
+        including robot-dominant, human-dominant, and collaboration                       satisfies q d , q̇ d , q̈ d ∈ L∞ , and Ŵ (t) ∈ RN be an estimate of W .
+        modes, is defined based on weighting functions to guarantee                       Define a tracking error e(t) := q d (t) − q(t), an estimation error
+        smooth mode transitions. The proposed method can achieve: 1)                      W̃ (t) := W − Ŵ (t), and a smoothed contact torque τ es (t) :=
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+       PAN et al.: COMPOSITE LEARNING VARIABLE IMPEDANCE ROBOT CONTROL WITH STABILITY AND PASSIVITY GUARANTEES                                                      121
+
+
+
+                                       λ1                                                where Kc ∈ Rn×n (Kc > 0) is a diagonal gain matrix, and
+       L1 (s){τ e (t)} with L1 (s) := s+λ 1
+                                            , where λ1 ∈ R+ is a filtering
+       constant, and s is the complex Laplace operator. Note that τ es
+                                                                                                   ωd (q̇, τ f ) = max{α2 e−βω(τ es ,δ3 ,δ4 )q̇ , α1 }          (9)
+       is applied to exclude high-frequency noise and to avoid abrupt
+       changes. We aim to develop a suitable control strategy for the                    with α1 , α2 , β, δ4 , δ3 ∈ R is a weighting function for damping
+                                                                                                                         +
+
+       robotic system (1) with Properties 1–3 to achieve exact tracking                  variation. Note that q̈ r given by (6) in (8) is useful to maintain
+       and safe interaction with guaranteed dynamic stability.                           stability and passivity of the closed-loop system under variable
+                                                                                         impedance. Applying (8) to (7), one obtains the closed-loop
+                  III. HUMAN-ROBOT INTERACTION CONTROL                                   tracking error dynamics as follows:
+         This section introduces a multi-mode adaptive robot control                           M (q)ės = −ωd Kc es − C(q, q̇)es + ΦTr W̃ − τ e                   (10)
+       scheme. Firstly, a multi-mode VIC controller with an estimated
+       value Ŵ is designed in Section III-A. After that, a state-of-the-art             with Φr := Φ(q, q̇, q̇ r , q̈ r ) for short.
+       composite learning technique is utilized to realize efficient and
+       precise online estimation of the unknown parameter W by Ŵ in                     B. Composite Learning Interaction Control
+       Section III-B, where the closed-loop system is proven stable and                     Applying (2) with v = q̇ to (1), one obtains
+       passive rigorously. Finally, detailed explanations about different
+       working modes are given in Section III-C.                                                                τ + τ e = ΦT (q, q̇, q̈)W.                        (11)
+                                                                                         To avoid the appearance of the unavailable q̈, filtering each side
+       A. Multi-Mode Control Scheme                                                                            λ2
+                                                                                         of (11) by L2 (s) := s+λ 2
+                                                                                                                    results in
+         To design a multi-mode controller, define
+                      ⎧                                                                                       τ f (t) + τ ef (t) = ΦTf (q, q̇)W                   (12)
+                      ⎪
+                      ⎨1,                          x ∈ [b, ∞)
+         ω(x, a, b) := 2 + 2 sin( σ (x − b) + 2 ), x ∈ (a, b) (3)
+                        1   1     π             π                                        with λ2 ∈ R+ being a filtering constant, τ f := L2 (s){τ }, τ ef
+                      ⎪
+                      ⎩                                                                  := L2 (s){τ e }, and Φf (q, q̇) := L2 (s){Φ(q, q̇, q̈)}. Define
+                        0,                         x ∈ [0, a]
+                                                                                                                     t
+       as a derivable weighting function, where x(t) ∈ R+ is a time-                                       Θ(t) :=         Φf (ς)ΦTf (ς)dς              (13)
+       dependent variable, a, b ∈ R+ (a ≥ b) denote two prescribed                                                         t−ςd
+
+       boundary constants, and σ := b − a ∈ R+ denotes the width of                      with Φf (t) := Φf (q, q̇) for short. Then, multiplying (12) by Φf ,
+       ω ∈ (0, 1). The time derivative of ω is                                           integrating the result at [t − ςd , t] and using (13), one gets
+                                                                                                        t
+                          π ẋ
+                               cos( πσ (x − b) + π2 )), x ∈ (a, b)
+           ω̇(x, a, b) = 2σ                                        . (4)                     Θ(t)W =           Φf (ς)(τ f (ς) + τ ef (ς))dς := ϕ(t). (14)
+                          0,                            others                                               t−ςd
+
+       Define a weighted error z = Q[τ Tes , eT ]T ∈ R2n , where Q ∈                     To take full advantage of excitation information for parameter
+       R2n×2n (Q > 0) is a diagonal weighting matrix of the smoothed                     estimation, define a torque prediction error
+       contact torque τ es and the tracking error e. In classical robot
+                                                                                                       (t) := τ f (t) + τ ef (t) − ΦTf (q, q̇)Ŵ (t)             (15)
+       motion control, a filtered tracking error es (t) := ė(t) + Λe(t) ∈
+       Rn is defined to achieve trajectory tracking, where Λ ∈ Rn×n                      and a generalized torque prediction error
+       is a positive-definite diagonal matrix. Then, one has es (t) =
+       q̇ r (t) − q̇(t) with q̇ r (t) := q̇ d (t) + Λe(t) being a “reference                                         ϕ(t) − Θ(t)Ŵ (t), t < te
+                                                                                                        ξ(t) :=                                                   (16)
+       velocity”. To achieve the above three modes, redefine                                                         ϕ(te ) − Θ(te )Ŵ (t), t ≥ te
+
+                            q̇ r := (1 − ωs (t))(q̇ d + Λe)                       (5)    where (τ f + τ ef ) and ϕ satisfy (12) and (14), respectively, and
+                                                                                         ϕ is calculable by the integral part of (14). Design a composite
+       in which ωs (t) := ω(z, δ1 , δ2 ) is a weighting function for                   learning update law for Ŵ as follows:
+       stiffness variation with δ2 , δ1 ∈ R+ . It follows from (5) that
+                                                                                                               ˙
+                q̈ r = (1 − ωs (t))(q̈ d + Λė) − ω̇s (t)(q̇ d + Λe),             (6)                         Ŵ = Γ(ka Φf (q, q̇) + kb ξ)                       (17)
+
+       where ω̇s (t) can be calculated by substituting a = δ1 , b = δ2 ,                 in which ka , kb ∈ R+ are weighting factors, and Γ ∈ RN ×N is a
+                         z T ż
+       and ẋ = dz
+                  dt = z into (4).
+                                                                                         positive-definite diagonal matrix of learning rates. Fig. 1 shows
+         Differentiating es with respect to t and using (1) yields                       the proposed control strategy for human-robot-environment in-
+                                                                                         teraction, where (17) is a self-tuning estimator to update Ŵ
+        M (q)ės = M (q)q̈ r + C(q, q̇)q̇ + F (q̇) + G(q) − τ e − τ .                    without using the filtered tracking error es as it may destroy pa-
+       Applying q̇ = q̇ r − es to the above equality leads to                            rameter convergence during interaction. The theoretical results
+                                                                                         of this study are presented as follows.
+          M (q)ės = ΦT (q, q̇, q̇ r , q̈ r )W − C(q, q̇)es − τ e − τ .           (7)       Theorem 1: If the robotic system (1) is driven by the control
+       Design a multi-mode control law as follows:                                       law (8) with (17) under the IE condition in Definition 2, the
+                                                                                         closed-loop system achieves: 1) stability in the sense that both
+                   τ = ωd (q̇, τ es )Kc es + ΦT (q, q̇, q̇ r , q̈ r )Ŵ           (8)    the estimation error W̃ and the tracking error e exponentially
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+        122                                                                                  IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 9, NO. 1, JANUARY 2024
+
+
+
+
+        Fig. 1.    Block diagram of the proposed control strategy for human-robot-environment interaction.
+
+
+        converge to 0 when the contact torque τ e = 0, and 2) passivity                   one gets Θ(t) ≥ σI such that W̃ T ΘW̃ ≥ σ W̃ T W̃ . Besides, Kc
+        regarding the input τ e and the output es .                                       is a positive-definite diagonal matrix in (8), such that eTs Kc es ≥
+          Proof: Choose a Lyapunov function candidate                                     λmin (Kc )eTs es . Consequently, one gets
+                            V = eTs M (q)es /2 + W̃ T Γ−1 W̃ /2                  (18)       V̇ ≤ − (ωd (q̇)λmin (Kc ) − μ)eTs es
+                                                            Vw
+                                                                                                    − κb σ W̃ T W̃ + τ e 2 /(2μ) + δφ
+        for the closed-loop system (10) with (17). Differentiating Vw in
+        (18) with respect to t and applying (17) produces                                             (ωd (q̇)λmin (Kc ) − μ)
+                                                                                                = −                           λmax (M (q))eTs es
+                                                                                                           λmax (M (q))
+                    V̇w = −κa W̃ T Φf ΦTf W̃ − κb W̃ T Θ(t)W̃ ≤ 0                (19)
+                                                                                                         κb σ
+                                                                                                    −             λmax (Γ−1 )W̃ T W̃ + τ e 2 /(2μ) + δφ .
+        which verifies 0 ≤ Vw (t) ≤ Vw (0), ∀t ≥ 0 implying W̃ , Ŵ ∈                                 λmax (Γ−1 )
+        L∞ . If IE holds (i.e., Θ(t) = Θ(te ) ≥ σI), from (19) one has
+                                                                                          Properly choosing Kc and μ can ensure ωd (q̇)λmin (Kc ) − μ >
+                              V̇w ≤ −(2κb σ/λmax (Γ−1 ))Vw                                0 with ωd ≥ α1 > 0. As eTs M (q)es ≤ λmax (M (q))eTs es and
+                                                                                          W̃ T Γ−1 W̃ ≤ λmax (Γ−1 )W̃ T W̃ , one gets
+        which verifies the exponential convergence of W̃ to 0.
+          Differentiating V in (18) with respect to t, one gets                                            (ωd (q̇)λmin (Kc ) − μ) T
+                                                                                                 V̇ ≤ −                            es M (q)es
+                       V̇   = eTs M (q)ės + eTs M (q)es /2 + V̇w .                                             λmax (M (q))
+                                                                                                              κb σ
+        Applying (10) and (19) to the above equality and noting the                                      −             W̃ T Γ−1 W̃ + τ e 2 /(2μ) + δφ
+                                                                                                           λmax (Γ−1 )
+        skew-symmetry in Property 2, one obtains
+                                                                                                     ≤ − ρV + τ e 2 /(2μ) + δφ                                    (22)
+                     V̇ = − ωd (q̇)eTs Kc es − eTs τ e + eTs ΦTr W̃
+                              − κa W̃ T Φf ΦTf W̃ − κb W̃ T Θ(t)W̃ .             (20)     with ρ := min( (ωd (λq̇)λ min (Kc )−μ)
+                                                                                                                max (M (q))
+                                                                                                                                     κb σ
+                                                                                                                                 , λmax (Γ−1 ) ) ∈ R , which im-
+                                                                                                                                                    +
+
+                                                                                          plies that the closed-loop system is stable in the sense of es , q,
+        According to Young’s inequality, one has                                          q̇ ∈ L∞ as long as τ e ∈ L∞ . When τ e = 0, one obtains
+                             1 T    μ                                                                                         t
+                  aT b ≤       a a + bT b, ∀a, b ∈ Rn , μ ∈ R+ .                 (21)                  V ≤ e−ρt V (0) +           e−ρ(t−ς) δφ (ς)dς.
+                            2μ      2
+                                                                                                                                  0
+        Substituting a = −es and b = τ e into (21) yields
+                                                                                          As δφ is exponentially dissipated, the above result implies that
+                            −eTs τ e ≤ μeTs es /2 + τ e 2 /(2μ).                        es exponentially converges to 0. Since e can be viewed as the
+                                                                                          output of a first-order filter with es as an input, e exponentially
+        Substituting a = es and b = ΦTr W̃ into (21) yields
+                                                                                          converges to 0 as well.
+                    eTs ΦTr W̃ ≤ μeTs es /2 + (ΦTr W̃ )T ΦTr W̃ /(2μ)                       Omitting the exponentially dissipated δφ and through similar
+                                                                                          operations to those in (22), (20) becomes
+                                = μeTs es /2 + W̃ T Φr ΦTr W̃ /(2μ).
+                                                                                                         V̇ ≤ − (ωd (q̇)λmin (Kc ) − μ/2)eTs es
+        Applying these inequalities to (20) results in
+           V̇ ≤ − ωd (q̇)eTs Kc es − κb W̃ T Θ(t)W̃ + μeTs es                                                    − κb σ W̃ T W̃ − eTs τ e
+
+                                                                          τ e 2                            ≤ − V − eTs τ e                                        (23)
+                    + (W̃ T Φr ΦTr W̃ /(2μ) − κa W̃ T Φf ΦTf W̃ ) +               .
+                                                                           2μ             in which := min( (ωd (q̇)λ  min (Kc )−μ/2)
+                                                                                                                                            (Γ−1 ) ) ∈ R if μ
+                                                                                                                                         κb σ           +
+                                             δφ                                                                    λmax (M (q))      , λmax
+                                                                                          is sufficiently small, which implies the closed-loop robot dy-
+        The exponential convergence of W̃ to 0 implies δφ ∈ L∞ and                        namics is passive between the input τ e and the output es , such
+        its exponential convergence to 0. Once IE in Definition 2 holds,                  that the CL-VIC is robust against the contact torque τ e .       
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+       PAN et al.: COMPOSITE LEARNING VARIABLE IMPEDANCE ROBOT CONTROL WITH STABILITY AND PASSIVITY GUARANTEES                                                        123
+
+
+
+
+       Fig. 2. Illustration of the three control modes, where the arrows denote the      Fig. 5. Illustration of pickup and polishing-like tasks. (a) The pickup-like task
+       trajectories of the robot end-effector.                                           (S1). (b) The polishing-like task (S3 and S4). Note that blue arrows denote the
+                                                                                         trajectories of the end-effector in each task.
+
+
+
+
+                                                                                         Fig. 6. Illustration of the tool operation task (S5). (a) The first camera pose.
+                                                                                         (b) The second camera pose.
+       Fig. 3. Illustrating the weighting function ωs in (5) with δ1 = 1 and δ2 = 4,
+       where the areas (a), (b), and (c) denote the robot-dominant, collaboration, and
+       human-dominant modes, respectively, and the width of the area (b) is σ = 3.
+                                                                                         exponentially converges to 0 [see Theorem 1]. Once z ≤ δ1 ,
+                                                                                         we can get ωs = 1 and ωd = α2 in this state. Then, the closed-
+                                                                                         loop robot dynamics (10) becomes
+                                                                                                        M (q)ės + C(q, q̇)es + α2 Kc es = 0.
+                                                                                         Therefore, the robot exhibits the same precise tracking perfor-
+                                                                                         mance as constant impedance control in this mode.
+                                                                                            In a collaboration mode, the robot performs tasks requir-
+                                                                                         ing frequent contact and interaction with the environment [see
+                                                                                         Fig. 2(b)], e.g., writing, wiping, and pushing. In this mode, the
+                                                                                         closed-loop robot dynamics (10) becomes
+                                                                                                     M (q)ės + C(q, q̇)es + ωd (q̇)Kc es = −τ e
+                                                                                         with z ∈ (δ1 , δ2 ) and ws ∈ (0, 1) varying with the contact
+       Fig. 4.   An experimental setup of the collaborative robot (cobot).
+                                                                                         torque τ e and the tracking error e. Hence, the robot can adjust its
+                                                                                         impedance parameters to adapt to the environment with different
+                                                                                         stiffness, such that the contact torque τ e would not be large
+       C. Analysis of the Multiple Modes                                                 enough to damage the contact environment. Moreover, ws can
+          When executing some complicated HRI tasks, a robot needs                       act as a safety evaluator, as the large tracking error e and contact
+       smooth transitions between different modes to adapt its working                   torque τ e imply task failure or dangerous-impact contact.
+       states, and the proposed CL-VIC exactly meets such a require-                        Once the tracking error e or the contact torque τ e increases
+       ment. Besides, (22) and (23) hold regardless of the value of                      resulting in z ≥ δ2 , one has ws = 1, such as when the robot
+       the weighting function ωs , which indicates that the closed-loop                  has a serious-impact contact or is blocked by an unmovable
+       system is always stable and passive, independent of the modes                     object, the robot enters a human-dominant mode such that the
+       (i.e., ωs ). However, the robot has some special characteristics                  closed-loop robot dynamics (10) becomes
+       under different modes. Moreover, the IE condition would hold
+                                                                                                      M (q)q̈ + (C(q, q̇) + ωd (q̇)Kc )q̇ = −τ e .
+       after a short learning phase, leading to the convergence of the
+       term Φr W̃ to 0 in accordance with the exponential convergence                    The robot has zero stiffness in this mode, which makes it com-
+       of the estimation error W̃ . Hence, we elaborate the compliant                    pletely compliant with the environment or human [see Fig. 2(c)].
+       robot behaviors in different modes under W̃ = 0.                                  Thereby, any ensuing damage can be avoided. Also, the human
+          In a robot-dominant mode, the robot runs in a contact-free                     can actively guide the robot to enter the human-dominant mode
+       state (i.e., τ e ≈ 0) [see Fig. 2(a)], where the tracking error e                 to complete tasks like learning from demonstration.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+        124                                                                                  IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 9, NO. 1, JANUARY 2024
+
+
+
+
+        Fig. 7. Experimental results by two controllers in Tasks S1-S4. (a) The norm of the parameter estimate Ŵ . (b) The norm of the contact torque τ e . (c) The
+        weighting function ωs for stiffness variation. (d) The weighting function ωd for damping variation. (e) The norms of the tracking error e in S1. (f) The norms of
+        the tracking error e in S3-S4.
+
+
+
+
+        Fig. 8. Experimental results by two controllers in Task S5. (a) The norm of the contact torque τ e . (b) The norms of the tracking error e. (c) The weighting
+        function ωs for stiffness variation. (d) The weighting function ωd for damping variation.
+
+
+
+
+           Since the target robot impedance can vary continuously from                                          IV. EXPERIMENTAL STUDIES
+        high to low values as the weighting function ws ∈ [0, 1] varies
+                                                                                             Experiments are performed based on the 7-DoF Panda robot
+        [see Fig. 3], a smooth transition between the robot-dominant and                  to validate the proposed CL-VIC method [see Fig. 4]. Five tasks
+        human-dominant modes can be achieved to increase robot safety                     denoted by S1 to S5 are designed to exhibit the characteristics
+        and efficacy. In any of the above modes, the weighting function
+                                                                                          of the robot in different modes. S1 is a pickup-like task where
+        ωd can vary continuously within the range [α1 , α2 ] based on                     the robot works in the robot-dominant mode [see Fig. 5(a)].
+        the robot velocity q̇ to adjust the target damping such that robot
+                                                                                          S2 is a human-robot interaction task where the robot works in
+        safety and efficacy can be further increased.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+       PAN et al.: COMPOSITE LEARNING VARIABLE IMPEDANCE ROBOT CONTROL WITH STABILITY AND PASSIVITY GUARANTEES                                                      125
+
+
+
+                                                                                                                      TABLE I
+                                                                                               KEY EXPERIMENTAL DATA BY TWO CONTROLLERS IN TASKS S1-S5
+
+
+
+
+       Fig. 9. Safety test results of the human-dominant mode by the proposed CL-        human intervenes, as ωs rapidly increases to 1 [see Fig. 7(c)].
+       VIC in Task S2. Note that experimental data were collected from 10 subjects.
+                                                                                         Hence, the human can freely operate the robot with a safe τ e
+                                                                                         [see Fig. 7(b), (c)]. Moreover, ωd decreases as the robot velocity
+       the human-dominant mode. S3 and S4 are polishing-like tasks                       q̇ increases [see Fig. 7(d)], which makes the robot respond faster
+       with soft and hard surfaces, respectively, where the robot is in                  to human instruction in the human-dominant mode.
+       collaboration mode when it comes into physical contact with                           Some key experimental data by the two methods in Tasks S1–
+       the surfaces [see Fig. 5(b)]. The human intervenes and turns                      S5 are explicitly provided in Table I, including the convergence
+       the robot into the human-dominant mode at the end of S1 by                        time tc of the parameter estimate Ŵ , the peak tracking error
+       exerting a force to drag it away from its desired trajectory. In                  norm emax in S1, and the peak contact torque norm τ max
+       S2, the human guides the robot near the initial position of S3                    in S2–S5. These data quantitatively validate the following key
+       and exits at the end of S2. Thus, the robot will autonomously                     merits of the proposed CL-VIC: 1) The IE condition can hold
+       turn into robot-dominant mode before touching the surfaces in                     after a short learning process, which improves system robustness
+       S3. S5 is a tool operation task where the robot shakes up and                     as exciting the robot in all tasks is not necessary; 2) the variable
+       down the handle of a camera tripod in the collaboration mode to                   impedance strategy does not affect tracking accuracy in free
+       adjust the camera’s orientation back and forth two times between                  motion; 3) the human can smoothly transition the robot into
+       poses (a) and (b) [see Fig. 6]. Unlike S3 and S4, which have stiff                the human-dominant mode and safely interact with the robot;
+       environments, S5 has an environment with zero stiffness, as the                   4) it guarantees safety and robustness with different contact
+       stiffness of the camera tripod can be omitted.                                    environments. Note that S2 is skipped for the CL-CIC, as it does
+          The proposed controller (8) with (3), (9), and (17) is applied                 not support the human-dominant mode. Besides, the tracking
+       to conduct experiments, in which we set the control parameters                    error e in S2 is not shown due to the complete compliance of
+       Kc = diag (18, 18, 18, 18, 14.4, 14.4, 6), Λ = diag (10, 10, 10,                  the robot to the human in this mode.
+       10, 10, 10, 5), Γ = 0.5I, and ka = 1, kb = 3, the weight param-                       To fairly evaluate the safety of the human-dominant mode by
+       eters Q = diag (0.35I, 5.5I), δ1 = 1, δ2 = 5, δ3 = 2, δ4 = 3,                     the proposed CL-VIC in Task S2, we provide test results of 10
+       α1 = 0.1, α2 = 1, and β = 1.5, and the filter parameters λ1 =                     subjects in Fig. 9, where the average of τ max is 11.01 N.m.
+       12 and λ2 = 25. A composite learning constant impedance                           In addition, τ max by the proposed CL-VIC in the human-
+       controller (CL-CIC) is obtained by simply setting ωd = 1 and                      dominant mode does not apparently increase with the peak joint
+       ωs = 0 in (8) of the proposed CL-VIC for comparisons. Note                        velocity norm q̇max , attributed to the decreasing damping with
+       that the CL-CIC has the same closed-loop dynamics as the                          the increasing joint velocity q̇.
+       robot-dominant mode in Section III-C after the convergence of
+       the estimation error W̃ .
+          Experimental results by the two controllers are demonstrated                                                V. CONCLUSION
+       in Figs. 7 and 8, in which the parameter estimate norm Ŵ                          This letter has proposed a novel CL-VIC strategy for robots
+       converges to a certain constant under the IE condition before                     to achieve variable target impedance under parametric uncer-
+       performing the interaction tasks, and it remains unchanged even                   tainty. The proposed control scheme ensures smooth transitions
+       during the execution of the interaction tasks [see Fig. 7(a)]. The                between the robot-dominant and human-dominant modes, and
+       usage of the weights ωs = 0 and ωd = 1 during the free motion                     the composite learning mechanism ensures the exact estimation
+       (S1) [see Fig. 7(c), (d)] results in almost the same tracking errors              of the robot dynamics under the much weaker IE condition.
+       e for the CL-VIC and CL-CIC [see Fig. 7(e)], which is consistent                  Thus, the proposed method does not depend on dynamic model
+       with the analysis of the robot-dominant mode in Section III-C.                    information and achieves safety and efficacy during interaction.
+       As the CL-VIC has low stiffness and damping (due to a large                       Experimental results have validated that the 7-DoF collaborative
+       ωs and a small ωd ) during contact [see Fig. 7(c), (d) and 8(c),                  robot with the proposed method transitions stably and smoothly
+       (d)], it shows a larger e in the contact tasks (S3-S5) [see Figs.                 between different modes and interacts safely with environments
+       7(f) and 8(b)], which is advantageous to keep the contact torque                  under different stiffness values. In the future, we would ex-
+       τ e small in both the stiff and damping contact environments,                     tend the proposed CL-VIC to FJRs that explicitly consider
+       avoiding damage to equipment [see Figs. 7(b) and 8(a)]. Besides,                  underactuated phenomena, which requires some adaptations due
+       the robot transitions into the human-dominant mode when the                       to the underactuated feature of FJRs.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+        126                                                                                      IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 9, NO. 1, JANUARY 2024
+
+
+
+                                            REFERENCES                                         [18] V. Duchaine and C. M. Gosselin, “Investigation of human-robot interaction
+                                                                                                    stability using Lyapunov theory,” in Proc. IEEE Int. Conf. Robot. Automat.,
+         [1] E. Matheson, R. Minto, E. G. Zampieri, M. Faccio, and G. Rosati, “Human-               2008, pp. 2189–2194.
+             robot collaboration in manufacturing applications: A review,” Robotics,           [19] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+             vol. 8, no. 4, Dec. 2019, Art. no. 100.                                                impedance control with variable stiffness,” in Proc. IEEE Int. Conf. Robot.
+         [2] C. Ott, R. Mukherjee, and Y. Nakamura, “A hybrid system framework for                  Automat., 2013, pp. 4948–4953.
+             unified impedance and admittance control,” J. Intell. Robot. Syst., vol. 78,      [20] F. Ferraguti et al., “An energy tank-based interactive control architecture
+             no. 3/4, pp. 359–375, Jul. 2015.                                                       for autonomous and teleoperated robotic surgery,” IEEE Trans. Robot.,
+         [3] M. Sharifi, A. Zakerimanesh, J. K. Mehr, A. Torabi, V. K. Mushah-                      vol. 31, no. 5, pp. 1073–1088, Oct. 2015.
+             war, and M. Tavakoli, “Impedance variation and learning strategies in             [21] C. T. Landi, F. Ferraguti, L. Sabattini, C. Secchi, M. Bonfè, and C. Fantuzzi,
+             human-robot interaction,” IEEE Trans. Syst., Man, Cybern., vol. 52, no. 7,             “Variable admittance control preventing undesired oscillating behaviors
+             pp. 6462–6475, Jul. 2022.                                                              in physical human-robot interaction,” in Proc. IEEE/RSJ Int. Conf. Intell.
+         [4] K. Kronander and A. Billard, “Stability considerations for variable                    Robot. Syst., 2017, pp. 3611–3616.
+             impedance control,” IEEE Trans. Robot., vol. 32, no. 5, pp. 1298–1305,            [22] C. Saudrais, L. Barbé, and B. Bayle, “Rate mode bilateral teleoperation
+             Oct. 2016.                                                                             based on passivity tanks and variable admittance control,” in Proc IEEE
+         [5] F. J. Abu-Dakka and M. Saveriano, “Variable impedance control and                      Int. Conf. Robot. Automat., 2021, pp. 3942–3948.
+             learning–A review,” Front. Robot. AI, vol. 7, Dec. 2020, Art. no. 590681.         [23] E. Shahriari, S. A. B. Birjandi, and S. Haddadin, “Passivity-based adaptive
+         [6] L. Roveda, A. Testa, A. A. Shahid, F. Braghin, and D. Piga, “Q-learning-               force-impedance control for modular multi-manual object manipulation,”
+             based model predictive variable impedance control for physical human-                  IEEE Robot. Automat. Lett., vol. 7, no. 2, pp. 2194–2201, Apr. 2022.
+             robot collaboration,” Artif. Intell., vol. 312, Nov. 2022, Art. no. 103771.       [24] M. Panzirsch, M. Sierotowicz, R. Prakash, H. Singh, and C. Ott,
+         [7] L. Roveda et al., “Model-based reinforcement learning variable impedance               “Deflection-domain passivity control of variable stiffnesses based on
+             control for human-robot collaboration,” J. Intell. Robot. Syst., vol. 100,             potential energy reference,” IEEE Robot. Automat. Lett., vol. 7, no. 2,
+             no. 2, pp. 417–433, Mar. 2020.                                                         pp. 4440–4447, Apr. 2022.
+         [8] L. Roveda, L. Mantovani, M. Maccarini, F. Braghin, and D. Piga, “Optimal          [25] J. D. Chen and P. I. Ro, “Human intention-oriented variable admittance
+             physical human–robot collaborative controller with user-centric tuning,”               control with power envelope regulation in physical human-robot interac-
+             Control Eng. Pract., vol. 139, Oct. 2023, Art. no. 105621.                             tion,” Mechatronics, vol. 84, Jun. 2022, Art. no. 102802.
+         [9] S. Suzuki and K. Furuta, “Adaptive impedance control to enhance human             [26] M. Bednarczyk, H. Omran, and B. Bayle, “Passivity filter for variable
+             skill on a haptic interface system,” J. Control Sci. Eng., vol. 2012, pp. 1–10,        impedance control,” in Proc. IEEE/RSJ Int. Conf. Intell. Robot. Syst., 2020,
+             Jan. 2012.                                                                             pp. 7159–7164.
+        [10] B. AlQaudi, H. Modares, I. Ranatunga, S. M. Tousif, F. L. Lewis, and D. O.        [27] E. Spyrakos-Papastavridis, P. R. N. Childs, and J. S. Dai, “Passivity preser-
+             Popa, “Model reference adaptive impedance control for physical human-                  vation for variable impedance control of compliant robots,” IEEE/ASME
+             robot interaction,” Control Theory Technol., vol. 14, no. 1, pp. 68–82,                Trans. Mechatronics, vol. 25, no. 5, pp. 2342–2353, Oct. 2020.
+             Feb. 2016.                                                                        [28] E. Spyrakos-Papastavridis and J. S. Dai, “Minimally model-based tra-
+        [11] I. Ranatunga, F. L. Lewis, D. O. Popa, and S. M. Tousif, “Adaptive                     jectory tracking and variable impedance control of flexible-joint robots,”
+             admittance control for human–robot interaction using model reference                   IEEE Trans. Ind. Electron., vol. 68, no. 7, pp. 6031–6041, Jul. 2021.
+             design and adaptive inverse filtering,” IEEE Trans. Control Syst. Technol.,       [29] E. Spyrakos-Papastavridis and J. S. Dai, “Flexible-joint humanoid balanc-
+             vol. 25, no. 1, pp. 278–285, Jan. 2017.                                                ing augmentation via full-state feedback variable impedance control,” J.
+        [12] F. Bian, D. Ren, R. Li, P. Liang, K. Wang, and L. Zhao, “Dynamical system              Mechanisms Robot., vol. 13, no. 2, Feb. 2021, Art. no. 021014.
+             based variable admittance control for physical human-robot interaction,”          [30] X. Li, Y. Pan, G. Chen, and H. Yu, “Adaptive human-robot interaction
+             Ind. Robot., vol. 47, no. 4, pp. 623–635, May 2020.                                    control for robots driven by series elastic actuators,” IEEE Trans. Robot.,
+        [13] A. Lecours, B. Mayer-St-Onge, and C. Gosselin, “Variable admittance                    vol. 33, no. 1, pp. 169–182, Feb. 2017.
+             control of a four-degree-of-freedom intelligent assist device,” in Proc IEEE      [31] H.-Y. Li, L. Yang, and U.-X. Tan, “A control scheme for smooth tran-
+             Int. Conf. Robot. Automat., 2012, pp. 3903–3908.                                       sition in physical human-robot-environment between two modes: Aug-
+        [14] P. D. Labrecque and C. Gosselin, “Variable admittance for pHRI: From                   mentation and autonomous,” IEEE Robot. Automat. Lett., vol. 5, no. 4,
+             intuitive unilateral interaction to optimal bilateral force amplification,”            pp. 5803–5810, Oct. 2020.
+             Robot. Comput.- Integr. Manuf, vol. 52, pp. 1–8, Aug. 2018.                       [32] Y. Huo, X. Li, X. Zhang, X. Li, and D. Sun, “Adaptive intention-driven
+        [15] A. Rubio, A. Avello, and J. Flórez, “Adaptive impedance modification of                variable impedance control for wearable robots with compliant actua-
+             a master-slave manipulator,” in Proc. IEEE Int. Conf. Robot. Automat.,                 tors,” IEEE Trans. Control Syst. Technol., vol. 31, no. 3, pp. 1308–1323,
+             1999, pp. 1794–1799.                                                                   May 2023.
+        [16] N. Motoi, T. Shimono, R. Kubo, and A. Kawamura, “Task realization by              [33] M. Schumacher, J. Wojtusch, P. Beckerle, and O. Von Stryk, “An intro-
+             a force-based variable compliance controller for flexible motion control               ductory review of active compliant control,” Robot. Auton. Syst., vol. 119,
+             systems,” IEEE Trans. Ind. Electron., vol. 61, no. 2, pp. 1009–1021,                   pp. 185–200, Sep. 2019.
+             Feb. 2014.                                                                        [34] M. W. Spong, S. A. Hutchinson, and M. Vidyasagar, Robot Modeling and
+        [17] F. Dimeas and N. Aspragathos, “Online stability in human-robot coop-                   Control. New York, USA: Wiley, 2006.
+             eration with admittance control,” IEEE Trans. Haptics, vol. 9, no. 2,             [35] Y. Pan and H. Yu, “Composite learning robot control with guaranteed
+             pp. 267–278, Apr.–Jun. 2016.                                                           parameter convergence,” Automatica, vol. 89, pp. 398–406, Mar. 2018.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on August 12,2026 at 13:16:59 UTC from IEEE Xplore. Restrictions apply.
+

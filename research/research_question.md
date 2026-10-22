@@ -1,6 +1,10 @@
 # 研究问题
 
-**机器人连续扫描软组织、接触环境发生变化时，怎样利用新接触信息，快速更新刚度和阻尼，改善实际接触力与运动表现？**
+**在运动、不均匀的组织上做机器人超声扫描时，怎样仅凭力和探头位置，在线把组织运动和刚度变化这两个来源分开，并分别用于参考补偿与阻抗调整？**
+
+以上为用户在2026-10-22提供的当前问题。本轮按该问题补齐[研究现状](field_state.md)及直接相关文献，不预设C1就是最终方法，也不将“现有方法均无法处理两类变化”作为成立的前提。已有C1采用的是等效接触漂移模型，尚不能直接视为真实组织运动与材料参数的准确分离。
+
+此前的上层问题是：机器人连续扫描软组织、接触环境发生变化时，怎样利用新接触信息，快速更新刚度和阻尼，改善实际接触力与运动表现？当前聚焦加入了运动/材料变化的联合估计及参考补偿；B0文件保留其原有模型和推导，不自动适用于这一接口变化。
 
 研究同时涉及环境认识、阻抗决策和及时执行；不只是在固定模型上加快一个求解器。问题保持具体任务和完整控制链，方法可以修订。
 
@@ -12,9 +16,9 @@ B0路线为：柱面有限接触足迹 → Fn/Ft/My与MHE → 环境描述符η 
 
 “可认证”是B0在相应正则性、近似误差和执行等条件下的设计目标，不是已经实现的机器人保证。仓库中的假设、推导和已发表论文均需独立核查。
 
-## 当前范围与未验证内容
+## B0及既有候选的适用边界
 
-- 两套候选共用环境估计/空间预瞄思路，分别探索模型优化更新与仿真离线学习生成阻抗，见[方法说明](optimal_impedance_question_and_methods.md)。
+- 早期两套候选共用环境估计/空间预瞄思路，分别探索模型优化更新与仿真离线学习生成阻抗，见[方法说明](optimal_impedance_question_and_methods.md)。这是对应版本的方法构想，不是本轮文献补充后已经选定的新方法。
 - “最优”必须明确任务代价、信息、约束和控制策略类；学习输出、自洽节点根或局部数值解不能自动称为最优。
 - 已在二维合成Hertz任务中接通带噪滚动估计、预瞄、四实际增益闭环，并完成两候选各自实验；完整逐样本随机状态MHE及真实机器人收益仍未验证。几何提前量不等于可用预瞄时间，局部数值收益不等于领域优势。
 - 原问题有应用与已有研究依据，但相对领域充分已有能力的具体重要进展尚待建立；局部简化实验不足以给完整构想下成败结论。
@@ -22,4 +26,4 @@ B0路线为：柱面有限接触足迹 → Fn/Ft/My与MHE → 环境描述符η 
 
 此前转向“有限资源下整段有效采集”的候选A缺乏充分改题依据，已退出当前主线。相关错误和少量可用认识见[失败复盘](../project_records/research_failures_and_corrections.md)，原文件由Git保留。
 
-用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)，原问题保持。最新代码、任务/机制/泛化/计算发布实验见[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)，表示改造及边界见[分线设计§10](separate_candidate_design_and_iteration.md#10-task-simulations-after-the-user-clarified-the-sequence)与[HANDOFF](../project_records/HANDOFF.md)；不将平面数值实例当完整B0或实物结论。
+用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)。当前文献依据见[研究现状](field_state.md)，最新已完成的扫描实验见[完成任务](../experiments/cobot_scan_benchmark/completed_tasks/README.md)与[HANDOFF](../project_records/HANDOFF.md)。此前[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)及[分线设计§10](separate_candidate_design_and_iteration.md#10-task-simulations-after-the-user-clarified-the-sequence)保留其对应版本的结果；均不当作完整B0或实物结论。

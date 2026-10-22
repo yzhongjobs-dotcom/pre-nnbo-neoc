@@ -1,0 +1,535 @@
+           2024 European Control Conference (ECC)
+           June 25-28, 2024. Stockholm, Sweden
+
+
+
+
+                          On Handling Variable Stiffness Parameters in Compliance
+                                            Control via MPC
+                                                              Nikolas Thelenberg and Christian Ott
+
+
+              Abstract— In variable impedance control the desired                            presented in [10]. There, the compliant impedance behavior
+           impedance parameters of a robot manipulator are adjusted in                       has been successfully implemented into an MPC framework,
+           real-time. It has been observed that time varying impedance                       whereby the stiffness and damping parameters have not
+           parameters can lead to a non-passive interaction and even
+           destabilize the system. In this paper we consider a compliance                    been variable and were chosen before the usage. Whereas,
+           controller, where the desired impedance is specified via a time-                  [11] proposed a combination of MPC and VIC, where the
+           varying stiffness and damping. We propose to compute the                          impedance parameters are diagonal matrices and, thus, the
+           controller gains from an additional online optimization instead                   decoupled one dimensional mass-spring-damper system with
+           of applying the desired time-varying stiffness and damping                        its scalar quantities is subject of the optimization.
+           references directly. In this way the effect of the time-varying
+           impedance parameters is evaluated over a finite time horizon.                        Recently, the three fields MPC, VIC and learning algo-
+           Together with a terminal constraint on the state this controller                  rithms have been combined in various ways. One approach
+           formulation aims to avoid a destabilization of the system due                     is to learn the robot dynamics with a neural network and then
+           to the impedance variation. The proposed method is validated                      use these dynamics in MPC to minimize only the external
+           for free movement in two different simulations as well as for
+           physical interaction on a Franka Research 3.
+                                                                                             human-robot interaction force through various control pa-
+                                                                                             rameters, mostly stiffness and damping. The optimal control
+                                   I. INTRODUCTION                                           parameters are then used to adapt a low-level IC [12][13]. A
+                                                                                             similar strategy is pursued in [14], where instead of the robot
+              Since its first introduction by Hogan [1] in 1984,                             dynamics the Cartesian impedance model has been trained
+           impedance control (IC) has been intensively studied and                           directly with a neural network.
+           further developed. Due to its compliant behavior, this con-
+                                                                                                In this paper, we present a MPC-based strategy to handle
+           trol approach is suitable for interaction with humans and,
+                                                                                             variable stiffness parameters. The end-effector follows a
+           more generally, for interaction with unknown and changing
+                                                                                             reference trajectory and, in addition, maintains its compliant
+           environments. Loosely speaking, the error at the end-effector
+                                                                                             behavior. The virtual mass-spring-damper system, however,
+           is controlled to imitate a virtual mass-spring-damper system
+                                                                                             obtains its stiffness and damping parameters from a MPC
+           with desired inertia, stiffness and damping properties.
+                                                                                             optimization, which takes a variable target stiffness into ac-
+              The growing interest in human-robot interaction in recent
+                                                                                             count and, further, aims for stability. To reduce computational
+           years [2] has led to a change in requirements for stiffness.
+                                                                                             effort, the optimization is performed over the eigenvalues of
+           Focused aspects of the interaction have been safety [3]
+                                                                                             the parameters instead of their full matrix representation.
+           or save performance [4]. Another one is the ability to
+                                                                                             This strategy does not limit the stiffness to be merely
+           change the stiffness especially during a task. Therefore, IC
+                                                                                             adjustable by the algorithm, but enables the possibility to
+           has been extended to variable impedance control (VIC).
+                                                                                             plan explicit stiffness in advance for certain scenarios.
+           One approach is to apply learning algorithms in order to
+           learn the stiffness and damping matrices [5]. One problem
+           inherent in learned stiffness is that stability statements are                          II. BACKGROUND AND P ROBLEM DEFINITION
+           difficult to obtain. In [6] state-independent conditions on the
+                                                                                             A. Robot Dynamics
+           time-varying stiffness and damping are presented, ensuring
+           asymptotic stability of the system. Another approach to                              Consider the joint space model of a serial robotic manip-
+           overcome this issue is by using energy tanks [7], [8]. The                        ulator with n ∈ N degrees of freedom (DoF)
+           proposed controller shows high performance, if there is
+           sufficient energy left, but its performance instantly drops,                              M (q)q̈ + C(q, q̇)q̇ + g(q) = τc + J T (q)Fext ,               (1)
+           when the reservoir is depleted.                                                   where q, q̇, q̈ ∈ Rn are the vectors of joint positions,
+              However, it is in general not straightforward how to pick a                    velocities and accelerations, respectively. Further, M (q) ∈
+           satisfactory time-varying target stiffness. One attempt depicts                   Rn,n is the symmetric and positive definite inertia matrix,
+           the use of quadratic optimization [9]. Model predictive                           C(q, q̇)q̇ ∈ Rn contains the Centrifugal and Coriolis terms
+           control (MPC) has also been merged with both IC and VIC,                          and g(q) ∈ Rn represents the gravity terms. Moreover, the
+           respectively. One possible combination of MPC and IC is                           controlled joint torques are denoted as τc ∈ Rn , while
+                                                                                             the torques caused by the time-varying generalized external
+             N. Thelenberg and C. Ott are with the Automation and Control Institute
+           (ACIN), TU Wien, Austria thelenberg@acin.tuwien.ac.at                             force Fext (t) ∈ Rm at the end-effector appear in the term
+           christian.ott@tuwien.ac.at                                                        J T (q)Fext .
+
+           978-3-9071-4410-7 ©2024 EUCA                                                615
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 08:17:32 UTC from IEEE Xplore. Restrictions apply.
+           B. Cartesian Impedance Control                                                        xref , ẋref , ẍref                       τc                Fext
+                                                                                                                          Impedance
+                                                                                                                                                    Robot
+              The configuration of the end-effector in task space x ∈ Rm                                                 Controller (3)
+
+           with m ≤ n is obtained by applying the forward kinematic
+           map f (q) = x. By differentiation the relations ẋ = ∂f  ∂q q̇ =                                                Kd ,             q, q̇
+                                    ˙
+           J(q)q̇ as well as ẍ = J(q, q̇)q̇ + J(q)q̈ are obtained. Here,                                                  Dd
+           the Jacobian J(q) ∈ Rm,n is the same as in (1). For the ease
+           of presentation, we assume that the Jacobian J has full row                                                     MPC-based
+           rank for each joint position q.                                                            K ref , ξ ref         parameter
+                                                                                                                        optimization (14)
+              For a simpler representation in the task space, the symmet-
+           ric Cartesian inertia matrix Λ(q) ∈ Rm,m , the weighted right                       Fig. 1: Schematic structure of the control loop showing the
+           pseudoinverse J # (q) ∈ Rn,m and the Cartesian Coriolis                             low-level impedance controller and the high-level parameter
+           matrix µ(q, q̇) ∈ Rm,m are defined via                                              optimization
+                                              −1
+                Λ(q) = J(q)M −1 (q)J T (q)
+              J # (q) = M −1 (q)J T (q)Λ(q)
+                                                                                             III. MPC- BASED VARIABLE PARAMETER O PTIMIZATION
+                                                      ˙ q̇) J # (q).
+              µ(q, q̇) = Λ(q) J(q)M −1 (q)C(q, q̇) − J(q,
+                                                                   (2)                             The general schematic structure of the proposed control
+                                                                                               system is pictured in Fig. 1. The low-level impedance
+             Given are a time-varying reference trajectory xref (t) ∈                          controller ensures the compliant behavior of the end-effector
+           Rm and its derivatives ẋref , ẍref ∈ Rm , we define the error                     by applying the control torque (3) to the robot and is
+           between the actual state and the reference as x̃(t) := x−xref .                     executed in real time. The high-level MPC-based parameter
+           Using the task space matrices (2) to define the IC input                            optimization generates the symmetric and positive definite
+                                                                                             stiffness matrix Kd (t) as well as the damping matrix Dd (t).
+                   τc = g(q) + τnull + J T Λ JM −1 C − J˙ q̇                                   The optimization is executed based on the current errors
+                               h                             i         (3)                          ˙ the inertia matrix Λ, the target reference stiffness K ref
+                         + J T Λẍref − µx̃˙ − Dd x̃˙ − Kd x̃ ,                                x̃, x̃,
+                                                                                               and the external force Fext , respectively. The core feature
+           where τnull ∈ ker(JM −1 ) denotes a torque for controlling                          of the algorithm, is to perform the optimization on the
+           the nullspace motion. Plugged into (1) and pre-multiplied                           eigenvalues of the stiffness and damping matrix rather than
+           with ΛJM −1 results in the closed loop Cartesian task space                         on their entries. This reduces the number of optimization
+           system dynamics                                                                     variables drastically that even the simultaneous consideration
+                                                                                               of stiffness and damping is compensated and the computation
+                           ¨ + µ(q, q̇)x̃˙ + Dd x̃˙ + Kd x̃ = Fext .
+                       Λ(q)x̃                                                      (4)         time is shortened even further.
+           This virtual mechanical system is characterized by the inertia                          The reference stiffness K ref = K ref (t) ∈ Rm,m must
+           matrix Λ, desired stiffness matrix Kd = KdT ≻ 0 and                                 be symmetric and positive definite at every time. Since
+           a desired damping matrix Dd = DdT ≽ 0 [15]. The                                     the optimization algorithm is time-intensive, the high-level
+           advantage of using the Cartesian inertia matrix Λ in (4)                            MPC-based parameter optimization is executed with a lower
+           instead of an arbitrary desired inertia matrix is that the                          frequency, i.e. for j = 1, 2, . . . only at certain sample
+           control input (3) does not rely on a measurement of the                             instances tj .
+           external force Fext (t) [16].
+                                                                                               A. Prediction Model
+           C. Variable Impedance
+                                                                                                  Beginning with tj , we want to predict the system dynam-
+              In the classic compliance control system (4) the desired
+                                                                                               ics (4) for future T > 0 seconds. For ease of presentation
+           matrices Dd and Kd are constant with respect to time, but for
+                                                                                               the shifted time interval [0, T ] of [tj , tj + T ] is considered
+           variable stiffness time-dependent matrices are needed. Using
+                                                                                               for the prediction and likewise the optimization. First, for
+           time-dependent Kd (t), however, might be problematic from
+                                                                                               the prediction on [0, T ], the Cartesian inertia matrix Λ is
+           a stability point of view. This becomes even clearer if one
+                                                                                               kept constant, i.e. Λ = Λ(q(tj )) = const. As a result, the
+           takes a closer look at the generalized energy function V of
+                                                                                               Cartesian Coriolis matrix µ(q, q̇), which ensures passivity
+           the closed loop system (4) and its derivative
+                                                                                               of (4), is not required in the prediction model. As well as
+                             1 ˙T ˙ 1 T                                                        the inertia matrix, the generalized external force Fext =
+                    V (t) =    x̃ Λx̃ + x̃ Kd (t)x̃
+                             2          2                                                      Fext (tj ) = const. is considered on [0, T ]. Moreover, we
+                                                         1                                     abbreviate K ref (tj + t) with Kjref (t) for t ∈ [0, T ]. Since x̃
+                                ˙     ˙
+                    V̇ (t) = −x̃ Dd x̃ + x̃˙ T Fext (t) + x̃T K̇d (t)x̃.
+                                  T
+                                                         2                                     represents the error of the end-effector, which is computed
+           Here, the term 12 x̃T K̇d x̃ has indefinite sign and, thus, violates                in real time and used in the control input (3), its prediction
+           the passivity/ stability. In previous work this issue has been                      is denoted as y(t) ∈ Rm with t ∈ [0, T ].
+           handled for example with energy tanks [7].                                             With these definitions and assumptions, the complete
+
+                                                                                         616
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 08:17:32 UTC from IEEE Xplore. Restrictions apply.
+           prediction model is stated as                                                       damping matrix in (8) and (9), respectively, the prediction
+                                                                                               model (7) is rewritten in state-space representation as
+                               Λÿ + D(t)ẏ + K(t)y = Fext                         (5)                                                        
+                                                                                                              A1,1 A1,2                  0
+           for t ∈ (0, T ) and the initial values y(0) = x̃(tj ) and                                    ż =                 z+
+                                                                                                              A2,1 A2,2           (HH T )−1 Fext
+                    ˙ j ). The symmetric and positive definite stiffness
+           ẏ(0) = x̃(t
+           and damping matrices K ∈ Rm,m and D ∈ Rm,m will be                                                  =: h̃ (z, ξ, v, H, Fext )                               (10)
+           optimized over the time horizon [0, T ] and afterwards applied                      for t ∈ (0, T ) and the inital condition z(0) =
+           as Kd and Dd in the control input (3).                                              [y T (0) ẏ T (0)]T = [x̃T (tj ) x̃˙ T (tj )]T . Note that the ma-
+                                                                                               trix Λ is preserved in the expression HH T . The entries of
+           B. Double Diagonalization and Optimization Variables
+                                                                                               the matrix, which is used in (10), have the following values
+              Our objective is that the stiffness K follows the given
+           reference K ref as closely as possible and ideally coincide                                          A1,1 = 0,         A1,2 = I
+           with it. Therefore, the damping matrix D is designed such                                            A2,1 = −H −T diag(v)H T
+           that it depends directly on the reference stiffness Kjref as                                                                √
+                                                                                                                A2,2 = −2H −T diag(ξ ⊙ v)H T .
+           well as on the inertia matrix Λ. The used method for the
+           design of the damping matrix is double diagonalization [17].                        The interval [0, T ] is split equidistantly into N ∈ N subin-
+           First, A Cholesky decomposition of Λ = LLT is performed                             tervals, which are each ∆T := T /N seconds long. The
+           with the lower triangular matrix L ∈ Rm,m . Then, two                               continuous time differential equation (10) together with its
+           matrices Qref , H ∈ Rm,m as well as the vector v ref ∈ Rm                           initial value can be approximated on the interval [0, T ]
+           are computed as follows                                                             with an appropriate discretization method, e.g. Euler method
+                                                                                               or Runge–Kutta methods. This results in the discrete time
+                                 = eig L−1 Kjref L−T
+                      ref ref                      
+                      Q ,v                                and                                  approximation
+                                       ref
+                                                                    (6)
+                              H = LQ ,
+                                                                                                                    zi+1 = h (zi , ξi , vi , Hi , Fext )               (11)
+           where Qref contains the eigenvectors and v ref the corre-
+           sponding eigenvalues of L−1 Kjref L−T . Using these matrices                        for i = 0, . . . , N − 1 and with the initial condition z0 =
+           and the subsequent relation Λ = HH T , the prediction                               z(0) = [x̃T (tj ) x̃˙ T (tj )]T ∈ R2m . To obtain the transfor-
+           model (5) can be rewritten into the form                                            mation matrix Hi , we can compute the double diagonaliza-
+                                                                                               tion (6) with Kjref (i∆T ) for i = 0, . . . , N − 1.
+                      HH T ÿ + Dẏ + H diag(v ref )H T y = Fext .                 (7)
+                                                                                               D. Optimization
+           If we use an arbitrary vector v ∈ Rm instead of v ref in (7),
+           the stiffness matrix of the system becomes                                             The derived discrete time system (11) is optimized with
+                                                                                               respect to the transformed eigenvalues v and damping ratio ξ.
+                             K(v) = H diag(v)H T ̸= Kjref .                        (8)         The optimization problem is formulated as
+                                                                                                                     −1
+           With this step the reference stiffness Kjref is not directly                                            N
+                                                                                                                   X                          2                    2
+           applied to the system any more, but it is still utilized to                            minimize
+                                                                                                  v ,...,v
+                                                                                                                          w ⊙ (vi − viref )       + η ξi − ξiref
+                                                                                                    0       N −1
+           compute Qref and, thus, the transformation matrix H. Then,                              ξ0 ,...,ξN −1 i=0
+                                                                                                                                  T
+           the chosen damping matrix has the form                                                  s.t. z0 = x̃T (tj ) x̃˙ T (tj )
+                                                                                                            
+                                                                                                                                                                       (12)
+                                                 √
+                          D(ξ, v) = 2H diag(ξ ⊙ v)H T ,               (9)                               zi+1 = h (zi , ξi , vi , Hi , Fext ) for i = 0, . . . , N − 1
+                                                          √                                                      (Kj (N ∆T ))−1 Fext
+                                                                                                                 ref                         
+           with the vector of damping ratios ξ ∈ Rm . In v the square                                      zN −                                  ≤ ε.                (13)
+                                                                                                                                 0
+           root is taken element-wise and√ also ⊙ denotes the element-
+           wise multiplication of ξ and v.                                                     First, seeking for compensation between the different orders
+              With the double diagonalization technique, the stiffness                         of magnitude within the transformed eigenvalues v, which
+           and damping matrix are adjustable in terms of their trans-                          due to experience reach from 15 up to 15.000, a weight-
+           formed eigenvalues v and damping ratios ξ, respectively. If                         ing parameter w ∈ Rm is added. Furthermore, in the cost
+           the optimization were performed directly on K and D and all                         function the second weighing parameter η > 0 balances
+           their entries were considered as optimization variables, there                      the different orders of magnitude of transformed stiffness
+           would be m(m + 1) variables due to the symmetry of the                              eigenvalues and damping ratio. The damping ratio reference
+           two matrices. Whereas, by choosing v and ξ as optimization                          ξiref ∈ Rm is advised to be set to α[1 . . . 1]T with α ∈ (0, 1]
+           variables, we can modify and, therefore, optimize K(v) and                          for all i = 0, . . . N − 1, which ensures a critically damped
+           D(ξ, v) with the reduced amount of 2m variables.                                    or underdamped oscillation, respectively.
+                                                                                                   The terminal constraint (13) is evaluated element-wise
+           C. State System Dynamics and Discretization                                         with the constraint vector ε ∈ R2m . The first m entries
+              Up next, the state of the mass-spring-damper system (7)                          of (13) imply that the final position of zN should be close to
+           is defined as z(t) := [y T ẏ T ]T ∈ R2m for t ∈ [0, T ]. Using                     the equilibrium position (Kjref (N ∆T ))−1 Fext of the mass-
+           the state as well as the derived structure of the stiffness and                     spring-damper system. In other words, the initial value z0
+
+                                                                                         617
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 08:17:32 UTC from IEEE Xplore. Restrictions apply.
+                                                                                                                                                                                                   35
+                                                                                                                             20
+
+           is the current error of the end-effector and the final value                                                                             Unstable system                                                            Reference K ref
+
+
+
+
+                                                                                               Error x̃ = x − xref (in m)
+                                                                                                                             15                     MPC-based parameter                            30
+                                                                                                                                                                                                                               MPC-based Kd
+           must be within a certain boundary. These two boundaries
+
+
+
+
+                                                                                                                                                                               Stiffnes (in N/m)
+                                                                                                                             10                                                                    25
+
+
+           for the system on [0, T ] are fixed. In between deviation of                                                       5                                                                    20
+
+
+           the state is admitted and not penalized by the cost function,                                                      0                                                                    15
+
+
+           which retains the compliant behavior of the virtual mass-                                                        −5                                                                     10
+
+
+           spring-damper system. The optimizer chooses eigenvalues                                                          −10                                                                    5
+
+
+           and damping ratios to fulfill first these two boundaries on the                                                  −15
+                                                                                                                                  0   5   10   15     20   25   30   35   40
+                                                                                                                                                                                                   0
+                                                                                                                                                                                                        0   5   10   15   20    25   30   35     40
+
+                                                                                                                                               Time t (in s)                                                         Time t (in s)
+           state and second to be as close to the respective references
+           as possible.                                                                                                           (a) The position error x̃                    (b) The utilized stiffness for the
+              The solution of (12) are two minimizing sequences                                                                                                                mass-spring-damper system
+           (vi∗ )i=0,...,N −1 and (ξi∗ )i=0,...,N −1 . The first element of the                Fig. 2: First Simulation - Comparison of the natural and
+           sequences is marked with v ∗ := v0∗ ∈ Rm and ξ ∗ := ξ0∗ ∈                           optimized system parameters
+           Rm .
+           E. Compute Control Parameter
+              The low-level impedance controller is executed much                              CasADi [19] in combination with the software packages for
+           faster than the high-level parameter optimizer can find solu-                       large-scale nonlinear optimization Ipopt [20].
+           tions. Therefore, v ∗ and ξ ∗ are updated only on the sample
+           points tj . But, there exists a whole interval [tj , tj+1 ] between
+           two sampling points, on which the high-level controller must                        A. Application on an Unstable System
+           provide a stiffness matrix Kd and a damping matrix Dd for
+                                                                                                 As a first benchmark example, our proposed method has
+           the compliance control (3). In addition the inertia matrix Λ
+                                                                                               been tested on a single translational joint. Therefore, we
+           varies on the interval as well.
+                                                                                               have reproduced the example from [7]. Consider the given
+              Consider the time point t ∈ [tj , tj+1 ]. Then we can
+                                                                                               properties of the desired mass-spring-damper system
+           repeat the double diagonalization (6) for each t. Perform
+           a Cholesky decomposition of Λ(q(t))       = Lt LT t and compute
+                                                                                                                                                                M = 10,
+                               −1 ref       −T
+                                               
+           [Qt , vt ] = eig Lt K (t)Lt            as well as Ht = Lt Qt .                                                                                       Dd = 1 and                                                                (15)
+           Then the stiffness and damping matrix are                                                                                                       Kd (t) = 12 + 10 sin(t),
+                           Kd (t) := Ht diag(v ∗ )HtT and                                      while the system has the initial values x(0) = 4, ẋ(0) = 9
+                                                     √                            (14)
+                           Dd (t) := 2Ht diag(ξ ∗ ⊙ v ∗ )HtT ,                                 and should follow the trajectory xref (t) = 10 sin(t/10).
+                                                                                               Further, no external force acts on the system, i.e. Fext = 0.
+           for t ∈ [tj , tj+1 ], which are then applied in the compliance
+                                                                                               First, the impedance control law (3) from section II-B is
+           control input (3).
+                                                                                               applied. The blue graph in Fig. 2(a) shows the course of the
+           Remark 1. The terminal constraint (13) is motivated by the                          position error x̃ between x and the reference trajectory xref ,
+           common approach to ensure stability of MPC algorithms                               which clearly diverges.
+           via equilibrium endpoint constraint [18]. According to the                              Next, we evaluate the performance of our algorithm. For
+           MPC literature, a MPC algorithm with a feasible equilibrium                         this purpose, the stiffness in (15) is considered as reference
+           endpoint constraint zN = z ∗ is asymptotically stable. The                          stiffness K ref (t), which is pictured as blue graph in Fig. 2(b).
+           mass-spring-damper system, however, is not controllable in                          Further the prediction horizon is set to T = 10 s, the amount
+           finite time to the equilibrium point z ∗ = 0, i.e. the terminal                     of discrete time system points equals N = 100 and the
+           constraint zN = 0 is not feasible. Notice that in our case a                        optimization is executed every 50 ms. Since the system has
+           constant impedance parameter setting would ensure stability.                        one eigenvalue, w is not required and set to one. In addition,
+           Therefore, we believe that the constraint from [18] is too                          the weighting parameter η is chosen to be 20 because the
+           conservative in our application. However, a detailed stability                      orders of magnitude are close, but at the same time we want
+           analysis is part of future work.                                                    to penalize deviation in the damping ratio more severely.
+           Remark 2. Due to the fact that the future course of the                             Its reference is p based on the damping ratio in [7], i.e.
+           external force Fext is unknown, we have assumed a constant                          ξiref = 0.5Dd / M Kd (0) ≈ 0.045 for all i = 0, . . . , N − 1.
+           disturbance model. Furthermore, we assume a constant equi-                          At least, the terminal boundary is set to ε = 10−3 [1 1]T .
+           librium of the mass-spring-damper system. Since the system                              As expected, our proposed method can handle the vary-
+           is time-variant, this assumption induces a small error.                             ing target stiffness in combination with a small reference
+                                                                                               damping ratio and also causes the position error, visible in
+                         IV. S IMULATIONS AND E XPERIMENT                                      Fig. 2(a), to converge to zero, i.e. stabilizes the system.
+             The performance of our MPC-based parameter opti-                                  Moreover, the applied optimal stiffness Kd , generated by
+           mization algorithm has been validated in two simulations                            the algorithm, coincide with the reference stiffness after an
+           and one experiment. The nonlinear optimization prob-                                initial deviation during transient conversion of the position
+           lem (12) is solved using the open-source symbolic framework                         error.
+
+                                                                                         618
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 08:17:32 UTC from IEEE Xplore. Restrictions apply.
+                                                  1.4                                                                                 12
+                                                                            Unstable Robot
+
+
+                     Position error ∥p − pref ∥
+                                                  1.2                       MPC-based parameter                                       10
+
+
+                                                   1                                                                                   8
+
+
+
+
+                                                                                                                        v ∗ − v ref
+                                                  0.8                                                                                  6
+
+
+                                                  0.6                                                                                  4
+
+
+                                                  0.4                                                                                  2
+
+
+                                                  0.2                                                                                  0
+
+
+                                                   0                                                                                  −2
+                                                        0   5   10     15     20     25   30          35                                   0   5   10     15     20     25   30   35
+                                                                     Time t (in s)                                                                      Time t (in s)
+
+           Fig. 3: Second Simulation - The absolute position error of                                            Fig. 5: Second Simulation - Difference between optimized
+           the 7-Dof robot end-effector                                                                          eigenvalues v ∗ and computed reference v ref
+                                                   25
+                                                                                               τc,1
+                                                                                               τc,2
+                     Control torque τc (in Nm)
+
+
+
+
+                                                   20
+                                                                                               τc,3              in order to normalize the effect of stiffness
+                                                                                                                                                        √       and damping.
+                                                   15
+                                                                                               τc,4
+                                                   10                                          τc,5              Further, the damping ratio is ξiref = 2/2 [1 . . . 1]T for
+                                                                                               τc,6
+                                                    5                                          τc,7              all i = 0, . . . , N − 1. The terminal boundary is set to
+                                                    0                                                            ε = 10−3 [1 . . . 1]T .
+                                                  −5                                                                The red graph in Fig. 3 illustrates the systems behavior
+                                                  −10
+                                                                                                                 with the MPC-based parameter optimization. Like in the
+                                                  −15
+                                                                                                                 previous simulation, our algorithm can handle the time-
+                                                  −20
+
+                                                  −25
+                                                                                                                 varying stiffness and drains the energy out of the system,
+                                                        0   5   10     15     20     25   30          35
+
+                                                                     Time t (in s)
+                                                                                                                 which causes the error to converge to zero. With Fig. 4
+                                                                                                                 we can verify that all control torques, which are generated
+           Fig. 4: Second Simulation - Produced control torque τc from                                           by our algorithm, are all smooth and bounded. In Fig. 5
+           the algorithm                                                                                         the deviation of the optimized eigenvalues v ∗ from the
+                                                                                                                 reference eigenvalues v ref is shown. This figure illustrates
+                                                                                                                 that adjustments of the eigenvalues are only necessary at the
+           B. Simulated Unstable Robot                                                                           beginning and they coincide after a short time.
+              We applied the controller in simulation to a n = 7-
+           DoF Franka Research 3 robotic manipulator. In the m = 6                                               C. Experimental Validation
+           dimensional task space, the configuration of the end-effector                                            In the two previous scenarios, our approach has only
+           is described by x(t) = [pT (t) ϕT (t)]T , with the po-                                                been validated in simulations. Finally, it has been be used
+           sition p(t) ∈ R3 and the orientation ϕ(t) ∈ R3 in roll-                                               for physical interaction on a real 7-DoF Franka Research 3
+           pitch-yaw angles. In the same structure, the reference tra-                                           robotic manipulator. The end-effector is described by x(t) =
+           jectory xref (t) ∈ R6 is given. The reference has a con-                                              [pT (t) ϕT (t)]T , exactly as in the last case. The Carte-
+           stant Cartesian configuration except for the first coordi-                                            sian reference xref ∈ R6 is a constant configuration.
+           nate, which oscillates according to xref,1 (t) = 0.3 +                                                The reference stiffness varies over time with K ref (t) =
+           0.1 sin(2πt). The properties of the mass-spring-damper sys-                                           diag(600, 600+100 sin(t), 600, 80, 80, 80). The optimization
+           tem are given as Dd = I and Kd (t) = diag(100 +                                                       parameters retain their values from the previous simulation,
+           75 sin(2t), 200, 200, 50, 50, 50), while the system is in its                                         except the amount of discrete time points, which is increased
+           initial configuration at rest. Similar to the one-Dof simu-                                           to N = 30. Tests have shown that the dynamics can be
+           lation, no external force Fext = 0 is applied. With these                                             better reflected with a few more time points. After 1, 19
+           quantities the impedance control law (3) is applied on the                                            and 40 seconds forces have been applied on the end-effector
+           robot. The blue graph in Fig. 3 shows the absolute error in                                           in several directions and have been hold for approximately
+           the position of the end-effector, which is strongly oscillating.                                      9 seconds.
+           After approximately 31 seconds, the simulation terminates,                                               Since each optimization usually took 80ms to be fully
+           since the robot has reached its outstretched singular position.                                       solved, we have sampled at a frequency of 100Hz to leave
+              For our proposed algorithm, Kd is again considered                                                 a buffer for any potential outliers. The Cartesian position
+           as K ref . The prediction horizon is set to T = 1 s, the                                              error of the end-effector is depict in Fig. 6(a). Here, the
+           amount of discrete time system points equals N = 26 and                                               effects of the applied forces are clearly visible as distinct
+           the optimization is executed every 80 ms. In order to cope                                            displacements. The slight deviation in the position when
+           with the computation cost for the optimization of the 7-DoF                                           no force is applied is a natural phenomenon in impedance
+           robot, the prediction horizon as well as the amount of discrete                                       control, caused by friction. Our proposed algorithm generates
+           time points are reduced. The first weighting parameter is w =                                         an optimal stiffness matrix Kd . We observed that its values
+           [0.01, 0.1, 0.1, 1, 1, 1]T and the second is set to η = 1400,                                         are close to the given reference stiffness matrix K ref and
+
+                                                                                                           619
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 08:17:32 UTC from IEEE Xplore. Restrictions apply.
+                                                                                           6 · 10−2
+                                                                                                                                                                                                                          ACKNOWLEDGMENT
+                                                                                           4 · 10−2
+                                                                                                                                                                                                        We thank Andreas Kugi for his productive discussions and
+                   Position errors p − pref (in m)                                         2 · 10−2
+                                                                                                                                                                                                     his insights into the design of nonlinear model predictive
+                                                                                                      0
+                                                                                                                                                                                                     controllers.
+                                                                    −2 · 10−2
+                                                                                                                                                                                                                                  R EFERENCES
+                                                                    −4 · 10−2
+                                                                                                                                                                                                      [1] N. Hogan, “Impedance Control: An Approach to Manipulation,” in
+                                                                    −6 · 10−2
+                                                                                                                                                                                                          1984 American Control Conference, Jun. 1984, pp. 304–313.
+                                                                    −8 · 10−2                                                                                  x-direction                            [2] M. Goodrich and A. Schultz, “Human-Robot Interaction: A Survey,”
+                                                                                                                                                               y -direction                               Foundations and Trends in Human-Computer Interaction, vol. 1, no. 3,
+                                                                                              −0.1
+                                                                                                                                                               z -direction                               pp. 203–275, Jan. 2007.
+                                                                                            −0.12                                                                                                     [3] S. Haddadin, “Physical Safety in Robotics,” in Formal Modeling and
+                                                                                                          0       5        10        15        20        25      30     35     40    45   50
+                                                                                                                                               Time t (in s)
+                                                                                                                                                                                                          Verification of Cyber-Physical Systems, R. Drechsler and U. Kühne,
+                                                                                                                                                                                                          Eds. Wiesbaden: Springer Fachmedien, 2015, pp. 249–271.
+                   (a) Error in the position of the end-effector due to                                                                                                                               [4] A. Bicchi and G. Tonietti, “Fast and ”soft-arm” tactics: dealing with
+                   multiple applied forces                                                                                                                                                                the safety-performance tradeoff in robot arms design and control,”
+                                                                                                                                                                                                          IEEE Robotics & Automation Magazine, vol. 11, no. 2, pp. 22–33,
+                                                                                            700                                                                                                           Jun. 2004.
+                                             Diagonal Elements diag(Kd (t)) (in N/m, Nm)
+
+
+
+
+                                                                                                                                                                                                      [5] J. Buchli, E. Theodorou, F. Stulp, and S. Schaal, “Variable Impedance
+                                                                                            600                                                                                                           Control A Reinforcement Learning Approach,” Jul. 2010.
+                                                                                                                                                                                                      [6] K. Kronander and A. Billard, “Stability Considerations for Variable
+                                                                                            500                                                                                                           Impedance Control,” IEEE Transactions on Robotics, vol. 32, no. 5,
+                                                                                                                                                                                                          pp. 1298–1305, Oct. 2016.
+                                                                                            400                                                                                                       [7] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to
+                                                                                                                                                                              Kd,1
+                                                                                                                                                                              Kd,2                        impedance control with variable stiffness,” in 2013 IEEE International
+                                                                                            300                                                                               Kd,3                        Conference on Robotics and Automation, May 2013, pp. 4948–4953,
+                                                                                                                                                                              Kd,4                        iSSN: 1050-4729.
+                                                                                            200                                                                               Kd,5
+                                                                                                                                                                              Kd,6                    [8] Y. Michel, C. Ott, and D. Lee, “Safety-aware hierarchical passivity-
+                                                                                                                                                                                                          based variable compliance control for redundant manipulators,” IEEE
+                                                                                            100
+                                                                                                                                                                                                          Transactions on Robotics, vol. 38, no. 6, pp. 3899–3916, 2022.
+                                                                                              0
+                                                                                                                                                                                                      [9] R. Johansson and M. Spong, “Quadratic optimization of impedance
+                                                                                                  0           5       10        15        20        25    30       35    40    45    50
+                                                                                                                                                                                                          control,” in Proceedings of the 1994 IEEE International Conference
+                                                                                                                                          Time t (in s)
+                                                                                                                                                                                                          on Robotics and Automation, May 1994, pp. 616–621 vol.1.
+                                                                                                                                                                                                     [10] M. Bednarczyk, H. Omran, and B. Bayle, “Model Predictive
+                   (b) Obtained diagonal elements of the optimized stiff-
+                                                                                                                                                                                                          Impedance Control,” May 2020, pp. 4702–4708.
+                   ness matrix Kd                                                                                                                                                                    [11] Z. Jin, D. Qin, A. Liu, W.-a. Zhang, and L. Yu, “Model Predictive
+                                                                                                                                                                                                          Variable Impedance Control of Manipulators for Adaptive Precision-
+           Fig. 6: Results of the Experiment - Characteristic course of                                                                                                                                   Compliance Tradeoff,” IEEE/ASME Transactions on Mechatronics,
+           parameters of the Franka Research 3 robot due to an external                                                                                                                                   vol. 28, no. 2, pp. 1174–1186, Apr. 2023.
+           applied force                                                                                                                                                                             [12] L. Roveda, A. Testa, A. A. Shahid, F. Braghin, and D. Piga, “Q-
+                                                                                                                                                                                                          Learning-based model predictive variable impedance control for phys-
+                                                                                                                                                                                                          ical human-robot collaboration,” Artificial Intelligence, vol. 312, p.
+                                                                                                                                                                                                          103771, Nov. 2022.
+                                                                                                                                                                                                     [13] L. Roveda, J. Maskani, P. Franceschi, A. Abdi, F. Braghin, L. Moli-
+           it has negligible off-diagonal elements. Therefore, Fig. 6(b)                                                                                                                                  nari Tosatti, and N. Pedrocchi, “Model-Based Reinforcement Learning
+           shows only the diagonal elements of the optimal stiffness                                                                                                                                      Variable Impedance Control for Human-Robot Collaboration,” Journal
+           matrix Kd . The elements associated with rotation, i.e. Kd,4 ,                                                                                                                                 of Intelligent and Robotic Systems, Nov. 2020.
+                                                                                                                                                                                                     [14] A. S. Anand, F. J. Abu-Dakka, and J. T. Gravdahl, “Deep Model
+           Kd,5 and Kd,6 , maintain their desired values of 80 over                                                                                                                                       Predictive Variable Impedance Control,” Sep. 2022.
+           time. While Kd,2 almost approximately follows its sinusoidal                                                                                                                              [15] B. Siciliano, L. Sciavicco, L. Villani, and G. Oriolo, Robotics :
+           reference and does not deviate from its shape despite the                                                                                                                                      modelling, planning and contro, ser. Advanced Textbooks in Control
+                                                                                                                                                                                                          and Signal Processing. London: Springer, 2009.
+           presence of a force, Kd,3 shows an oscillating behavior.                                                                                                                                  [16] A. Dietrich, X. Wu, K. Bussmann, M. Harder, M. Iskandar, J. En-
+                                                                                                                                                                                                          glsberger, C. Ott, and A. Albu-Schäffer, “Practical consequences of
+                                                                                                                                                                                                          inertia shaping for interaction and tracking in robot control,” Control
+                                                                                                      V. C ONCLUSION AND O UTLOOK                                                                         Engineering Practice, vol. 114, p. 104875, 2021.
+                                                                                                                                                                                                     [17] A. Albu-Schaffer, C. Ott, U. Frese, and G. Hirzinger, “Cartesian
+                                                                                                                                                                                                          impedance control of redundant robots: recent results with the
+              In this paper we have presented a MPC-based strategy to                                                                                                                                     DLR-light-weight-arms,” in 2003 IEEE International Conference on
+           handle variable impedance parameters. These are obtained as                                                                                                                                    Robotics and Automation, vol. 3, Sep. 2003, pp. 3704–3709 vol.3.
+           the result of an optimization of a virtual mass-spring-damper                                                                                                                             [18] L. Grüne and J. Pannek, Nonlinear Model Predictive Control, ser.
+                                                                                                                                                                                                          Communications and Control Engineering. Springer International
+           system. Our proposed algorithm has been validated in several                                                                                                                                   Publishing, 2017.
+           simulations as well as a hands-on experiment and has met                                                                                                                                  [19] J. A. E. Andersson, J. Gillis, G. Horn, J. B. Rawlings, and M. Diehl,
+           our expectations.                                                                                                                                                                              “CasADi: A software framework for nonlinear optimization and opti-
+                                                                                                                                                                                                          mal control,” Mathematical Programming Computation, vol. 11, no. 1,
+              In future work, the algorithm will be examined in a                                                                                                                                         pp. 1–36, mar 2019.
+           detailed proof of stability. Moreover, we will work on further                                                                                                                            [20] A. Wächter and L. T. Biegler, “On the implementation of an interior-
+                                                                                                                                                                                                          point filter line-search algorithm for large-scale nonlinear program-
+           increasing the calculation speed of the optimization. One                                                                                                                                      ming,” Mathematical Programming, vol. 106, no. 1, pp. 25–57, Mar.
+           option is to exploit the linearity of the virtual mass-spring-                                                                                                                                 2006.
+           damper system and incorporate it into the optimization
+           procedure.
+
+                                                                                                                                                                                               620
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 08:17:32 UTC from IEEE Xplore. Restrictions apply.
+

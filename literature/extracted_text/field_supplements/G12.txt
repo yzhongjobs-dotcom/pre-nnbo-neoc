@@ -1,0 +1,1406 @@
+         IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025                                                                                                                    3039
+
+
+
+
+                  Sensitivity-Aware Model Predictive Control for
+                       Robots With Parametric Uncertainty
+         Tommaso Belvedere , Member, IEEE, Marco Cognetti , Senior Member, IEEE, Giuseppe Oriolo , Fellow, IEEE,
+                                  and Paolo Robuffo Giordano , Senior Member, IEEE
+
+
+            Abstract—This article introduces a computationally efficient
+         robust model predictive control (MPC) scheme for controlling
+         nonlinear systems affected by parametric uncertainties in their
+         models. The approach leverages the recent notion of closed-loop
+         state sensitivity and the associated ellipsoidal tubes of perturbed
+         trajectories for taking into account online time-varying restrictions
+         on state and input constraints. This makes the MPC controller
+         “aware” of potential additional requirements needed to cope with
+         parametric uncertainty, thus significantly improving the tracking
+         performance and success rates during navigation in constrained
+         environments. One key contribution lies in the introduction of a
+         computationally efficient robust MPC formulation with a compa-
+         rable computational complexity to a standard MPC (i.e., an MPC
+         not explicitly dealing with parametric uncertainty). An extensive
+         simulation campaign is presented to demonstrate the effectiveness
+         of the proposed approach in handling parametric uncertainties
+         and enhancing task performance, safety, and overall robustness.
+         Furthermore, we also provide an experimental validation that
+         shows the feasibility of the approach in real-world conditions and
+         corroborates the statistical findings of the simulation campaign.
+         The versatility and efficiency of the proposed method make it
+         therefore a valuable tool for real-time control of robots subject to
+         nonnegligible uncertainty in their models.
+           Index Terms—Aerial systems, mechanics and control, model
+         predictive control (MPC), optimization and optimal control,
+         robust/adaptive control of robotic systems.
+
+                                     I. INTRODUCTION
+              DVANCEMENTS in sensing, planning, and control have
+         A    empowered robots with the ability to accomplish highly
+         complex tasks, such as navigation in cluttered environments or
+         manipulation and physical interaction with the environment and
+                                                                                            Fig. 1. Top: Stroboscopic view of the comparison between our proposed
+            Received 18 September 2024; revised 17 January 2025; accepted 18 March          method (blue) and a regular MPC controller (red) while performing trajectory
+         2025. Date of publication 24 March 2025; date of current version 9 May 2025.       tracking. The spread of trajectories is obtained by varying the robot’s physical
+         The work of T. Belvedere was supported in part by the Dipartimento di Ingegneria   parameters and letting the drone track the nominal trajectory. It is clear how our
+         Informatica, Automatica e Gestionale, Sapienza Università di Roma while he         proposed method is able to remain much closer to its nominal behavior. Bottom:
+         was a Ph.D. student. This work was supported in part by the project ANR-           Stroboscopic view of the real quadrotor tracking an aggressive trajectory with
+         20-CE33-0003 “CAMP” and in part by the Chaire de Professeur Junior under           the proposed method.
+         Grant ANR-22-CPJ1-0064-01. This article was recommended for publication
+         by Associate Editor D. Panagou and Editor M. Schwager upon evaluation of the
+         reviewers’ comments. (Corresponding author: Tommaso Belvedere.)
+            Tommaso Belvedere and Paolo Robuffo Giordano are with the CNRS, In-
+         ria, IRISA, Campus de Beaulieu, Univ Rennes, 35042 Rennes Cedex, France            human users. However, many challenges still need to be solved
+         (e-mail: tommaso.belvedere@irisa.fr; prg@irisa.fr).                                for an effective deployment of robots in real-world scenarios,
+            Marco Cognetti is with the LAAS-CNRS, Université de Toulouse, CNRS,             one of which being that of robustness against the (unavoidable)
+         UPS, 31031 Toulouse cedex 4, France (e-mail: marco.cognetti@laas.fr).
+            Giuseppe Oriolo is with the Dipartimento di Ingegneria Informatica, Auto-       uncertainties of the robot/environment models. In fact, any ad-
+         matica e Gestionale, Sapienza Università di Roma, 00185 Roma, Italy (e-mail:       vanced planning and control algorithm relies on a suitable model
+         oriolo@diag.uniroma1.it).                                                          of the robot/environment for generating the motion plan or ac-
+            This article has supplementary downloadable material available at
+         https://doi.org/10.1109/TRO.2025.3554415, provided by the authors.                 tions for realizing a task of interest. However, any model is only
+            Digital Object Identifier 10.1109/TRO.2025.3554415                              an approximation of the real world and, thus, planning/control
+              1941-0468 © 2025 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and similar technologies.
+        Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3040                                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+          schemes must exhibit some degree of robustness against model                      quadrotor control [9], [10], autonomous racing [11], wheeled
+          uncertainties.                                                                    mobile robot navigation and control [12], [13], [14], and legged
+             Uncertainties in a robot/environment can have many sources                     locomotion [15], [16], [17], [18]. Its predictive nature, which
+          and can be modeled at different levels of detail. For instance,                   leverages a nominal model of the robot/environment, and the
+          a typical choice in many robotics applications is to consider a                   possibility to explicitly handle constraints and optimization of
+          generic additive “process noise” (or “actuation noise”), often                    performance indexes over the future evolution of the system,
+          taken as Gaussian random variables. This additive term can                        has made it an attractive choice for solving complex control
+          capture the presence of some uncertainty in the robot’s mo-                       problems. For instance, one of the main key advantages of MPC
+          tion/actuation, but its genericity does not allow, in general, to                 over traditional robot controllers is the ability to account for
+          obtain precise predictions of how the actual uncertainties will                   input constraints [10] so as to ensure the feasibility of the planned
+          affect the robot’s motions or actions. However, the simplicity                    motion also in the presence of limited actuation.
+          of this choice (and tractability from a mathematical point of                        Nonetheless, a practical MPC deployment can face significant
+          view) make additive noise terms virtually the most popular mod-                   challenges related to feasibility and robustness to uncertainties,
+          eling choice for developing control, planning, and estimation                     in particular when hard constraints play an active role in mo-
+          schemes.                                                                          tion generation. Standard MPC, in fact, generates an open-loop
+             In many cases of interest, a model of the robot/environment                    trajectory with no information regarding the ability to coun-
+          can be considered available with the main source of uncertainty                   teract the effects of possible future disturbances. However, the
+          lumped in the inaccurate knowledge of some model parameters.                      ability to correctly predict the future behavior of the robot by
+          In these cases, the uncertainty is not generic but it has a very spe-             also accounting for the impact of feedback actions is crucial.
+          cific structure which, if exploited, can lead to better predictions               Whenever the robot deviates from the predicted trajectory, the
+          of its effects on the robot motion. In light of these considerations,             feedback controller will act against the disturbance to steer the
+          some recent works [1], [2], [3], [4], [5], [6] have introduced                    robot back on the planned motion. Although this positive effect
+          and exploited the notion of closed-loop state sensitivity matrix:                 can decrease the impact of the uncertainties, it also requires, in
+          this quantity locally captures how deviations in the model pa-                    general, an increased control effort that needs to be accurately
+          rameters (w.r.t. their nominal values) affect the evolution of the                taken into account if input constraints are present. Planning
+          robot/environment states in closed-loop, i.e., by also taking into                a feasible robust motion must then ensure that the predicted
+          account the strengths/weaknesses of the particular control action                 motion possesses enough control authority to satisfy constraints
+          chosen for executing the task. A norm of the state sensitivity can,               amid potential disturbances.
+          for instance, be minimized for generating reference trajectories                     Related Works: The issue of robustness against uncertainties
+          that result by construction minimally sensitive to parametric                     in MPC has motivated many research efforts over the years to
+          uncertainties, thus increasing the intrinsic robustness of their                  propose a variety of “robust MPC” schemes. The goal of robust
+          tracking in closed-loop. This is particularly relevant whenever                   MPC is to guarantee the feasibility of the predicted trajectory
+          the task requirements allow for some redundancy in the reference                  for all possible disturbance sequences [19, Ch. 3]. When dealing
+          trajectory that can be optimized w.r.t. the sensitivity metrics, e.g.,            with uncertain systems, the set of all possible trajectories can be
+          in case of collision-free navigation in cluttered environments or                 seen as a bundle. Robust MPC methods try to control the bundle
+          regulation tasks. The notion of state sensitivity has been later                  of trajectories to guarantee feasibility. Since MPC acts online as
+          extended to also consider the effects of uncertainties on the                     a controller, the time complexity of one iteration of any MPC
+          control inputs [2], by defining and minimizing the so-called input                algorithm must be compatible with the real-time requirements
+          sensitivity: this allows, for instance, to better cope with actuation             of the controlled robot. This requirement has naturally shaped
+          limits that might otherwise be violated when the robot deviates                   MPC methods to search for the best tradeoff between optimality,
+          from its nominal trajectory [5]. Finally, the sensitivity matrix                  robustness, and complexity.
+          has also been leveraged to obtain time-varying bounds (tubes)                        A way to directly control the bundle of trajectories, referred to
+          on the state and/or input evolution assuming a (known) range of                   as the scenario-tree approach [20], is to discretize the disturbance
+          variation for the parameters [7]. This makes it possible to plan                  set and to control the evolution of all the possible realizations
+          robust trajectories that, at least locally, ensure the feasibility of             of the system. This approach has, however, limited practical
+          the resulting motion (against state [7] or input [8] constraints)                 applicability because of its computational complexity. A more
+          also in the presence of model parametric uncertainties.                           practical approach is to find an outer approximation of the bundle
+             Even if successful in generating robust trajectories, the above-               of perturbed trajectories in the form of time-varying tubes. The
+          mentioned works have only considered the case of offline plan-                    so-called Tube MPC, first developed for linear systems [21] and
+          ning. However, the ability to replan online can clearly offer                     then extended to nonlinear ones [22], [23], aims at finding a
+          an additional and substantial improvement of the robustness                       tractable way to compute such tubes, possibly online. The tube
+          against uncertainties. Therefore, the main goal of this work is                   computation typically involves a propagation of the disturbances
+          to study how to exploit the closed-loop state sensitivity (and                    over the closed-loop dynamics. In most cases, the computation
+          related/derived quantities) within an online replanning scheme                    of the tubes’ cross section relies on an ancillary control law pro-
+          formulated as a model predictive control (MPC) problem. Be-                       viding disturbance rejection through feedback. Such controller
+          ing an online local planner, MPC is a widely adopted control                      can be fixed a-priori [24], [25], [26] or it can be parameterized
+          approach in robotics, with many examples of its application to                    and determined online as part of the algorithm in order to, for
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                        3041
+
+
+
+         instance, minimize the tubes’ cross section [23]. Typically, an                   feedback to apply during the sampling interval in cases where
+         ellipsoidal approximation of the tubes’ cross section around                      the possibly complex MPC controller cannot run sufficiently
+         the nominal trajectory is used. In [23], the tubes’ cross section                 fast [15], [35], [36], [37]. Compared to these works in which
+         was obtained, along with the parameterized feedback gains, by                     the MPC gains are only used for reactive control, we are in-
+         solving a semidefinite program pointwise for each predicted                       stead interested in approximating the MPC feedback action over
+         sampling instant. Similarly, Garimella et al. [24] defined a point-               the whole prediction horizon for propagating the closed-loop
+         wise optimization problem to find the direction and length of the                 sensitivity. This requires the development of an efficient way
+         ellipsoid axes for each state dimension. In [25], an incremental                  of computing the predicted MPC gains, enabling the proposed
+         Lyapunov function with a corresponding incrementally stabi-                       method to be suitable for real-time use. It is worth noting that
+         lizing feedback was precomputed offline and used by the MPC                       numerical optimal control methods based on the iterative linear
+         to construct the tubes online. Moreover, this feedback action is                  quadratic regulator (iLQR) naturally provide linear feedback
+         then added to the input computed by the MPC and applied to the                    gains as a byproduct of the Riccati recursion performed to
+         system in closed-loop. In [26] and [27], the zero-order robust op-                solve the optimal control problem (OCP); see, e.g., [38] for
+         timization (zoRO) [28], which uses ellipsoidal uncertainty sets                   the unconstrained case and [15] and [39] for the extension to
+         to robustify the constraints while neglecting their sensitivities in              equality and inequality constrained problems. However, this
+         the optimization, is used in an MPC setting with a precomputed                    requires using solvers based on the iLQR method which, in the
+         static feedback. The Tube MPC in [29] uses a boundary layer                       MPC setting, are usually limited to treating inequalities as soft
+         sliding mode controller for the ancillary control law. Notably,                   constraints.
+         it optimizes both the state trajectory and the tubes at, how-                        Summary of Contributions: We propose a method to robustify
+         ever, a likely high computational cost as pointed out in [28].                    MPC control against parametric uncertainties in the robot model
+         Also in the stochastic nonlinear MPC setting, a prestabilizing                    by making use of sensitivity-based tubes. Since the closed-loop
+         infinite horizon linear quadratic regulator (LQR) controller is                   sensitivity represents an accurate and easy-to-obtain quantity
+         added to the control action to propagate uncertainties [30]. As                   to analyze the effects of the uncertainties on generic nonlinear
+         an alternative to the use of an ancillary controller altogether,                  systems, the proposed MPC scheme can be applied to complex
+         Villanueva et al. [31] used min-max differential inequalities to                  robotic systems without having to rely on hand-crafted robust-
+         obtain linear matrix inequality constraints which are added to                    ness conditions or on unnecessary simplifications of the robot
+         the MPC optimization problem to make the (ellipsoidal) tubes                      model. Our main contributions are as follows.
+         forward invariant.                                                                   1) The first application of the closed-loop sensitivity frame-
+            The previously mentioned methods address the robust MPC                               work to an online setting based on an optimization-based
+         problem by proposing solutions on a spectrum with varying                                controller, differently from all previous works on this topic
+         degrees of complexity. For example, some methods trade per-                              that instead leveraged a closed-form expression for the
+         formance for simplicity by fixing the ancillary controller with                          control action.
+         a static linear feedback [24], [25], [26], [27], [30]. This helps                    2) The formulation of a robust MPC scheme offering a
+         in simplifying the uncertainty propagation but can decrease                              tractable and convenient approach for adding a robustness
+         the performance if the system is not operating close to the                              layer to any standard, and possibly already available, MPC
+         linearization point. More complex methods can instead provide                            controller. In this way, the safety and the performance of
+         strong robustness theoretical guarantees, but they also typically                        the robot in executing an assigned task is increased with a
+         have limited practical applicability due to their computation time                       very minor computational overhead.
+         complexity, which can exceed that of a standard nonrobust MPC                        3) In Section III-B (and in the proof in Appendix A), we
+         by several orders, and their reliance on disturbance bounds that                         present a way of computing the MPC gains when using
+         can be challenging to certify [25], [31]. Motivated by these                             an off-the-shelf quadratic programming (QP) solver and
+         considerations and the challenges posed by this problem, the                             a standard direct multiple shooting transcriptions of the
+         main goal of this work is to propose a computationally efficient                         OCP, making the proposed method applicable to general
+         and tractable robust MPC scheme that falls in the middle of this                         constrained MPC problems not necessarily relying on
+         spectrum.                                                                                specialized solvers.
+            To this end, we make use of the results of sensitivity analysis                   4) An extensive simulation campaign to showcase how the
+         of optimization problems [32], [33] to compute online the equiv-                         introduction of input tubes improves the performance and
+         alent gains of the MPC action, thus freeing from the need for                            feasibility of the system under disturbances compared to
+         an (often) precomputed and unconstrained ancillary controller,                           a standard MPC.
+         which does not necessarily capture well the effect of the actual                     5) An experimental validation on a quadrotor aerial robot
+         feedback action provided by the MPC scheme. Crucially, this                              with all the computations performed on the onboard hard-
+         allows our proposed robust MPC scheme to be aware of how                                 ware, thus demonstrating the real-world applicability of
+         the presence of hard constraints affects the feedback action                             the proposed method and further validating the numerical
+         itself, making the uncertainty prediction more accurate and                              results.
+         potentially less conservative. Sensitivity analysis has often been                   The rest of this article is organized as follows. In Section II, we
+         used in the MPC context, for instance in differentiating MPC                      introduce the notion of closed-loop state sensitivity and review
+         policies for learning purposes [34], or to provide high-frequency                 the MPC formulation. In Section III, we describe the proposed
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3042                                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+                                          TABLE I                                           controller. The combination of (1) and (2) determines the closed-
+                              LIST OF SYMBOLS USED IN THE PAPER
+                                                                                            loop system
+                                                                                                               
+                                                                                                                 xk+1 = f (xk , uk , p)
+                                                                                                                                                          (3)
+                                                                                                                    uk = μ(xk , pc )
+                                                                                            and the map φk (x0 ) := φ(x0 , tk ) = xk denotes the solution
+                                                                                            of (3) at time tk starting from an initial state x0 at t0 . Given a
+                                                                                            known initial state x0 , the closed-loop trajectory of the system
+                                                                                            will depend on the actual value of the parameters p. We denote
+                                                                                            with x̄ the closed-loop trajectory obtained in the nominal case,
+                                                                                            i.e., when p = pc , and with ū the associated nominal input
+                                                                                            trajectory. In general, however, p = pc because of parametric
+                                                                                            uncertainty and, therefore, the actual state/input trajectories
+                                                                                            (x, u) will deviate from the nominal ones (x̄, ū).
+                                                                                               Following [1], [2], we use the notion of closed-loop sensitivity
+                                                                                            to describe how changes in the parameters affect the system
+                                                                                            trajectories under the action of the controller. Define the state
+                                                                                            sensitivity Π ∈ Rnx ×np as
+                                                                                                                                    
+                                                                                                                         dφk (x0 ) 
+                                                                                                                 Πk =                     .                 (4)
+                                                                                                                            dp p=pc
+                                                                                            This quantity is evaluated around the nominal trajectory (i.e., the
+                                                                                            one obtained when p = pc ) and represents a first-order approxi-
+          robust MPC algorithm, and, in Section IV, we showcase its                         mation of the effects of a parameter deviation on the closed-loop
+          application to two case studies involving a quadrotor affected                    state trajectory. For instance, a system that is structurally less
+          by model uncertainties, providing statistical simulation results                  affected by a particular parameter, or for which the controller
+          over multiple scenarios and experimental results to demonstrate                   is already able to compensate for parameter inaccuracies, will
+          the real-world performance of the method. Finally, Section V                      present a smaller (in some norm) closed-loop state sensitivity.
+          concludes this article. For reference, Table I reports the notation                  A closed-form expression for (4) is, in general, not available
+          used in the following.                                                            but, as shown in [1], it is possible to obtain the following update
+                                                                                            rule:
+                                                                                                                   dφk+1 (x0 )   df (φk (x0 ), uk , p)
+                                     II. PRELIMINARIES                                                 Πk+1 =                  =
+                                                                                                                      dp                 dp
+            In this section, we review the notion of closed-loop state
+                                                                                                                   ∂f dφk (x0 ) ∂f duk   ∂f
+          sensitivity (Section II-A) and its use for evaluating the tubes of                                   =               +       +
+          perturbed trajectories (Section II-B). We then briefly recall the                                        ∂x dp         ∂u dp   ∂p
+          MPC formulation used in the rest of the article (Section II-C).                                          ∂f      ∂f duk   ∂f
+                                                                                                               =      Πk +        +                                   (5)
+                                                                                                                   ∂x      ∂u dp    ∂p
+          A. Closed-Loop Sensitivity                                                        i.e., a discrete-time prediction model for the state sensitivity
+             Consider a discrete-time1 dynamical system described by                        Πk with initialization Π0 = 0 since the initial state is assumed
+                                                                                            known and by definition φ0 (x0 ) = x0 .
+                                    xk+1 = f (xk , uk , p)                           (1)       From (5), we also define matrix Θ ∈ Rnu ×np
+                                                                                                                             duk   ∂μ
+          under the action of a controller μ : Rnx × Rnp → Rnu                                                       Θk =        =    Πk .
+                                                                                                                              dp   ∂x
+                                       uk = μ(xk , pc )                              (2)    This matrix, denoted as input sensitivity, represents the indirect
+                                                                                            effect of a parameter change on the control action by means of
+          where xk ∈ Rnx and uk ∈ Rnu denote the state and input vec-                       feedback, which can be seen as a measure of how the input in
+          tors, p ∈ Rnp the (uncertain) model parameters, and pc ∈ Rnp                      closed-loop will deviate from its nominal trajectory ū.
+          the nominal parameters used by the (possibly model-based)                            Finally, denoting with
+                                                                                                                                         
+                                                                                                              ∂f                    ∂f 
+                                                                                                       Ak =                    Bk =                    ,   (6)
+                                                                                                              ∂x x̄k ,ūk ,pc        ∂u x̄k ,ūk ,pc
+             1 Since we are interested in designing a control system working in discrete-
+                                                                                                                                           
+          time with a sampling time δt , we consider a discretized model obtained from                        ∂f                      ∂μ 
+                                                                                                      Mk =                     F     =               ,     (7)
+          the continuous time dynamics ẋ = f c (x, u, p) by integrating it numerically
+                                                                                                              ∂p x̄k ,ūk ,pc          ∂x x̄k ,pc
+                                                                                                                                 k|k
+          over the time interval [tk , tk+1 ) with tk+1 = tk + δt with constant inputs.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                            3043
+
+
+
+         the closed-loop sensitivity prediction model (5) can be com-
+         pactly rewritten as
+                                              
+                     Πk+1 = Ak + B k F k|k Πk + M k ,              (8)
+                           Θk = F k|k Πk .                                         (9)
+         An interesting interpretation can be given to matrix F k|k . Sup-
+         pose that the system deviates from the nominal state x̄k to a
+         perturbed state x,k . Then, F k|k represents the state feedback
+         gains of the first-order Taylor approximation of the control law
+         (2) since, for a small perturbation, the control action u,k =
+         μ(x,k , pc ) can be expanded as
+                            u,k ≃ ūk + F k|k (x,k − x̄k ).
+         With this in mind, we will refer to F k|k as the (feedback) gains                 Fig. 2. Qualitative visualization of a perturbed state trajectory x(t) (blue) and
+                                                                                           the ellipsoidal tubes (red) centered around the nominal trajectory x̄(t) (dashed
+         of the controller.                                                                black). Note how, in general, the tube radius does not necessarily monotonically
+            Remark 1: The notation F i|j is introduced to express the                      increase thanks to the presence of the feedback action, and despite the cumulative
+         dependence of the input at time ti on the state at a time tj ≤ ti .               effect of uncertainties over time. This effect can for instance be appreciated in
+                                                                                           the results reported in [6] for what concerns state and input tubes.
+         This will become relevant in the MPC context (Section III-B)
+         where the predicted (future) input depends directly on the initial
+         condition.
+            In addition, it is worth mentioning that, from (8) and (9),                    which, assuming that p ∈ Ep ⊂ P, can be exploited to obtain the
+         one can also define the sensitivity of any function of the state                  corresponding uncertainty ellipsoid in the state space at a given
+         and inputs to characterize its local behavior to changes in the                   time tk . This is obtained by pseudo-inverting (14) for mapping
+         parameters. Letting γ(x, u) ∈ Rnγ be a generic function, its                      feasible state deviations2 to parameter deviations
+         closed-loop sensitivity to parameters is simply                                                                     1  †
+                                                                                                               σ p = Πk W 2 Δxk                        (15)
+                              dγ         ∂γ         ∂γ
+                      Γk =             =      Πk +       Θk .         (10)
+                              dp p=pc    ∂x          ∂u                                   from which, applying (15) to (13) and noting that
+                                                                                                   1            1
+                                                                                           (Πk W 2 )†T (Πk W 2 )† = (Πk W ΠTk )† , one obtains the sought
+         B. Tubes of Perturbed Trajectories                                                uncertainty ellipsoid in state space
+                                                                                                                             †
+            Exploiting the state sensitivity Π, it is possible to obtain                                    ΔxTk Πk W ΠTk Δxk ≤ 1.                   (16)
+         an ellipsoidal approximation of the bundle of the perturbed
+         trajectories for the states and the inputs (or for any function                   Moreover, the same reasoning applies to the input deviation
+         of these quantities), as discussed in [7]. We here recall the main                Δuk = uk − ūk resulting in the input space ellipsoid
+         steps.                                                                                                           †
+                                                                                                          ΔuTk Θk W ΘTk Δuk ≤ 1.                  (17)
+            Assume a (known) maximum parameter deviation Δpmax
+         for each component of the vector p, that is, the parameters are                   Note that both the state and the input ellipsoids are time-varying,
+         supposed to belong to the set                                                     as the respective sensitivities follow the evolution given by (8)
+                                                                                           and (9). The evolution of these ellipsoids over time is what we
+               P = {p ∈ Rnp : −Δpmax ≤ p − pc ≤ Δpmax }                           (11)
+                                                                                           will refer to as state and input tubes in the following. Under
+         centered at the nominal value pc , and let W = diag(Δp2max,i ).                   assumptions (12)–(14), the closed-loop trajectories will evolve
+         To estimate the effect of a parameter deviation on the closed-loop                inside the tubes centered around the nominal trajectory (see
+         trajectory, we define a mapping from the parameter space to the                   Fig. 2 for an illustrative example), that is, the state/input at
+         state space through ellipsoids. Let the parameter ellipsoid with                  time tk will belong to their corresponding ellipsoid at tk .3 One
+         matrix W ∈ Rnp ×np centered at pc be                                              can then make use of these tubes for several purposes, e.g.,
+                                                                                         for shaping the closed-loop trajectory so that the state/input
+                      Ep = p ∈ Rnp : ΔpT W −1 Δp ≤ 1                   (12)                ellipsoids do not violate any state or input constraint.
+                                                                        1
+         with Δp = p − pc . Equivalently, let σ p = W − 2 Δp be the
+                                                                                              2 We use the term feasible to highlight the fact that in case n > n — thus
+         scaled parameter deviation and                                                                                                                      x     p
+                                                                                         (14) is overdetermined — only state deviations which are in the range space
+                       Sp = σ p ∈ Rnp : σ Tp σ p ≤ 1           (13)                        of Πk will provide an exact solution. This is, however, always the case in our
+                                                                                           treatment since we assume that all state deviations satisfy (14).
+                                                                                              3 While this result formally holds for the approximate mapping (14), Monte
+         the scaled parameter sphere. From a first-order approximation
+                                                                                           Carlo simulations in [7] have shown how the resulting tubes capture well the
+         around the nominal trajectory x̄, one has                                         ensemble of perturbed trajectories also for complex robots, such as an hexarotor.
+                                                                    1                      Furthermore, the validity of the state/input tubes has also been confirmed in real
+                     Δxk = xk − x̄k ≃ Πk Δp = Πk W 2 σ p                          (14)     experimental conditions.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3044                                                                                                           IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+             In many cases of interest, one needs to determine the maxi-                    nominal parameters pc ), and possibly to some nonlinear path
+          mum deviation along a particular direction of interest n in the                   constraints4 g(xi , ui ) ≤ 0 (20d).
+          state/input space (for instance, for evaluating the deviation of                     Remark 2: In the MPC formulation, note how the subscript
+          a particular component of the state/input). Given an ellipsoid                    i refers to the predicted time of the trajectory over the control
+          with matrix K, the ellipsoid radius ρ along a direction n can be                  horizon with tk+i ∈ [tk , tk+N ] (for i = 0, . . . , N ), that is al-
+          obtained as [40]                                                                  ways reset to zero at each MPC iteration. On the other hand,
+                                        √                                                   the subscript k on the time tk and the current state x̂k refer
+                                  ρn = nT Kn.                         (18)                  to the actual time of the closed-loop system evolving with
+                                                                                            dynamics (3).
+          Considering a set of directions of interest, one can then compute                    In order to solve the trajectory optimization problem we
+          the radius along each direction for obtaining a vector of radii ρ                 employ a direct multiple shooting transcription [41] and choose
+          which can be used as a measure of the worst-case deviation of                     w = (x, u) = (x0 , . . . , xN , u0 , . . . , uN −1 ), consisting of the
+          the system along these directions. For illustration let us consider               state and the input trajectories, as the decision variables. The
+          w.l.o.g. the case of input tubes. Once the evolution of the input                 resulting problem is in general a nonconvex nonlinear program
+          sensitivity Θ has been obtained, one can compute the input                        due to the nonlinear dynamics and the possibly nonconvex
+          ellipsoid matrix K u  k = Θk W Θk . Then, using (18) with n
+                                              T
+                                                                                            inequality constraints. In an MPC context, the time-budget to
+          spanning the canonical basis of the input space Rnu , it is possible              solve the optimization problem is at most the sampling time δt ,
+          to obtain                                                                         and reducing the control delay is of paramount importance. For
+                                                                    −1
+                                                                                            this reason, we employ the real-time iteration scheme (RTI) [42],
+                        ρu
+                         j,k =
+                                     u
+                                    Kjj,k ∀j ∈ In1 u        ∀k ∈ IN
+                                                                  0    .           (19)     which consists in performing one quasi-Newton step for solving
+                                                                                            (20) at each control cycle, appropriately linearizing the opti-
+          The quantities ρu                            u
+                            j,k , collected in vector ρk , are the radii of                 mization problem around the current solution guess w̄ = (x̄, ū)
+          the input ellipsoid along each axis j and represent, therefore,                   obtained from the solution computed at the previous time instant,
+          the worst-case deviations of each input component j w.r.t. its                    and solving a QP. The cost function is assumed to be in the usual
+          nominal value due to parametric uncertainty. Note that, at the                    least-squares   form, for which we define the compact notation
+                                                                                            N −1
+          start of the trajectory, ρu0 = 0 by construction since Π0 = 0                        0    (x i , u                  1
+                                                                                                              i ) + N (xN ) = 2 R(w)
+                                                                                                                                            2
+                                                                                                                                              through the residual
+          and, therefore, Θ0 = 0.                                                           vector R(w). This allows using the Gauss–Newton Hessian
+             The same reasoning can clearly be applied to the states to find                approximation [43] which represents a simple-to-compute and
+          the associated radii from state sensitivity (8) and, using (10),                  multiplier-free alternative to the evaluation of the exact Hessian
+          to any function of the state and inputs to find its worst-case                    of the problem. To this end, define the decision variables vector
+          deviation along the nominal trajectory.                                           for the QP as Δw = w − w̄. The MPC controller then solves
+                                                                                            the following QP:
+          C. Model Predictive Control                                                          ⎧
+                                                                                               ⎪ min 12 ΔwT HΔw + cT Δw
+             We briefly recall the classical MPC formulation and a few                         ⎪
+                                                                                               ⎨ Δw
+                                                                                                 s.t. Δx0 + x̄0 − x̂k = 0
+          details on its solution. The reader already familiar with these
+                                                                                               ⎪
+                                                                                               ⎪      Δxi+1 −Ai Δxi − B i Δui +f i = 0 ∀i ∈ IN −1
+          notions can skip until (22) at the end of this section, noting that                  ⎩                                             0
+                                                                                                                                             N −1
+          we consider OCPs in the form (20) that can be approximately                                 C i Δxi + D i Δui + g i ≤ 0      ∀i ∈ I0
+          solved as the QP (22).
+                                                                                            where
+             At each control instant tk , the MPC solves a constrained
+          trajectory optimization problem starting from the current state                                T                                         T
+                                                                                                     ∂R  ∂R                                  ∂R 
+          xk over a prediction horizon [tk , tk+N ] for finding a sequence                   H=                                           c=            R(w̄)
+          of optimal inputs u∗ = (u∗0 , . . . , u∗N −1 ) that generates the op-                      ∂w w̄ ∂w w̄                               ∂w w̄
+          timal trajectory. The first input u∗0 of this optimal sequence is                  Ai , B i from (6)                    f i = x̄i+1 − f (x̄i , ūi , pc )
+          selected and commanded to the system until the next feedback                                                  
+          measurement x̂k+1 at time tk+1 = tk + δt becomes available                                ∂g             ∂g 
+                                                                                             Ci =              Di =               g i = g(x̄i , ūi ).        (21)
+          for repeating the procedure.                                                              ∂x x̄i ,ūi      ∂u x̄i ,ūi
+             At each instant, the MPC solves the following OCP:
+            ⎧                                                                               To write the QP problem in a compact form, we stack and group
+                       N −1
+            ⎪
+            ⎪  min        i=0 (xi , ui ) + N (xN )                   (20a)                the equality and inequality constraints into matrices E and G,
+            ⎪ u
+            ⎨                                                                               respectively, and we define η(x̂k ) = (x̄0 − x̂k , f 0 , . . . , f N −1 )
+               s.t.    x0 = x̂k                                        (20b)
+            ⎪
+            ⎪          x     =  f  (x   , u   , p   )     ∀i  ∈ I N −1
+                                                                       (20c)
+            ⎪
+            ⎩
+                         i+1          i     i     c               0
+                                                                    −1
+                       g(xi , ui ) ≤ 0                     ∀i ∈ IN0    (20d)
+                                                                                               4 Note that, although we use this particular formulation to carry out the analysis
+          where (xi , ui ) and N (xN ) in (20a) denote the running and
+                                                                                            throughout the article, one can easily recast different kinds of constraints (such
+          final costs, respectively. The problem is subject to the initial state            as double-sided constraints) in this form or adapt the derivations to account for,
+          constraint (20b), the dynamics constraint (20c) (evaluated at the                 e.g., additional equality constraints.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                        3045
+
+
+
+         and g = (g 0 , . . . , g N −1 ). In this way, everything can be ex-               A. Formulation
+         pressed with respect to the decision variables vector Δw                             The proposed MPC scheme, denoted as sensitivity-aware tube
+                           ⎧     1                                                         MPC (ST-MPC), consists of two main steps as follows: 1) The
+                           ⎨min  2 Δw HΔw + c Δw
+                                     T          T
+                             Δw                                                            sensitivity of the solution guess is evaluated using (8) and (9),
+                           ⎩s.t. EΔw + η(x̂k ) = 0
+                                                                                  (22)     from which the sensitivity-based tube radii are obtained as in
+                                 GΔw + g ≤ 0.                                              (19) to find the worst-case predicted constraint deviation; 2)
+                                                                                           when the feedback for the current state x̂k is available, the
+         In the previous equations, E and G are sparse matrices with
+                                                                                           following optimization problem:
+         block diagonal nonzero entries (see, e.g., [44]). This structure
+         can be exploited by sparse QP solvers to efficiently compute the                     ⎧        N −1
+                                                                                              ⎪
+                                                                                              ⎪ min       i=0 (xi , ui ) + N (xN )
+         solution to the problem.                                                             ⎪
+                                                                                              ⎪   u
+                                                                                              ⎪
+                                                                                              ⎨s.t. x0 = x̂k
+            By solving this problem at each control instant, the MPC
+                                                                                                                                                  −1
+         algorithm computes an optimal state and input trajectory w∗ =                        ⎪        xi+1 = f (xi , ui , pc )           ∀i ∈ IN
+                                                                                                                                                0
+                                                                                                                                                       (24)
+                                                                                              ⎪
+                                                                                              ⎪                       h
+                                                                                                       h(xi , ui ) + ρi ≤ 0                     N −1
+                                                                                                                                          ∀i ∈ I0
+         w̄ + Δw∗ from the current state at time tk to the end state at                       ⎪
+                                                                                              ⎪
+                                                                                              ⎩                                                   −1
+         time tk+N . Let us partition the output of the MPC controller as                              umin + ρu  i ≤ u  i ≤ u  max − ρ u
+                                                                                                                                        i ∀i ∈ IN
+                                                                                                                                                0
+                                         ⎡ ⎤
+                                           x∗i ∀i ∈ IN0
+                                                                                           is solved by approximating it as a QP using the RTI method
+                           ∗             ⎢ ∗⎥                                              described in Section II-C. Note how, in (24), the constraints are
+                         w (x̂k , pc ) = ⎣u0 ⎦                       (23)
+                                             ∗ ∀i ∈ IN −1
+                                                                                           reduced by the tube radii ρh   i (being the tube radii for the task
+                                           ui         1
+                                                                                           constraint function h(x, u)) and ρu   i that act as back-off terms
+                                                                                           to account for the effects of parametric uncertainty. These are
+         which renders explicit the control action u∗0 to be applied to
+                                                                                           obtained by following the procedure described in Section II-B
+         the system, the predicted optimal input trajectory u∗i , and the
+                                                                                           for the input case, and by simply repeating the same procedure
+         associated state trajectory x∗i , respectively. Note that the MPC
+                                                                                           on the sensitivity of any function h(x, u) of interest for the case
+         solution is essentially an open-loop trajectory to be applied to
+                                                                                           of generic task constraints. Once the optimal solution is found,
+         the system with no information on the behavior of the controller
+                                                                                           the input u∗0 is sent to the system and the algorithm is repeated.
+         in case of disturbances that would make it deviate from the plan.
+                                                                                              In order to compute the tube radii ρ = (ρh , ρu ) from the state
+         The goal of the next section is to show how the main results
+                                                                                           and the input sensitivities Π and Θ, one must first determine the
+         of parametric optimization can be exploited to approximate the
+                                                                                           feedback gains F k|k of the MPC controller that describe how
+         control policy in the vicinity of the predicted trajectory, and how
+                                                                                           the solution of (24) varies w.r.t. changes in x̂k . This step is
+         this information can be leveraged to improve the robustness of
+                                                                                           not straightforward and the following Section III-B details the
+         the MPC controller against model uncertainties.
+                                                                                           proposed procedure for obtaining the term F k|k . Finally, Sec-
+                                                                                           tion III-C provides a detailed description of the final algorithm.
+                               III. PROPOSED APPROACH
+            The safety and performance of the closed-loop system (robot                    B. Computing the MPC Feedback Gains
+         + MPC controller) are subject to two main conditions: 1) the
+                                                                                              Consider QP problem (22) and denote its optimal solution as
+         ability of the MPC to find a feasible solution and remain feasible
+                                                                                           y ∗ = (Δw∗ , λ∗ , μ∗ ), collecting the primal and dual variables.
+         during motion; and 2) the satisfaction of the constraints in
+                                                                                           The MPC feedback gains are obtained by differentiating the
+         closed-loop, i.e., whether or not predicting satisfaction of a
+                                                                                           optimal solution y ∗ and extracting the components relative to the
+         constraint will result in its actual satisfaction during motion. As
+                                                                                           first input u∗0 . In fact, note how the whole optimization problem
+         previously discussed, a discrepancy between the real parameters
+                                                                                           can be seen as a function of the initial state x̂k and of the nominal
+         p of the robot and the nominal parameters pc used by the MPC
+                                                                                           model parameters pc . Under mild regularity assumptions [32],
+         controller can result in a divergence between the actual closed-
+                                                                                           [35], [45], one can compute the sensitivities as
+         loop trajectory and the one generated in the MPC prediction
+         phase. In general, the MPC will cope with this discrepancy by                                              ⎡ dx∗ ⎤      ⎡          ⎤
+                                                                                                                          i
+         searching for an alternative (but still feasible) optimal solution                         ∗
+                                                                                                                             P k+i|k             ∀i ∈ IN
+                                                                                                                                                       0
+                                                                                                dw (x̂k , pc ) ⎢ dx̂
+                                                                                                                  du∗0 ⎥
+                                                                                                                     k
+                                                                                                                           ⎢         ⎥
+         and satisfaction of the state/input constraints plays a crucial role                                 = ⎣ dx̂k ⎦ = ⎣ F k|k ⎦                               (25)
+                                                                                                   dx̂k              ∗                                   −1
+         in the determination of the feasibility of this MPC “corrective”                                         dui
+                                                                                                                             F k+i|k             ∀i ∈ IN
+                                                                                                                                                       1
+                                                                                                                  dx̂k
+         action.
+            The idea behind our approach is to use the closed-loop                         by applying the implicit function theorem (IFT) to the first-
+         sensitivity (and related quantities) to generate an appropriate                   order optimality conditions of the problem, and noting that by
+                                                                                                         ∗
+                                                                                                              dΔw∗
+         time-varying restriction of the constraints over the prediction                              dx̂k = dx̂k . More in detail, assume that the linear
+                                                                                           definition dw
+         horizon that can improve feasibility also in the presence of model                independence constraint qualification (LICQ), the second-order
+         uncertainties which could degrade the prediction ability of the                   sufficient conditions, and strict complementarity hold at the
+         MPC. This naturally introduces a possible tradeoff between                        solution y ∗ (we refer to [46] for definitions, and to [36] for
+         robustness and performance that will be discussed in the results                  a discussion on the role of these conditions and their possible
+         of Section IV.                                                                    relaxations). The optimal solution of (22) is characterized by the
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3046                                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+          Karush–Khun–Tucker (KKT) optimality conditions                                    inputs to approximate the future gains relative to the current
+                           ⎡                             ⎤                                  prediction horizon as
+                             HΔw∗ + c + E T λ∗ + GTA μ∗A
+                           ⎢                             ⎥                                                                    dui
+           R(y, x̂k )|y∗ = ⎣     EΔw∗ + η(x̂k )          ⎦ = 0 (26)                           F k+i|k+i ≃ F̃ k+i|k+i =            = F k+i|k P −1          N −1
+                                                                                                                                              k+i|k ∀i ∈ I1
+                                        ∗                                                                                     dxi
+                                  GA Δw + g A                                                                                                               (31)
+          where subscript A denotes the set of active inequality constraints                which represents the predicted gains at the optimal solution,
+          at the solution y ∗ . Under the conditions stated above, we can                   i.e., how a change in the predicted state xi would affect the
+          apply the IFT to (26) and differentiate with respect to x̂k to                    input ui at that time. These gains play a similar role to the
+          obtain                                                                            Riccati gains of a finite-horizon LQR and approximate well the
+                                d                                                           MPC receding horizon mechanism for short periods of time,
+                                  R(y(x̂k ), x̂k )|y∗ = 0
+                             dx̂k                                                           while larger approximation errors can occur at the end of the
+                                       ∂R dy     ∂R                                         horizon. Since the sensitivities computed w.r.t. the initial state
+                                               +       =0                          (27)     x̂k are updated at each iteration, the approximation error is in
+                                       ∂y dx̂k   ∂ x̂k
+                                                                                            practice minimal and, thus, the gains F̃ k+i|k+i in (31) provide
+          so that                                                                           an excellent replacement for F k+i|k+i with the advantage of
+                                                     −1                                   being computationally very efficient and suitable for real-time
+                                  dy             ∂R         ∂R
+                                      =−                          .                (28)     use.
+                                 dx̂k            ∂y         ∂ x̂k
+                                                                                                A detailed proof of (31) is provided in Appendix A. However,
+             Note that ∂R
+                       ∂y , being the Jacobian of the KKT conditions (26),                  a sketch is proposed here for the reader’s convenience. The IFT
+          is nothing else than the KKT matrix of the QP, i.e.,                              can be applied to the KKT conditions (26) using as explicit
+                                        ⎡                ⎤                                  variable any element xi of the state trajectory, from which it
+                                          H E T GTA                                         would be straightforward to compute the sensitivity F̃ k+i|k+i
+                                ∂R ⎢                     ⎥
+                         K∗ =        =⎣E         0     0 ⎦.           (29)                  with respect to that state similarly to (28). However, this requires
+                                ∂y
+                                          GA     0     0                                    inverting, for each i, a large matrix obtained by differentiating
+                                                                                            (26) with respect to the remaining implicit variables, which
+          A crucial point here is that this quantity is already available                   would make it computationally expensive. Instead, by noting
+          from the construction of the QP problem (22), having linearized                   that this matrix can be written as a rank-nx correction to matrix
+          around the solution guess (x̄, ū), by simply removing the rows                   K∗ (29), one can utilize the Woodbury matrix identity [47] for
+          of G relative to the inactive constraints. We also note that, in the              obtaining an efficient formula to compute F̃ k+i|k+i . Moreover,
+          general case, the inversion of the (large) matrix K∗ could have                   after some simplifications related to the structure of the problem,
+          a nonnegligible computational cost. However, this is not the                      it is possible to extract (31), making explicit the dependence on
+          case in our context thanks to its structured sparsity, which then                 the previously computed sensitivities.
+          allows to efficiently invert matrix K∗ and solve (27) by relying on                   Remark 3 (Active constraints selection): The MPC sensi-
+          efficient factorization and solution algorithms for sparse linear                 tivity (25) depends on the (strongly) active constraint set A
+          systems. Recalling (25), it is then trivial to extract the quantities             which characterizes which inequality constraints are affecting,
+                                F k|k , F k+i|k , and P k+i|k                      (30)     locally, the solution of the optimization problem y ∗ . In fact,
+                                                                                            the procedure essentially treats active inequality constraints as
+          from (28), which correspond to the sensitivities of the control                   equality constraints that have to be satisfied even when the
+          input u0 , of the predicted inputs, and of the predicted states                   solution is perturbed. Ultimately, we are interested in computing
+          w.r.t. x̂k .                                                                      the MPC gains, that is, how the current and future inputs might
+             We note, however, that the evaluation of the sensitivity (8)                   deviate from the optimal solution due to the perturbations of the
+          over the prediction horizon of the MPC requires the availability                  initial state. To do so, it is in general possible to trivially select all
+          of the controller gains F k|k over the whole future horizon, that is,             the active constraints at the solution by looking at the multipliers
+                                               −1
+          availability of F k+i|k+i ∀i ∈ IN  1    . These quantities represent              μ∗ . Being the future input constraints over the prediction horizon
+          the sensitivity of the future inputs uk+i with respect to a variation             restricted by the tubes, these can, in general, be active even if the
+          in the future state x̂k+i and they are unfortunately not directly                 input uk+i is not saturated to umax (or umin ) due to a tube radius
+          available from (30) that only provides the sensitivity of the                     ρuk+i > 0. On the other hand, as the MPC controller works with
+          full MPC solution with respect to the current state x̂k . At first                a receding horizon approach, the actual future input uk+i (i.e.,
+                                                            −1
+          glance, the computation of F k+i|k+i , i ∈ IN   1    would require                the first input of the solution of the problem at time tk+i ) will
+                                                 N −1
+          to solve (26)–(30) for each i ∈ I1 , which would quickly                          not experience this restriction and it will have to satisfy only
+          become computationally unfeasible in the typically short time                     the nominal input constraint. If all the future active constraints
+          available. To circumvent this problem, we instead employ an                       were selected in the MPC sensitivity (25) calculation, this would
+          approximation of the future gains exploiting the information                      result in gains that underestimate the system’s ability to respond
+          on the future inputs provided by the parametric sensitivity of                    to disturbances, producing larger and more conservative tubes.
+          the MPC. In fact, once the full MPC sensitivity (30) has been                     To avoid this, we select the active constraint set A by neglecting
+          obtained, one can utilize the sensitivity of the future states and                the input constraints which are only active with ρu > 0. All
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                        3047
+
+
+
+         the other constraints, e.g., state constraints to perform obstacle                 Algorithm 1: ST-MPC.
+         avoidance, are instead taken into account.
+             Remark 4 (KKT regularization): In some instances, although
+         the optimization problem is feasible, the KKT matrix might be
+         ill-conditioned or singular due to the LICQ condition not being
+         satisfied at the solution. Most solvers rely on regularization
+         techniques to still be able to produce a solution. In our case,
+         this is necessary for computing the MPC sensitivity. Therefore,
+         we employ a proximal regularization of the Lagrange multipliers
+         of the active inequality constraints [48], [49]. Recall the KKT
+         matrix K∗ (29) and note that by construction the block
+                                              
+                                      H ET
+                                       E     0
+                                                                                           L3-4 Prepare the QP for the next feedback phase, evaluating all
+         is assumed full rank. In order to regularize the matrix we apply                    the derivatives and residuals (21), but this time by including
+         a proximal regularization, obtaining the augmented Lagrangian                       the tubes.
+         LA (Δw, λ, μA ) = L(Δw, λ, μA ) − 2 μA − μ∗A 2Λ−1 , where                        L6-7 Given the current state x̂k , solve optimization problem (24)
+         Λ = diag(μ∗A ),  > 0, which results in a damping term in the                       by solving the associated RTI-QP (22) and send the control
+         bottom right block as                                                               action u∗ 0 to the robot.
+                                 ⎡                      ⎤                                  L8 Compute the tube radii ρ as in L2.
+                                   H ET           GTA                                      L9-10 Shift the solution one step in time and prepare the QP for
+                                 ⎢                      ⎥
+                        K∗reg = ⎣ E       0        0 ⎦.              (32)                    the next feedback phase.
+                                   GA     0 −Λ−1
+
+         In practice, this can be interpreted as a normalized constraint re-                    IV. APPLICATION TO QUADROTOR MOTION CONTROL
+         laxation that minimizes the Lagrange multipliers variation [50],                     In order to demonstrate the effectiveness of the proposed
+         ensuring that the KKT matrix is nonsingular so that the MPC                       ST-MPC algorithm, we present here a series of tests involving
+         gains (31) can be computed.                                                       the control of a quadrotor autonomous aerial vehicle subject to
+                                                                                           parametric uncertainty. Indeed, quadrotors are a very popular
+         C. ST-MPC Algorithm                                                               robotic platform capable of agile and/or aggressive maneuvers
+            With reference to Algorithm 1, we can now describe in detail                   but, at the same time, they are also typically subject to some
+         the various steps of the full ST-MPC scheme. First, we perform                    unavoidable degree of uncertainty in their dynamical model
+         an offline initialization of the controller and prepare the QP                    because of, e.g., complex aerodynamics (resulting in uncertain
+         for its next iteration (lines 1–4). While online (lines 6–10),                    drag/thrust coefficients), or uncertain location of the center
+         we divide the solution of the problem into two phases: 1) a                       of mass (CoM). Moreover, the full 3-D quadrotor dynamics
+         feedback phase (lines 6 and 7), in which the QP is solved when                    is highly nonlinear, which then contributes to showcasing the
+         the current state becomes available; and 2) a preparation phase                   applicability of our framework to nontrivial systems.
+         (lines 8–10), in which the tubes are computed and the QP for                         Formulation (24) is quite general and includes both in-
+         the next iteration at tk+1 is constructed on the basis of the                     put saturation constraints umin ≤ u ≤ umax and more generic
+         current solution guess (x̄, ū). Note that, while the feedback                    input/state constraints h(x, u) ≤ 0 with their corresponding
+         phase needs to be performed when the current state x̂k becomes                    tubes. However, in the following case studies we only consider
+         available, the preparation phase for the next iteration of the                    tubes on the input constraints since, in many instances, input
+         scheme at tk+1 does not require knowledge of next state x̂k+1 ,                   constraints are the main limiting factor for finding a feasible
+         and it can thus be performed just after having sent the input                     solution that also satisfies other task constraints. Indeed, in many
+         command to the system (line 7), reducing the control delay of the                 applications, presence of task constraints alone does not threaten
+         scheme [43].                                                                      the recursive feasibility of the MPC which, given “infinite” con-
+            In more detail, Algorithm 1 can be described line-by-line as                   trol authority, is virtually able to always find a feasible solution.
+         follows.                                                                          Also when only actuation limits are present, for instance when
+                                                                                           MPC is used as a reference tracking controller (as in the first of
+         L1 At the initial state x̂0 , start from a trivial initial guess (x̄, ū)         the following case studies), input constraints are still the ones
+           and ρ ≡ 0, and solve the problem to find a feasible solution                    ultimately determining the performance of the system during the
+           without considering the constraint restrictions from the tubes.                 most aggressive maneuvers (minimization of the tracking error
+         L2 Compute the sensitivity of MPC (28) and the future gains                       typically tends to increase the control effort which is limited by
+           using (31). Propagate the state and input sensitivities Π and                   the input constraints).
+           Θ via (8) and (9), and compute the evolution of the tube radii                     Note also that, even if we opted for directly controlling
+           ρ over the predicted trajectory using (19).                                     the speed of each rotor within the MPC controller (requiring
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3048                                                                                                           IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+          high-frequency feedback), our framework could easily accom-                                                     TABLE II
+                                                                                                             NOMINAL QUADROTOR MODEL PARAMETERS
+          modate the presence of any low-level controller, treating the
+          MPC more as a high-level planner. This would be obtained by
+          including the controller dynamics in the sensitivity computation
+          as already done in [8].
+             The rest of this section is structured as follows: in Sec-
+          tion IV-A, we present the employed model of a 3-D quadrotor
+          with shifted CoM. Then, in Section IV-B, we describe the
+          two test scenarios: 1) tracking of aggressive trajectories; and
+          2) navigation through a narrow aperture, and we discuss the
+          associated ST-MPC formulation. For each scenario, we per-
+          formed a comparative statistical analysis (Sections IV-D1 and
+          IV-D2). In the first scenario, where only input constraints are
+          present, we highlight how the proposed ST-MPC enhances the
+          accuracy by reducing unwanted input saturations. In the second                    denoted as g C = (gx , gy , gz ) in F B . With these settings, in the
+          scenario, we (purposely) introduce a strict positional constraint                 subsequent derivations, the set of parameters that are supposed
+          that significantly limits the robot’s motion. This constraint can                 to be uncertain is p = (gx , gy , gz , mp ) ∈ R4 . This is motivated
+          cause failures due to input saturations if uncertainties are not                  by a series of empirical results and previous works on this topic,
+          properly accounted for. By using ST-MPC we then show how our                      such as [2], [3], [5], and [8], which highlighted how uncertainties
+          approach enhances the controller feasibility, thereby increasing                  in these parameters are, in practice, the most important ones in
+          the overall success rate. In Section IV-E, we report the results of               affecting the closed-loop performance of a drone, as opposed to,
+          several experiments obtained while tracking aggressive trajecto-                  for instance, the thrust coefficients.5
+          ries with the proposed method. Finally, in Section IV-F, we study                    From [51], the total force f tot acting on the quadrotor in F B
+          the computational complexity of the algorithm when applied to                     includes the propeller total thrust f , gravitational effects, and an
+          this problem and discuss some implementation details.                             additional fictitious force due to the displaced g C
+                                                                                                      f tot = f z W − mgR(q)T z W − m[ω]× [ω]× g C
+          A. Quadrotor Model
+             We consider a 3-D quadrotor model with displaced CoM [51].                     where R(q) ∈ SO(3) is the rotation matrix associated to the
+          Let F W = {O W , xW , y W , z W } denote the world inertial frame,                quaternion q. For the total torque τ tot (expressed in F B ), one
+          and F B = {O B , xB , y B , z B } represent the body frame attached               has
+          to the quadrotor geometric center. We define: r = (x, y, z) ∈ R3                               τ tot = τ − mg[gC ]× R(q)T z W − [ω]× Jω
+          as the drone position in F W , v = (vx , vy , vz ) ∈ R3 as its lin-
+          ear velocity in F W , q = (qw , qx , qy , qz ) ∈ S3 as the unit-norm              where τ represents the propeller torque from (33). Premultiply-
+          quaternion representing the orientation of F B relative to F W ,                  ing by the inverse spatial inertia matrix one can finally obtain
+          and ω = (ωx , ωy , ωz ) ∈ R3 as the angular velocity of F B with                  the robot accelerations
+                                                                                                                                   −1  
+          respect to F W , expressed in F B . The quadrotor state vector is
+                                                                                                         ν        mI 3      −m[gC ]×        f tot
+          then x = (r, v, q, ω) ∈ R6 × S3 × R3 .                                                             =
+             Let wi be the angular speed of the ith propeller and define                                α        m[gC ]×        J           τ tot
+          the quadrotor control input as u = (w12 , . . . , w42 ). An allocation            from which the quadrotor dynamic model with a displaced CoM
+          matrix T is used to relate the inputs u to the thrust/torques (f, τ )             can be obtained as
+          in body frame                                                                                                   ⎧
+                                                                                                                        ⎪
+                                                                                                                          ⎪ ṙ = v
+                                                                                                                          ⎪
+                                                                                                                          ⎪
+                                 f                                                                                        ⎨v̇ = R(q)ν(x,
+                                                                                                                          ⎪              u, p)
+                                      = T (l, kf , km )u                    (33)
+                                 τ                                                                   ẋ = f c (x, u, p) =                0           (34)
+                                                                                                                          ⎪
+                                                                                                                          ⎪ q̇ = 12 q ⊗
+                                                                                                                          ⎪
+                                                                                                                          ⎪              ω
+          where T is a function of the length of the quadrotor arms l                                                     ⎪
+                                                                                                                          ⎩
+                                                                                                                            ω̇ = α(x, u, p).
+          (specifically of the propellers’ positions in the body frame) and
+          of the thrust and the drag aerodynamic coefficients of the pro-                      The continuous-time dynamics (34) is then discretized using
+          pellers kf and km [51], [52]. We assume that a payload of mass                    a fixed-step fourth-order Runge–Kutta integration to obtain the
+          mp is attached to the quadrotor with mass mr at a position dp =                   discrete-time model. All nominal parameters are reported in
+          (0, 0, dz ) in F B , with the total mass then being m = mr + mp .                 Table II.6
+          We denote with J = diag(Ixx + mp d2z , Iyy + mp d2z , Izz ) ∈
+          R3×3 the quadrotor body frame inertia matrix about the geo-                         5 Note that the sensitivity w.r.t. the considered parameters is at least one order
+
+          metric center O B , and with Ixx , Iyy , Izz the principal moments                of magnitude higher than the other ones, also taking into account the typical
+          of inertia along the x, y, z axes of the robot body frame, re-                    expected parameter deviation.
+                                                                                              6 For the simulation, these follow the 3DR Iris drone parameters reported in
+          spectively. We finally consider that the quadrotor CoM GB                         the PX4 Gazebo package. [Online]. Available: https://github.com/PX4/PX4-
+          is displaced w.r.t. the geometric center O B by a displacement                    SITL_gazebo-classic
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                        3049
+
+
+
+                                        TABLE III
+                          MPC SETTINGS FOR TRAJECTORY TRACKING
+
+
+
+
+                                                                                           Fig. 3. Stroboscopic view of the quadrotor reaching the desired target (red)
+                                                                                           while passing through the aperture (safe region in light blue) with nominal
+         B. Test Scenarios                                                                 parameters.
+
+            We now describe the two case studies.
+            1) Tracking of Aggressive Trajectories: The first task, il-                                                   TABLE IV
+         lustrated in Fig. 1, consists of tracking a trajectory defined                                          MPC SETTINGS FOR REGULATION
+         by a series of waypoints Wd ∈ R3 , assumed to be generated
+         by an external planner guiding the quadrotor through the en-
+         vironment. The desired trajectory is obtained by linear inter-
+         polation of the waypoints with constant velocity, resulting in
+         a position and velocity trajectory (r d (t), ṙ d (t)). As for the
+         orientation (yaw) we consider two possibilities: 1) keeping a
+         constant yaw angle with a desired orientation q d (t) ≡ q 0 =
+         (1, 0, 0, 0); or 2) keeping the yaw direction of the quadrotor
+         always pointing toward the upcoming waypoint, i.e., by setting
+         ψd (t) = atan2(ẏd (t), ẋd (t)) which results in a desired orienta-
+         tion q d (t) = (cos(ψd (t)/2), 0, 0, sin(ψd (t)/2)). This latter pos-
+         sibility is meant to increase the actuation effort during tracking
+         and, therefore, the chances of incurring in actuation saturation.                 the robot that is activated when the horizontal position (x, y) is
+            By construction, these trajectories have discontinuous Carte-                  inside the aperture.
+         sian velocities—due to the linear interpolation between the                          The cost function of the MPC problem is designed to make
+         waypoints that are not continuous—and are thus not initially                      the system generate the required motion autonomously based
+         dynamically feasible. As typical in these cases, we rely on the                   only on the desired final state xd = (r sp , 03 , q 0 , 03 ) and the
+         MPC scheme for generating online a feasible motion that tracks                    hovering input uh as available information. Again, the running
+         at best the various trajectory segments. This is obtained by de-                  cost takes the form (x, u) = x + u , N (x) = 10 x with
+         signing the cost function of the MPC controller to minimize the
+                                                                                               x = r − r sp 2Qr+ v 2Qv+ q − q 0 2Qq+ ω 2Qω                       (36a)
+         position, velocity, and orientation tracking errors together with
+         a regularization term on the angular velocity ω for smoothing,                       u = u − uh 2Qu .                                                   (36b)
+         and with a feedforward input equal to the nominal hovering
+         condition uh = 4k   mg
+                                 f
+                                   14 . Letting the desired state and input be             The weights used in all the experiments of this scenario as well
+         xd (t) = (r d (t), ṙ d (t), q d (t), 03 ) and ud (t) = uh , the running          as the common MPC settings are reported in Table IV.
+         cost then takes the form (x, u) = x + u , N (x) = x with                        In order to avoid collisions with the environment, we design
+                                                                                           task constraints that limit the position of the quadrotor when
+             x = r − r d 2Qr+ v − ṙ d 2Qv+ q − q d 2Qq+ ω 2Qω ,
+                                                                                           passing through the aperture. Let Afp ⊂ R2 be the (x, y) pro-
+                                                                                (35a)      jection of the aperture on the ground, hz the z coordinate of the
+                                                                                           center of the aperture, and az > 0 the maximum deviation that
+             u = u − uh 2Qu .                                                  (35b)      the center of the robot can safely sustain from hz . Moreover, let
+                                                                                           the task constraint function be
+         The weights used in all the experiments of this scenario as well
+                                                                                                                    
+         as the standard MPC settings are reported in Table III.                                                      z − hz if (x, y) ∈ Afp
+            2) Passing Through a Narrow Aperture: In the second sce-                                      ha (x) =
+                                                                                                                      0        otherwise.
+         nario, illustrated in Fig. 3, the robot is tasked with reaching
+         a position goal r sp ∈ R3 placed on the opposite side of an                       Then, the double-sided constraint
+         aperture while avoiding collisions with the aperture lower and
+         upper sides. This is encoded as a constraint on the z-position of                                    −az ≤ ha (xi ) ≤ az ∀i ∈ IN
+                                                                                                                                        1                          (37)
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3050                                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+          expressed in a form compatible with (24)                                          provide an additional baseline for comparison in the second test
+                                                                                          scenario, where accounting for the positional constraint proves
+                                          ha (xi+1 ) − az
+                         h(xi , ui ) =                                             (38)     to be essential to obtain the maximum performance. On the other
+                                         −ha (xi+1 ) − az
+                                                                                            hand, since the ST-MPC-LQR variant is essentially equivalent
+          is able to encode the desired collision avoidance behavior.                       to ST-MPC when only input constraints are present, we ignore
+                                                                                            it for comparison in the first test scenario.
+          C. Application of ST-MPC and Comparison With Alternative                              In addition to the aforementioned standard nonrobust MPC
+          Methods                                                                           controller, we also performed a comparison against zoRO [26],
+                                                                                            [27], [28], another state-of-the-art robust MPC algorithm. Sim-
+             We apply the proposed ST-MPC to the two abovementioned                         ilarly to our approach, these works propose an approximate
+          test scenarios following the procedure detailed in Section III-C.                 solution to robust OCPs based on ellipsoidal uncertainty sets that
+          For the second scenario, where state constraint (37) is present,                  are propagated around the initial guess, yielding fixed backoff
+          we neglect the associated tube by setting ρh = 0, as explained at                 terms in the constraints. The main difference with our work lies
+          the beginning of the section. Indeed, (37) is a stringent positional              in the uncertainty propagation and in how the uncertainty itself
+          constraint that has to be active while the quadrotor is passing                   is modeled. In fact, the zoRO MPC problem takes the same form
+          through the aperture. Since the tubes are fixed at each iteration                 as in (39) but with the equivalent of our tube radius computed
+          of the algorithm, introducing an additional restriction might                     (in the case of input constraints, for instance) as
+          be counterproductive and actually lead to infeasibility, as the
+          MPC has no direct way of reducing the tube cross section to                                              ρu
+                                                                                                                    j,k =      eTj KΣk K T ej
+          clear the aperture. On the other hand, the input tubes radii ρu
+          will still account for the constraint being active, providing a                   instead of (19), with
+          sufficient level of robustness as demonstrated by the results in
+          Section IV-D2.                                                                     Σk+1 = (Ak + B k K)Σk (Ak + B k K)T + N k , Σ0 = 0
+             The controller is then obtained as the solution of the following                                                                            (40)
+          OCP:                                                                              where K is a precomputed feedback gain matrix and N k a
+             ⎧        N −1                                                                 positive-definite additive noise covariance-like matrix.
+             ⎪
+             ⎪  min      i=0 (xi , ui ) + N (xN )
+             ⎪
+             ⎪   u                                                                              In order to perform a fair comparison and at the same time
+             ⎪
+             ⎨s.t. x0 = x̂k                                                                 try to replicate a suitable implementation of zoRO, we have
+                                                                    −1
+             ⎪        xi+1 = f (xi , ui , pc )              ∀i ∈ IN
+                                                                  0
+                                                                          (39)              chosen as gain matrix K the equivalent MPC gain F 0|0 of our
+             ⎪
+             ⎪        h(xi , ui ) ≤ 0                             N −1
+                                                            ∀i ∈ I0
+             ⎪
+             ⎪                                                                              MPC controller computed while regulating around the hover-
+             ⎩                                                      −1
+                      umin + ρu  i ≤ ui ≤ umax − ρi
+                                                       u
+                                                            ∀i ∈ IN
+                                                                  0                         ing condition (to mimic an LQR controller), and we have set
+                                                                                            N k = M k W M Tk to consider a structured uncertainty as close
+          with the cost function being either (35) or (36), the quadrotor
+                                                                                            as possible to the one introduced by the parameter perturbations.
+          dynamic model discretized from (34), the task constraint (38)
+                                                                                            It should be noted that the performance of zoRO can certainly be
+          for the second scenario, and the input saturation constraints for
+                                                                                            affected (positively or negatively) by these user-defined design
+          both scenarios.
+                                                                                            parameters: this is, in our opinion, another disadvantage when
+             For each scenario, we performed a comparative analysis of
+                                                                                            compared to our proposed method for which the selection of
+          the performance between the proposed ST-MPC and a standard
+                                                                                            similar quantities is automatic or guided by physical considera-
+          (nonrobust) MPC controller denoted in the following as standard
+                                                                                            tions (e.g., range of variation of model parameters).
+          MPC, obtained by neglecting the input tubes (i.e., by setting
+          ρui = 0). This is meant to highlight the benefits of consider-
+                                                                                            D. Simulation Results
+          ing the additional constraint restrictions from the tubes on the
+          performance and safety of the system.                                                We now present some statistical results to illustrate how the in-
+             Moreover, we are also interested in showing how the use of                     troduction of the input tubes improves the tracking performance,
+          the full sensitivity analysis of the KKT conditions described in                  the feasibility, and thus the safety of the system. The simulations
+          Section III-B—which accounts for the presence of active state                     have been performed by integrating numerically the quadrotor
+          constraints—is crucial for the success of the ST-MPC scheme.                      dynamics (34) with various combinations of the parameters p
+          In fact, one might wonder whether the use of an unconstrained                     and the controller running at 50 Hz.
+          approximation of the feedback action of the controller, similar                      The accompanying video provides a visualization of the var-
+          to applying a prestabilizing action like the methods using an                     ious simulations.
+          unconstrained ancillary controller (Section I), could already                        1) Tracking of Aggressive Trajectories: Two trajectories, de-
+          provide enough information to compute the tubes. We then build                    noted as A and B in Fig. 4 and Table V and having an average
+          such an approximation by neglecting all the active inequality                     speed of circa 1 and 1.5 m/s, respectively, have been tracked
+          constraints in the KKT conditions (26) and by computing the                       repeatedly by selecting 450 parameter perturbations Δp ∈ P
+          feedback gains (31) from this reduced system. In analogy to the                   [see (11)] in a grid, with Δpmax = (0.04, 0.04, 0.02, 0.1), and
+          iLQR, which yields similar gains over the prediction horizon,                     by employing either the ST-MPC (with input tubes), the standard
+          we then denote this variant as ST-MPC-LQR. We stress that                         MPC (without input tubes), or the zoRO controllers. Note that
+          this ST-MPC-LQR variant is introduced only as a mean to                           some of the parameter deviations generated in P will lie outside
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                             3051
+
+
+
+
+         Fig. 4. Spread of trajectories obtained for different parameter perturbations while tracking the desired trajectory (with and without yaw). Note how the proposed
+         ST-MPC method (blue) yields a tighter spread than a standard MPC controller (red). Trajectories for zoRO are not included for the sake of legibility (since they
+         would appear in-between nonrobust MPC and ST-MPC), but synthetic results can be found in Table V and Fig. 6.
+
+                                                                             TABLE V
+                                            POSITION ERROR AND COST FUNCTION WHILE TRACKING DISCONTINUOUS TRAJECTORIES
+
+
+
+
+         the corresponding ellipsoid Ep . Therefore, the effect of their per-              case “B” deviations are sustained over the entirety of the tra-
+         turbation on the closed-loop trajectory could be underestimated                   jectory. As expected, when saturations are not involved in the
+         by the input tubes (which assume a parametric uncertainty lying                   motion generation, ST-MPC and MPC have a similar behavior
+         in Ep ). This does not constitute an issue in this tracking task                  in the proposed scenario.
+         where only the tracking error is affected by the uncertainty, but                     Fig. 5 shows an example of the resulting input trajectory for a
+         it will have an impact in the second test scenario which also                     particular parameter deviation Δp = (0.02, −0.02, 0.0, 0.05).
+         involves the feasibility of the motion (Section IV-D2).                           Note how, after the first instants, the standard MPC saturates
+            For each trajectory, we further consider the case where the                    three out of the four control inputs, resulting in a large devia-
+         desired yaw is kept constant ψd (t) = 0 (cases “A” and “B” in                     tion from the nominal trajectory, measured with the Cartesian
+         Fig. 4 and Table V) and where the yaw has to track a desired                      position error er = r − r nom , with r nom being the trajectory7
+         trajectory ψd (t) = atan2(ẏ d (t), ẋd (t)) (cases “A-yaw” and “B-               obtained by performing the simulation with p = pc . On the other
+         yaw” in Fig. 4 and Table V).                                                      hand, ST-MPC minimizes the deviation while still being able to
+            Fig. 4 visually depicts how, in particular for the case “A,”                   utilize the full actuation capabilities. This is also due to the fact
+         the spread of trajectories obtained with ST-MPC remains much                      that the input tube ρu is by construction zero for the first input
+         closer around the nominal behavior, while the standard MPC                        u0 of the predicted trajectory. In fact, the tubes which encode the
+         produces much larger deviations during more aggressive turns.                     uncertainty over the time horizon t ∈ [tk , tk+N ] starting from
+         This result is due to the input saturations that affect the quadrotor             the current state x̂k are always recomputed around the current
+         because of the modeling errors: thanks to the input tubes, these                  predicted trajectory (x̄, ū): since the state sensitivity Π0 of the
+         are much better accounted for by ST-MPC which is able to                          predicted trajectory is always zero at tk , it follows that ρu0 =0
+         generate a feasible trajectory more robust to model uncertainties                 as well. Therefore, for what concerns the first input u0 at time
+         while, on the other hand, the standard MPC lacks this inher-                      tk , the input constraint always reduces to umin ≤ u0 ≤ umax .
+         ent robustness and ultimately deviates more from the nominal
+         trajectory. Comparing the two trajectories, for the case “A” the
+         deviation is mostly localized in the first part of the trajectory,                   7 Note that, due to the receding-horizon nature of MPC, in general, this nominal
+         where input saturations are concentrated, while for the faster                    trajectory differs from the nominal predicted trajectory x̄.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3052                                                                                                            IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+
+                                                                                             Fig. 6. Evolution of the mean and the standard deviation (shaded) of the
+                                                                                             position deviation er from the nominal trajectory over the 450 perturbed
+                                                                                             simulations for the four tested trajectories. Note how the proposed method
+                                                                                             achieves a smaller deviation in all cases.
+
+          Fig. 5. Commanded propeller speeds (top) and norm of the deviation from
+          the nominal trajectory (bottom) while tracking trajectory A with Δp =              Table V how the RMSE for the tracking of the desired position
+          (0.02, −0.02, 0.0, 0.05). Dashed grey lines indicate the rotor speed limits.       r d in the nominal (unperturbed) case is larger for ST-MPC:
+          Note how even with the input restriction introduced by the tubes, ST-MPC fully
+          utilizes the actuation capabilities of the drone. See the accompanying video for   this is expected and due to the tradeoff between performance
+          an animation including the predicted trajectory and tubes.                         and robustness introduced by the constraint restriction. Still, the
+                                                                                             overall performance in any nonnominal (real world) case is in
+                                                                                             clear favor of ST-MPC.
+             Quantitative results can be found in Table V, where we also                        2) Passing Through a Narrow Aperture: For this scenario,
+          report the cumulative state and input costs over the trajectories.                 we performed repeated tests with 450 parameter perturbations
+          In all cases, the root mean square error (RMSE) deviation with                     Δp ∈ P in a grid with Δpmax = (0.02, 0.02, 0.01, 0.1). As the
+          respect to the nominal trajectory r nom is smaller in mean and                     parameter variations make the system deviate from the predicted
+          standard deviation for ST-MPC. Similarly, the maximum devia-                       trajectory, the MPC will have to progressively compensate to
+          tion is about 2–6 times larger for the standard MPC, confirming                    satisfy—at least in its prediction—the safety constraint. Since
+          the better performances of ST-MPC. Finally, the reduced spread                     the system possesses limited control authority at any given
+          of trajectories is translated into a smaller standard deviation of                 time, the unforeseen deviation from the plan might lead it to
+          the state cost. The reduction in control saturation shown in Fig. 5                enter states from which no feasible solution exists, even for
+          is reflected in the input cost, which is always lower for ST-MPC.                  the nominal prediction model. This emerges as the main cause
+          The additional propeller speeds required to track a time-varying                   of failure for the controller, which has no recursive feasibility
+          yaw angle (A-yaw, B-yaw) can indeed lead to an increase in the                     guarantee [53]. We therefore assess the effectiveness of the
+          control effort (input cost). However, we find that this additional                 proposed method using two metrics as follows.
+          effort is not always accompanied by an increase in the maximum                        1) The success rate, defined as the percentage of tests in
+          deviation, likely due to some particular correlation between the                          which the quadrotor is able to safely reach the goal with
+          shape of the trajectory and the occurrence of the maximum                                 no collision.8
+          deviation point in different instances for the two methods. Sim-                      2) The time tp at which the quadrotor has completely passed
+          ilar considerations can also be drawn by analyzing Fig. 6 that                            the aperture, in order to measure the possible motion
+          reports the evolution over time of the deviation from the nominal                         conservativeness introduced by adding the tube radii re-
+          trajectory er . Looking at Fig. 6, it is clear how the standard                           striction on the input constraints. Here, we consider only
+          MPC experiences larger deviations in all cases and during the                             simulations that are successful for both the Robust MPC
+          whole motion. While zoRO offers an advantage compared to the                              (ST-MPC, ST-MPC-LQR, or zoRO, alternatively) and the
+          nominal MPC (as expected), it does not match the performance                              standard MPC.9
+          of our method. This is due to the two different uncertainty
+          propagations—(8)–(9) for ST-MPC and (40) for ZoRO. The                                8 We consider as failed any test in which either the closed-loop trajectory does
+
+          tubes computed in ZoRO can be smaller (in radius) given the                        not satisfy the constraints or the MPC problem becomes infeasible.
+                                                                                                9 This choice, aimed at performing a one-to-one comparison between the
+          same range of model uncertainty, because of the assumption of
+                                                                                             methods, has been found to be slightly pejorative for the Robust MPC, due
+          the disturbance trajectory lying in a high-dimensional ellipsoid                   to the exclusion of many data points in which it succeeds while standard MPC
+          (cf. [26, Remark 2]). Finally, we note from the fifth column of                    does not.
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                        3053
+
+
+
+                                                                              TABLE VI
+                                                     SUCCESS RATE AND TIME REQUIRED TO PASS THROUGH THE APERTURE
+
+
+
+
+            To analyze the results, we distinguish between two different                   also shows that approximation (14) used for deriving the tubes
+         subsets of parameters: 1) Pie when Δp is inside of the ellipsoid                  is, in fact, not too conservative since the effect of parameter
+         Ep ; and 2) Pnie when it is outside. Moreover, we denote as                       deviations lying outside ellipsoid (12) is (correctly) not captured
+         Pnie,nbs the subset of Pnie in which at least one of the two                      by the tubes.
+         controllers fails. The reason for introducing this distinction is                    Increasing the control horizon N from 25 to 35 leads to a
+         that, in some instances, even a large parameter variation lying                   marginal increase in the success rate for both ST-MPC and
+         outside the ellipsoid could result in a motion for which the task                 the standard MPC. However, while ST-MPC reaches almost
+         is only slightly affected by the disturbance. These favorable                     100% success rate, the standard MPC is limited to less than
+         configurations result in both controllers completing the task but                 60%, indicating that the longer control horizon is not the main
+         are not necessarily indicative of the effect of the input tubes on                factor for substantially improving the recursive feasibility of the
+         the success rate.                                                                 system. Similarly, the increase of the velocity weight Qv from
+            The MPC design is based on nominal performance, i.e., the                      2 · 10−2 to 5 · 10−2 does not provide significant improvements,
+         tuning of the cost function weights is performed by trial and error               although it would intuitively yield slower and more conservative
+         simulating the nominal system dynamics. Also, the choice of the                   trajectories (as confirmed by the statistics on tp ), and thus
+         control horizon N naturally affects the performance and feasi-                    appear as an almost obvious means to improve safety. In all
+         bility even in the nominal case, although it is typically restricted              cases, while zoRO improves over the nonrobust MPC, it is not
+         by the real-time requirements of the platform. Nonetheless, it is                 able to match the performance of ST-MPC due to its different
+         interesting to analyze the increase (or lack thereof) in robustness               uncertainty propagation that does not capture as well the effects
+         related to changes in these settings, as they can greatly affect both             of parametric uncertainties of the model.
+         the nominal and the perturbed behaviors of the system. To this                       Concerning the performance in terms of speed and agility, we
+         end, Table VI reports statistics on the success rates and times tp                evaluate the time tp at which the quadrotor clears the aperture,
+         with different settings for the velocity weight Qv = Qv I 3 and                   independently of the fact that the parameter variation is inside
+         the control horizon N . Four different methods are compared:                      the ellipsoid or not. Although ST-MPC does indeed generate
+         1) ST-MPC, i.e., the proposed method, 2) a standard MPC, 3)                       a slightly more conservative motion with a ∼ 6% increase
+         ST-MPC-LQR, which is obtained, as explained, by neglecting all                    (at most) in the average tp , this is met with an important
+         constraints in the MPC gains computation, and 4) zoRO, which                      improvement in the success rate, as already discussed. Moreover,
+         uses an alternative tube radius and uncertainty propagation.                      we note how for at least one setting (N = 25, Qv = 2 · 10−2 )
+            From the analysis of Table VI, we can appreciate how the                       ST-MPC has a performance comparable to that of the standard
+         introduction of the input tubes in ST-MPC is always followed                      MPC while still providing more safety.
+         by a significant improvement in robustness. In fact, the success                     Lastly, the direct comparison between ST-MPC and its sim-
+         rate increases from the 60–70% range for the standard MPC                         plified variant ST-MPC-LQR shows how, for N = 25, the latter
+         to 90–100% for our approach when the parameter deviation                          is not able to perform as well as ST-MPC with a total success
+         is in Ep (case Pie ). Moreover, when the parameter deviation                      rate reduced by 10% in all instances and with a 15% reduction
+         falls outside the ellipsoid (cases Pnie and Pnie,nbs ), all methods               in the success rate for Pie in the Qv = 2 · 10−2 setting. This is
+         experience a lower success rate, confirming that the satisfaction                 expected since ST-MPC-LQR does not account for the active
+         of the ellipsoid condition is important for the task success. This                obstacle avoidance constraints (37) when computing the MPC
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3054                                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+
+          Fig. 7. Quadrotor used in the experiments, with and without the payload.
+          During each experiment, the position of the payload was changed to perturb the
+          physical parameters of the robot.
+
+
+          gains, which does not allow to correctly capture the behavior
+          of the MPC in the presence of active constraints. For N = 35,
+          the performance of ST-MPC-LQR almost matches that of ST-
+                                                                                            Fig. 8. Norm of the standard deviation of the quadrotor position over multiple
+          MPC, which is expected thanks to the naturally larger tubes                       experiments with different perturbations applied to the robot.
+          resulting from the longer horizon. Still, this comes at the cost
+          of an increased computation time with respect to, for instance,
+          ST-MPC with N = 25 and Qv = 5 · 10−2 . These results then                         which each experiment can be compared. We instead tested
+          further motivate the use of the proposed ST-MPC scheme.                           for a given perturbation both the proposed method and the
+             In conclusion, it is clear how the proposed method can provide                 standard MPC controller and analyzed the standard deviation of
+          a substantial improvement on the safety of the system with                        the robot position over time w.r.t. the average of the various runs.
+          parameter uncertainty, which can be traded for a reduction in                     This allows us to compare the repeatability of the motion pro-
+          performance (in terms of speed to execute the task), while                        duced by ST-MPC versus the standard MPC over the perturbed
+          standard ways of robustifying the MPC, such as tuning the cost                    runs.
+          function or increasing the control horizon, are not able to yield                    We performed 12 different experiments while tracking a
+          the same results.                                                                 trajectory with an average speed of circa 2 m/s (case C-yaw).
+                                                                                            At each time instant, we evaluate the norm of the standard
+          E. Experimental Validation                                                        deviation of the position components of the resulting trajectories,
+             The proposed approach has also been validated experimen-                       i.e., σr (t) = σx2 (t) + σy2 (t) + σz2 (t). Results are reported in
+          tally on a quadrotor performing the aggressive trajectory track-                  Fig. 8 (top), highlighting how ST-MPC can provide an over-
+          ing task. The goal was to demonstrate the practical feasibility and               all safer and more repeatable behavior with smaller deviation
+          computational efficiency of the algorithm (which is completely                    over different perturbations, confirming the numerical results of
+          run on the onboard hardware) and also assess how the numerical                    Section IV-D1.
+          results would translate to real scenarios. Clips from the experi-                    Five additional experiments on a similar but more aggressive
+          ments and animations are available in the accompanying video.                     trajectory with an average speed of circa 2.5 m/s (case D-yaw)
+             The employed quadrotor, shown in Fig. 7, is based on                           have also been conducted. In this case, in one instance of the
+          the MikroKopter platform and runs custom firmware to allow                        perturbation, the robot has crashed when controlled with the
+          closed-loop rotor speed control. The MPC controller is fully                      standard MPC, which has become unstable after incurring severe
+          executed onboard on an Intel NUC (i7-1360P CPU) at 100 Hz                         input saturation, as shown in Fig. 9. On the other hand, with the
+          and makes use of the Telekyb3 framework to interface with the                     exact same perturbation, ST-MPC has been able to safely execute
+          hardware. An unscented Kalman filter implemented in Telekyb3                      the motion. Finally, note how in this more aggressive scenario
+          is used to fuse the IMU measurements and the motion capture                       the maximum standard deviation increases to more than 15 cm
+          position feedback to obtain an estimate of the state x̂k . The                    for the standard MPC, while remaining under 9 cm for ST-MPC,
+          same implementation used in simulation has been employed                          see Fig. 8 (bottom).
+          in the experiments, commanding rotor speeds without a lower                          While the reported experiments only consider the trajectory
+          level controller, with only minor differences in parameters and                   tracking scenario, we expect an analogous higher repeatability
+          in the hardware interface. All parameters and MPC settings are                    of ST-MPC to also apply to the success rate in performing tasks
+          reported in Tables II and III.                                                    like dynamic obstacle avoidance and passing through a narrow
+             Parameter deviations are applied to the robot by physically                    gap, in line with the numerical results of Section IV-D2.
+          attaching a payload of mass mp = 0.236 kg to the bottom
+          plate and landers at different places for each run in order
+          to perturb the total mass, inertia, and position of the CoM                       F. Implementation Details and Computational Complexity
+          along the three axes (see Fig. 7). Note that, contrarily to the                     The proposed method has been implemented in C++ by mak-
+          simulation case, the real parameters of the robot are unknown                     ing use of the autodiff library [54] for automatic differentiation
+          and therefore there does not exist a nominal behavior against                     (AD) and the ProxQP sparse solver [55]. To solve linear system
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                              3055
+
+
+
+
+                                                                                             Fig. 10. CPU time of feedback and preparation phases for different control
+                                                                                             horizon lengths, represented as a box plot (whiskers include the 90th percentile).
+
+
+
+
+         Fig. 9. Commanded propeller speeds during the experiment in which MPC                  Finally, one could further improve the current sensitivity
+         resulted in a crash. Note the saturations and induced oscillations in the control   computation by more tightly integrating it with the QP solver
+         signal.                                                                             for reusing the KKT factorization performed by the solver itself
+                                                                                             or by using differentiable QP solvers [56]. In addition, it could
+         (27) yielding (28), we employ Eigen’s linear solver to perform                      be possible to exploit the structure of the OCP to compute the
+         a sparse LU factorization. Considering the most demanding                           MPC gains more efficiently by adapting, for instance, the work
+         scenario (passing through the aperture) with N = 25, one it-                        proposed in [39] or [57]. The sensitivity propagation can, on
+         eration of the algorithm runs in real time at more than 50 Hz                       the other hand, reuse the derivatives of the dynamics that have
+         (δt = 0.02 s) on an Intel Core i7-13700H laptop CPU, with                           been computed to prepare the QP. Compared to the current
+         the MPC gains and tubes computation only requiring 3–4 ms,                          implementation based on AD, significant gains in the com-
+         compared to the 1–10 ms to solve the QP during the feedback                         putation of the derivatives of the dynamics could be expected
+         phase. Being the structure of the OCP and the number of de-                         by exploiting analytical derivatives computed from libraries,
+         cision variables and constraints the same, the only additional                      such as Pinocchio [58], particularly if more complex articulated
+         computational cost of ST-MPC compared to the standard MPC                           robots are considered.
+         is due to the computation of the tubes. In the experiments, the
+         controller is able to run at 100 Hz on the onboard computer.
+                                                                                                                           V. CONCLUSION
+         Fig. 10 reports CPU times for the different phases of the MPC
+         iteration for different control horizon lengths N . Specifically,                      In this article, we have proposed an efficient robust MPC
+         it can be seen how the preparation phase time, including the                        algorithm, denoted ST-MPC, for robots affected by parametric
+         tubes’ computation for ST-MPC, grows linearly with the horizon                      uncertainties, and showed its effectiveness in improving the
+         length thanks to the use of sparsity exploiting solvers. Since the                  tracking performance and the success rate during navigation in
+         QP has the same number of constraints and decision variables                        a tight environment. By leveraging the notion of closed-loop
+         as a standard MPC, the impact of the additional computations                        sensitivity and ellipsoidal tubes for enveloping the perturbed
+         in ST-MPC is practically negligible. Therefore, if a standard                       trajectories, we were able to introduce a time-varying restriction
+         MPC is amenable to real-time implementation, its ST-MPC                             on the input constraints to make, at each instant, the MPC
+         version (with the constraint restrictions from the tubes) will also                 controller aware of the possible additional input requirements
+         typically be implementable in real time. This is, in our opinion,                   needed to cope with parametric uncertainties. The resulting
+         a major strength of the proposed approach: ST-MPC represents                        ST-MPC has the same computational complexity as a standard
+         a viable alternative to MPC schemes with an added inherent                          MPC, only adding the computation of the MPC gains and tube
+         robustness to model uncertainties. Moreover, since the tubes are                    propagation during consecutive control instants by analyzing the
+         obtained during the preparation phase, the computational cost                       sensitivity of the previous MPC solution. Since this computation
+         of their evaluation is not added to the delay introduced by the                     is performed in the preparation phase, it does not introduce any
+         MPC controller due to the feedback phase.                                           additional delay.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3056                                                                                                         IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+             Being, to the best of our knowledge, the first online applica-                 which makes it possible to compute the inverse of ∂R/∂z by
+          tion of robust trajectory optimization based on the closed-loop                   only computing a rank-nx correction via the Woodbury matrix
+          sensitivity, we plan to extend the method in several possible                     identity [47]. Define
+          directions. For instance, by including an online optimization of                                          ∂R        ∂R       ∂R
+          a sensitivity metric for generating trajectories that are minimally                               K=         , κi =     , c=
+                                                                                                                    ∂y        ∂xi      ∂ x̂k
+          sensitive and, thus, reduce the tube radius, or by adding online
+          parameter estimation schemes in the sensitivity calculation for                   and di = c − κi . Then,
+                                                                                                  −1
+          updating the nominal parameter values, and thus, reduce the                          ∂R                     −1
+          conservativeness of the motion. From a computational point of                                 = K + di v Txi
+                                                                                                ∂z
+          view, a tight integration with the QP solver of choice would                                                                   −1 T −1
+          allow to streamline the calculation of the sensitivity, strength-                             = K−1 − K−1 di I n + v Txi K−1 di    v xi K .
+          ening even more the ability to apply our method at a very little                                                                         (43)
+          computational cost.
+                                                                                            We can now combine (41)–(43) to find
+                                APPENDIX A                                                     dui
+                                                                                                   = − v ui K−1 κi
+              EFFICIENT COMPUTATION OF THE MPC GAINS OVER THE                                  dxi
+                            PREDICTION HORIZON                                                                                           −1 T −1
+                                                                                                         + v ui K−1 di I n + v Txi K−1 di    v xi K κi . (44)
+             In the computation of the sensitivity of the MPC—described
+                                                                                            Note that, by construction
+          in Section III-B—the sensitivity of the whole predicted trajec-
+          tory (x, u) is computed with respect to the initial state x̂k (or,                                           K−1 κi = v xi
+          equivalently, x0 ). We now show how the same reasoning applies
+          to all xi , and how the sensitivities for i = 1, . . . , N − 1 can be                                    v ui K−1 κi = v ui v xi = 0
+          computed without performing any additional KKT factorization                                                 v Txi v xi = I n .
+          and inversion.
+             First, note that with a simple rearrangement of variables, one                 Then, having defined
+          can apply the IFT on the KKT system (26) with respect to the ex-                                             F k+i|k = v ui K−1 c
+          plicit variable xi . Defining z = (x0 , . . . , x̂k , . . . , xN , u, λ, μ)
+          by replacing xi with x̂k , one can then obtain                                                               P k+i|k = v Txi K−1 c
+                                       R(z(xi ), xi )|z∗ = 0                                Equation (44) becomes
+                                                                                                                                    −1
+                                  d                                                              F̃ k+i|k+i = v ui K−1 c v Txi K−1 c     = F k+i|k P −1
+                                     R(z(xi ), xi )|z∗ = 0                                                                                           k+i|k
+                                 dxi                                                        finally yielding the desired MPC gains. We highlight again how
+                                        ∂R dz    ∂R                                         this formula provides an efficient mean for computing F̃ k+i|k+i
+                                               +     =0                            (41)
+                                        ∂z dxi   ∂xi                                        as it involves the inversion of the small nx × nx matrix P k+i|k
+          from which it follows                                                             instead of the inversion of the large matrix ∂R/∂z.
+                                                     −1
+                                 dz              ∂R         ∂R                                                        ACKNOWLEDGMENT
+                                     =−                         .
+                                 dxi             ∂z         ∂xi
+                                                                                               Experiments presented in this article were carried out thanks
+             We now show how, leveraging the availability of the inverse                    to a platform of the Robotex 2.0 French research infrastructure.
+          of the KKT matrix ∂R ∂y , the sought quantities can be computed
+          without the need of inverting the large matrix ∂R/∂z for each                                                       REFERENCES
+          i. Noting that dz/dxi contains dui /dxi , we define the selection
+                                                                                             [1] P. Robuffo Giordano, Q. Delamare, and A. Franchi, “Trajectory generation
+          matrix v ui such that                                                                  for minimum closed-loop state sensitivity,” in Proc. IEEE Int. Conf. Robot.
+                                               dui        dz                                     Automat., 2018, pp. 286–293.
+                               F̃ k+i|k+i =        = v ui     .                    (42)      [2] P. Brault, Q. Delamare, and P. Robuffo Giordano, “Robust trajectory
+                                               dxi        dxi                                    planning with parametric uncertainties,” in Proc. IEEE Int. Conf. Robot.
+                ∂R
+                                                                                                 Automat., 2021, pp. 11095–11101.
+          Since ∂x i
+                     is the ith nx -dimensional column block of the KKT                      [3] C. Bohm, P. Brault, Q. Delamare, P. Robuffo Giordano, and S. Weiss,
+          matrix (29), we can also define v xi such that                                         “COP: Control & observability-aware planning,” in Proc. IEEE Int. Conf.
+                                                                                                 Robot. Automat., 2022, pp. 3364–3370.
+                                       ∂R    ∂R                                              [4] S. Wasiela, P. Robuffo Giordano, J. Cortes, and T. Simeon, “A
+                                           =    vx .                                             sensitivity-aware motion planner (SAMP) to generate intrinsically-
+                                       ∂xi   ∂y i                                                robust trajectories,” in Proc. IEEE Int. Conf. Robot. Automat., 2023,
+          The matrix ∂R/∂z can be seen as equivalent to ∂R/∂y,                                   pp. 12707–12713.
+                                                                                             [5] A. Srour, A. Franchi, and P. Robuffo Giordano, “Controller and trajectory
+          where column-block ∂R/∂xi has been swapped for ∂R/∂ x̂k .                              optimization for a quadrotor UAV with parametric uncertainty,” in Proc.
+          Therefore, we can rewrite                                                              IEEE/RSJ Int. Conf. Intell. Robots Syst., 2023, pp. 1–7.
+                                                                                           [6] A. Pupa, P. Robuffo Giordano, and C. Secchi, “Optimal energy tank
+                       ∂R      ∂R       ∂R      ∂R
+                            =       +         −       v Txi                                      initialization for minimum sensitivity to model uncertainties,” in Proc.
+                        ∂z     ∂y       ∂ x̂k   ∂xi                                              IEEE/RSJ Int. Conf. Intell.Robots Syst., 2023, pp. 8192–8199.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+         BELVEDERE et al.: SENSITIVITY-AWARE MODEL PREDICTIVE CONTROL FOR ROBOTS WITH PARAMETRIC UNCERTAINTY                                                               3057
+
+
+
+          [7] A. Afifi, T. Belvedere, A. Pupa, P. Robuffo Giordano, and A. Franchi, “Safe     [30] X. Feng, S. Di Cairano, and R. Quirynen, “Inexact adjoint-based SQP
+              and robust planning for uncertain robots: A closed-loop state sensitivity            algorithm for real-time stochastic nonlinear MPC,” IFAC-PapersOnLine,
+              approach,” IEEE Robot. Automat. Lett., vol. 9, no. 11, pp. 9962–9969,                vol. 53, no. 2, pp. 6529–6535, 2020.
+              Nov. 2024.                                                                      [31] M. E. Villanueva, R. Quirynen, M. Diehl, B. Chachuat, and B. Houska,
+          [8] A. Srour, S. Marcellini, T. Belvedere, M. Cognetti, A. Franchi, and P.               “Robust MPC via min–max differential inequalities,” Automatica, vol. 77,
+              Robuffo Giordano, “Experimental validation of sensitivity-aware trajec-              pp. 311–321, Mar. 2017.
+              tory planning for a quadrotor UAV under parametric uncertainty,” in Proc.       [32] A. V. Fiacco, Introduction to Sensitivity and Stability Analysis in Non
+              Int. Conf. Unmanned Aircraft Syst., Jun. 2024, pp. 572–578.                          Linear Programming. New York, NY, USA: Academic Press, 1983.
+          [9] D. Bicego, J. Mazzetto, R. Carli, M. Farina, and A. Franchi, “Nonlinear         [33] A. Shapiro, “Sensitivity analysis of nonlinear programs and differentia-
+              model predictive control with enhanced actuator model for multi-rotor                bility properties of metric projections,” SIAM J. Control Optim., vol. 26,
+              aerial vehicles with generic designs,” J. Intell. Robotic Syst., vol. 100,           no. 3, pp. 628–645, May 1988.
+              pp. 1213–1247, 2020.                                                            [34] M. Zanon, V. Kungurtsev, and S. Gros, “Reinforcement learning based
+         [10] S. Sun, A. Romero, P. Foehn, E. Kaufmann, and D. Scaramuzza, “A com-                 on real-time iteration NMPC,” IFAC-PapersOnLine, vol. 53, no. 2,
+              parative study of nonlinear mpc and differential-flatness-based control for          pp. 5213–5218, 2020.
+              quadrotor agile flight,” IEEE Trans. Robot., vol. 38, no. 6, pp. 3357–3373,     [35] V. M. Zavala and L. T. Biegler, “The advanced-step NMPC controller:
+              Dec. 2022.                                                                           Optimality, stability and robustness,” Automatica, vol. 45, no. 1, pp. 86–93,
+         [11] A. Liniger, A. Domahidi, and M. Morari, “Optimization-based au-                      Jan. 2009.
+              tonomous racing of 1: 43 scale RC cars,” Optimal Control Appl. Methods,         [36] J. Jäschke, X. Yang, and L. T. Biegler, “Fast economic model predictive
+              vol. 36, no. 5, pp. 628–647, 2015.                                                   control based on NLP-sensitivities,” J. Process Control, vol. 24, no. 8,
+         [12] V. Vulcano, S. G. Tarantos, P. Ferrari, and G. Oriolo, “Safe robot navigation        pp. 1260–1272, Aug. 2014.
+              in a crowd combining NMPC and control barrier functions,” in Proc. IEEE         [37] E. Dantec, M. Taïx, and N. Mansard, “First order approximation of model
+              61st Conf. Decis. Control, 2022, pp. 3321–3328.                                      predictive control solutions for high frequency feedback,” IEEE Robot.
+         [13] S. G. Tarantos, T. Belvedere, and G. Oriolo, “Dynamics-aware navigation              Automat. Lett., vol. 7, no. 2, pp. 4448–4455, Apr. 2022.
+              among moving obstacles with application to ground and flying robots,”           [38] Y. Tassa, T. Erez, and E. Todorov, “Synthesis and stabilization of complex
+              Robot. Auton. Syst., vol. 172, 2024, Art. no. 104582.                                behaviors through online trajectory optimization,” in Proc. IEEE/RSJ Int.
+         [14] M. Kanneworff, T. Belvedere, N. Scianca, F. M. Smaldone, L. Lanari,                  Conf. Intell. Robots Syst., 2012, pp. 4906–4913.
+              and G. Oriolo, “Task-oriented generation of stable motions for wheeled          [39] F. Farshidian, M. Neunert, A. W. Winkler, G. Rey, and J. Buchli, “An
+              inverted pendulum robots,” in Proc. IEEE Int. Conf. Robot. Automat., 2022,           efficient optimal planning and control framework for quadrupedal loco-
+              pp. 214–220.                                                                         motion,” in Proc. IEEE Int. Conf. Robot. Automat., 2017, pp. 93–100.
+         [15] R. Grandia, F. Farshidian, R. Ranftl, and M. Hutter, “Feedback MPC              [40] D. Van Hessem, C. Scherer, and O. Bosgra, “LMI-based closed-loop
+              for torque-controlled legged robots,” in Proc. IEEE/RSJ Int. Conf. Intell.           economic optimization of stochastic process operation under state and
+              Robots Syst., 2019, pp. 4730–4737.                                                   input constraints,” in Proc. IEEE 40th Conf. Decis. Control, 2001,
+         [16] J. Carpentier and P.-B. Wieber, “Recent progress in legged robots lo-                pp. 4228–4233.
+              comotion control,” Curr. Robot. Reports, vol. 2, no. 3, pp. 231–238,            [41] M. Diehl, H. G. Bock, H. Diedam, and P.-B. Wieber, “Fast direct mul-
+              2021.                                                                                tiple shooting algorithms for optimal robot control,” in Fast Motions in
+         [17] G. Romualdi, S. Dafarra, G. L’Erario, I. Sorrentino, S. Traversaro, and D.           Biomechanics and Robotics: Optimization and Feedback Control, Berlin,
+              Pucci, “Online non-linear centroidal MPC for humanoid robot locomotion               Germany: Springer, 2006, pp. 65–93.
+              with step adjustment,” in Proc. IEEE Int. Conf. Robot. Automat., 2022,          [42] M. Diehl, H. G. Bock, and J. P. Schlöder, “A real-time iteration scheme
+              pp. 10412–10419.                                                                     for nonlinear optimization in optimal feedback control,” SIAM J. Control
+         [18] T. Belvedere, N. Scianca, L. Lanari, and G. Oriolo, “Joint-level IS-                 Optim., vol. 43, no. 5, pp. 1714–1736, 2005.
+              MPC: A whole-body MPC with centroidal feasibility for humanoid                  [43] S. Gros, M. Zanon, R. Quirynen, A. Bemporad, and M. Diehl, “From
+              locomotion,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst., 2024,                linear to nonlinear MPC: Bridging the gap via the real-time iteration,” Int.
+              pp. 11240–11247.                                                                     J. Control, vol. 93, no. 1, pp. 62–80, 2020.
+         [19] J. B. Rawlings, D. Q. Mayne, and M. Diehl, Model Predictive Control:            [44] M. Diehl, H. J. Ferreau, and N. Haverbeke, “Efficient numerical methods
+              Theory, Computation, and Design, vol. 2. Madison, WI, USA: Nob Hill                  for nonlinear MPC and moving horizon estimation,” in Nonlinear Model
+              Publishing, 2017.                                                                    Predictive Control: Towards New Challenging Applications, Berlin, Ger-
+         [20] B. Houska and M. E. Villanueva, Robust Optimization for MPC. Berlin,                 many: Springer, 2009, pp. 391–417.
+              Germany: Springer, 2019.                                                        [45] C. Büskens and H. Maurer, Sensitivity Analysis and Real-Time Optimiza-
+         [21] D. Q. Mayne, M. M. Seron, and S. Raković, “Robust model predictive                  tion of Parametric Nonlinear Programming Problems. Berlin, Germany:
+              control of constrained linear systems with bounded disturbances,” Auto-              Springer, 2001, pp. 3–16.
+              matica, vol. 41, no. 2, pp. 219–224, 2005.                                      [46] J. Nocedal and S. J. Wright, Numerical Optimization. Berlin, Germany:
+         [22] D. Q. Mayne, E. C. Kerrigan, E. Van Wyk, and P. Falugi, “Tube-based ro-              Springer, 2006.
+              bust nonlinear model predictive control,” Int. J. Robust Nonlinear Control,     [47] H. V. Henderson and S. R. Searle, “On deriving the inverse of a sum of
+              vol. 21, no. 11, pp. 1341–1353, 2011.                                                matrices,” SIAM Rev., vol. 23, no. 1, pp. 53–60, Jan. 1981.
+         [23] M. Cannon, J. Buerger, B. Kouvaritakis, and S. Rakovic, “Robust tubes in        [48] J. Carpentier, R. Budhiraja, and N. Mansard, “Proximal and sparse res-
+              nonlinear model predictive control,” IEEE Trans. Autom. Control, vol. 56,            olution of constrained dynamic equations,” in Proc. Robot.: Sci. Syst.,
+              no. 8, pp. 1942–1947, Aug. 2011.                                                     Jul. 2021, pp. 1–19.
+         [24] G. Garimella, M. Sheckells, J. L. Moore, and M. Kobilarov, “Robust              [49] N. Parikh and S. Boyd, “Proximal algorithms,” Foundations Trends Optim.,
+              obstacle avoidance using tube NMPC,” in Proc. Robot.: Sci. Syst. 2018,               vol. 1, no. 3, pp. 127–239, 2014.
+              pp. 1–9.                                                                        [50] D. P. Bertsekas, “On penalty and multiplier methods for constrained
+         [25] J. Köhler, R. Soloperto, M. A. Müller, and F. Allgöwer, “A computationally           minimization,” SIAM J. Control Optim., vol. 14, no. 2, pp. 216–235, 1976.
+              efficient robust model predictive control framework for uncertain nonlin-       [51] G. Antonelli, E. Cataldi, F. Arrichiello, P. Robuffo Giordano, S. Chiaverini,
+              ear systems,” IEEE Trans. Autom. Control, vol. 66, no. 2, pp. 794–801,               and A. Franchi, “Adaptive trajectory tracking for quadrotor MAVs in
+              Feb. 2021.                                                                           presence of parameter uncertainties and external disturbances,” IEEE
+         [26] Y. Gao, F. Messerer, J. Frey, N. V. Duijkeren, and M. Diehl, “Collision-free         Trans. Control Syst. Technol., vol. 26, no. 1, pp. 248–254, Jan. 2018.
+              motion planning for mobile robots by zero-order robust optimization-based       [52] R. Mahony, V. Kumar, and P. Corke, “Multirotor aerial vehicles: Modeling,
+              MPC,” in Proc. Eur. Control Conf., Jun. 2023, pp. 1–6.                               estimation, and control of quadrotor,” IEEE Robot. Automat. Mag., vol. 19,
+         [27] J. Frey, Y. Gao, F. Messerer, A. Lahr, M. Zeilinger, and M. Diehl, “Efficient        no. 3, pp. 20–32, Sep. 2012.
+              zero-order robust optimization for real-time model predictive control with      [53] A. Boccia, L. Grüne, and K. Worthmann, “Stability and feasibility of state
+              acados,” in Proc. Eur. Control Conf., Jun. 2024, pp. 3470–3475.                      constrained MPC without stabilizing terminal constraints,” Syst. Control
+         [28] A. Zanelli, J. Frey, F. Messerer, and M. Diehl, “Zero-order robust non-              Lett., vol. 72, pp. 14–21, 2014.
+              linear model predictive control with ellipsoidal uncertainty sets,” IFAC-       [54] A. M. M. Leal, “autodiff, a modern, fast and expressive C library for auto-
+              PapersOnLine, vol. 54, no. 6, pp. 50–57, 2021.                                       matic differentiation,” 2018. [Online]. Available: https://autodiff.github.io
+         [29] B. T. Lopez, J.-J. E. Slotine, and J. P. How, “Dynamic tube MPC                 [55] A. Bambade, S. El-Kazdadi, A. Taylor, and J. Carpentier, “PROX-QP: Yet
+              for nonlinear systems,” in Proc. Amer. Control Conf., Jul. 2019,                     another quadratic programming solver for robotics and beyond,” in Proc.
+              pp. 1655–1662.                                                                       Robot.: Sci. Syst., Jun. 2022, pp. 1–12.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+          3058                                                                                                            IEEE TRANSACTIONS ON ROBOTICS, VOL. 41, 2025
+
+
+
+          [56] A. Bambade, F. Schramm, A. Taylor, and J. Carpentier, “Leverag-                                      Giuseppe Oriolo (Fellow, IEEE) received the Ph.D.
+               ing augmented-Lagrangian techniques for differentiating over infeasible                              degree in control engineering from Sapienza Univer-
+               quadratic programs in machine learning,” in Proc. 12th Int. Conf. Learn.                             sity of Rome, Italy, in 1992.
+               Representations, 2024, pp. 1–32.                                                                        He is currently with the Department of Com-
+          [57] W. Jallet, E. Dantec, E. Arlaud, N. Mansard, and J. Carpentier, “Parallel                            puter, Control and Management Engineering (DIAG),
+               and proximal constrained linear-quadratic methods for real-time nonlinear                            Sapienza University of Rome, where he is a Full
+               MPC,” in Proc. Robot.: Sci. Syst., 2024, pp. 1–17.                                                   Professor of Automatic Control and Robotics and
+          [58] J. Carpentier et al., “The Pinocchio C library–A fast and flexible                                   the Director of the DIAG Robotics Lab. His research
+               implementation of rigid body dynamics algorithms and their analyt-                                   interests include the general area of planning and
+               ical derivatives,” in Proc. IEEE Int. Symp. Syst. Integrations, 2019,                                control of robotic systems.
+               pp. 614–619.                                                                                            Prof. Oriolo has been an Associate Editor for IEEE
+                                                                                              TRANSACTIONS ON ROBOTICS AND AUTOMATION from 2001 to 2005 and Editor
+                                                                                              for IEEE TRANSACTIONS ON ROBOTICS from 2009 to 2013.
+
+                                    Tommaso Belvedere (Member, IEEE) received the                                         Paolo Robuffo Giordano (Senior Member, IEEE)
+                                    M.Sc. and the Ph.D. degrees in control engineering                                    received the M.Sc. degree in computer science engi-
+                                    from Sapienza University, Rome, Italy, in 2020 and                                    neering and the Ph.D. degree in systems engineering
+                                    2024, respectively.                                                                   from the University of Rome “La Sapienza,” Rome,
+                                       In 2023, he was a Visiting Ph.D. student with the                                  Italy, in 2001 and 2008, respectively.
+                                    Rainbow Group, IRISA and Inria, Rennes, France,                                          In 2007 and 2008, he spent one year as a Post-
+                                    where he is currently a Postdoctoral Researcher with                                  doctoral Researcher with the Institute of Robotics
+                                    CNRS-IRISA. His research interests include plan-                                      and Mechatronics, German Aerospace Center (DLR),
+                                    ning and control of mobile robots using optimization-                                 Cologne, Germany, and from 2008 to 2012, he was a
+                                    based techniques, whole-body control, and robust                                      Senior Research Scientist with the Max Planck Insti-
+                                    trajectory optimization.                                                              tute for Biological Cybernetics, Tübingen, Germany.
+             Dr. Belvedere currently serves as an Associate Editor for IEEE/RSJ In-           He is currently the Senior CNRS Researcher Head of the Rainbow Group, IRISA,
+          ternational Conference on Intelligent Robots and Systems (IROS) and IEEE            and Inria, Rennes, France. His research interests include modeling, estimation,
+          International Conference on Robotics and Automation (ICRA) conferences.             planning and control for robotic systems.
+                                                                                                Dr. Robuffo Giordano was the recipient of the 2018 IEEE ROBOTICS AND
+                                                                                              AUTOMATION LETTERS Best Paper Award. He has been an Associate Editor for
+                                      Marco Cognetti (Senior Member, IEEE) received the       IEEE TRANSACTIONS ON ROBOTICS from 2012 to 2018, and an Editor for IEEE
+                                                                                              TRANSACTIONS ON ROBOTICS since 2019.
+                                      Ph.D. degree in control engineering from Sapienza
+                                      University, Rome, Italy, in 2016.
+                                         During his doctoral studies, he was a visiting Re-
+                                      searcher with the Max Planck Institute for Biological
+                                      Cybernetics, Tübingen, Germany, in 2011, and with
+                                      the Robotics Institute, Carnegie Mellon University,
+                                      Pittsburgh, PA, USA, in 2015. After completing his
+                                      Ph.D., he worked as a Postdoctoral Researcher with
+                                      the Robotics Lab, Sapienza University, from 2016 to
+                                      2017, followed by a posdoctoral position with CNRS,
+          Irisa, and Inria Rennes, France, from 2017 to 2019. He then joined the University
+          of Oulu, Oulu, Finland, as a Postdoctoral Researcher, in 2020, before serving as
+          an Assistant Professor with Maynooth University, Kildare, Ireland, from 2020
+          to 2022. He is currently a Chaire de Professeur Junior with LAAS-CNRS and
+          the University of Toulouse, Toulouse, France. His research interests include
+          physical human–robot interaction, particularly in the context of drones. His
+          interests also include active state estimation, shared control and autonomy for
+          mobile robotics, whole-body motion planning, and the localization and control
+          of multirobot systems.
+             Dr. Cognetti currently serves as an Associate Editor for IEEE/RSJ Interna-
+          tional Conference on Intelligent Robots and Systems (IROS), IEEE International
+          Conference on Robotics and Automation (ICRA), International Conference on
+          Unmanned Aircraft Systems, as well as he organized two special issues for RA-L
+          and three workshops at IROS and ICRA.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 07,2026 at 06:07:11 UTC from IEEE Xplore. Restrictions apply.
+

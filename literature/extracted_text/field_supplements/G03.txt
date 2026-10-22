@@ -1,0 +1,679 @@
+         NMPC-based variable admittance control with passivity
+                             constraints
+               Thibault Poignonec, Bernard Bayle, Loïc Cuvillon, Hassan Omran
+
+
+
+      To cite this version:
+     Thibault Poignonec, Bernard Bayle, Loïc Cuvillon, Hassan Omran.     NMPC-based variable admit-
+     tance control with passivity constraints. Robotics and Autonomous Systems, 2026, 202, pp.105483.
+     ⟨10.1016/j.robot.2026.105483⟩. ⟨hal-05613631⟩
+
+
+
+
+                                        HAL Id: hal-05613631
+                              https://hal.science/hal-05613631v1
+                                           Submitted on 6 May 2026
+
+
+
+
+    HAL is a multi-disciplinary open access archive             L’archive ouverte pluridisciplinaire HAL, est des-
+for the deposit and dissemination of scientific re-        tinée au dépôt et à la diffusion de documents scien-
+search documents, whether they are published or not.       tifiques de niveau recherche, publiés ou non, émanant
+The documents may come from teaching and research          des établissements d’enseignement et de recherche
+institutions in France or abroad, or from public or pri-   français ou étrangers, des laboratoires publics ou
+vate research centers.                                     privés.
+
+
+           Distributed under a Creative Commons CC BY 4.0 - Attribution - International License
+                                                         Robotics and Autonomous Systems 202 (2026) 105483
+
+
+                                                               Contents lists available at ScienceDirect
+
+
+                                                   Robotics and Autonomous Systems
+                                                       journal homepage: www.elsevier.com/locate/robot
+
+
+
+
+NMPC-based variable admittance control with passivity constraints
+                                                                                                       ∗
+Thibault Poignonec , Bernard Bayle, Loïc Cuvillon, Hassan Omran
+Université de Strasbourg, CNRS, INSERM, ICube, UMR7357, Strasbourg, France
+
+
+
+ARTICLE              INFO                             ABSTRACT
+
+Keywords:                                             When robots interact with their environment, managing the physical interaction safely and accurately is
+Admittance control                                    critical. Impedance and admittance control allow such interaction and have been fundamental to robotic
+Model predictive control                              control for decades. For challenging applications, it is often necessary to implement a time-varying impedance
+Physical human–robot interaction
+                                                      profile, which necessitates more complex conditions to guarantee stability. This paper introduces a method
+                                                      to implement variable admittance control with explicit passivity constraints using non-linear model predictive
+                                                      control (NMPC). The dynamics of the impedance parameters are directly included in the predictive controller.
+                                                      Contrary to previous approaches, the computed control signals enforce simultaneously the passivity condition
+                                                      and the constraints, on both the robot state and the control signals.
+
+
+
+1. Introduction                                                                       a passive behavior, the dynamics of the impedance parameters are also
+                                                                                      integrated into the optimization problem, hence providing a unified
+1.1. Context                                                                          framework for passive VIC with constraints. Although MPC has al-
+                                                                                      ready been used in variable impedance/admittance control, integrating
+    Managing physical interactions is critical for many robotic tasks,                passivity constraints by adapting the desired impedance/admittance
+whether to achieve the compliance required for the task or for safety
+                                                                                      profiles instead of directly altering control signals is novel, to the best
+purposes. A classical approach involves imposing the relation between
+                                                                                      of our knowledge. In the following two sections, an overview of VIC
+the robot’s motion and the interaction force with the environment.
+                                                                                      passivations as well as optimization-based VIC methods are provided,
+When the imposed relation represents a mass–spring–damper second-
+order system, the control strategy is called impedance [1] or ad-                     which will serve as the basis to introduce our work.
+mittance control [2], respectively, for torque-controlled and velocity-
+controlled robots. This dynamical relation is fully defined by a so-called            1.2. Passive variable impedance control
+impedance profile, which is a set of interaction parameters. There-
+inafter, regardless of whether admittance or impedance control is used
+to enforce the relationship, the parameters are referred to as impedance                  As previously mentioned, varying impedance profiles in time may
+parameters. Although most interaction controllers implement a con-                    lead to unsafe behavior [5]. In such cases, VIC control signals should be
+stant interaction behavior, i.e., constant impedance parameters, many                 altered in some way to guarantee passivity and, consequently, stability
+tasks require a time-varying interaction behavior, typically to vary                  of the physical interaction. In the following, this process is referred to
+the apparent stiffness of the interaction in reaction to changes in the               as VIC passivation.
+environment [3,4]. A controller that imposes a time-varying impedance                     There are several approaches to implement VIC. The first one con-
+profile is commonly called a variable impedance controller (VIC).                     sists in modifying the impedance profile so that it can safely be imposed
+    Classical impedance control with constant impedance parameters                    through classical impedance control. To do so, Kronander and Bil-
+leads to stable behavior. On the contrary, time-varying impedance                     lard [5] proposed a method for offline impedance planning, where
+parameters can potentially lead to instability [5], justifying the interest           the impedance profile is evaluated beforehand, modified if deemed
+in studying variable impedance/admittance control. The concept of                     unsafe, and reevaluated. Bednarczyk et al. [6] proposed a similar
+passivity, which does not require a model of the environment, is often
+                                                                                      passivation method based on impedance parameters filtering that can
+used to ensure the stability of the physical interaction.
+                                                                                      be used online, although with limitations on the parameters admissible
+    This paper introduces an approach to VIC passivation that relies on
+                                                                                      variations. Most notably, the implementation from [6] is limited to
+predictive control to plan, online, controls that meet the VIC task objec-
+tives and respect task and joint-space constraints. In order to guarantee             diagonal impedance parameters matrices, requires a constant desired
+
+
+  ∗ Corresponding author.
+     E-mail address: homran@unistra.fr (H. Omran).
+
+https://doi.org/10.1016/j.robot.2026.105483
+Received 30 October 2025; Received in revised form 12 February 2026; Accepted 13 April 2026
+Available online 21 April 2026
+0921-8890/© 2026 The Authors. Published by Elsevier B.V. This is an open access article under the CC BY license (http://creativecommons.org/licenses/by/4.0/).
+T. Poignonec et al.                                                                                              Robotics and Autonomous Systems 202 (2026) 105483
+
+
+inertia matrix, and assumes that the stiffness and damping matrices are          controllers stiffness, thus improving the proposition made in [24],
+linearly dependent on the stiffness.                                             where the force was assumed constant. In fact, the controller in [25]
+    The second main category of passive VIC implementations relies               was designed for compliance and force control. The cost function was
+on methods designed to compute robot controls directly, even from                not directly related to an impedance profile, and only the apparent
+potentially unsafe impedance profiles. The most commonly used ap-                Cartesian stiffness could be directly imposed.
+proach uses the so-called passivity tanks [7,8] that has been used for the
+passivation of bilateral teleoperation [9,10] and variable admittance            1.4. Contributions of this work
+control [11]. This method tracks dissipated energy and switches to a
+nominal passive profile when the energy tank is depleted. Despite its                Several works have used MPC to implement time-varying impedance
+versatility, tuning passivity tanks can be task-dependent and challeng-          or admittance control. In [25], the controller switches between differ-
+ing [12,13]. Furthermore, the result of the optimization is the robot            ent manipulation primitives (MP), each consisting of a different set of
+control signal, such that the impedance parameters are not modified              weights and, therefore, different impedance parameters. However, the
+explicitly and transparently.                                                    parameters remain constant throughout each MP, and the passivity of
+    Finally, another approach that does not fall into either of the              the transition between MP is not discussed. When the MPC is used
+two previous categories was proposed by Cao et al. [14]. It consists             for online impedance parameters planning, the parameters are time-
+in using the MPC to calculate a term added to the nominal control                varying. However, passivity considerations are not directly included
+signals to meet a passivity condition. However, the resulting interaction        in the problem formulation, except in the works of [11,14] discussed
+impedance is unknown, and the properties of the nominal control can              above. Typically, a separate passivation layer alters the computed
+be lost.                                                                         impedance parameters, e.g., using a passivity tank approach as in [18].
+                                                                                     In this work, we propose an MPC-based variable admittance con-
+1.3. MPC-based interaction control                                               troller similar to those in [24,25], but capable of providing passivity
+                                                                                 guarantees. To do so, the dynamics of the impedance parameters are
+    Many approaches have been proposed to implement impedance and                included in the model used by the predictive controller. The controller
+admittance control [15]. MPC is a remarkably versatile and robust                imposes the dynamics of both the robot and the impedance parameters,
+method in this context, as it imposes not only the interaction behavior          allowing the passivity condition to be directly formulated as constraints
+but also constraints on this behavior (e.g., bounds on rendered stiffness)       in the NMPC optimization problem. We assume a constant inertia
+and constraints on the robot’s state (e.g., pose or velocity). Previous          matrix and diagonal matrices for impedance parameters, which does
+works proposing MPC-based interaction control have used the MPC in               not significantly limit the applicability of the method.
+one of two ways: either to generate the impedance profile or to enforce              The proposed method for passive VIC is therefore most similar
+it.                                                                              to the passivity filters [6], but it differs in that it is integrated in a
+    In the first approach, MPC is used during an intermediate stage              predictive controller while being less restrictive about the assumed
+to compute the interaction parameters, typically the rendered stiffness          properties of the desired impedance profile. The main advantage over
+and damping, relevant to the desired closed-loop dynamic behavior.               the other approaches, including passivity tanks and the MPC-based
+For instance, Haninger et al. [16] proposed an MPC framework to plan             method proposed in [14], is that here the passivity is enforced through
+a desired trajectory and impedance parameters online from a model                the alteration of the modeled impedance parameter dynamics, not
+of uncertainties impacting a nominal plan and an estimation of force             through the robot control. This enables both passivity and task con-
+disturbance. Similarly, an MPC is used to compute the impedance pa-              straints to be satisfied concurrently, rather than sequentially, which can
+rameters in [17], in a way to take into account their variations and their       otherwise risk violating task constraints during passivation.
+potential destabilization effect. Jin et al. [18] proposed an MPC-based              The remainder of this paper is structured as follows: After a brief
+approach to compute the impedance parameters online to regulate                  introduction to serial manipulator modeling and impedance control
+position tracking and interaction compliance according to some trade-            in Section 2, the theoretical framework for the proposed controller is
+off strategy. Including pose-tracking errors in the state variable enabled       presented in Section 3. We illustrate the advantages of our method
+the introduction of ad hoc task space constraints (i.e., on Cartesian            through comprehensive simulation and real-world experiments with a
+pose), even if indirectly.                                                       serial manipulator interacting with a human partner, in Sections 4 and
+    The second body of work related to MPC for physical interaction              5, respectively. Finally, a discussion concludes the paper.
+concerns the actual implementation of the controller rather than the
+computation of its reference parameters. In this context, MPC is used            2. Theoretical background and notations
+to enforce state and control constraints to balance performance with
+safety requirements. Admittance-based force control was implemented              2.1. Serial manipulator robot modeling
+using MPC in [19,20] to manage the interaction dynamics during a
+path following task, but the main goal remained regulating the contact              Let us consider an 𝑛-joint serial robot whose motion is described by
+force. Similarly, MPC has been used to limit the interaction force of            the rigid body dynamics
+position controlled robots through contact force estimation [21,22].
+                                                                                 𝐻(𝑞)𝑞̈ + 𝐶(𝑞,̇ 𝑞)𝑞̇ + 𝐺(𝑞) = 𝜏𝑐 − 𝐽 (𝑞)𝑇 𝑤                                   (1)
+In [23], MPC was used to implement more traditional admittance
+control while mitigating contact instabilities using a model of the              where 𝑞, 𝑞,̇ 𝑞̈ ∈ R𝑛 are the joint positions, velocities, and acceleration,
+environment. However, it was designed to impose only the apparent                respectively, 𝜏𝑐 ∈ R𝑛 are the controlled joint torques, 𝐽 (𝑞) ∈ R6×𝑛 is
+damping of the robot’s closed-loop behavior, not the stiffness or inertia.       the robot geometric Jacobian matrix [26] and 𝑤 ∈ R6 is the external
+Bednarczyk et al. [24] proposed to use MPC to implement impedance                wrench applied to the end-effector. The inertia matrix is denoted
+control. The authors designed an objective cost function to impose the           𝐻(𝑞) ∈ R𝑛×𝑛 and the Coriolis/centrifugal matrix is denoted 𝐶(𝑞, 𝑞) ̇ ∈
+force–motion relationship based on the desired interaction behavior.             R𝑛×𝑛 . Vector 𝐺(𝑞) ∈ R𝑛 represents the gravity terms. The pose of the
+It enforced various state and control constraints while benefiting from          end-effector is defined in the operational space as
+predictive control to obtain smoother control strategies. It should be                     [ ]
+                                                                                            𝑝
+noted that neither work considered time-varying impedance profiles.              𝜉 ∈ R𝑚 =                                                            (2)
+                                                                                            𝜙
+    More recently, Gold et al. [25] proposed a non-linear MPC (NMPC)
+method for interaction control. The authors used a prediction model              where 𝑝 = [𝑝𝑥 , 𝑝𝑦 , 𝑝𝑧 ]𝑇 is the position and 𝜙 is a parameterization of
+for the external force based on an estimated environment and joint               the orientation, typically using the Euler angles (𝜙 ∈ R3 and 𝑚 = 6) or
+
+                                                                             2
+T. Poignonec et al.                                                                                                          Robotics and Autonomous Systems 202 (2026) 105483
+
+
+the quaternions (𝜙 ∈ R4 and 𝑚 = 7). The end-effector twist 𝜈 ∈ R6 can                    The NMPC problem for variable admittance control can be formu-
+be related to 𝜉̇ such that                                                           lated as
+                                                                                             𝑡𝑘 +𝑇𝑝
+𝜈 = [𝑝̇ 𝑇 𝜔𝑇 ]𝑇 = 𝐽 (𝑞) 𝑞̇                                                (3)        min              𝐼 (𝑥(𝜏), 𝑢(𝜏)) 𝑑𝜏                                                 (7a)
+                                                                                      𝑢    ∫𝑡𝑘
+𝜉̇ = [𝑝̇ 𝑇 𝜙̇ 𝑇 ]𝑇 = 𝑇𝑎 (𝑞)𝜈                                              (4)                          [                              ]𝑇
+                                                                                     st.         𝑥(𝑡) = 𝑞 𝑇 (𝑡)   𝑞̇ 𝑇 (𝑡)   𝑤𝑇 (𝑡)                                     (7b)
+where 𝜔 ∈ R3 is the angular velocity of the robot end-effector, and
+                                                                                                 ̇ = 𝑓 (𝑥(𝑡), 𝑢(𝑡))
+                                                                                                 𝑥(𝑡)
+𝑇𝑎 (𝑞) ∈ R𝑚×6 the transformation between the geometric and analytical                                  [                            ]𝑇
+Jacobian matrices.                                                                                    = 𝑞̇ 𝑇 (𝑡) 𝑢𝑇 (𝑡)      01×6                                        (7c)
+                                                                                                 𝑢(𝑡) ∈  ; 𝑥(𝑡) ∈                                                     (7d)
+2.2. Variable admittance control                                                                                   ̈ ∈
+                                                                                                            ̇ ∈ ; 𝜉(𝑡)
+                                                                                                 𝜉(𝑡) ∈ ; 𝜉(𝑡)                                                          (7e)
+
+   Given a desired trajectory {𝜉 𝑑 ; 𝜉̇ 𝑑 ; 𝜉̈𝑑 }, the goal of variable admit-       where 𝑡𝑘 = 𝑘𝑇𝑠 ∈ R+    ∗ with 𝑇𝑠 the control sampling period; 𝑇𝑝 ∈ R∗
+                                                                                                                                                              +
+
+tance control is to impose the task-space closed-loop dynamic behavior               is the prediction time horizon and 𝑓 (𝑥(𝑡), 𝑢(𝑡)) is the state-space model.
+such that                                                                            Here, the external wrench is assumed constant over the prediction time
+                                                                                     horizon. It should be noted that this assumption is one of the main lim-
+𝑀 𝑑 𝑒̈ + 𝐷𝑑 𝑒̇ + 𝐾 𝑑 𝑒 = 𝑤𝑎                                               (5)
+                                                                                     itations of this method and the impacts on performance will be further
+where 𝑤𝑎 = −𝑇𝑎−𝑇 (𝑞)𝑤 is the projection of 𝑤 into the operational space,             discussed in the conclusion. However, if a model of the environment is
+computed using the inverse of 𝑇𝑎 (𝑞) mapping, and 𝑒 = 𝜉 𝑑 − 𝜉 ∈ R𝑚                   available or estimated online, a more realistic differential model for 𝑤
+denotes the pose tracking errors. The time-dependent positive definite               can be used [25].
+matrices 𝑀 𝑑 , 𝐷𝑑 , 𝐾 𝑑 ∈ R𝑚×𝑚 fully define the impedance profile such                   The stage cost 𝐼 (𝑡) associated with accurately tracking the interac-
+that 𝑀 𝑑 is the (constant) desired inertia matrix, 𝐷𝑑 is the desired damp-           tion behavior can be written as
+ing matrix, and 𝐾 𝑑 is the desired stiffness matrix. The robot’s motion                       ‖                            ‖2
+                                                                                     𝐼 (𝑡) = ‖𝑀 𝑑 𝑒̈ + 𝐷𝑑 𝑒̇ + 𝐾 𝑑 𝑒 − 𝑤𝑎 ‖                                              (8)
+is imposed in response to external wrench measurements, resulting in                          ‖                            ‖𝑅𝐼
+velocity or position control of the joints.                                          omitting time-dependency to simplify the notation, where ‖𝑎‖2𝑅 de-
+                                                                                                                                                           𝐼
+                                                                                     notes the weighted norm 𝑎𝑇 𝑅𝐼 𝑎, with 𝑅𝐼 ∈ R𝑚×𝑚 a positive definite
+2.3. Passivity condition for VIC                                                     gain matrix.
+                                                                                         The control and state variables are constrained within the convex
+    Let us consider a dynamical system of state 𝑥(𝑡) and its interaction             sets  and , respectively. Likewise, , , and  are sets used to con-
+port {𝑒;̇ 𝑤𝑎 } with the environment. Such a system is said to be passive             strain the robot Cartesian pose, velocity, and acceleration, respectively,
+w.r.t. the interaction port if there exists a non-negative storage function          within admissible regions. An additional term ∅ (𝑡) can be added to the
+𝑉 (𝑡) = 𝑉 (𝑥(𝑡)) such that                                                           stage cost to fulfill, when applicable, a secondary objective (e.g., elbow
+                       𝑡                                                             position of a redundant robot).
+𝑉 (𝑡) − 𝑉 (0) ≤            𝑒̇ 𝑇 (𝜏)𝑤𝑎 (𝜏)𝑑𝜏                               (6)            It should be noted that the state-space model 𝑓 (𝑥(𝑡), 𝑢(𝑡)), at the
+                  ∫0
+                                                                                     exception of the derivative of the wrench 𝑤(𝑡), is expressed in joint
+If the system is passive according to Eq. (6), then its interaction with
+                                                                                     space. Nonetheless, the optimization problem is mostly performed in
+a passive environment is likewise passive, and the resulting dynamic
+                                                                                     cartesian space, the robot kinematic model is used to evaluate the cost
+behavior is stable [27]. A passive VIC can, therefore, be devised by de-                                                                                     ̇
+                                                                                     function and constraints. For instance, the relation between 𝑥(𝑡) and 𝜉(𝑡)
+signing controllers respecting the so-called passivity condition defined
+                                                                                     is defined by Eqs. (3) and (4).
+by Eq. (6). Many works consider different interaction ports to reduce
+conservatism [5,6].
+                                                                                     3.2. Impedance parameters dynamics
+3. Passive variable admittance controller
+                                                                                         The naive NMPC formulation (7) of VIC applies the desired
+                                                                                     impedance parameters regardless of the passivity of the resulting inter-
+    In the following, variable admittance control is obtained using
+                                                                                     action behavior. The desired parameters should therefore be modified
+NMPC, including passivity constraints. Firstly, the control objective is
+                                                                                     so as to meet the passivity condition. To that end, Eq. (5) is modified
+derived from Eq. (5), as proposed initially in [24] by the co-authors,
+                                                                                     to use filtered parameters 𝑀, 𝐾(𝑡), and 𝐷(𝑡) instead of the potentially
+but with an extension to the case of time-varying parameters (see
+                                                                                     unsafe desired ones such that
+Section 3.1). Secondly, the dynamics of these parameters are included
+in the prediction model to form an augmented optimization problem                      ̈ + 𝐷(𝑡)𝑒(𝑡)
+                                                                                     𝑀 𝑒(𝑡)     ̇ + 𝐾(𝑡)𝑒(𝑡) = 𝑤𝑎 (𝑡)                                                     (9)
+(see Section 3.2). Finally, passivity constraints are added to ensure that
+the dynamics of the impedance parameters lead to a passive physical                     The process of VIC passivation consists then in computing these
+interaction (see Section 3.3).                                                       modified parameters to track the desired ones, while guaranteeing that
+                                                                                     the interaction remains passive.
+                                                                                        The desired and current impedance parameters are the diagonal
+3.1. Non-linear model predictive admittance control
+                                                                                     terms of the respective matrices. For instance, 𝐾 𝑑 (𝑡) and 𝐾(𝑡) matrices
+                                                                                     are parameterized as
+    Let 𝑢 ∈ R𝑛 be the robot control variables chosen as the joint
+accelerations, i.e., 𝑢 = 𝑞,
+                         ̈ then be integrated to compute a joint velocity            𝐾 𝑑 (𝑡) = diag{𝑘𝑑1 (𝑡), 𝑘𝑑2 (𝑡), … , 𝑘𝑑𝑚 (𝑡)}
+command, as will be done in this work. The study is restricted to
+                                                                                      𝐾(𝑡) = diag{𝑘1 (𝑡), 𝑘2 (𝑡), … , 𝑘𝑚 (𝑡)}
+the case of a constant desired inertia matrix, which, although not the
+general case, remains the most common in practice. Let us consider                   where diag{⋅} denotes the function that maps the vector of diagonal
+diagonal matrices 𝑀 𝑑 , 𝐾 𝑑 (𝑡), and 𝐷𝑑 (𝑡), defining the desired impedance          terms to the diagonal matrix. The matrices 𝐷𝑑 (𝑡) and 𝐷(𝑡) are param-
+profile. It is assumed that 𝑀 𝑑 , 𝐷𝑑 , and 𝐾 𝑑 are readily available, for            eterized in the same way. The constant inertia terms are chosen such
+instance resulting from offline impedance planning.                                  that 𝑀 = 𝑀 𝑑 .
+
+                                                                                 3
+T. Poignonec et al.                                                                                                   Robotics and Autonomous Systems 202 (2026) 105483
+
+
+       For the impedance parameters to track the desired parameters, a            using Eq. (9) and the definition of 𝑟, with
+first-order tracking law is imposed for the terms of 𝐾(𝑡) and 𝐷(𝑡) such
+                                                                                  ℎ(𝑡) = 𝑒̇ 𝑇 (𝑡) (𝐷(𝑡) − 𝛼𝑀) 𝑒(𝑡)
+                                                                                                               ̇                                     (17)
+that                                                                                                       (            )
+               (                )                                                                     𝑇            1 ̇
+𝑘̇ 𝑖 (𝑡) = 𝛽(𝑡) 𝑘𝑑𝑖 (𝑡) − 𝑘𝑖 (𝑡) , 𝑖 ∈ {1, … , 𝑚}                  (10)                            + 𝑒 (𝑡) 𝛼𝐾(𝑡) − 𝑃 (𝑡) 𝑒(𝑡)
+                                                                                                                   2
+               ( 𝑑              )
+   ̇
+𝑑𝑖 (𝑡) = 𝛽(𝑡) 𝑑𝑖 (𝑡) − 𝑑𝑖 (𝑡) , 𝑖 ∈ {1, … , 𝑚}                     (11)           From (16) and the inequality ℎ(𝑡) ≥ 0 enforced by the MPC in Eq. (12h),
+                                                                                  we obtain the passivity of the controlled robotic system from input 𝑤𝑎
+where 𝛽(𝑡) ∈ R ≥ 0 is a time-varying gain. With this formulation, the             to output 𝑟 :
+gain 𝛽 effectively controls the dynamics of the impedance parameters:                                 𝑡
+for 𝛽 = 0, the parameters will remain constant and the desired values             𝑉 (𝑡) − 𝑉 (0) ≤   𝑟𝑇 (𝜏)𝑤𝑎 (𝜏)𝑑𝜏                                       (18)
+will be ignored ; for 𝛽 ≥ 0, the impedance parameters will track                                 ∫0
+the desired ones. The larger the value of 𝛽, the better the tracking                 In Eq. (16), the left term represents the energy that is injected into
+becomes, i.e., reduced delay between desired and effective impedance              the system by the input–output interaction port {𝑤𝑎 , 𝑟}. A part of this
+parameters, such that the maximization of 𝛽 becomes a secondary                   energy is stored in the storage function 𝑉 (⋅). The other part, represented
+objective of the NMPC problem in (12) below.                                      by the integral of the ℎ(⋅), represents the dissipated energy. Note that
+    The optimization problem (7) is augmented with the dynamics of                Eq (16) implies
+the impedance parameters, such that:                                              𝑉̇ (𝑡) = 𝑟𝑇 (𝑡)𝑤𝑎 (𝑡) − ℎ(𝑡) ≤ 𝑟𝑇 (𝑡)𝑤𝑎 (𝑡)                                    (19)
+              𝑡𝑘 +𝑇𝑝 ( (          )    (    ))
+min                  𝐼 𝑥(𝜏), 𝑢(𝜏) + 𝛽 𝑢(𝜏) 𝑑𝜏                      (12a)           The positivity of the quantity ℎ(⋅), which represents the dissipative
+ 𝑢       ∫ 𝑡𝑘
+                                                                                  power, implies that the rate of change of the storage function is not
+                      [                           ]𝑇
+st.             𝑥(𝑡) = 𝑥𝑇 (𝑡)    𝑘𝑇 (𝑡)    𝑑 𝑇 (𝑡)                   (12b)        higher than the supply rate from the port. The imposed passivity
+                                                                                  property guarantees that no internal energy is generated due to the
+                      ⎡ 𝑓 (𝑥(𝑡), 𝑢(𝑡)) ⎤
+                ̇ = ⎢ 𝛽(𝑡) (𝑘𝑑 (𝑡) − 𝑘(𝑡)) ⎥
+                𝑥(𝑡)                                                 (12c)        time variations of the impedance profiles. In case where 𝑤𝑎 = 0,
+                      ⎢    (              )⎥                                      the storage function satisfies 𝑉̇ (𝑡) ≤ 0. By considering 𝑉 as a candi-
+                      ⎣𝛽(𝑡) 𝑑 𝑑 (𝑡) − 𝑑(𝑡) ⎦
+                      [ 𝑇           ]                                             date Lyapunov function, the stability of the equilibrium point follows
+                𝑢(𝑡) = 𝑢 (𝑡) 𝛽(𝑡)                                    (12d)        from Theorem 4.8 in [28]. This approach, analogous to the proof of
+                𝑥(𝑡) ∈                                              (12e)        Theorem 1 in [5], demonstrates that the system remains stable under
+                                 [         ]                                      time-varying impedance profiles during free motion.
+                𝑢(𝑡) ∈  ; 𝛽(𝑡) ∈ 0 , 𝛽𝑚𝑎𝑥                           (12f)           To ensure the existence of a solution, 𝛼 is chosen such that 𝐷(𝑡) −
+                           ̇ ∈ ; 𝜉(𝑡)
+                𝜉(𝑡) ∈ ; 𝜉(𝑡)    ̈ ∈                               (12g)        𝛼𝑀 ≥ 0, ∀𝑡. To that end, we choose 𝛼 similarly to [5] such that
+                                                                                       min(𝜆𝐷𝑑 )
+                ℎ(𝑡) = ℎ(𝑥(𝑡), 𝑢(𝑡)) ≥ 0                             (12h)        𝛼=                                                                             (20)
+                                                                                       max(𝜆𝑀 )
+where 𝑥 and 𝑢 are the state and control variables, augmented with the
+                                                                                  where min(𝜆𝐷𝑑 ) and max(𝜆𝑀 ) are the smallest eigenvalue of 𝐷𝑑 (𝑡) ∀𝑡
+impedance parameters and time-varying gain 𝛽(𝑡), respectively. As a
+                                                                                  and the largest eigenvalue of 𝑀, respectively.
+reminder, solving the optimization problem provides the control inputs
+𝑢 over the prediction horizon, which correspond to the regulated joint
+                                                                                  3.4. Practical implementation
+accelerations per (7) and the gain of the low-pass filter applied to the
+impedance parameters. The variables 𝑘(𝑡) and 𝑑(𝑡) are the vectors of
+                                                                                      The optimization problem of Eq. (12) can be solved using off-the-
+stiffness parameters 𝑘𝑖 (𝑡) and damping parameters 𝑑𝑖 (𝑡), respectively.
+                                                                                  shelf non-linear NMPC solvers. In the following, the solver acados [29]
+The cost associated with tracking the desired parameters is
+                                                                                  is used to solve the optimization with a direct multiple shooting ap-
+    ( )
+𝛽 𝑢 = ‖              ‖2
+          ‖𝛽𝑚𝑎𝑥 − 𝛽(𝑡)‖𝑅𝛽                                           (13)          proach and HPIPM [30] as the underlying QP solver. The shooting
+                                                                                  nodes are uniformly sampled over the prediction horizon such that
+where 𝑅𝛽 ∈ R+  ∗ is a constant weight. This maximization of 𝛽, up to 𝛽𝑚𝑎𝑥 ,
+besides ensuring numerical stability, results in a maximized impedance            𝑇𝑝 = 𝑁𝑇𝑠 (s)                                                                   (21)
+parameters tracking performance. Eq. (12h) defines an additional con-
+                                                                                  where 𝑁 ∈ N∗ is the number of shooting nodes.
+straint ℎ(𝑡) = ℎ(𝑥(𝑡), 𝑢(𝑡)) ≥ 0 where ℎ(𝑡) ∈ R is a scalar indicator for
+the passivity of the interaction. This constraint is used in the following
+                                                                                  4. Illustrative simulation results
+section to enforce passivity by reducing the 𝛽(𝑡) when necessary.
+                                                                                     The method is first evaluated in simulation, benefiting from fully
+3.3. Impedance profile passivation
+                                                                                  reproducible interactions necessary to compare different scenarios. A
+                                                                                  lower-dimensional space (2D) is chosen to simplify the analysis and
+    Function ℎ(𝑡) will now be devised to guarantee the passivity of the
+                                                                                  visualization of the controller behavior.
+interaction, such that ℎ(𝑡) ≥ 0 is a sufficient condition for Eq. (6). A
+passivity condition is defined by analogy with the work of Kronander
+                                                                                  4.1. Simulation scenario
+and Billard [5] that considers the passivity of the interaction port
+{𝑟; 𝑤𝑎 }, where 𝑟(𝑡) is a filtered error variable 𝑟 = 𝑒̇ + 𝛼𝑒, with 𝛼 ∈
+                                                                                     As represented in Fig. 1, a planar robot with two revolute joints is
+R+ constant. Similarly, we consider the positive definite continuously
+                                                                                  simulated such that 𝑛 = 𝑚 = 2, 𝜉 = [𝑝𝑥 , 𝑝𝑦 ]𝑇 , and 𝑇𝑎 (𝑞) = 𝐼2×2 . This
+differentiable storage function defined as
+                                                                                  robot has two identical links of unit length. The proposed NMPC-based
+                1 𝑇           1                                                   variable admittance controller is implemented as detailed in Section 3
+𝑉 (𝑡) =           𝑟 (𝑡)𝑀𝑟(𝑡) + 𝑒𝑇 (𝑡)𝑃 (𝑡)𝑒(𝑡)                        (14)
+                2             2                                                   using the acados solver. The controller parameters are set to 𝑇𝑠 = 5 ms
+where                                                                             (200 Hz update rate), 𝑇𝑝 = 50 ms (i.e., 𝑁 = 10), 𝑅𝐼 = 103 𝐼2×2 , 𝑅𝛽 = 1,
+𝑃 (𝑡) = 𝐾(𝑡) + 𝛼𝐷(𝑡) − 𝛼 2 𝑀                                          (15)        and 𝛽𝑚𝑎𝑥 = 100. Constraints are set for the joint acceleration and the
+                                                                                  Cartesian pose such that
+         It yields
+     𝑡                                              𝑡
+                                                                                  𝑞̈𝑖 (𝑡) ∈ [−3, 3] (rad.s−2 ), 𝑖 ∈ {1; 2}                                       (22)
+          𝑇
+         𝑟 (𝜏)𝑤𝑎 (𝜏)𝑑𝜏 = 𝑉 (𝑡) − 𝑉 (0) +                ℎ(𝜏)𝑑𝜏        (16)        𝑝𝑥 (𝑡) ∈ [0.9, 2] (m)                                                          (23)
+∫0                                             ∫0
+
+                                                                              4
+T. Poignonec et al.                                                                                                  Robotics and Autonomous Systems 202 (2026) 105483
+
+
+
+
+                                                                                       Fig. 2. Top and center: position and velocity tracking errors, respectively
+                                                                                       denoted 𝑒(𝑡) and 𝑒(𝑡).
+                                                                                                         ̇    Bottom: simulated external force measurements 𝑤(𝑡).
+Fig. 1. Simulated Cartesian robot trajectory 𝜉(𝑡) is represented with a solid
+black line and desired trajectory 𝜉 𝑑 (𝑡) with the dotted green line. The robot,
+environment, relevant constraints, and time stamps are also represented. (For
+interpretation of the references to color in this figure legend, the reader is
+referred to the web version of this article.)
+
+
+
+𝑝𝑦 (𝑡) ∈ [0, 1] (m)                                                        (24)
+
+    The robot interacts with an elastic environment of stiffness 𝐾𝑒 =
+200 N.m−1 , which is simulated such that the external force is 𝑤(𝑡) =
+[         ]𝑇
+  0 𝑤𝑦 (𝑡) (N), with
+         {
+           𝐾𝑒 (0.75 − 𝑝𝑦 (𝑡)) if 𝑝𝑦 (𝑡) ≥ 0.75
+𝑤𝑦 (𝑡) =                                                          (25)                 Fig. 3. Top: NMPC control variable 𝑢(𝑡) = 𝑞(𝑡).
+                                                                                                                                 ̈     Bottom: resulting (com-
+           0                  otherwise                                                manded) robot joint velocities 𝑞(𝑡).
+                                                                                                                       ̇
+   The desired trajectory follows a half-circle in the task space such as
+reported in Fig. 1. The desired impedance profile is defined as
+
+   𝑀 = diag{5, 5} (kg)                                                     (26)
+𝐾 (𝑡) = diag{50, 𝑘𝑑2 (𝑡)}(N.m−1 )
+  𝑑
+                                                                           (27)
+𝐷𝑑 (𝑡) = diag{𝑑1𝑑 (𝑡), 𝑑2𝑑 (𝑡)}(N.m−1 .s)                                  (28)
+
+where
+            {
+                50,    if 𝑡 ≤ 10 s
+𝑘𝑑2 (𝑡) =                                                                  (29)
+                250,   otherwise
+     The damping terms are computed from 𝑀 and 𝐾 𝑑 (𝑡) to maintain a
+damping ratio 𝜁 = 0.2 such that
+            √
+𝑑𝑖𝑑 (𝑡) = 2𝜁 𝑚𝑖 𝑘𝑑𝑖 (𝑡), 𝑖 ∈ {1, 2}                             (30)
+
+It should be noted that this low damping ratio is chosen to highlight
+passivity issues and make the effect of passivation more apparent on
+the plots.
+
+4.2. Results                                                                           Fig. 4. Top: control variable 𝛽(𝑡). Center: desired and altered impedance
+                                                                                       parameters. Only the stiffness and damping are reported, because inertia is
+    The tracking errors reported in Fig. 2 indicate that when no external              constant. Bottom: passivity condition ℎ(𝑡) used in the passivity constraint
+force is applied, the robot converges towards the desired pose with                    ℎ(𝑡) ≥ 0.
+the expected closed-loop behavior. Additionally, the commanded joint
+accelerations 𝑞̈2 (𝑡) are correctly bounded, as can be seen at startup
+in Fig. 3. The interaction with the elastic environment starts at 𝑡 =                  a loss of passivity. With the proposed method, the dynamics of the
+5.4 s (see Fig. 1), resulting in an increasing external force and pose                 impedance parameters are altered through a reduced value of 𝛽(𝑡) to
+tracking error due to the relatively low interaction stiffness (see Fig. 2).           maintain the positiveness of ℎ(𝑡) (see Fig. 4). The impedance parameters
+However, until the change in desired impedance parameters at 𝑡 = 10 s,                 then converge towards their desired values in 0.5 s, while the constraint
+the interaction behavior remains passive with no need for corrective                   on ℎ(𝑡) maintains a passive interaction.
+actions, as indicated by the positiveness of ℎ(𝑡) in Fig. 4.
+    At 𝑡 = 10 s, the desired stiffness is increased (see Fig. 4, center), and             After 𝑡 = 10.5 s, the desired interaction behavior once again requires
+so does the desired damping as per Eq. (30). Without any particular                    no corrective actions to remain passive, as the desired stiffness is con-
+action, such change in the desired impedance profile would lead to                     stant. Around 15.8 s, the end-effector reaches the Cartesian constraint
+
+                                                                                   5
+T. Poignonec et al.                                                                                                 Robotics and Autonomous Systems 202 (2026) 105483
+
+
+
+
+                                                                                                             Fig. 6. Experimental setups.
+
+
+
+                                                                                    e.g., increasing the stiffness. As long as the tank is not depleted, it
+Fig. 5. Top: task-space behavior if the passivity constraint is not enforced.
+                                                                                    allows any parameter variations. Therefore, it is usually possible to
+Center and bottom: associated stiffness parameters and passivity condition.
+                                                                                    choose passivity tank parameters, i.e., initial stored energy and storage
+                                                                                    threshold, so that the impedance parameters are applied transparently
+                                                                                    and independently of instantaneous passivity considerations. This can
+imposed in 𝑝𝑥 ≥ 0.9. As visible in Fig. 1, system control then results in           lead to a passive, but practically unstable interaction if the parame-
+a trajectory respecting this constraint.                                            ters are poorly chosen [32]. On the other hand, the controller stops
+                                                                                    performing the action once the tank is depleted, which can lead to
+4.3. Comparison with non-passive NMPC                                               discontinuous controls. For instance, in [7], the stiffness matrix is
+                                                                                    defined as the sum of constant and variable terms such that 𝐾(𝑡) =
+    The previous simulation is replicated without the constraint (12h)              𝐾0 + 𝐾𝑣 (𝑡); whenever the tank is depleted, 𝐾𝑣 (𝑡) is set to zero. With
+so that the passivity condition is not considered. When the impedance               our approach, there is no task-specific tuning and the passivation of a
+parameters are constant (i.e., at all times except around 𝑡 = 10 s), the            sudden change in desired stiffness still results in smooth controls.
+interaction behavior is identical to that of its passive counterpart (see
+Fig. 5, top). However, at 𝑡 = 10 s, the change in desired stiffness (and            5. Experimental results
+damping) is implemented without any filtering, resulting in a highly
+non-passive behavior as revealed by the value reached by ℎ(𝑡) (see Fig.                 The performance of the proposed controller is now evaluated on a
+5, bottom). In this particular scenario, the loss of passivity does not             robotic platform by varying the desired impedance profile during an
+cause an unstable interaction, even though the transient trajectory is              interaction with an elastic environment. A second experiment is then
+more oscillatory (see Fig. 5, top). This can be explained by the globally           conducted with a human operator to demonstrate the applicability to
+dissipative behavior that results from the damping dissipating over time            physical human–robot interaction (pHRI) scenarios.
+the energy introduced by the increased stiffness. Nonetheless, stability
+cannot be guaranteed in the case of such a passivity violation [5].                 5.1. Description of the robotic setup and the experiments
+
+4.4. Discussion                                                                         The passive variable admittance controller is implemented using a
+                                                                                    UR5 Universal Robot 6-DOF manipulator (𝑛 = 6). The end-effector of
+    The simulation results demonstrate the applicability of the proposed            the robot is equipped with a force torque sensor (ATI mini 40). During
+approach to implement variable admittance control while guaranteeing                the first experiment, a 3D printed part is mounted onto the robot end-
+passivity and allowing the definition of state and control constraints.             effector to attach an elastic cord whose other end is attached to the
+Another advantage of this method is that, due to the low-pass filter                ceiling (Fig. 6(a)). During the second experiment, a human operator
+formulation of their dynamics, the impedance parameter values are                   manipulates a handle attached to the robot end-effector (Fig. 6(b)).
+guaranteed to be continuous even if 𝛽(𝑡) is potentially discontinuous                   Similarly to Section 4, the acados solver is used to model the
+(as is the case at 𝑡 = 10 s in Fig. 4). Furthermore, the time derivative            optimization problem and subsequently generate code imported in a
+of the impedance parameters can be bounded, either indirectly, using                C++ controller based on the ros-control framework. This controller runs
+𝛽𝑚𝑎𝑥 as per Eq. (12), or directly, using an explicit constraint added to            on a laptop with a 2.30 GHz Intel Core i9-12950HX processor. The
+the NMPC. The augmented state constraints can likewise be devised to                controller sampling time is chosen as 𝑇𝑠 = 8 ms to match the 125 Hz
+bound the impedance parameters themselves, for instance to guarantee                rate of the UR5 driver. The NMPC is implemented with 𝑇𝑝 = 80 ms
+a minimal stiffness or damping as in [31].                                          (𝑁 = 10), 𝑅𝐼 = 105 𝐼6×6 , 𝑅𝛽 = 1, and 𝛽𝑚𝑎𝑥 = 100. Control and state
+    It is important to comment on the main difference and the expected              constraints are set as
+behavior between the proposed approach and the widely used passivity                 𝑢(𝑡) ∈ [−3, 3] (rad.s−2 ), 𝑖 ∈ {1, 2, … , 6}                              (31)
+tank methods. A passivity tank stores the energy dissipated by the
+system, up to a threshold, and uses it to perform non-passive action,               𝑝𝑧 (𝑡) ∈ [0.45, 1] (m)                                                     (32)
+
+
+                                                                                6
+T. Poignonec et al.                                                                                                 Robotics and Autonomous Systems 202 (2026) 105483
+
+
+
+
+ Fig. 7. Robot pose, velocity, and external wrench during experiment (a).
+                                                                                   Fig. 8. Impedance profile (only stiffness and damping reported) and passivity
+                                                                                   constraints-related variables during experiment (a).
+
+The end-effector orientation is parameterized with Euler yaw-pitch-roll
+angles, i.e., 𝜙 ∈ R3 (𝑛 = 𝑚 = 6). The desired pose is kept constant,
+i.e., 𝜉̈𝑑 (𝑡) = 𝜉̇ 𝑑 (𝑡) = 0 and the desired impedance profile is defined as
+
+   𝑀 = diag{5, 5, 5, 0.5, 0.5, 0.5} (kg/kg.m2 )                        (33)
+𝐾 𝑑 (𝑡) = diag{50, 50, 𝑘𝑑3 (𝑡), 5, 5, 5} (N.m−1 )                      (34)
+
+where 𝑘𝑑3 (𝑡) is the time-varying stiffness along the 𝑧-axis such that
+𝑘𝑑3 (𝑡) = 50 (1 − 𝑠(𝑡)) + 300 𝑠(𝑡) with
+            (               )
+                      2𝜋
+𝑠(𝑡) = 0.5 1 − cos        𝑡                                         (35)
+                       3
+     The desired damping coefficients 𝑑𝑖𝑑 (𝑡) are computed to maintain a
+low damping ratio 𝜁 = 0.1 chosen to highlight passivity issues without
+the need for high-frequency or amplitude stiffness variations.
+
+5.2. Experiment (a): interaction with an elastic environment
+
+    At startup, the interaction stiffness is at its lowest (i.e., 50 N.m−1 )
+such that, due to the force applied by the elastic cord, the pose tracking
+error is at its highest (see Fig. 7).                                              Fig. 9. Data collected during the pHRI experiment (b). The red dotted line
+    When the desired stiffness and damping along the 𝑧-axis increase               refers to a constraint. (For interpretation of the references to color in this
+(see Fig. 8), the impedance parameters accurately track the desired                figure legend, the reader is referred to the web version of this article.)
+value until the passivity constraint is no longer respected at 𝑡 = 0.2 s.
+Once ℎ(𝑡) reaches zero, the impedance profile is altered to maintain the           Table 1
+positiveness of ℎ(𝑡) as visible in Fig. 8 for 𝑡 ∈ [0.2, 1.5] s.                    NMPC computation time for different horizon lengths.
+    When the desired stiffness decreases, e.g., for 𝑡 ∈ [1.5, 3] s, the             N             1          2           3         4        5         10        15
+interaction behavior is dissipative due to the damping and motion,                  avg (ms)      0.7        1.3         1.8       2.4      2.9       𝟓.𝟔       9
+as evidenced by the strictly positive corresponding value of ℎ(𝑡). As               std (ms)      0.04       0.04        0.1       0.1      0.1       𝟎.𝟒       0.5
+a result, the value of 𝛽(𝑡) is maximized, and the impedance profile is
+tracked accurately. The closed-loop dynamic behaviors of the robot,
+as well as the evolution of the impedance parameters imposed by                    impedance profile remain the same as in the previous experiment.
+the controller are consistent and repeatable across the three periods              During the first period of impedance variation (i.e., 𝑡 ∈ [0, 3] s), the
+reported for this experiment.                                                      operator does not interact with the robot. Contrarily to methods that
+    The control loop, NMPC computation included, takes 5.6 ms on                   are not based on the actual state of the system [5,6], the proposed
+average, which is under the 8 ms required as per the sampling time,                approach allows impedance variations when the tracking errors are low
+but close to maximum that could be achieved on this hardware (see                  or null, as ℎ(𝑡) will likewise be small or null. This is visible in Fig.
+Table 1).                                                                          9 where ℎ(𝑡) is null and the value of 𝛽(𝑡) is maximized such that the
+                                                                                   desired impedance profile is accurately tracked.
+5.3. Experiment (b): pHRI                                                             During the second period of impedance variation (i.e., 𝑡 ∈ [3, 6] s),
+                                                                                   the operator applies a force along the 𝑧-axis to move the end-effector
+   Now consider the interaction with a human operator corresponding                upward. As pose tracking errors appear, the desired stiffness variation
+to the setup (b) in Fig. 6. The controller, desired trajectory, and                would result in a non-passive interaction behavior. As a result of the
+
+                                                                               7
+T. Poignonec et al.                                                                                                   Robotics and Autonomous Systems 202 (2026) 105483
+
+
+proposed control, it is altered through a lower value of 𝛽(𝑡) to maintain          CRediT authorship contribution statement
+the positiveness of ℎ(𝑡). The interaction is then replicated with a larger
+force (i.e., 𝑡 ∈ [6, 8] s), leading to a similar result. Finally, a negative          Thibault Poignonec: Writing – review & editing, Writing – orig-
+force is applied along the 𝑧-axis during the last period (at 𝑡 = 8.5 s).           inal draft, Visualization, Validation, Software, Project administration,
+Due to the Cartesian task-space constraint on 𝑝𝑧 (𝑡), the motion of the            Methodology, Investigation, Conceptualization. Bernard Bayle: Writ-
+end-effector is halted at 𝑝𝑧 (𝑡) = 0.45 m. Additionally, the impedance             ing – review & editing. Loïc Cuvillon: Writing – review & editing.
+parameters are altered to maintain the positiveness of ℎ(𝑡). When the              Hassan Omran: Writing – review & editing, Supervision, Funding
+operator stops interacting with the robot (around 𝑡 = 10 s), the                   acquisition.
+end-effector returns to its desired position according to the desired
+closed-loop dynamics.
+                                                                                   Declaration of competing interest
+    It can be noted that there is an interaction between the task space
+constraints (e.g., position) and the impedance parameter dynamics,
+visible, for instance, at 𝑡 = 8.75 s in Fig. 9, when the tracking of                   The authors declare the following financial interests/personal rela-
+the desired parameters is halted as the position limit is reached. This            tionships which may be considered as potential competing interests:
+is because a decrease in stiffness would result in a larger predicted              Hassan Omran reports financial support was provided by French Na-
+position tracking error, hence violating the constraint.                           tional Research Agency. If there are other authors, they declare that
+                                                                                   they have no known competing financial interests or personal relation-
+6. Conclusions and discussion                                                      ships that could have appeared to influence the work reported in this
+                                                                                   paper.
+    In this paper, we proposed an NMPC formulation for the variable
+admittance control of robot manipulators. The dynamics of the variable             Acknowledgment
+impedance parameters (i.e., stiffness and damping terms) were included
+in the problem formulation to track the desired parameters while                      This work was supported by French state funds managed by the ANR
+guaranteeing a passive interaction. This passivity condition is imposed            under reference ANR-21-CE33-0004.
+through a constraint in the NMPC, allowing the online adaptation of
+the planned variable impedance parameters for passivity. The approach
+                                                                                   Appendix A. Supplementary data
+was shown to be adapted for variable admittance control with state
+and control variable constraints, including task space constraints such
+as bounds on Cartesian pose and velocity. This makes the method                        Supplementary material related to this article can be found online
+especially well suited for pHRI, as it allows to meet both passivity               at https://doi.org/10.1016/j.robot.2026.105483.
+and safety-related task constraints (e.g., bounds on robot velocity or
+acceleration) in a unified framework, all the while guaranteeing smooth            Data availability
+impedance parameter variations.
+    The applicability of the proposed approach has been demonstrated                  Data will be made available on request.
+by simulation. The variable admittance control has been implemented
+while respecting a set of state and control constraints and simulta-
+neously guaranteeing the passivity of the interaction. The controller              References
+was also successfully implemented with a widespread collaborative
+robotic platform and the experimental results assessed the applicability            [1] N. Hogan, Impedance control: An approach to manipulation, J. Dyn. Syst. Meas.
+of the approach in practical scenarios, including the interaction with an               Control. 107 (1) (1985) 1–24.
+                                                                                    [2] W.S. Newman, Stability and performance limits of interaction controllers, J. Dyn.
+operator. It is important to emphasize that the proposed approach for
+                                                                                        Syst. Meas. Control. 114 (4) (1992) 563–570.
+passive admittance control is generic. The controller could readily be              [3] M. Sharifi, A. Zakerimanesh, J.K. Mehr, A. Torabi, V.K. Mushahwar, M. Tavakoli,
+extended to impedance control of torque-controlled robots by directly                   Impedance variation and learning strategies in human–robot interaction, IEEE
+using the Euler–Lagrange model defined by Eq. (1) and choosing the                      Trans. Cybern. 52 (7) (2022) 6462–6475.
+torques 𝜏𝑐 as the control variable.                                                 [4] M.J. Pollayil, F. Angelini, G. Xin, M. Mistry, S. Vijayakumar, A. Bicchi, M.
+    With the proposed implementation, a standing limitation lies in                     Garabini, Choosing stiffness and damping for optimal impedance planning, IEEE
+                                                                                        Trans. Robot. 39 (2) (2023) 1281–1300.
+the modeling of the external wrench, as the wrench was considered a
+                                                                                    [5] K. Kronander, A. Billard, Stability considerations for variable impedance control,
+constant disturbance over the prediction horizon in Eq. (7c). As such, it               IEEE Trans. Robot. 32 (5) (2016) 1298–1305.
+is implicitly assumed that the wrench does not vary too much over the               [6] M. Bednarczyk, H. Omran, B. Bayle, Passivity filter for variable impedance
+prediction horizon, hence limiting applications to human–robot physi-                   control, in: International Conference on Intelligent Robots and Systems, IROS,
+cal interactions and low stiffness environments in general. In addition,                IEEE, 2020, pp. 7159–7164.
+it is not possible to constrain the force applied to the environment                [7] F. Ferraguti, N. Preda, A. Manurung, M. Bonfè, O. Lambercy, R. Gassert,
+                                                                                        R. Muradore, P. Fiorini, C. Secchi, An energy tank-based interactive control
+as it is considered constant over the prediction horizon. It should be
+                                                                                        architecture for autonomous and teleoperated robotic surgery, IEEE Trans. Robot.
+noted that a differential model for the external wrench (e.g., through                  31 (5) (2015) 1073–1088.
+environment stiffness estimation [25,33]) could be integrated to the                [8] Z. Jin, A. Liu, W.-a. Zhang, L. Yu, An optimal variable impedance control with
+proposed approach without any significant change besides the model                      consideration of the stability, IEEE Robot. Autom. Lett. 7 (2) (2022) 1737–1744.
+of 𝑤(𝑡) in Eq. (7c). However, including the model of the wrench would               [9] N. Piccinelli, R. Muradore, A bilateral teleoperation with interaction force
+require the estimation of a model of interaction between the robot and                  constraint in unknown environment using non linear model predictive control,
+                                                                                        Eur. J. Control 62 (2021) 185–191.
+its environment, which remains a largely open problem for complex
+                                                                                   [10] N. Piccinelli, R. Muradore, Linearized virtual energy tank for passivity-
+interactions.                                                                           based bilateral teleoperation using linear MPC, IEEE Trans. Robot. 41 (2025)
+    It is also worth mentioning that the proposed controller based on                   2589–2604.
+NMPC requires the desired impedance profile to be known at least over              [11] C. Secchi, F. Ferraguti, Energy optimization for a robust and flexible interaction
+the prediction horizon. If the profile is planned online from sensor data,              control, in: International Conference on Robotics and Automation, ICRA, IEEE,
+then only the current desired values might be available. In that case,                  2019, pp. 1919–1925.
+                                                                                   [12] F. Califano, R. Rashad, C. Secchi, S. Stramigioli, On the use of energy tanks for
+the desired parameters would be constant over the horizon and it might
+                                                                                        robotic systems, Int. Work. Human-Friendly Robot., HFR (2022) 174–188.
+be advantageous to separate the control of parameters dynamics from                [13] R. Zanella, G. Palli, S. Stramigioli, F. Califano, Learning passive policies with
+the control of the robot motion in order to reduce computation time.                    virtual energy tanks in robotics, IET Control Theory Appl. 18 (5) (2024)
+This will be investigated by the authors in future works.                               541–550.
+
+
+                                                                               8
+T. Poignonec et al.                                                                                                               Robotics and Autonomous Systems 202 (2026) 105483
+
+
+[14] R. Cao, L. Cheng, H. Li, Passive model-predictive impedance control for safe              [23] A. Wahrburg, K. Listmann, MPC-based admittance control for robotic manip-
+     physical human–robot interaction, IEEE Trans. Cogn. Dev. Syst. 16 (2) (2024)                   ulators, in: 55th Conference on Decision and Control, CDC, IEEE, 2016, pp.
+     426–435.                                                                                       7548–7554.
+[15] M. Schumacher, J. Wojtusch, P. Beckerle, O. Von Stryk, An introductory review             [24] M. Bednarczyk, H. Omran, B. Bayle, Model predictive impedance control, in:
+     of active compliant control, Robot. Auton. Syst. 119 (2019) 185–200.                           International Conference on Robotics and Automation, ICRA, IEEE, 2020, pp.
+[16] K. Haninger, C. Hegeler, L. Peternel, Model predictive impedance control with                  4702–4708.
+     Gaussian processes for human and environment interaction, Robot. Auton. Syst.             [25] T. Gold, A. Völz, K. Graichen, Model predictive interaction control for robotic
+     165 (2023) 104431.                                                                             manipulation tasks, IEEE Trans. Robot. 39 (1) (2023) 76–89.
+[17] N. Thelenberg, C. Ott, On handling variable stiffness parameters in compliance            [26] B. Siciliano, O. Khatib, Springer Handbook of Robotics, Springer, 2016.
+     control via MPC, in: European Control Conference, ECC, IEEE, 2024, pp.                    [27] R. Sepulchre, M. Jankovic, P.V. Kokotovic, Constructive Nonlinear Control,
+     615–620.                                                                                       Springer Science & Business Media, 2012.
+[18] Z. Jin, D. Qin, A. Liu, W.-A. Zhang, L. Yu, Model predictive variable impedance           [28] H.K. Khalil, Nonlinear Systems, third ed., Prentice Hall, 2002.
+     control of manipulators for adaptive precision-compliance tradeoff, IEEE/ASME             [29] R. Verschueren, G. Frison, D. Kouzoupis, J. Frey, N.v. Duijkeren, A. Zanelli, B.
+     Trans. Mechatronics 28 (2) (2023) 1174–1186.                                                   Novoselnik, T. Albin, R. Quirynen, M. Diehl, Acados — a modular open-source
+[19] K.J. Kazim, J. Bethge, J. Matschek, R. Findeisen, Combined predictive path                     framework for fast embedded optimal control, Math. Program. Comput. 14 (1)
+     following and admittance control, in: American Control Conference, ACC, IEEE,                  (2022) 147–183.
+     2018, pp. 3153–3158.                                                                      [30] G. Frison, M. Diehl, HPIPM: a high-performance quadratic programming
+[20] J. Matschek, J. Bethge, P. Zometa, R. Findeisen, Force feedback and path                       framework for model predictive control, IFAC-Pap. 53 (2) (2020) 6563–6569.
+     following using predictive control: Concept and application to a lightweight              [31] Z. Jin, D. Qin, A. Liu, W.-A. Zhang, L. Yu, Constrained variable impedance
+     robot, IFAC-PapersOnLine 50 (1) (2017) 9827–9832.                                              control using quadratic programming, in: International Conference on Robotics
+[21] N. Piccinelli, R. Muradore, Interaction force constraints for position-controlled              and Automation, ICRA, IEEE, 2022, pp. 8319–8324.
+     manipulator using linear MPC, in: 21st International Conference on Advanced               [32] F. Benzi, F. Ferraguti, G. Riggio, C. Secchi, An energy-based control architecture
+     Robotics, ICAR, IEEE, 2023, pp. 176–182.                                                       for shared autonomy, IEEE Trans. Robot. 38 (6) (2022) 3917–3935.
+[22] S. Kleff, E. Dantec, G. Saurel, N. Mansard, L. Righetti, Introducing force feedback       [33] M.D. Killpack, A. Kapusta, C.C. Kemp, Model predictive control for fast reaching
+     in model predictive control, in: International Conference on Intelligent Robots                in clutter, Auton. Robots 40 (3) (2016) 537–560.
+     and Systems, IROS, IEEE, 2022, pp. 13379–13385.
+
+
+
+
+                                                                                           9
+

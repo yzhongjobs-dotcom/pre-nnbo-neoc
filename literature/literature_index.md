@@ -10,7 +10,7 @@ This directory retains original papers, extracted texts, sources and actual read
 - Requested repository 2: [e2e/User Batch V2](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/source-materials/user-batch-v2) and [idea-stage](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/idea-stage). Of the original 61 screened papers, local material includes 25 directly relevant, six partly relevant and five background papers; 25 currently irrelevant papers retain exclusion reasons only. Ten originals added from existing leads are also local.
 - Complete screening, original pages and neighbors without obtained full text appear in [sources/screening](impedance_literature_sources_and_screening.json). Do not copy all 2653 discovery records, 105 old evidence cards or 3822 search events, or treat them as confirmed conclusions.
 
-There are **65** deduplicated local PDFs with corresponding texts. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
+There are **87** deduplicated local PDFs with corresponding texts. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
 
 ## Original methods and direct evidence
 
@@ -86,6 +86,37 @@ Inclusion grounds and reading pages are governed by source JSON. Direct relevanc
 | F09 | [Wang et al., TASE2024, 10.1109/TASE.2023.3282974](papers/field_supplements/F09.pdf) · [text](extracted_text/field_supplements/F09.txt) |
 | F10 | [Moreira et al., CMPB2014, 10.1016/j.cmpb.2014.01.017](papers/field_supplements/F10.pdf) · [text](extracted_text/field_supplements/F10.txt) |
 
+## Focused supplements for moving and heterogeneous tissue scanning
+
+The 2026-10-22 review selected 21 additional originals/author manuscripts from the two user-specified local libraries and the public CARE original (22 in total). The [field assessment](../research/field_state.md) uses the directly relevant studies; neighboring tasks, background and design resources are explicitly distinguished. [Review sources and actual reading scopes](motion_stiffness_review_sources.json) record the original locations, selected pages and unresolved full-text access. Identity/abstract screening, passage reading and complete reading are not interchangeable.
+
+| ID | Original / retained version | Role |
+|---|---|---|
+| G01 | [A novel model predictive dynamic adaptive impedance control for robotic force tracking on complex surfaces](papers/field_supplements/G01.pdf) · [text](extracted_text/field_supplements/G01.txt) | Direct predictive/adaptive force-control prior |
+| G02 | [Moving Parameters Optimization-Based Model Predictive Adaptive Impedance Control for Robotic Motion/Force Tracking](papers/field_supplements/G02.pdf) · [text](extracted_text/field_supplements/G02.txt) | Direct predictive/adaptive impedance prior |
+| G03 | [NMPC-based variable admittance control with passivity constraints](papers/field_supplements/G03.pdf) · [text](extracted_text/field_supplements/G03.txt) | Direct predictive passivity/impedance-execution prior |
+| G04 | [On Handling Variable Stiffness Parameters in Compliance Control via MPC](papers/field_supplements/G04.pdf) · [text](extracted_text/field_supplements/G04.txt) | Direct predictive impedance-execution prior |
+| G05 | [Composite Learning Variable Impedance Robot Control With Stability and Passivity Guarantees](papers/field_supplements/G05.pdf) · [text](extracted_text/field_supplements/G05.txt) | Direct stable learning/impedance-execution prior |
+| G06 | [Impedance Learning for Robots Interacting With Unknown Environments](papers/field_supplements/G06.pdf) · [text](extracted_text/field_supplements/G06.txt) | Historical unknown time-varying environment learning prior |
+| G07 | [Learning Variable Impedance Control via Inverse Reinforcement Learning for Force-Related Tasks](papers/field_supplements/G07.pdf) · [text](extracted_text/field_supplements/G07.txt) | Learned force-related impedance prior |
+| G08 | [Q-Learning-based model predictive variable impedance control for physical human-robot collaboration](papers/field_supplements/G08.pdf) · [text](extracted_text/field_supplements/G08.txt) | Direct learned approximation of predictive impedance prior |
+| G09 | [Robust Contact-rich Manipulation through Implicit Motor Adaptation](papers/field_supplements/G09.pdf) · [text](extracted_text/field_supplements/G09.txt) | Transferable uncertainty-conditioned policy adaptation |
+| G10 | [Symmetry-Optimized Image Guidance and Biomechanics-Driven Force Measurement for Robotic Ultrasound: A Control Framework Enhancing Sonographic Quality](papers/field_supplements/G10.pdf) · [text](extracted_text/field_supplements/G10.txt) | Adjacent robotic ultrasound geometry/force adaptation |
+| G11 | [Viscoelastic modeling based force control framework for enhancing operation safety of soft tissue for orthopedic surgical robots](papers/field_supplements/G11.pdf) · [text](extracted_text/field_supplements/G11.txt) | Adjacent viscoelastic tissue modeling/force control |
+| G12 | [Sensitivity-Aware Model Predictive Control for Robots With Parametric Uncertainty](papers/field_supplements/G12.pdf) · [text](extracted_text/field_supplements/G12.txt) | Transferable robust predictive-control method |
+| G13 | [Respiratory Motion-Robust Robotic Ultrasound Acquisitions via Vision-Haptic Fusion Control and 3-D Compensation](papers/field_supplements/G13.pdf) · [text](extracted_text/field_supplements/G13.txt) | Direct respiratory-motion/force-control prior |
+| G14 | [Implicit Neural Representations for Breathing-compensated Volume Reconstruction in Robotic Ultrasound](papers/field_supplements/G14.pdf) · [text](extracted_text/field_supplements/G14.txt) | Adjacent respiratory-compensated reconstruction prior |
+| G15 | [Neural Networks Enhanced Optimal Admittance Control of Robot–Environment Interaction Using Reinforcement Learning](papers/field_supplements/G15.pdf) · [text](extracted_text/field_supplements/G15.txt) | Direct optimal admittance/unknown-environment learning prior |
+| G16 | [Dual-Agent-Based Robotic Ultrasound Path Planning and Interaction Control in External-Vision-Independent Environments](papers/field_supplements/G16.pdf) · [text](extracted_text/field_supplements/G16.txt) | Adjacent vision-independent ultrasound interaction control |
+| G17 | [Autonomous Robotic Ultrasound Vascular Imaging System With Decoupled Control Strategy for External-Vision-Free Environments](papers/field_supplements/G17.pdf) · [text](extracted_text/field_supplements/G17.txt) | Adjacent decoupled robotic ultrasound control |
+| G21 | [Simultaneous Compliance and Registration Estimation for Robotic Surgery](papers/field_supplements/G21.pdf) · [text](extracted_text/field_supplements/G21.txt) | Direct joint compliance/registration estimation prior |
+| G22 | [Variable Impedance Control and Learning—A Review](papers/field_supplements/G22.pdf) · [text](extracted_text/field_supplements/G22.txt) | Background survey |
+| G23 | [Learning Variable Impedance Control for Contact Sensitive Tasks](papers/field_supplements/G23.pdf) · [text](extracted_text/field_supplements/G23.txt) | Learned impedance/reference interface prior |
+| G24 | [Variable Impedance Control in End-Effector Space: An Action Space for Reinforcement Learning in Contact-Rich Tasks](papers/field_supplements/G24.pdf) · [text](extracted_text/field_supplements/G24.txt) | Learned impedance action-space prior |
+| G25 | [Model Predictive Robot-Environment Interaction Control for Mobile Manipulation Tasks](papers/field_supplements/G25.pdf) · [text](extracted_text/field_supplements/G25.txt) | Adjacent online identification/predictive interaction control |
+
+G09 is a local author manuscript with a placeholder journal DOI; its exact equivalence to an arXiv revision is not asserted. G23/G24/G25 are retained arXiv author versions with journal/conference identities recorded separately. G12 and G22 have identity/abstract-level reading in this review. Neither is used to infer detailed theory or missing capabilities.
+
 ## Independent reverse-analysis samples
 
 Samples were not selected by relevance to this idea. The ten below had relevant passages examined; they are neither all journal papers nor complete theoretical audits. They inform question/method/evidence design; see [independent reverse analysis](../research/independent_reverse_analysis_of_top_journal_methods.md).
@@ -107,8 +138,8 @@ Samples were not selected by relevance to this idea. The ten below had relevant 
 
 [You Only Plan Once: A Learning-Based One-Stage Planner With Guidance Learning](papers/method_transfer/YOPO.pdf) · [text](extracted_text/method_transfer/YOPO.txt). The original uses guidance learning, not PPO. Text is local and no longer depends on the removed PPO report.
 
-VICES (arXiv:1906.08880), SRL-VIC (arXiv:2406.13744) and Zanella et al. (arXiv:2301.12759) have prior records of relevant original-passage access, but no local PDF was obtained in that consolidation. Their roles/limits are in transferable mechanisms/field state. Yang et al., IFAC2025 (DOI10.1016/j.ifacol.2025.10.191) was checked at abstract level only. Recover earlier online-reading details from the old candidate-2 report at `db28365`; do not register them as local full texts.
+VICES (arXiv:1906.08880) is now local as G24. SRL-VIC (arXiv:2406.13744) and Zanella et al. (arXiv:2301.12759) have prior records of relevant original-passage access, but no local PDF was obtained in the earlier consolidation. Their roles/limits are in transferable mechanisms/field state. Yang et al., IFAC2025 (DOI10.1016/j.ifacol.2025.10.191) was checked at abstract level only. Recover earlier online-reading details from the old candidate-2 report at `db28365`; do not register them as local full texts.
 
-Two TIE2026 papers, the original Roveda2022 journal article and recent admittance/joint-estimation neighbors still have full-text or local-acquisition gaps; see field state/source JSON. Missing full text does not imply that a relevant difficulty remains unsolved.
+Wang TIE2026 is now local as G02, and the Roveda2022 journal original as G08. Wu TIE2026, Zhang TIE2024 MHE-VIC, DOSMAC and some joint-estimation neighbors still have full-text access gaps; see field state/review sources. Missing full text does not imply that a relevant difficulty remains unsolved.
 
 The unchanged [sample mathematical-boundary results](top_venue_sample_math_checks.json) and [historical verification script](verify_top_venue_samples.py) examine generic constructions only and cannot refute entire papers. Those scientific checks were not run in the consolidation.
