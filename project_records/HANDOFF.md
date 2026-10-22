@@ -2,6 +2,29 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
+**Pending user decision (2026-10-22, after the new field review; proposal only, not confirmed):**
+Novelty assessment, non-defensive: the idea survives at the problem/mechanism level, not as
+"first joint motion-stiffness estimation". Socratic reading of strong priors (inferences marked):
+Cao G13 needs external vision/markers and does not handle stiffness heterogeneity; DOSMAC lumps
+both changes into one disturbance, so it cannot schedule gains by stiffness (inference: the same
+motion gives ~30x force disturbance on bone, so one observer bandwidth cannot suit both);
+Xue/Wang G02 attribute motion-induced force error to stiffness (supported by our adaptations:
+C1 without drift 1.502 N, Xue T2-stiff 3.414 N); CARE/Chalasani rely on static palpation with
+deliberate excitation, while constant-force regulation removes the excitation needed for
+identification (C1 v3 log: k unidentified without dither) - a tracking-vs-identification
+conflict to be checked theoretically. Packaging proposal: problem = force-only, vision-free
+constant-force scanning where motion and stiffness are confounded; method = joint estimate of
+local stiffness and equivalent contact drift, source-based allocation (stiffness -> D/K_PF,
+drift -> u_ff) in one short-horizon OCP, small dither with an identifiability condition
+(transfer of persistent excitation/dual control). C2: possible transfer of RMA-style
+privileged teacher-student adaptation (in-field precedent unchecked); likely needs the drift
+channel and a structured reference output. Missing baselines, by priority: DOSMAC (standard
+DOB + sliding-mode admittance if full text unavailable), Cao-style vision compensation using
+noisy/delayed true surface motion, Wang TIE2026 G02, and full Haninger GP (or label the current
+row as a damping-rule adaptation). Proposed main set: two fixed, Jin, Xue, DOSMAC, Cao-style,
+Wang; EtR-A as ablation; Li and Haninger rule to appendix. User to decide: refine the question
+wording (and the K=0 vs "stiffness" wording) and the baseline set.
+
 **Latest completed checkpoint (2026-10-22): original-source field review for the user's motion/stiffness focus.**
 The user asked to select relevant papers from both local libraries and update the
 field assessment, then explicitly rejected abstract reframing and extra research
