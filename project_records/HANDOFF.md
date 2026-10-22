@@ -2,6 +2,19 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
+**Current focus: C1 only; set C2 optimization aside.** The user asks for concrete
+differences from closest work and whether the three simulations suffice before
+physical experiments. Method document section 2.8 records source-grounded
+comparisons and the assessment: three task families are appropriate; missing
+evidence is closest-prior comparison and separating gain-selection benefit from
+reference compensation, not additional tasks or simple-controller tuning.
+Xue already tests push/retract; joint reference/impedance is also established.
+Projection is a profiled weighted least-squares solution, not new information.
+C1 has a concrete candidate contribution plus stiff-motion repair evidence;
+its comparative advantage is not yet established against full closest methods.
+No new control experiment, training or controller change was run for this
+assessment. Preserve C2 artifacts without presenting it as a coequal main claim.
+
 The paper overview section IV now separately specifies both tested Methods,
 including C1 projection/OCP/recovery and C2 sensing, residual action mapping,
 true-stiffness rule teacher, DAgger and CMA-ES. C2 is not a distilled C1 and
