@@ -2,7 +2,24 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
-**Pending user decision (2026-10-22, after the new field review; proposal only, not confirmed):**
+**Confirmed by the user (2026-10-22): refined question, contribution framing and baseline set.**
+The refined question is in `research/research_question.md`; contributions, candidate fixes
+and the baseline set are in `research/optimal_impedance_question_and_methods.md` §2.6.
+The current final Chinese section reflects the old baseline set and will be revised after
+the plan below. Ordered plan for the next (local) session; state the quota cost before each
+compute-heavy step and run nothing large without the user's go-ahead:
+1. Short derivation: identifiability of stiffness vs equivalent drift under constant-force
+   regulation with/without dither; why a lumped disturbance observer cannot schedule gains.
+2. Implement and tune the three new baselines (DOSMAC-style DOB + sliding-mode admittance,
+   Cao-style vision compensation with noisy/delayed true surface motion, Wang TIE2026 G02)
+   on the existing train/dev protocol.
+3. Improve C1: T2 stiff push/retract and fallback bounce; replace the tuned B1 fallback with
+   a rule-based one; support or drop "near-optimal".
+4. Improve C2: drift estimate as input plus a structured reference output.
+5. Stability/passivity condition for the variable gains.
+6. Re-run the seed-7200 cohort for the final method set and revise the Chinese section.
+
+Background of the decision (the analysis the user accepted):
 Novelty assessment, non-defensive: the idea survives at the problem/mechanism level, not as
 "first joint motion-stiffness estimation". Socratic reading of strong priors (inferences marked):
 Cao G13 needs external vision/markers and does not handle stiffness heterogeneity; DOSMAC lumps
