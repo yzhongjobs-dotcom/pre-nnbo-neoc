@@ -4,26 +4,48 @@ Research status updated: 2026-10-22. Check the current user request and Git stat
 
 **Current numerical entry, superseding the October 19 status below:** the October 21
 [36-paper setup analysis](../research/simulation_setup_reverse_analysis.md) led to
-the implemented [cobot benchmark](../experiments/cobot_scan_benchmark/README.md),
-paper-method adaptations, two candidates and Candidate 1 v2. On October 22,
-[physical-outcome reporting](../experiments/cobot_scan_benchmark/physical_results/results.md)
-replayed all frozen deployable baseline variants and candidates on the same two
-main tasks, keeping seed-3000 and seed-4000 cohorts separate. It contains 3,840
-episode records; neural training seeds do not increase the 40 independent scenes
-per task/cohort. The tables separate force RMSE, maximum error, peak force,
-no-contact duration and update timing. Parameters and original results were not
-changed. Replay differences and one failed low-damping run are explicit.
+the implemented [cobot benchmark](../experiments/cobot_scan_benchmark/README.md).
+The latest user request was to repair Xue/other baseline adaptations, extend weak
+tuning, and compare the frozen proposed controllers using physical metrics on
+identical scenes. The completed [refined comparison](../experiments/cobot_scan_benchmark/refined_baselines/results.md)
+is now the numerical entry. The earlier [frozen replay](../experiments/cobot_scan_benchmark/physical_results/results.md)
+remains the before-repair evidence, including its replay differences.
 
-The new candidates change representation and interface: Candidate 1 is local
-stiffness/surface-motion estimation plus direct OCP and feedforward, and Candidate
-2 uses history/lock-in estimation and a distilled network. They do not implement
-the complete original B0/HJB/spatial-preview design. Candidate 1 v2 and Candidate 2
-improve main-task mean errors, but not every physical outcome; the v1 seed-4000
-runaway, the fast-push limitations and the 4 mm respiration negative remain.
-Xue's disabled stiffness branch and unsuccessful feasibility search, and limited
-Jin/learning tuning, remain comparison limitations. The latest user request was
-to produce physical-outcome tables with missing quantities computed, not to start
-another method redesign. All replay work stops at its completed checkpoint.
+The refined entry restores Xue's variable-stiffness branch and HC projections,
+checks stiffness/energy initialization and measured-state/servo alternatives,
+fixes Jin OS's action-blind 8 ms prediction endpoint, expands gain/solver tuning,
+and restores the learned baseline's reference output with per-task training.
+It retains 1,104 coarse configurations, 317 local evaluations, three neural
+seeds per task (64,820 added training/selection episodes including calibration),
+selected parameter/native-constraint checks and hashes frozen before testing.
+The 1,440 repaired episode runs combine with 2,400 unchanged primary records;
+all original source/configuration/weight hashes were verified. Neural seeds do
+not increase the 40 independent scenes per task/cohort. Tests 3000 and 4000 were
+historically inspected and are not called untouched tests. One historical
+low-damping integration failure remains visible in the diagnostic rows.
+
+On cohort 4000, C1 v2/C2 mean force RMSE is 0.0673/0.0896 N on T1, versus
+0.1161 N for the lowest-RMSE baseline (repaired Jin OS), and 0.1726/0.2308 N on T3,
+versus 0.2726 N for EtR-A. Both candidates retain lower mean RMSE than all
+competitive baselines in both cohorts; marginal scene-paired intervals are
+reported without multiple-comparison correction. This is not dominance on every
+physical outcome: T3/4000 Jin MS has a worst sampled peak of 6.499 N versus
+C1 v2's 7.164 N; C2 also has a small nonzero zero-force duration. Xue improves
+substantially, but its A1 T3 selection still fails the train peak criterion;
+Duan remains weak and additional tuning does not consistently improve test
+outcomes. Finite search/training does not certify global tuning optimality or
+reproduction of the original papers' robot experiments.
+
+The candidates change representation and interface: Candidate 1 is local
+stiffness/surface-motion estimation plus direct OCP and feedforward; Candidate 2
+uses history/lock-in estimation and a privileged-teacher distilled network.
+They do not implement the complete original B0/HJB/spatial-preview design.
+Candidate 1 v3 was added in the preceding checkpoint; its main 1 mm configurations
+are the same as v2 here. The shared-configuration variant and 4 mm/fast-push cells
+were not silently substituted or reevaluated against the repaired baselines.
+C1 v1's 46.916 N runaway is retained. No core-question revision was made, and the
+baseline-repair request is complete at this checkpoint; further method/robustness
+work should follow the next user instruction.
 
 The following sections preserve the earlier design and evidence context. Their
 old "latest" experiment references describe the October 19 checkpoint, not the

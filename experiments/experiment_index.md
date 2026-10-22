@@ -6,6 +6,7 @@ Retained materials serve environment estimation, both candidate designs, reasona
 
 | Resource | Subsequent use | Required boundary |
 |---|---|---|
+| [Cobot benchmark and repaired baseline comparison](cobot_scan_benchmark/README.md) | October 21 task redesign; same-scene physical metrics after Xue/Jin/learned adaptation repair and additional train/dev tuning | Synthetic PC125 normal-axis plant; frozen C1 v2/C2; historically inspected test cohorts; accuracy gains do not establish peak-force dominance or full B0/journal readiness |
 | [Realistic scan task](realistic_scan_task/README.md) | Planar 3R arm, viscoelastic B0 footprint contact, F/T noise/delay, three representative tasks, tolerance-based score, headroom check against fixed impedance and force PI | First benign tasks only; no candidate ported yet; synthetic parameters |
 | [NNBO source reproduction](nnbo_source_reproduction/README.md) | Critic equations, exploration and Newton position inversion | Minimal mechanism, without complete identification/robot experiments; not B0 four gains |
 | [Finite-horizon contact](finite_horizon_contact/README.md) | Cylindrical contact, Bellman carrier and independent trajectories; dependency of slow-variation tests | Single K rate/fixed D, not the full-dimensional B0 critic |

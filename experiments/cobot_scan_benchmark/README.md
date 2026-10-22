@@ -1,11 +1,25 @@
 # Cobot scanning benchmark: task protocol and headroom gate
 
-**Physical-outcome tables (2026-10-22):** [complete report](physical_results/results.md),
+**Current repaired-baseline comparison (2026-10-22):** [physical tables and conclusions](refined_baselines/results.md),
+[paired episode data](refined_baselines/combined_per_scene.csv), and
+[execution entry](refine_baselines.py). Xue's stiffness/HC/servo adaptation and
+Jin's action-blind one-step endpoint are corrected in the refined implementations.
+Additional train/dev searches cover 1,104 coarse configurations and 317 local
+evaluations; the learned baseline adds 64,820 training/selection episodes across
+three seeds per task, including output calibration. No proposed controller is
+retuned. The same seed-3000/4000 scenes retain a mean RMSE advantage for C1 v2 and
+C2, but not uniform peak-force dominance: on T3/4000, Jin MS's worst sampled peak
+is 6.499 N versus C1 v2's 7.164 N. The report includes before/after outcomes,
+physical units, marginal paired intervals and the remaining Xue/Duan limitations.
+Use this entry for the repaired comparisons; the original baseline runners and
+results below remain frozen historical implementations.
+
+**Earlier frozen physical-outcome tables (2026-10-22):** [complete report](physical_results/results.md),
 [per-scene source data](physical_results/per_scene.csv), and
 [replay code](report_physical_metrics.py). All frozen deployable baseline variants,
 both Candidate 1 versions, Candidate 2 and truth-stiffness references were replayed
 on the same T1/T3 seed-3000 and seed-4000 cohorts, 40 scenes per task and cohort.
-The report separates force RMSE, maximum error, peak force, actual no-contact
+The report separates force RMSE, maximum error, peak force, zero-force
 duration and policy-update timing. It retains failed scenes and documents replay
 differences without changing the original result files or retuning controllers.
 
