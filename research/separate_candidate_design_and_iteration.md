@@ -1,5 +1,7 @@
 # Separate design and iteration of the two candidates
 
+**Historical design record (2D synthetic tasks, up to 2026-10-20).** The current C1/C2 implementations on the cobot scan benchmark are described in [methods §2.5](optimal_impedance_question_and_methods.md) and [the benchmark](../experiments/cobot_scan_benchmark/README.md).
+
 2026-10-19, starting from `a25d887`. The user's latest clarification is to develop methods that solve the original question with innovation and evidence sufficient for leading journals; comparisons support design. Experiment with and judge each candidate separately, and continue improving deficiencies. Completing baselines does not complete the research. Work resumed on this basis, without reinstating the old pause or introducing approval gates.
 
 ## 1. Required capabilities and design sources

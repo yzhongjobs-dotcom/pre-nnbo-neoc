@@ -2,15 +2,16 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
-**Latest completed checkpoint (2026-10-22): original-source field review for the user's changed question.**
+**Latest completed checkpoint (2026-10-22): original-source field review for the user's motion/stiffness focus.**
 The user asked to select relevant papers from both local libraries and update the
 field assessment, then explicitly rejected abstract reframing and extra research
 questions. [Field state](../research/field_state.md) was rewritten in Chinese as a
 related-work analysis of adaptive/optimal force control, online predictive models,
 learned impedance, respiratory compensation, joint geometry/compliance estimation
-and stable execution. [Research question](../research/research_question.md) now
-quotes the user's force/position-based motion-and-stiffness question and labels the
-earlier B0 question as its historical starting point; no new method was selected.
+and stable execution. [Research question](../research/research_question.md) preserves
+the remote's parent question/current-implementation descriptions and records the
+user's force/position-based motion-and-stiffness formulation as this review's focus.
+Neither candidate was deleted, and no new method was selected.
 
 Twenty-two selected originals/author manuscripts and texts were added: 87 unique
 PDFs and 90 usage records now. [Review sources](../literature/motion_stiffness_review_sources.json)
@@ -98,24 +99,26 @@ Assessment given to the user (honest, agreed by the user as the current state):
   while the evidence shows the gain comes from decoupling motion from stiffness plus
   reference compensation (gains-only T3 0.489 vs 0.147).
 
-Next work, in this order (user correction 2026-10-22: start from the research process
-in `long_term_requirements.md`, not from protecting C1):
-1. Stage 1, field status: core-read the original papers in the user's local
-   impedance-control library (path to be given by the user) plus `literature/`.
-   Organise existing methods by capability (mechanism, real capability, conditions,
-   cost), separate direct neighbours from transferable mechanisms, and keep paper facts
-   apart from agent judgments. The current "status" summary (built from our 5-6
-   baselines) is not a stage-1 result.
-2. Stage 2, research question: derive it from that status by Socratic questioning of
-   the strong methods. Hypothesis to test, not a decision: when tissue motion and
-   stiffness change coexist, force changes are not attributable from force alone, so
-   variable impedance fails; decouple them online and adjust impedance and reference
-   jointly. Do not narrow the question so an existing candidate wins.
-3. Stage 3, method: design from the required capability. C1 (joint stiffness/motion
-   estimation plus impedance and reference optimisation) is one candidate, not the
-   presumed answer; its known gaps are the T2 stiff push/retract failure, missing
-   identifiability and variable-gain stability arguments, and unchecked novelty. C2 is
-   likely a comparison only.
+Status of question and candidates (corrected 2026-10-22 after the user asked why they
+had "changed"): nothing has been discarded or changed. The research question in
+`research/research_question.md` is unchanged and remains the active question. C1 and C2
+both remain candidates; per `long_term_requirements.md` each is improved against its own
+specific failures, not dropped. My earlier "demote/drop C2" and "reframe the question"
+lines were unconfirmed suggestions made without checking `research/field_state.md`, and
+are withdrawn. Note that `field_state.md` already records that unknown/changing
+environment position (Liu TCST2021, E45) and joint reference-plus-impedance planning
+(Haninger RAS2023) exist, so "decouple motion from stiffness and adjust reference with
+impedance" is not by itself a contribution. The ablation finding (gain comes from the
+motion/stiffness separation plus reference compensation) is a mechanism result inside
+the current question, not grounds to replace it.
+Known gaps: C1 fails sustained stiff push/retract (T2 1.372 vs Haninger 0.433 N) and its
+"near-optimal" claim is unsupported (local reference gaps up to 199%); C2 is not
+significantly better than EtR-A on T3 (0.210 vs 0.230 N). The evaluated C1/C2 are reduced
+implementations, not the full B0/HJB/spatial-preview/NEOC design.
+Next work: build on `research/field_state.md` (stage 1 already exists, not a full
+systematic review) and supplement it with the user's local literature library where it
+is thin; then, per stages 2-5, decide with the user how each candidate is improved and
+whether any question revision is warranted (a substantive revision is the user's call).
 Start the new conversation by restating, in Chinese: goal, standing requirements
 (especially stages 1-3), current results, this plan, and the first concrete step with
 its quota cost; get the user's confirmation before running anything.
@@ -254,14 +257,14 @@ current numerical entry above. Scientific asset consolidation is recoverable at
 
 1. **Goal:** one paper with a substantive scientific contribution and evidence strong enough to compete at a leading journal. This has not yet been achieved.
 2. **Core question:** when the environment changes during continuous robotic scanning of soft tissue, how can new contact information rapidly update near-optimal impedance and improve actual contact-force and motion behavior? This includes environment understanding, impedance decisions and timely execution.
-3. **Candidates:** the shared front end is MHE with spatial preview. Candidate 1 explores NNBO/critic–HJB feedback and fast updates such as NEOC. Candidate 2 draws on YOPO to train a network offline in simulation and produce impedance quickly at deployment. Both can be improved, combined or retired.
-4. **Actual progress:** both candidates have been implemented and run under the research question: two-region Hertz contact/joint rolling estimation, four actual gains and energy, positive-definite gain/rate costs, terminal and trajectory checks. Candidate 1 is local quadratic HJB feedback with directional neighboring Riccati updates; candidate 2 is a task-gradient neural network with three training seeds. Work includes 24 main scenarios, mechanism ablations, eight distribution-shift scenarios and independent compute/release checks. These tests have not established a journal-level contribution; they neither implement the complete B0 fixed-node-root method nor constitute physical-robot validation.
+3. **Candidates (original concepts):** candidate 1 builds an optimal-control problem from newly estimated environment information and updates it quickly (originally NNBO critic/HJB plus NEOC); candidate 2 moves the decision burden into offline simulation training in the spirit of YOPO. Both can be improved, combined or retired.
+4. **Current implementations (cobot scan benchmark, see `research/optimal_impedance_question_and_methods.md` §2.5):** C1 v2 = moving-window joint estimate of local stiffness and surface motion + direct 128 ms OCP over D, K_PF and u_ff solved by warm-started Gauss-Newton every 8 ms + contact-loss supervisor falling back to B1 gains; critic/HJB and the NEOC neighbouring update were dropped (no benefit; GN already ~0.14 ms). C2 = residual MLP on 0.4 s causal history plus the lock-in stiffness estimate, DAgger-distilled from a truth-stiffness teacher with expectile loss and CMA-ES-tuned; its u_ff head was dropped as unstable. Earlier 2D dual-candidate implementations (local quadratic HJB/Riccati, task-gradient network) are history. None is the complete B0 or a robot validation.
 5. **Largest deviations:** excessive defensiveness, retreat/narrowing around strong prior work and misunderstanding candidate 2. An earlier reduced carrier omitted objectives/constraints; the latest implementation must also avoid concealing physical performance deficits with controller-preference costs. Specific failures are recorded. Do not resume mistaken judgments or indefinitely shield the implementation as “only local.”
-6. **Current stopping point:** the user required experiments to follow the research question/method: implement and simulate each candidate first, then fairly compare suitable baselines if any exist, without forcing unsuitable comparisons. This order was followed. Jin's adapted multistep variable impedance scan controller has lower force/tangential errors. Corrected ablation gives a small spatial-information benefit for candidate 1; candidate 2's interval crosses zero. NEOC on/off benefit is near zero and updates are slower. Next improve the relation between physical performance and cost objectives, update efficiency, and the front-end-to-action pathway. Do not manufacture wins through gain-preference terms or add baselines without purpose.
+6. **Current stopping point:** see the 2026-10-22 checkpoint at the top of this file. The final Chinese simulation section is done; the question and both candidates are unchanged; next work supplements `research/field_state.md` with the user's local literature and then improves each candidate against its own failures.
 
 **Latest task and primary objective.** The user requests methods that solve the original question with leading-journal innovation and evidence under the confirmed workflow. Implement/test each candidate separately and improve its own deficits. Experiments follow the question/method, followed by suitable comparisons; none need be forced. These requirements are in the [long-term requirements](long_term_requirements.md). Do not return to fixed control as the main comparison, repeatedly audit the standards or silently change the question.
 
-**Latest entry: [dual-candidate task simulations](../experiments/dual_candidate_task_simulation/README.md) and [results](../experiments/dual_candidate_task_simulation/results.md).** Candidate 1 changes the value representation and cannot be called the original B0 root or inherit its certificate. E41 is a source-equation reconstruction adapted to MS scanning, with a different numerical optimizer, not a reproduction of the original Panda experiments. Common physical scoring removes controller-family gain-preference/rate penalties and reports component errors. Use `compiled_timed_*` for independent compiled timing; old `timed_*` files diagnose software overhead only. Failed NNBO adaptations remain isolated. The original question and the candidates' computational division of labor remain.
+**Earlier entry (2D, superseded by the cobot benchmark): [dual-candidate task simulations](../experiments/dual_candidate_task_simulation/README.md) and [results](../experiments/dual_candidate_task_simulation/results.md).** Candidate 1 changes the value representation and cannot be called the original B0 root or inherit its certificate. E41 is a source-equation reconstruction adapted to MS scanning, with a different numerical optimizer, not a reproduction of the original Panda experiments. Common physical scoring removes controller-family gain-preference/rate penalties and reports component errors. Use `compiled_timed_*` for independent compiled timing; old `timed_*` files diagnose software overhead only. Failed NNBO adaptations remain isolated. The original question and the candidates' computational division of labor remain.
 
 ## 2. Information priority within this project
 
@@ -286,6 +289,8 @@ For B0 models/theory, consult the relevant sections of the [method](../research/
 
 ## 4. Research definitions: prevent another misunderstanding
 
+Rows below are the original concepts; current implementations are in point 4 of section 1.
+
 **Shared front-end concept:** contact force/moment and motion observations → MHE and finite-footprint spatial preview → environment/contact-response estimates → impedance decisions → actual execution. Complete noisy MHE and usable preview control benefits remain unverified.
 
 | Object | Correct definition and key distinction |
@@ -309,7 +314,8 @@ For B0 models/theory, consult the relevant sections of the [method](../research/
 | Paper-by-paper reverse analysis | Earlier screening covered 22 identities/abstracts. Ten original methods/evidence sections were reread, including all five T-RO papers: six detailed cases and four supplements, then comparison with project failures. Not 22 full-text or complete-proof audits. Confirmed lessons are in the requirements. |
 | [Earlier reduced MHE precheck, paused at that time](../experiments/mhe_guided_impedance_pilot/README.md) | Two pilots and old trajectories retained. The pause was historical. Latest work is in separate-candidate directories; do not restore a present stop instruction or claim the NN remains untrained. |
 | [Previous separate design/tests](../experiments/separate_candidate_validation/README.md) | Model/learning iteration, rate-action/100Hz feedback alignment, 72 training scenarios and 10800 correlated contexts, 24 independent scenarios repeated at three tradeoffs. Model reuse does not stably beat ordinary optimization; learning has positive results relative to the declared E41 adaptation, but information effects depend on the tradeoff. Not complete B0, original-paper reproduction or journal-level judgment. |
-| [Current dual-candidate task simulation](../experiments/dual_candidate_task_simulation/README.md) | Original question → separate implementations/experiments → Jin MS selection. New 48 training scenarios/3840 contexts, 24 independent scenarios in four categories, three learning seeds, eight distribution-shift and eight independently timed cases. Hertz/objective relationships restored; synthetic 2DOF model, CV/fixed-bias MHE instance and local value feedback rather than B0 root. Comparator force/tangential behavior is better; the candidates' normal-position errors are slightly smaller. No completion claim. |
+| [Current cobot scan benchmark](../experiments/cobot_scan_benchmark/README.md) | Current C1 v2/v3 and C2 implementations, repaired field baselines, seed-7200 completed tasks and the final Chinese section. C1 leads on stiffness change and combined scans but fails sustained stiff push/retract; C2 is not significantly better than EtR-A on the combined scan. |
+| [Earlier dual-candidate task simulation (2D, historical)](../experiments/dual_candidate_task_simulation/README.md) | Original question → separate implementations/experiments → Jin MS selection. New 48 training scenarios/3840 contexts, 24 independent scenarios in four categories, three learning seeds, eight distribution-shift and eight independently timed cases. Hertz/objective relationships restored; synthetic 2DOF model, CV/fixed-bias MHE instance and local value feedback rather than B0 root. Comparator force/tangential behavior is better; the candidates' normal-position errors are slightly smaller. No completion claim. |
 
 **Overall: the original question remains; a specific important advance and complete method advantage are not yet established.** Platform/control interface, material/sensor calibration and references remain to be verified. These are candidate concerns, not selected new topics or fixed gates.
 
@@ -320,7 +326,7 @@ The table records the agreed continuation order. **A new user task takes precede
 | Priority | Work/deliverable | Completion/boundary |
 |---|---|---|
 | **P0: requirements implementation complete** | Confirmed method-formation understanding and paper-analysis lessons are in the requirements; source evidence remains in the analysis. | Continue at the appropriate stage without repeating understanding audits. Actual design/evidence must demonstrate implementation; a completion record is not method success. |
-| **P1: improve each candidate's actual task effect** | Hertz/Qg/Rg/terminal/trajectory checks were added while retaining separate mechanisms. Determine why preview helps yet force/tangential performance trails; improve information-to-impedance relationships and update efficiency, and verify platform/task scale. A low gain-preference cost is not a physical win. | Comparisons follow the question/method; do not impose a fixed MPC-based pass/fail gate or force an unsuitable NNBO adaptation. Deepen Jin/E27/NNBO where useful and reproduce/adapt fairly only if suitable. Explicitly state representation changes and evidence limits; do not retreat from the question because strong prior work exists. |
+| **P1: improve each candidate's actual task effect** | On the cobot benchmark: fix C1's sustained stiff push/retract failure and fallback bounce without hurting stiffness-change/combined results, and support or drop the "near-optimal" claim; improve C2 beyond EtR-A on the combined scan. A low gain-preference cost is not a physical win. | Comparisons follow the question/method; do not impose a fixed MPC-based pass/fail gate or force an unsuitable NNBO adaptation. Deepen Jin/E27/NNBO where useful and reproduce/adapt fairly only if suitable. Explicitly state representation changes and evidence limits; do not retreat from the question because strong prior work exists. |
 | **P2: iterate and converge from evidence** | Decide whether implementation, carrier, mechanism or question needs change; progressively form the paper's contribution and complete evidence. | Do not overgeneralize local evidence or shield the idea indefinitely. Explain substantive question changes and their effects. Judge actual contribution/evidence, not workflow completion or wording. |
 
 NN weights, training data and grouped results are available for inspection. They belong to reduced implementations, which are not automatically selected as final methods. PPO has not been selected; candidate A/future posterior planning has not been restored. Platform, interface, frequency and task scale were requested and remain pending; silence does not mean no platform exists. Complete-method formalization and public-original-paper work can continue without inventing clinical thresholds. Stop all training/experiments at completed checkpoints; do not claim background work continues.
