@@ -382,4 +382,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # Keep the historical extraction code while ensuring the public entry does
+    # not overwrite the completed evidence with the earlier missing-task draft.
+    if (B / 'completed_tasks/report_manifest.json').exists():
+        from write_completed_report import main as completed_main
+        completed_main()
+    else:
+        main()

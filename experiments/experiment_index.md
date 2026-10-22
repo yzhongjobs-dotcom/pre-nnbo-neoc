@@ -1,5 +1,13 @@
 # Experimental resources for subsequent research
 
+**Latest numerical entry:** [completed focused scanning tasks](cobot_scan_benchmark/completed_tasks/README.md),
+[Chinese experiment section](../research/paper_experiments_draft.md). Fresh paired
+stiffness/motion/combined tasks, repaired frozen baselines, final-method runtime
+ablations, actual motion traces, serial update timing and local numerical
+references. This completes the requested simulation evaluation; mixed task
+outcomes and large individual reference gaps remain explicit. Isolation tasks
+transfer frozen settings and are not separately retuned algorithm rankings.
+
 Retained materials serve environment estimation, both candidate designs, reasonable simple/strong comparators, and physical/numerical checks. They use different carriers, protocols and implementations; they are not a unified ranking of complete candidates 1/2 and need not be rerun in table order.
 
 ## Purpose and reproduction entries

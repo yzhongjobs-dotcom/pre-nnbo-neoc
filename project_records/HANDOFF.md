@@ -2,7 +2,51 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
-**Current presentation and evidence interpretation:** the user requested original-paper
+**Latest completed checkpoint: focused simulation completion, superseding the
+missing-task presentation below.** The user requested finished simulations and
+direct Chinese task/purpose/results/conclusions in chat. The
+[completed task evidence](../experiments/cobot_scan_benchmark/completed_tasks/README.md)
+now contains a pre-simulation protocol, fresh seed-7200 paired scenes (40 per
+task), 2,040 primary episodes, 1,040 final-controller inference interventions,
+51 exact full-log replay checks, serial raw update timing, and 234 final-C1 local
+OCP snapshot comparisons. No frozen controller source/configuration/weights were
+changed. The [Chinese experiment section](../research/paper_experiments_draft.md)
+was replaced in place with completed evidence; its original-paper appendix stays.
+
+Tasks are T1 with breathing removed, T2 homogeneous soft/stiff push/retract
+(balanced material x sign, 5 mm, 0.5 s ramps), and original-distribution T3.
+All settings remain frozen: T1 uses old T1 settings, T2/T3 old T3 settings.
+Thus T1/T2 are isolation/transfer experiments, not independently retuned rankings;
+T3 is the fresh in-distribution main comparison. All 3,080 episodes are finite.
+RMSEs C1/C2/best baseline: T1 0.0599/0.0829/0.1070 N; T2
+0.7144/0.3177/0.3054 N (Haninger); T3 0.1471/0.2096/0.2298 N.
+C1 T2 soft/stiff RMSE is 0.0572/1.3717 N: sustained stiff motion is a clear
+transfer deficit. C1/C2 are not uniformly superior. Adjusted paired intervals
+support C1 versus all baselines on T1/T3; C2 versus EtR-A/learned VIC on T3
+cross zero, despite lower means. Neural seeds are averaged within scenes.
+
+C1 gains-only T3 RMSE is 0.4888 N versus full 0.1471 N; reference compensation
+is important and the full gain cannot all be attributed to impedance updates.
+No-surface-state C1 also deteriorates on static T1, so this state may compensate
+model mismatch, not only identify physical surface motion. Frozen feature
+masking in C2 is an input-distribution intervention, not a retrained architecture.
+T3 normal velocity RMS is similar for C1/C2/B1; motion superiority is unproven.
+The force/actual-motion figure uses first soft/stiff push scenes, with all data
+retained in tables; figure alignment, PDF font size/collision and visual checks
+passed. No spectral/jerk/energy/image or new cross-platform sweep was added.
+
+Final-C1 P99 updates: T1/T3 0.1523/0.1379 ms; C2 0.0272/0.0376 ms.
+All 101,262 measured software updates are below 8 ms. This excludes physical
+communications and low-level plant integration; fixed/Duan samples initialize
+constant gains, not periodic decisions. C1 three-start 100-iteration reference
+costs are stable from 50 to 100 iterations; mean gaps T1/T3 0.720/2.480%,
+maxima 34.946/198.960%. These are local-OCP cost differences, not global
+optimality or physical error percentages. Uniform near-optimality and a primary
+compute bottleneck are not established; no corresponding C2 optimality claim.
+The requested focused simulation evaluation is complete; do not automatically
+start retuning, redesign or larger experiments absent the next user request.
+
+**Previous checkpoint: presentation and evidence interpretation.** The user requested original-paper
 reading followed by a Chinese, paper-style experimental section with existing
 results and explicit missing experiments. The [experiment section](../research/paper_experiments_draft.md)
 was updated in place to Chinese at the user's explicit request. It links the
@@ -33,7 +77,7 @@ are not measured by this kinematic contact model and are only required if those
 application claims are made. This presentation task is complete; no automatic
 continuation of the old gap-experiment plan is implied.
 
-**Current numerical entry, superseding the October 19 status below:** the October 21
+**Earlier numerical entry, superseding the October 19 status below:** the October 21
 [36-paper setup analysis](../research/simulation_setup_reverse_analysis.md) led to
 the implemented [cobot benchmark](../experiments/cobot_scan_benchmark/README.md).
 The latest user request was to repair Xue/other baseline adaptations, extend weak
