@@ -1,5 +1,14 @@
 # Cobot scanning benchmark: task protocol and headroom gate
 
+**Physical-outcome tables (2026-10-22):** [complete report](physical_results/results.md),
+[per-scene source data](physical_results/per_scene.csv), and
+[replay code](report_physical_metrics.py). All frozen deployable baseline variants,
+both Candidate 1 versions, Candidate 2 and truth-stiffness references were replayed
+on the same T1/T3 seed-3000 and seed-4000 cohorts, 40 scenes per task and cohort.
+The report separates force RMSE, maximum error, peak force, actual no-contact
+duration and policy-update timing. It retains failed scenes and documents replay
+differences without changing the original result files or retuning controllers.
+
 Purpose: a simulation task set in which the research question can be tested
 fairly. The question is whether newly acquired contact information can promptly
 update near-optimal interaction parameters with real control benefit. Every
@@ -224,9 +233,9 @@ cells). Requires numpy, scipy and numba.
 | E27-style learned VIC (ES, 3 seeds) | 0.47 ± 0.07 J, 0.32 N | 0.57 ± 0.39 J, 0.18 N | `baselines_learned.py`; learned near-constant gains |
 
 What the baselines show:
-- Field adaptive methods, mapped faithfully onto the same plant and tuning budget, do
-  not beat the complete fixed controller. Their published advantages rest on weaker
-  fixed baselines.
+- These particular field-method adaptations do not establish consistent superiority
+  over the complete fixed controller on the two cells. This concerns the mapped
+  implementations; it does not establish why the original published results differ.
 - A simple causal estimate-then-rule (dither-based stiffness estimate) recovers most
   of the oracle value on the ladder (J 0.077 vs oracle 0.062), but only a small part on
   the spine task with patient motion (0.41 vs 0.12). Its estimate lags by about

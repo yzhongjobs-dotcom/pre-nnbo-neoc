@@ -1,6 +1,34 @@
 # Handoff: rapid impedance updates under environmental change
 
-Research status updated: 2026-10-19. Scientific asset consolidation was completed and synchronized at `368a29539a723f960f27fb7e28362a65f51428c8`; this file clarifies reading order and priorities. Check the current user request and Git state first; historical plans are not today's instructions.
+Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
+
+**Current numerical entry, superseding the October 19 status below:** the October 21
+[36-paper setup analysis](../research/simulation_setup_reverse_analysis.md) led to
+the implemented [cobot benchmark](../experiments/cobot_scan_benchmark/README.md),
+paper-method adaptations, two candidates and Candidate 1 v2. On October 22,
+[physical-outcome reporting](../experiments/cobot_scan_benchmark/physical_results/results.md)
+replayed all frozen deployable baseline variants and candidates on the same two
+main tasks, keeping seed-3000 and seed-4000 cohorts separate. It contains 3,840
+episode records; neural training seeds do not increase the 40 independent scenes
+per task/cohort. The tables separate force RMSE, maximum error, peak force,
+no-contact duration and update timing. Parameters and original results were not
+changed. Replay differences and one failed low-damping run are explicit.
+
+The new candidates change representation and interface: Candidate 1 is local
+stiffness/surface-motion estimation plus direct OCP and feedforward, and Candidate
+2 uses history/lock-in estimation and a distilled network. They do not implement
+the complete original B0/HJB/spatial-preview design. Candidate 1 v2 and Candidate 2
+improve main-task mean errors, but not every physical outcome; the v1 seed-4000
+runaway, the fast-push limitations and the 4 mm respiration negative remain.
+Xue's disabled stiffness branch and unsuccessful feasibility search, and limited
+Jin/learning tuning, remain comparison limitations. The latest user request was
+to produce physical-outcome tables with missing quantities computed, not to start
+another method redesign. All replay work stops at its completed checkpoint.
+
+The following sections preserve the earlier design and evidence context. Their
+old "latest" experiment references describe the October 19 checkpoint, not the
+current numerical entry above. Scientific asset consolidation is recoverable at
+`368a29539a723f960f27fb7e28362a65f51428c8`.
 
 
 ## 1. Understand these six points first
