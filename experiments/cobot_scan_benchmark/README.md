@@ -323,3 +323,32 @@ k0 = 3e4. Supervisor tuned on train (49 configurations) with a rule that T3/T1 t
   with more contact loss. Soft homogeneous accuracy is still slightly worse than B1. The fallback is B1 itself.
 - The v1 fresh runaway shows the original v1 test number depended on the start prior; v2 fixes it.
 Details in `candidate1_v2_log.md` and `candidate1_v2_results.json`.
+
+## Candidate 1 v3: 4 mm cells use the 1 mm configuration; third fresh cohort (seed 5000)
+
+The T3 0.5 s / 4 mm negative was a selection failure, not a breathing-model failure: v2's per-cell tuning
+on 20 train scenes picked a no-dither, fast-random-walk setting under which stiffness and surface drift are
+not separable while the probe follows breathing (k̂/k 2.1-2.5 on soft tissue). The constant-velocity plus
+acceleration drift model fits 4 mm breathing (cubic remainder ~1e-8 m). v3 reuses each 1 mm cell's v1
+configuration for its 4 mm counterpart; estimator, OCP, supervisor and fallback are unchanged.
+
+Seed 5000, 40 scenes, J (paired 95 % CI of ΔJ vs B1 / vs EtR-A):
+
+| Cell | C1v3 | B1 | EtR-A | B3b 0.1 s | ΔJ vs B1 | ΔJ vs EtR-A |
+|---|---|---|---|---|---|---|
+| T3 0.5/1 | 0.184 | 0.379 | 0.489 | 0.187 | −0.20 (−0.25, −0.15) | −0.31 (−0.46, −0.18) |
+| T3 0.5/4 | 0.262 | 0.398 | 0.450 | 0.200 | −0.14 (−0.26, +0.05) | −0.19 (−0.25, −0.13) |
+| T3 0.25/1 | 2.47 | 2.29 | 7.98 | 2.00 | +0.18 (−0.64, +1.22) | −5.5 (−10.5, −2.0) |
+| T3 0.25/4 | 3.55 | 2.93 | 7.49 | 2.05 | +0.62 (−0.62, +2.11) | −3.9 (−7.3, −1.4) |
+| T1/1 | 0.033 | 0.224 | 0.128 | 0.098 | −0.19 (−0.34, −0.08) | −0.10 (−0.15, −0.06) |
+| T1/4 | 0.047 | 0.274 | 0.202 | 0.156 | −0.23 (−0.41, −0.09) | −0.16 (−0.21, −0.11) |
+
+- Sourced slow-push and ladder results reproduce on a third fresh cohort; C1v3 is within noise of the 0.1 s
+  oracle on T3 and better than it on T1.
+- Fast pushes: fewer contact-loss scenes than B1 (−0.15 and −0.18, CIs exclude 0), no J gain, 1-2 scenes
+  with J > 20 out of 40 (the fallback bounce on bone).
+- One shared configuration (T3 config with T1 dither) is as good or better on the four slow/ladder cells
+  (T3 0.5/4 ΔJ vs B1 −0.20 (−0.27, −0.14)) but significantly worse than B1 on the fast-push cells, so no
+  single configuration covers both push regimes.
+- Still open: soft homogeneous accuracy (RMSE 0.046 vs 0.026 N; dither about a quarter, soft-side gains the
+  rest) and the fallback bounce on bone. Details in `candidate1_v3_log.md`.
