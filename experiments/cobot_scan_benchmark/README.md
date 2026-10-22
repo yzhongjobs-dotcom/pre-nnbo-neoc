@@ -178,7 +178,8 @@ below once complete.
 | T1 ladder r = 30, 4 mm | 0.18 / 4.8 / 0.03 | 0.13 / 4.6 / 0.00 | 0.08 / 4.4 / 0.00 | 0.13 / 4.5 / 0.00 | 0.16 / 4.8 / 0.07 | 0.27 → 0.09 (-0.51, -0.01) |
 
 B1 gains are in `gate_PC125.json`. All six cells settle on M ≈ 1-1.7 kg, D 73-180 N s/m,
-ki up to its bound, and KPF ≈ 1e-4 m/N.
+ki at its bound of 30 in three cells (4.6-14.5 in the others), and KPF ≈ 1e-4 m/N.
+B1 is not train-feasible under the peak rule in the two fast-push cells (no method is).
 
 The strict gate fails in all six cells, for one of two reasons:
 - With the sourced 0.5 s ramp and on the ladders, B1 already meets every physical
@@ -217,7 +218,7 @@ information (result 3), with a latency budget of about 0.1 s (result 2).
 `python gate.py PC125` (all cells) or `python gate.py PC125 0,1` (selected
 cells). Requires numpy, scipy and numba.
 
-## Baselines on the two sourced cells (40 test scenes; J / RMSE N / fraction of scenes with peak > 7 N)
+## Baselines on the two sourced-push-speed cells (1 mm breathing is below the cited ranges; 4 mm matches prone spine) (40 test scenes; J / RMSE N / fraction of scenes with peak > 7 N)
 
 | Method | T3 spine, cough-speed push (0.5 s), 1 mm | T1 ladder r = 30, 1 mm | Notes |
 |---|---|---|---|
@@ -286,10 +287,10 @@ Ablations (same tuning or training budget):
 
 What the candidates show:
 - Prompt causal use of contact information closes most of the T3 gap at the sourced push speed
-  (C1 about 95 %, C2 about 50 % of the EtR-A to oracle gap).
+  (on seed 3000, C1 92 % and C2 53 % of the EtR-A to oracle gap).
 - The identified mechanism is separating patient surface motion from stiffness change. Without it the
-  estimated bone stiffness is biased by about ×0.45 (the confound that also limits Jin and EtR-A), and bone
-  entry is detected after 368 ms instead of 48 ms. Feedforward of the estimated drift gives about half of
+  estimated bone stiffness is biased by ×0.45 on T3 and ×0.47 on T1 (the confound that also limits Jin and
+  EtR-A), and bone entry is detected late (T1: 368 ms instead of 48 ms; T3: 144 ms instead of 0 ms; dev medians, 10 scenes). Feedforward of the estimated drift gives about half of
   C1's gain over B1; gains alone still beat EtR-A on T3.
 - Parts that do not carry the result: the neighbouring update (no gain in quality or time with four decision
   variables), and C2's task-cost ES stage (small gain; most of C2's value comes from the privileged teacher).
@@ -316,8 +317,9 @@ k0 = 3e4. Supervisor tuned on train (49 configurations) with a rule that T3/T1 t
 | T1 r30, 4 mm | 0.038 / 0.09 / 0 | – | 0.215 / 0.16 / 0.03 | 0.130 / 0.17 / 0 | 0.089 / 0.13 / 0 |
 
 - Sourced cells reproduce on fresh scenes: ΔJ vs B1 T3 −0.48 (−0.98, −0.16), T1 −0.18 (−0.41, −0.04);
-  vs EtR-A T3 −0.24 (−0.38, −0.14). C1v2 is within noise of the 0.1 s oracle on T3.
-- Fast push: no runaways; fewer scenes above 7 N than B1 (−0.18 (−0.30, −0.08) at 1 mm, −0.25 at 4 mm), but
+  vs EtR-A T3 −0.24 (−0.38, −0.14). C1v2 is within noise of the 0.1 s oracle on T3 in J (not in maximum error).
+- Fast push: no runaways; fewer scenes above 7 N than B1 (−0.18 (−0.30, −0.08) at 1 mm, −0.25 at 4 mm; this
+  did not repeat as significant on seed 5000, where only the contact-loss reduction did), but
   ΔJ vs B1 includes 0. A robustness result, not a performance win.
 - Negative: T3 0.5 s with 4 mm breathing is not better than B1 and is worse than EtR-A (+0.35 (+0.03, +0.79)),
   with more contact loss. Soft homogeneous accuracy is still slightly worse than B1. The fallback is B1 itself.
@@ -344,7 +346,7 @@ Seed 5000, 40 scenes, J (paired 95 % CI of ΔJ vs B1 / vs EtR-A):
 | T1/4 | 0.047 | 0.274 | 0.202 | 0.156 | −0.23 (−0.41, −0.09) | −0.16 (−0.21, −0.11) |
 
 - Sourced slow-push and ladder results reproduce on a third fresh cohort; C1v3 is within noise of the 0.1 s
-  oracle on T3 and better than it on T1.
+  oracle on T3 in J and RMSE only (the oracle's maximum error is about 0.3 N lower) and better than it on T1.
 - Fast pushes: fewer contact-loss scenes than B1 (−0.15 and −0.18, CIs exclude 0), no J gain, 1-2 scenes
   with J > 20 out of 40 (the fallback bounce on bone).
 - One shared configuration (T3 config with T1 dither) is as good or better on the four slow/ladder cells
