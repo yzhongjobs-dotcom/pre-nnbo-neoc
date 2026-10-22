@@ -60,16 +60,27 @@ Assessment given to the user (honest, agreed by the user as the current state):
   while the evidence shows the gain comes from decoupling motion from stiffness plus
   reference compensation (gains-only T3 0.489 vs 0.147).
 
-Proposed next direction, awaiting the user's go-ahead (the user may still adjust it):
-1. Reframe the question: when tissue motion and stiffness change coexist, the source of
-   a contact-force change is not identifiable, so variable impedance fails; decouple
-   them online and adjust impedance and reference jointly.
-2. Focus on C1: (a) novelty check using the user's local literature; (b) fix the T2
-   stiff push/retract failure without hurting T1/T3; (c) add identifiability
-   (excitation) conditions and a stability/passivity argument for the variable gains.
-3. Demote C2 to a comparison or drop it.
-Start the new conversation by restating goal, standing requirements, current results
-and this proposal in Chinese, and get the user's confirmation before running anything.
+Next work, in this order (user correction 2026-10-22: start from the research process
+in `long_term_requirements.md`, not from protecting C1):
+1. Stage 1, field status: core-read the original papers in the user's local
+   impedance-control library (path to be given by the user) plus `literature/`.
+   Organise existing methods by capability (mechanism, real capability, conditions,
+   cost), separate direct neighbours from transferable mechanisms, and keep paper facts
+   apart from agent judgments. The current "status" summary (built from our 5-6
+   baselines) is not a stage-1 result.
+2. Stage 2, research question: derive it from that status by Socratic questioning of
+   the strong methods. Hypothesis to test, not a decision: when tissue motion and
+   stiffness change coexist, force changes are not attributable from force alone, so
+   variable impedance fails; decouple them online and adjust impedance and reference
+   jointly. Do not narrow the question so an existing candidate wins.
+3. Stage 3, method: design from the required capability. C1 (joint stiffness/motion
+   estimation plus impedance and reference optimisation) is one candidate, not the
+   presumed answer; its known gaps are the T2 stiff push/retract failure, missing
+   identifiability and variable-gain stability arguments, and unchecked novelty. C2 is
+   likely a comparison only.
+Start the new conversation by restating, in Chinese: goal, standing requirements
+(especially stages 1-3), current results, this plan, and the first concrete step with
+its quota cost; get the user's confirmation before running anything.
 
 **Latest completed checkpoint: focused simulation completion, superseding the
 missing-task presentation below.** The user requested finished simulations and
