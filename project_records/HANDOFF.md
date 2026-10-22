@@ -2,6 +2,16 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
+The paper overview section IV now separately specifies both tested Methods,
+including C1 projection/OCP/recovery and C2 sensing, residual action mapping,
+true-stiffness rule teacher, DAgger and CMA-ES. C2 is not a distilled C1 and
+does not independently estimate drift. Its bounded position residual remains;
+the failed absolute position-compensation structure was the part removed.
+The current independent assessment is that neither instance has established
+the complete contribution/evidence needed for the target journal. C1 has a
+demonstrated stiff-motion repair; C2 improves static stiffness tracking but
+does not significantly improve combined scanning over its rule comparator.
+
 **Latest checkpoint: C1 stiff-motion repair, original three tasks only.**
 The user explicitly stopped additional simple-controller tuning and scenario
 expansion. This supersedes the wider experiment plan below. Retain three tasks
