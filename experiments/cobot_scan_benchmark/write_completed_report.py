@@ -76,6 +76,10 @@ def main():
         'Haninger 适配分别为 0.1778／0.4330 N，C2 为 0.1428／0.4926 N。'
         '因此 C1 的综合优势没有延伸到持续硬接触推拉，不能只展示软组织结果。'
         '这组结果评价冻结配置的迁移，不证明所有方法在独立重新调参后的排名。', '',
+        '平均峰值也不能替代最坏事件：T2 的 C1／C2 最坏采样峰值为 22.228／12.116 N，'
+        'Haninger 适配为 8.668 N；T3 对应为 7.012／13.067／6.926 N。'
+        'C2 的极值覆盖三个模型共 120 次运行，传统方法为 40 次，不能当成等样本数的极值统计检验。'
+        '这些实测超力现象必须保留；“未出现积分失败”仅说明数值有限，不代表跟踪成功或安全。', '',
         '## C. 实际运动响应', '',
         '图 1 展示 T2 的首个软／硬组织推压场景（编号 0／2；神经模型 0），同时给出接触力与实际法向位移。'
         '选择由材料类别和场景顺序确定，不按误差挑选。四条代表曲线用于解释响应，全部 13 种方法仍在表 1 与逐场景数据中。'
@@ -162,6 +166,8 @@ def main():
            report_sha256=hashlib.sha256(DOC.read_bytes()).hexdigest(),
            generator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
            analysis='scene-paired; neural seeds averaged within scenes; all primary/ablation runs retained'))
+    manifest_path = E.OUT / 'report_manifest.json'
+    manifest_path.write_text(manifest_path.read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
     print(DOC)
 
 

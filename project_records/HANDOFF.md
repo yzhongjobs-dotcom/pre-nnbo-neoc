@@ -25,6 +25,10 @@ transfer deficit. C1/C2 are not uniformly superior. Adjusted paired intervals
 support C1 versus all baselines on T1/T3; C2 versus EtR-A/learned VIC on T3
 cross zero, despite lower means. Neural seeds are averaged within scenes.
 
+Worst sampled T2 peaks C1/C2/Haninger are 22.228/12.116/8.668 N; T3
+7.012/13.067/6.926 N. C2 extrema cover 120 model/scene runs versus 40 classical
+runs; finite integration does not imply safety or tracking success.
+
 C1 gains-only T3 RMSE is 0.4888 N versus full 0.1471 N; reference compensation
 is important and the full gain cannot all be attributed to impedance updates.
 No-surface-state C1 also deteriorates on static T1, so this state may compensate
