@@ -2,6 +2,75 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
+**Latest checkpoint (2026-10-22, cloud Claude session): final Chinese simulation
+section and an open question/method decision. Read this block first; it supersedes
+the presentation choices in the blocks below.**
+
+What the user wants (stated repeatedly in this session, treat as standing):
+- Goal: one top-journal paper (robotics: TMECH/RA-L/T-RO level). Real-robot
+  experiments are deferred for now; simulation must already be top-journal level.
+- The simulation section must follow how top papers actually write experiments:
+  2-4 scenario experiments tied to the research question, each "purpose -> setup ->
+  result table/figure -> conclusion", a few representative baselines, plus one
+  ablation and computation time. No special additions (no repeated fresh cohorts,
+  no seed-pressure tests, no long caveat lists in the main text). When unsure,
+  check the papers in `literature/extracted_text/` (Jin E41, Xue, Li E27, Haninger, YOPO).
+- Fixed impedance follows field practice (Jin TMECH2023: fixed small/large impedance
+  at the method's own bounds). The best-tuned fixed controller B1 must NOT be the
+  main baseline (the user rejected it as non-standard). Both candidates C1 and C2
+  must appear.
+- Report concrete numbers, tables and conclusions directly in the chat, in Chinese;
+  the user reads Chinese (via translation). Do not answer with only a file link.
+  This overrides the English-response line in AGENTS.md for chat replies; repo
+  documents keep their existing language.
+- Be careful with quota: say what a large run will cost before dispatching many
+  background agents; do not auto-resume large work after rate-limit resets.
+- The user has a large local impedance-control literature library on their PC
+  (path not yet given; ask for it and request folder access). Use it first for
+  the novelty check.
+
+Final section: `research/paper_experiments_final_zh.md` (Chinese). Data: seed-7200
+`completed_tasks/` (40 scenes per task, identical scenes for all methods) plus
+`completed_tasks/fixed_extremes.json` from `fixed_extremes_eval.py` (compliant fixed:
+C1's own rule at k=1.75 kN/m, D=22, KPF=1e-3; stiff fixed: k=25 kN/m, D=313,
+KPF=8e-5; M=0.3, K=0, ki=30). Figures: `final_fig_T3.png`, `final_fig_T2.png`
+(`render_final_figures.py`, traces from `final_figure_traces.py`).
+`research/paper_experiments_merged_zh.md` is an intermediate version; prefer the final one.
+
+Force RMSE (N), 40 scenes: T1 stiffness change / T2 push soft, stiff / T3 combined.
+Compliant fixed 7.524 / 0.049, 22.72 / 7.099; stiff fixed 0.170 / 0.775, 1.261 / 0.502;
+EtR-A 0.107 / 0.147, 0.551 / 0.230; Haninger 0.122 / 0.178, 0.433 / 0.273;
+Jin MS 0.117 / 0.265, 1.268 / 0.285; Xue nominal 0.276 / 0.383, 3.414 / 0.511;
+Li learned VIC 0.113 / 0.188, 6.132 / 0.269; C1 0.060 / 0.057, 1.372 / 0.147;
+C2 0.083 / 0.143, 0.493 / 0.210. Ablation T3: C1 without surface-motion estimate
+1.502, C1 gains only 0.489; C2 gains only 0.217.
+
+Assessment given to the user (honest, agreed by the user as the current state):
+- Neither C1 nor C2 yet meets a top-journal method standard. C1 wins T1/T3
+  (56-64% of the best existing method's error, significant) but fails sustained
+  stiff push/retract (T2 stiff 1.372 vs Haninger 0.433), which contradicts its own
+  "separate tissue motion from stiffness" selling point. Its parts (moving-window
+  estimation, MPC-VIC, fallback) are mature; joint estimation of environment
+  position/motion and stiffness has close relatives (online HC identification,
+  Xue, physiological-motion compensation) and no systematic novelty check exists.
+  "Near-optimal" is not supported (local reference gaps up to 199%).
+- C2 is standard teacher-student distillation and is not significantly better than
+  EtR-A on T3 (0.210 vs 0.230).
+- Question/method mismatch: the question stresses near-optimal impedance updates,
+  while the evidence shows the gain comes from decoupling motion from stiffness plus
+  reference compensation (gains-only T3 0.489 vs 0.147).
+
+Proposed next direction, awaiting the user's go-ahead (the user may still adjust it):
+1. Reframe the question: when tissue motion and stiffness change coexist, the source of
+   a contact-force change is not identifiable, so variable impedance fails; decouple
+   them online and adjust impedance and reference jointly.
+2. Focus on C1: (a) novelty check using the user's local literature; (b) fix the T2
+   stiff push/retract failure without hurting T1/T3; (c) add identifiability
+   (excitation) conditions and a stability/passivity argument for the variable gains.
+3. Demote C2 to a comparison or drop it.
+Start the new conversation by restating goal, standing requirements, current results
+and this proposal in Chinese, and get the user's confirmation before running anything.
+
 **Latest completed checkpoint: focused simulation completion, superseding the
 missing-task presentation below.** The user requested finished simulations and
 direct Chinese task/purpose/results/conclusions in chat. The
