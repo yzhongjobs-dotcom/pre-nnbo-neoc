@@ -2,6 +2,8 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
+**Paper-style overview (Chinese):** `research/paper_draft_zh.md` lays out field status, problem, C1, C2, contributions and results in journal structure, with 【待补】 placeholders for missing baselines, fixes and theory. Keep it in sync when results change.
+
 **Confirmed by the user (2026-10-22): refined question, contribution framing and baseline set.**
 The refined question is in `research/research_question.md`; contributions, candidate fixes
 and the baseline set are in `research/optimal_impedance_question_and_methods.md` §2.6.
