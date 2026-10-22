@@ -1,5 +1,14 @@
 # Cobot scanning benchmark: task protocol and headroom gate
 
+**Chinese experiment section:** [setup, literature-grounded metrics, existing results and missing experiments](../../research/paper_experiments_draft.md).
+The section now maps 12 original papers' questions/tasks/metrics, separates physical
+outcomes from decision quality and runtime, and includes the newly synchronized
+seed-5000/6000 pressure results. It does not treat incomplete platform entries or
+means that omit failed integrations as completed evidence. Re-extract its tables
+with [build_paper_experiments.py](build_paper_experiments.py); this runs no new
+control simulations. Motion vibration, final-method end-to-end deadlines and
+matched numerical-reference evidence remain explicitly incomplete.
+
 **Current repaired-baseline comparison (2026-10-22):** [physical tables and conclusions](refined_baselines/results.md),
 [paired episode data](refined_baselines/combined_per_scene.csv), and
 [execution entry](refine_baselines.py). Xue's stiffness/HC/servo adaptation and

@@ -1,726 +1,297 @@
-# Draft: Simulation Experiments (paper section, IEEE T-RO / TMECH style)
+# V. 仿真实验：实验设置、已有结果与待补证据
 
-Status: working draft written from existing results only. No new experiments were run.
-Every number below is copied from the result files named in brackets. Paths are relative
-to `experiments/cobot_scan_benchmark/` unless they start with `research/`.
+本文档按用户要求，将原英文实验草稿更新为中文，并依据原论文实验部分和当前结果重新组织。本次仅核读、提取和整理已存结果，未运行新的控制仿真。结果有数值依据才填写；待补项不包装成已验证结论。
 
-Source key used in the brackets:
+## A. 实验设置
 
-| Key | File |
-|---|---|
-| [R] | `README.md` |
-| [G] | `gate_PC125.json` (headroom gate, B0/B1/B2/B3b, seed 3000) |
-| [A] | `adaptive_results.json` (EtR-A, EtR-R, Haninger rule, Duan, Song) |
-| [M] | `mpc_results.json` (Jin one-step / multi-step / literal, Xue) |
-| [L] | `learned_results.json` (E27-style learned VIC) |
-| [C1] | `candidate1_results.json`, `candidate1_log.md`, `candidate1_model.py` docstring |
-| [V2] | `candidate1_v2_results.json`, `candidate1_v2_log.md` |
-| [V3] | `candidate1_v3_results.json`, `candidate1_v3_log.md` |
-| [C2] | `candidate2_results.json`, `candidate2_log.md`, `candidate2_learned.py` docstring |
-| [P] | `physical_results/results.md`, `summary.csv`, `paired_differences.csv` |
-| [S] | `research/simulation_setup_reverse_analysis.md` |
+采用 PC125 位置控制机器人模型，外环频率为 125 Hz（周期 8 ms），传输延迟为一个控制周期，位置伺服时间常数为 19 ms。力传感器以 1 kHz 采样，经过 30 Hz 一阶低通，目标接触力为 4 N；积分步长为 0.5 ms。接触模型包含柱面有限足迹、空间变化模量、标准线性固体松弛、Hunt–Crossley 阻尼和摩擦。它是合成工程模型，尚未进行实物组织和机器人标定。
 
-Notation used throughout: C1 is the model/optimisation method (moving-window estimator +
-short-horizon optimal choice + supervisor); C1v1, C1v2 and C1v3 are its tested instances; C2 is the
-privileged-teacher distilled network. "J" is the pre-declared tuning composite; physical claims are
-made in newtons. Paired intervals are 95 % bootstrap intervals of the method-minus-reference
-difference over scenes.
+所有控制方法采用同一被控对象、可用传感信息和执行接口。共同接口包含虚拟质量、阻尼、弹簧／积分／比例增益及可选参考偏移；各方法实际调整的子集不同，并保留自身机制和经过说明的任务适配。部署时 Xue 的初始表面先验单独标注，其余真实环境信息仅供数值参照使用。
 
----
+当前 C1 是局部刚度／表面运动估计、短时域直接优化及安全监督切换；C2 是接触历史／锁相估计输入的教师蒸馏网络。C2 的离线教师可以访问真实刚度，部署时不能访问；离线信息和准备成本并非各方法完全相同。这些是当前实际实现，不冒称完整 B0 固定节点 HJB／ANEOC、空间预瞄或真实机器人验证。
 
-## V. SIMULATION EXPERIMENTS
-
-The experiments answer five questions, each tied to one experiment family:
-
-- **Q1 (benefit).** Does prompt, causal use of contact information improve normal-force regulation on
-  moving, heterogeneous tissue over the best *complete* fixed interaction controller? (Sec. V-C,
-  six cells, fresh cohort.)
-- **Q2 (information).** Which information carries the benefit? (Sec. V-D1: surface-motion terms,
-  estimator bias, detection delay, feedforward versus gains.)
-- **Q3 (timeliness).** How fast must the information arrive? (Sec. V-D2: oracle delay, estimate
-  latency, update period.)
-- **Q4 (computation).** Is solver speed a bottleneck? (Sec. V-D3: neighbouring update; negative.)
-- **Q5 (generality of the principle).** Does a learned policy that receives the same information
-  through a different route show the same effect? (Secs. V-C4 and V-D4, C2.)
-
-Where the method fails or does not help is reported in the same sections and collected in Sec. V-E.
-
-### A. Experimental Setup
-
-#### 1) Platform model (PC125)
-
-The reference platform is a position-controlled cobot of the UR5 / xArm6 class with a 125 Hz external
-interaction loop [R; `plant.py`]. Its constants and their sources are listed in Table I. The robot is
-modelled kinematically: the stiff joint servo is not deflected by contact force, as in the
-simulation model of Wang (TASE 2024, F09:338-372). The lateral axis follows the scan path under
-position control and is not adapted by any method; only the normal axis is admittance and force
-controlled. Lateral and shear quantities are therefore reported only, never claimed [R; P].
-
-**Table I. PC125 platform constants and sources.**
-
-| Quantity | Value | Source / status [R; `plant.py`] |
+| 任务 | 设置 | 目的 |
 |---|---|---|
-| Control period Tc | 8 ms (125 Hz) | UR5/xArm 125 Hz ultrasound systems (F07:353-357, F08:168-172) |
-| Transport delay | 1 control period | engineering choice; low end of the sources below |
-| Servo lag | first order, τa = 19 ms | UR5e TPI 0.1 per 2 ms (Wang 2024, F09:353-362); carrying it over to 125 Hz is an assumption |
-| F/T sensor | 1 kHz, σ = 0.08 N, bias random walk, 30 Hz first-order low-pass | engineering values |
-| Velocity cap | 0.25 m/s | engineering value |
-| Desired force FD | 4 N | within the 3-12 N phantom range of F07/F08 and above the 1-3 N tissue range of Xue/Moreira/Wang [S, Sec. 4] |
+| T1 主任务 | 模量比 30 的刚度阶梯；扫描 8 s；呼吸幅值 1 mm | 快速经过软硬变化时的信息更新与接触调节 |
+| T3 主任务 | 骨样凸起；随机推拉幅值 3–8 mm、过渡 0.5 s；扫描 10 s；呼吸 1 mm | 同时应对空间异质性和组织运动 |
+| T3 压力测试 | 推拉过渡缩短至 0.25 s；另测呼吸幅值 4 mm | 快速扰动及较大生理运动下的失败边界 |
+| N1／T2 对照 | 均匀软／硬组织；另定义均匀组织推拉 T2 | 区分适应收益与不必要的适应；N1 有小样本结果，T2 结果未完成 |
 
-Latency sources considered [R]: the UR `servoj` lag set mainly by `lookahead_time` (0.03-0.2 s; 0.01 s
-from SW 5.26); a UR10e forum measurement of about 34 ms cross-correlation delay with `servoj` at 2 ms
-and lookahead 0.03 (4-6 ms with `sync()`, UR Client Library issue #86); about 20 ms first-order lag
-in Wang 2024; a 125 Hz loop with about 16.6 Hz force bandwidth in Mathiassen 2016 (UR5 ultrasound).
-The web sources were reached only through search excerpts, and no servo identification of the xArm
-was found [R]. The nominal (1 cycle dead time + 19 ms lag) is at the low, conservative end of these
-sources, i.e. it does not inflate the latency that favours adaptation. A latency bracket (PC125dead,
-mostly dead time) and a 500 Hz negative control (PC500) are defined in `plant.py`; the declared sweep
-(dead time 1-2 cycles, lag 10-60 ms) has no result file and is listed as a gap (Sec. V-G).
+主对比使用训练种子 1000、开发种子 2000 选参，随后冻结控制器；测试种子 3000 和 4000 各含每任务 40 个相同场景及噪声实现。这两批均已在历史工作中查看。神经方法有三个训练种子，先在同一场景内平均，独立场景数仍为 40。后续 seed 5000 使用 C1 v3，seed 6000 用于部分平台测试，分别陈述，不能与修正后所有 baseline 的主比较混成一个试验。
 
-**Shared interaction controller.** Every method, including every baseline, acts through the same
-normal-axis law [R; `plant.py`]:
+力指标使用真实仿真力、去除最初 1 s，按 8 ms 日志采样。零力时长计算 F≤0 的时间，是卸载接触代理量；峰值是采样峰值，不能冒称积分步长下的连续最大值。7 N 是原选参工程阈值，不是临床安全界限。
 
-  M ÿc + D ẏc + K (yc − yref) = ef + ki ∫ef dt,  y_cmd = yc + KPF ef + u_ff,  ef = FD − F_filt,
+## B. 研究问题与评价依据
 
-discretised by exact zero-order hold with a velocity cap and anti-windup (±20 N s). Bounds:
-M 0.25-3 kg, D 20-2500 N s/m, K 0-1000 N/m, ki 0-30 s⁻¹, KPF 0-1e-3 m/N, |u_ff| ≤ 20 mm. A policy may
-read only time, the filtered measured force, the commanded and encoder positions and its own state;
-the truth columns (contact stiffness under the footprint) are available to oracles only [R; C1; C2].
+本研究考察：软组织扫描过程中，如何利用新接触信息及时更新阻抗，在有限在线计算条件下改善实际接触与运动表现。“快速”需同时看信息时效和在线计算；“近优”需针对明确的控制目标、约束及可实现策略类判断；控制结果还需分别展示精度、冲击和运动响应。
 
-#### 2) Contact model
+本次回查原有 36 篇实验分析，并重点核读 12 篇原文的研究问题与实验／评价部分（附录 A）；不声称重新完整精读了 36 篇理论与实验全文。接触控制、运动柔顺性、最优控制、快速学习和超声应用论文的指标分别服务其主张，不能整套互相照搬。
 
-The contact is the B0 cylindrical finite footprint (R = 30 mm, L = 40 mm) with a spatially varying
-modulus, standard-linear-solid relaxation, Hunt-Crossley damping and Stribeck friction; bone-like
-ridges have partial aperture coverage and an optional bump [`plant.py`; R]. At 4 N the contact
-stiffness is 1.15 N/mm for 30 kPa tissue and 18.4 N/mm for 1 MPa [R]. Patient motion enters as a
-surface trajectory: breathing plus push/retract events. All values are synthetic engineering values,
-not a calibrated robot or tissue model [`plant.py`].
+与直接相关原文相比，正文应形成下面的证据链。该选择是针对本研究的判断，不是任何期刊规定的统一指标清单。
 
-#### 3) Tasks and the six evaluation cells
-
-Tasks [R; `scenarios.py`]:
-
-- **T3 spine (headline scanning task).** Soft base 10-40 kPa; spinous-process ridges at 25-35 mm
-  pitch, width 8-20 mm, modulus ratio 10-30; scan speed 10-20 mm/s; breathing; 1-2 patient push or
-  retract events of amplitude 3-8 mm at random times; 10 s.
-- **T1 stiffness ladder (timeliness instrument).** Soft base 10-40 kPa; 1-2 ridges of width 8-25 mm and
-  edge 0.5-2 mm; scan speed 10, 20 or 30 mm/s; breathing; 8 s.
-- **N1 homogeneous tissue (negative control).** 10 kPa-2 MPa with breathing; 6 s. Used here only as a
-  known-behaviour check (3 soft + 3 stiff scenes per configuration).
-- **T2 push (non-inferiority / false adaptation)** is defined in the protocol but has no reported
-  result; it is listed as a gap.
-
-The evaluation uses six dose cells on PC125 [G; V3]:
-
-| Cell | Task | Fixed dose | Role |
+| 研究主张 | 指标与单位 | 正文位置及现状 | 原文依据 |
 |---|---|---|---|
-| T3 0.5/1 | T3 | push ramp 0.5 s, breathing 1 mm | sourced push speed (cough contraction 0.5 ± 0.2 s, Jourdan 2022 [x]) |
-| T3 0.5/4 | T3 | ramp 0.5 s, breathing 4 mm | sourced push speed; breathing inside the cited range |
-| T3 0.25/1 | T3 | ramp 0.25 s, breathing 1 mm | fast, unsourced push (stress) |
-| T3 0.25/4 | T3 | ramp 0.25 s, breathing 4 mm | fast, unsourced push (stress) |
-| T1/1 | T1 | ratio 30, breathing 1 mm | ladder |
-| T1/4 | T1 | ratio 30, breathing 4 mm | ladder |
+| 接触精度／保持 | 力 RMSE（N）、实际峰值力（N）、零力时长（s） | 主结果表；已有 | Xue、Song、E27 |
+| 环境变化后的适应速度 | 分事件恢复时间（s）及事件对齐响应 | 正文动态结果；缺统一测量 | Song、E27、Xue |
+| 实际运动行为 | 法向实际速度的高／低频 RMS（mm/s），配合轨迹／频谱；存在独立目标时才报位置 RMSE（mm） | 运动结果；缺统一测量 | Haninger；Jin、Wang 用独立运动任务 |
+| 在线时效 | 估计＋决策＋发布的更新时间中位数／P99（ms）、超过控制期限的比例（%） | 正文时效表；目前只有调用计时和局部拆分 | Matschek、Xue、YOPO |
+| 决策质量与近优程度 | 同一问题下的参考代价差（%）与计算时间；参考解收敛诊断 | 独立质量—时间图／表；只有旧 C1 局部研究 | NNBO 的代价评价、YOPO 的专家代价比较 |
+| 信息为何有效 | 估计偏差／检测延迟；去环境运动项、加信息延迟、减慢决策的消融 | 机制图／表；已有旧版本证据 | NNBO、Matschek、E27；与本研究信息链对应 |
+| 适用范围 | 各扰动／平台下继续报告同一组主指标，保留失败 | 正文边界；已有部分结果 | E27、Haninger、Wang、AuSoScan |
 
-Breathing sources [R]: chest surface 4-12 mm at 0.2-0.34 Hz (Shafiq & Veluvolu 2014 [x]); abdominal AP
-2.5-13.9 mm (Fahmi 2018 [x]); spine target in prone position 3.4 ± 1.6 mm (Mizonobe 2023 [x]); 0.2 Hz /
-5 mm test case of Moreira (F10:875-880). The 4 mm cells therefore match the cited prone-spine value,
-while 1 mm is a low dose below the cited ranges, used to show that the gap is not a breathing-amplitude
-artefact [R]. Ridge geometry, the 10-30× modulus ratio and flinch or posture-shift speeds are not
-sourced; they are treated as dose variables [R].
+这里保留代价评价，但不把它冒称物理量。现有调参综合分数 J 混合归一化误差、低接触比例和超力项；它可以用于已声明的参数选择，却不自动等于完整 B0 的最优控制目标。数值参考、真实刚度规则和全局最优控制器是三个不同概念。
 
-The cells were chosen by a design round that ran probes on 3-8 in-sample scenes; those probes are
-indicative only [R]. They established that (i) every one of three independent proposals had omitted
-one controller term, and that omission produced most of their reported headroom (125 Hz homogeneous
-tissue 0.49 → 0.16 N; stiffness ladder at r = 30 0.72 → 0.26 N once the term is added); (ii) on fast
-platforms (500 Hz cobot, 1 kHz torque plant) a jointly tuned complete fixed controller is near the
-oracle (0.035-0.039 N fixed vs 0.028-0.037 N oracle on homogeneous tissue); (iii) only the
-combination of the 125 Hz class, a bone-like region and patient motion leaves a gap [R]. The
-benchmark is thus deliberately set where the evidence says adaptation can matter, and the same
-evidence says where it cannot.
+运动指标也需与任务匹配：当前切向运动由所有方法共用的独立位置伺服推进，不能用该通道的误差证明阻抗方法改善运动跟踪。当前可补测的是**实际法向运动与振荡**。Haninger 表 3 的 15 Hz 分带可作为预先固定的参照，仍应结合扫描／呼吸频带和已知激励公开解释；不能通过事后换滤波器隐藏振荡，也不能把运动越慢直接认作越好。YOPO 的积分平方 jerk 可作补充平顺性量，但并非本接触任务必须堆入主表的指标。
 
-#### 4) Scenario cohorts and splits
+## C. 修正适配并补调参后的主结果
 
-Splits are by scene seed [R; V2; V3]:
+修正 Xue 的刚度支路与参数投影，补查伺服衔接；修正 Jin 单步预测在 8 ms 更新时的动作不可见端点；扩展经典控制对照的参数搜索，并补回学习式对照的参考输出、按任务训练及输出校准。全部修正测试共 1,440 次，未出现积分失败。C1 v2 与 C2 保持原有参数和权重。以下给出 seed 4000 主表；另一批场景、最大误差、配对区间和全部逐场景数据见原始结果入口。
 
-| Cohort | Seed | Scenes per cell | Use |
-|---|---|---|---|
-| train | 1000 | 20 (40 for the v2 fast-push supervisor tuning and all v3 work) | tuning and training |
-| dev | 2000 | 20-60 | development and checkpoint selection |
-| original test | 3000 | 40 | gate, all baselines, C1v1 and C2, run once each; later inspected (see Sec. V-E6) |
-| fresh test 1 | 4000 | 40 | C1v2 final test, all six cells; later used read-only for diagnosis of v3 |
-| fresh test 2 | 5000 | 40 | C1v3 final test, all six cells, run once after every choice was fixed |
+**表 1：T1，40 个配对场景。**
 
-On every cohort all methods are run on the same scenes with the same sensor-noise seeds, so all
-comparisons are paired [V2; V3; C2]. In T3 cells the push amplitude (3-8 mm), the number of events
-and the ridge ratio are random; in T1 cells the scan speed is random [`scenarios.py`].
-
-#### 5) Metrics
-
-All metrics use the true simulated contact force after a 1 s warm-up [R; `scenarios.metrics`]:
-
-- **Accuracy:** force RMSE, 95th percentile and maximum of |F − FD|, fraction of time inside ±0.5 N.
-- **Safety:** peak force; fraction of scenes with peak above FD + 3 N = 7 N ("> 7 N"); contact loss
-  (F < 0.5 N) as a time fraction, as the fraction of scenes with any loss, and as the longest loss;
-  oscillation RMS above 10 Hz; peak shear (reported only).
-- **Tuning composite (declared in advance, used only for tuning and selection):**
-  J = mean(((F − FD)/0.5)²) + 20 · loss + mean(max(0, F − 7)²).
-- **Computation:** policy call time per update on the host prototype (not real-time certification).
-
-A claim counts only in physical units [R]. J is reported because it is the selection objective, but
-every headline difference is also given in force RMSE, and the replayed physical tables [P] add
-maximum error, peak force and zero-force time.
-
-#### 6) Statistics
-
-Paired differences use a nonparametric bootstrap over scenes (10 000 resamples, 2.5/97.5 percentiles;
-`tune.paired_ci`) [V3]. A difference is called significant only when its interval excludes zero. No
-multiplicity correction is applied [P]; with six cells and several references per cell the reader
-should treat isolated marginal intervals accordingly. For C2, three training seeds are averaged within
-each scene before the bootstrap; the independent sample size remains 40 scenes, not 120 [P; C2].
-"Wins" counts scenes in which the method has lower J than the reference [V3].
-
-#### 7) Tuning budgets and the selection rule
-
-All methods are tuned or trained on the train split only, selected under one rule, and run once on
-each test cohort. The rule is: **minimum mean train J subject to peak ≤ 7 N in at least 95 % of
-train scenes**; if no setting is feasible, the plain minimum J is used and reported as infeasible
-[R; `tune.best_fixed`]. In the fast-push cells no method met the peak rule on train: B1 [G], C1v1
-T3fast (0 of 49 feasible) [C1], the C1v2 supervisor search [V2] and the per-cell EtR-A tuning [V2].
-Comparisons in those cells are therefore among controllers that all violate the train peak rule.
-
-Budgets are summarised with the baselines in Table II. The development budget is not equal across
-methods: before its declared 49-configuration tuning, C1 used about 45 exploratory train
-configurations [C1]; v2 added about 38 supervisor variants on dev plus a 49-configuration supervisor
-search [V2]; v3 used 96 further configurations on train/dev/N1-dev [V3]. B1 has the largest single
-search (below). This asymmetry is stated as a limitation (Sec. V-G).
-
-#### 8) How the fixed baseline B1 is set
-
-B1 is the best single fixed controller of the **complete** family (M, D, K, ki, KPF), tuned per cell
-[R; `tune.best_fixed`; G]:
-
-1. A grid M ∈ {0.3, 1, 3} kg × D ∈ 12 log-spaced values in [20, 2500] N s/m × K ∈ {0, 300} N/m ×
-   ki ∈ {0, 3, 10, 30} s⁻¹ × KPF ∈ {0, 2e-5, 5e-5, 1e-4, 2e-4, 4e-4} m/N, i.e. 1728 settings, each
-   evaluated on the 20 train scenes of the cell.
-2. Nelder-Mead in log space from each of the 5 best grid points (up to 200 evaluations each).
-3. Selection by the rule above.
-
-The resulting gains (M, D, K, ki, KPF) are [G]:
-
-| Cell | M (kg) | D (N s/m) | K (N/m) | ki (s⁻¹) | KPF (m/N) | train-feasible |
-|---|---|---|---|---|---|---|
-| T3 0.25/1 | 1.589 | 73.5 | 197.5 | 4.56 | 1.45e-4 | no |
-| T3 0.25/4 | 1.001 | 152.4 | 677.3 | 30.0 | 1.24e-4 | no |
-| T3 0.5/1 | 1.000 | 180.5 | 320.4 | 30.0 | 1.05e-4 | yes |
-| T3 0.5/4 | 1.000 | 179.6 | 247.5 | 30.0 | 1.06e-4 | yes |
-| T1/1 | 1.688 | 104.3 | 0.0007 | 11.3 | 1.16e-4 | yes |
-| T1/4 | 1.681 | 114.9 | 0.0009 | 14.5 | 1.16e-4 | yes |
-
-This is stronger than common practice in the field. In the 36 papers analysed, fixed baselines are set
-at the proposed method's own gain bounds (E41: K 100 / 1500 N/m), by per-case trial and error (E04),
-by a hand-picked "ideal" damping (Duan RAS 2018), or not reported (E27); none grid-searches the fixed
-family and selects the best single setting on a training set [S, Sec. 2]. Two observations from our
-data show why this matters. First, removing one term from the fixed family produced most of the
-headroom reported by the design proposals (above). Second, the Duan adaptive-damping law maps exactly
-onto a fixed PI admittance with K = KPF = 0 [A docstring]; tuned with its own budget it reaches
-J 6.20 / 2.59 (T3 / T1) against 0.570 / 0.247 for B1 [A; G], i.e. the missing direct force path, not
-adaptation, decides that comparison. B0 extremes (D at 20 and 2500 N s/m, ki 10) are also run and fail
-by orders of magnitude (T3 0.5/1: J 1514 and 171) [G].
-
-### B. Baselines
-
-Table II lists every comparison method, how it was mapped onto the shared interface, its tuning budget
-and the main fidelity caveat. All share the plant, seeds, score and selection rule.
-
-**Table II. Baselines.**
-
-| Method | Information | Mapping and fidelity (one line) | Budget |
-|---|---|---|---|
-| B0 fixed extremes | none | D at its bounds, ki 10 | – |
-| **B1** best fixed | none | complete family (M, D, K, ki, KPF), Sec. V-A8 | 1728 grid + 5 × ≤200 NM, 20 train scenes [G] |
-| B2 per-scene fixed (oracle) | scene identity | best of the same grid on each test scene; upper reference for any fixed controller | per test scene [G] |
-| B3b truth-stiffness schedule (oracle) | true footprint stiffness k, delayed 0 / 0.1 / 0.2 s | D = max(Dmin, k/wI), KPF = cP/k, M 0.3, K 0, ki fixed; rule tuned on train per delay. Gains only: an information reference, not an optimal controller or an upper bound for methods with feedforward | rule grid on train [G] |
-| EtR-A estimate-then-rule | causal | lock-in stiffness estimate from a force-targeted 20.8 Hz command dither (first-differenced force and position, known F/T filter) + the B3b rule; best causal baseline | 120 configurations [A] |
-| EtR-A + Haninger rule | causal | same estimate, D = max(Dmin, 2ζ√(M k̂)) (Haninger RAS 2023, Eq. 20) | 120 [A] |
-| EtR-R | causal | RLS on increments; biased by unmeasured surface motion by construction | 45 [A] |
-| Duan RAS 2018 | causal | exactly a fixed PI admittance (K = KPF = 0, ki = σ/λ); σ capped at 0.24 by the plant ki bound (paper σ = 0.5 at 5 ms ≡ ki 100). Reproduces the paper's slope-drift correction (mid-ramp bias 0.85 N constant impedance vs 0.0026 N tuned Duan) | 135 grid + refinement; no train-feasible setting [A] |
-| Song RA-L 2025 NAIPC | causal | algebraic reduction to admittance + lagged direct force path; mapping error ≤ 0.0007 N; paper constraints KPF·D·ki ≤ 1/4 and M ki < D enforced | 228 grid [A] |
-| Jin TMECH 2023 MPC-VIC, one-step / multi-step (anchored) | causal | (log D, KPF) as MPC inputs; RLS stiffness with a train-calibrated gain correction (×1.7 on T1); compliance cost centred at the cell's B1 gains (a documented deviation); LM instead of iLQR; energy tank | 16 / 24 configurations [M] |
-| Jin multi-step, literal | causal | compliance cost centred at zero impedance as in the paper; fails (J 16.7 / 4.06) | 8 [M] |
-| Xue RAS 2025 MPVIC | causal (+ initial surface position, the paper's Assumption 1) | HC estimator + MPC; explicit-Euler model limits (M, dmin, dmax) to two pairs; ki ≤ 10; HC model undefined once pushes exceed the assumed surface; no train-feasible setting | 24 (+1 fully causal variant) [M] |
-| E27-style learned VIC | causal | one-hidden-layer MLP (126 parameters) adjusting log D, log KPF every 0.05 s; trained by separable CMA-ES instead of DRL; learned near-constant gains | 3 seeds × 14 040 episodes [L] |
-
-The mapped field methods are fair implementations on this interface, not reproductions of the original
-experiments; why their published results differ from ours is not established by these data [R].
-"To be added" baselines that were declared but not implemented are B1-robust (tuned over latency and
-filter mismatch) and a breathing feedforward for all methods [R]; both are gaps (Sec. V-G).
-
-**Proposed methods.** C1 (`candidate1_model.py`, `candidate1_v2.py`, `candidate1_v3.py`) estimates,
-over a moving window of the last Nw control intervals (16 intervals = 128 ms by default), the local
-log-stiffness k, an equivalent surface trajectory h(τ) = vs τ + as τ²/2 and a force level g0, by
-arrival-cost-regularised constrained Gauss-Newton on the one-step-inverted F/T filter output with the
-1 kHz robot position reconstructed from the known servo model [C1]. A finite-horizon problem
-(H = 16 ticks) chooses (log D, KPF, u0, u1) — admittance damping, direct force gain and a ramp-then-hold
-reference feedforward u_ff — by one warm-started projected Gauss-Newton iteration every 8 ms, through the
-exact robot-side predictor, with equilibrium robustness probes and a rule-form gain prior [C1]. The
-supervisor (v2) adds a Simplex-style fallback to the cell's B1 admittance on contact loss, a bumpless
-integrator, estimator freeze and post-contact reset, and |vs| ≤ 0.1 m/s, with a stiff start prior
-k0 = 3e4 N/m [V2]. v3 changes only configuration selection (each 4 mm cell reuses its 1 mm
-configuration) [V3]. C2 (`candidate2_learned.py`) is a causal MLP student around the EtR-A lock-in
-front end whose stiffness head is distilled by DAgger from a privileged truth-stiffness teacher with
-an expectile loss (τ = 0.95), then fine-tuned by ES on the task cost; one policy serves T1 and T3 [C2].
-
-### C. Main Results
-
-#### 1) Headroom: what knowing the stiffness is worth (seed 3000)
-
-**Table III. Gate cells, 40 test scenes per cell: RMSE (N) / mean peak (N) / fraction of scenes > 7 N;
-last column J and paired 95 % CI of the B3b(0.1 s) − B1 difference [R; G].**
-
-| Cell | B1 | B2 per-scene fixed | B3b 0 s | B3b 0.1 s | B3b 0.2 s | J: B1 → B3b 0.1 s |
-|---|---|---|---|---|---|---|
-| T3 0.25/1 | 0.67 / 7.8 / 0.65 | 0.50 / 7.0 / 0.40 | 0.39 / 6.9 / 0.30 | 0.41 / 6.9 / 0.30 | 0.78 / 8.8 / 0.47 | 2.27 → 1.08 (−1.67, −0.79) |
-| T3 0.25/4 | 0.74 / 8.1 / 0.68 | 0.51 / 7.0 / 0.38 | 0.39 / 6.9 / 0.30 | 0.41 / 7.0 / 0.30 | 0.71 / 9.6 / 0.53 | 2.93 → 1.09 (−2.89, −1.13) |
-| T3 0.5/1 | 0.31 / 5.5 / 0.03 | 0.19 / 4.9 / 0.00 | 0.15 / 4.8 / 0.00 | 0.15 / 4.8 / 0.00 | 0.30 / 5.3 / 0.03 | 0.57 → 0.12 (−0.91, −0.20) |
-| T3 0.5/4 | 0.32 / 5.5 / 0.03 | 0.19 / 4.9 / 0.00 | 0.15 / 4.8 / 0.00 | 0.16 / 4.8 / 0.00 | 0.32 / 5.3 / 0.03 | 0.60 → 0.13 (−0.95, −0.21) |
-| T1/1 | 0.16 / 4.8 / 0.03 | 0.11 / 4.6 / 0.00 | 0.07 / 4.3 / 0.00 | 0.11 / 4.4 / 0.00 | 0.13 / 4.7 / 0.05 | 0.25 → 0.06 (−0.50, −0.02) |
-| T1/4 | 0.18 / 4.8 / 0.03 | 0.13 / 4.6 / 0.00 | 0.08 / 4.4 / 0.00 | 0.13 / 4.5 / 0.00 | 0.16 / 4.8 / 0.07 | 0.27 → 0.09 (−0.51, −0.01) |
-
-The headroom is real but bounded. Known stiffness at 0.1 s delay lowers J by a factor of 2.7-4.7 in
-every cell with every interval excluding zero, and halves RMSE at cough speed (0.31 → 0.15 N) [R].
-But the pre-declared strict gate (B1 fails a physical criterion while B3b at 0.1 s meets all) fails
-in all six cells: at the sourced 0.5 s ramp and on the ladders B1 already meets every physical
-criterion (RMSE < 0.5 N, ≥ 70 % in band, < 20 % of scenes > 7 N), and at the 0.25 s ramp the oracle
-itself has 30 % of scenes above 7 N [R; G]. With 0.2 s information delay the same oracle is no better
-than B1 (and worse at the 0.25 s ramp), so the usable latency budget is about 0.1 s [R]. On ladders a
-per-scene fixed controller nearly matches the 0.1 s oracle, and a stiffness-map feedforward is the
-stronger lever (`baselines_ref.TruthKFF`, T1 RMSE 0.055 N with 0.05 s preview vs 0.106 N gains-only
-and 0.155 N for B1) [R]. The paper's claim is therefore framed as a force-accuracy and contact-keeping
-improvement inside a regime where the best fixed controller is already acceptable at sourced speeds,
-not as rescuing a failing fixed controller.
-
-#### 2) Sourced cells, all baselines and candidates (seed 3000)
-
-**Table IV. T3 0.5/1 and T1/1, 40 test scenes: J / RMSE (N) / fraction of scenes > 7 N [R; A; M; L;
-C1; C2]. Paired ΔJ CIs vs B1 in brackets where reported in the result files.**
-
-| Method | T3 0.5/1 | T1/1 |
-|---|---|---|
-| B1 best fixed | 0.570 / 0.31 / 0.03 | 0.247 / 0.16 / 0.03 |
-| B3b 0.1 s (oracle) | 0.120 / 0.15 / 0 | 0.062 / 0.11 / 0 |
-| B3b 0 s (oracle) | 0.109 / 0.15 / 0 | 0.022 / 0.07 / 0 |
-| EtR-A | 0.407 / 0.27 / 0.10 [−0.164 (−0.552, +0.091)] | 0.077 / 0.13 / 0 [−0.169 (−0.491, +0.005)] |
-| EtR-A + Haninger | 0.410 / 0.30 / 0.05 [−0.160 (−0.598, +0.094)] | 0.174 / 0.16 / 0.08 [−0.072 (−0.447, +0.200)] |
-| EtR-R (RLS) | 1.91 / 0.56 / 0.55 | 0.296 / 0.25 / 0.08 |
-| Duan RAS 2018 | 6.20 / 1.06 / 0.68 | 2.59 / 0.62 / 0.38 |
-| Song RA-L 2025 | 0.99 / 0.44 / 0.03 | 0.55 / 0.32 / 0.03 |
-| Jin one-step (anchored to B1) | 0.549 / 0.32 / 0.03 [−0.021 (−0.147, +0.066)] | 0.200 / 0.15 / 0.03 [−0.046 (−0.131, −0.002)] |
-| Jin multi-step (anchored) | 0.604 / 0.35 / 0.05 [+0.034 (−0.279, +0.238)] | 0.123 / 0.14 / 0.03 [−0.124 (−0.447, +0.055)] |
-| Jin multi-step, literal | 16.7 / 1.61 / 0.73 | 4.06 / 0.71 / 0.55 |
-| Xue MPVIC (initial-surface prior) | 7.76 / 1.28 / 0.85 | 1.36 / 0.55 / 0.20 |
-| Learned VIC (E27-style, 3 seeds) | 0.47 ± 0.07 J, 0.32 N | 0.57 ± 0.39 J, 0.18 N |
-| **C1v1** | **0.142 / 0.16 / 0.03** [−0.428 (−0.869, −0.185)] | **0.021 / 0.07 / 0** [−0.226 (−0.549, −0.049)] |
-| **C2** (3 seeds, mean ± sd) | **0.255 ± 0.012 / 0.23 / 0.03** [−0.315 (−0.746, −0.072)] | **0.039 ± 0.001 / 0.09 / 0** [−0.207 (−0.528, −0.034)] |
-
-Among the mapped field methods none is significantly better than B1 on T3; the only interval that
-excludes zero, Jin one-step on T1 (−0.046 (−0.131, −0.002)), is marginal and uncorrected for
-multiplicity [A; M]. The learned VIC's seed 0 is significantly *worse* than B1 on T1
-(+0.116 (+0.015, +0.260)) [L]. The best causal baseline, EtR-A, recovers most of the oracle value on the
-ladder (J 0.077 vs 0.062) but little on the spine task with patient motion (0.407 vs 0.120): its
-estimate lags by about 70-100 ms at ridge entry and patient motion corrupts it [R; A]. The remaining
-room for a method is therefore causal, prompt use of contact information *while the tissue moves*.
-C1v1 recovers 92 % of the EtR-A-to-oracle(0.1 s) J gap on T3 ((0.407 − 0.142)/(0.407 − 0.120)) and C2
-53 % ((0.407 − 0.255)/(0.407 − 0.120)) (computed from [C1; C2; A]). C1v1 vs EtR-A: T3
-−0.264 (−0.397, −0.154), T1 −0.057 (−0.087, −0.035); C2 vs EtR-A: T3 −0.152 (−0.261, −0.062), T1
-−0.038 (−0.065, −0.018) [C1; C2].
-
-Against the oracles the picture is two-sided. On T3, C1v1 is slightly but significantly worse than
-B3b at 0.1 s in J (+0.022 (+0.004, +0.048)) [C1]; on T1 it is better than B3b at 0.1 s
-(−0.042 (−0.064, −0.023)) and equal to B3b at 0 s (−0.001 (−0.004, +0.002)) [C1]. Because B3b is a
-gains-only reference, "better than the 0.1 s oracle" on T1 means that prompt information plus
-feedforward beats delayed information without feedforward, not that C1 exceeds an optimum.
-
-**Physical-unit replay (seeds 3000 and 4000) [P].** The replayed tables report RMSE, mean maximum
-absolute error and peak force for all frozen controllers on the two sourced cells. Key paired
-differences (N):
-
-| Cohort / task | C1v2 − B1, RMSE | C1v2 − B1, max error | C1v2 − B3b 0.1 s, RMSE | C1v2 − B3b 0.1 s, max error | C2 − B1, RMSE | C2 − B1, max error |
-|---|---|---|---|---|---|---|
-| 3000 / T3 | −0.148 (−0.201, −0.110) | −0.350 (−0.663, −0.113) | +0.009 (+0.002, +0.016) | +0.290 (+0.211, +0.379) | −0.085 (−0.137, −0.047) | −0.178 (−0.486, +0.072) |
-| 4000 / T3 | −0.151 (−0.224, −0.097) | −0.344 (−0.657, −0.068) | +0.007 (+0.001, +0.014) | +0.318 (+0.200, +0.442) | −0.093 (−0.161, −0.042) | −0.211 (−0.467, +0.020) |
-| 3000 / T1 | −0.088 (−0.150, −0.047) | −0.443 (−0.754, −0.224) | −0.039 (−0.053, −0.027) | −0.172 (−0.249, −0.102) | −0.062 (−0.125, −0.023) | −0.312 (−0.599, −0.106) |
-| 4000 / T1 | −0.080 (−0.134, −0.042) | −0.396 (−0.712, −0.178) | −0.032 (−0.043, −0.022) | −0.115 (−0.171, −0.062) | −0.058 (−0.110, −0.021) | −0.283 (−0.578, −0.072) |
-
-So on T3 the oracle's advantage over C1 is small in RMSE (< 0.01 N) but about 0.3 N in the maximum
-error and peak force; "C1 matches the oracle" holds for J and RMSE, not for the worst sample of an
-episode. C2's reduction of the maximum error on T3 is not significant [P].
-
-#### 3) Six cells, fresh cohort: headline result (C1v3, seed 5000)
-
-C1v3 was fixed on train/dev only and run once on seed 5000; B1, EtR-A (per-cell tuned) and B3b at
-0.1 s were recomputed on the same scenes and noise seeds [V3].
-
-**Table V. Seed 5000, 40 scenes per cell: J / RMSE (N) / mean max |F − FD| (N) / fraction > 7 N /
-fraction of scenes with contact loss / number of scenes with J > 20 [V3, `final_seed5000`].**
-
-| Cell | C1v3 | B1 | EtR-A | B3b 0.1 s (oracle) |
+| 方法 | 力 RMSE（N） | 场景平均峰值（N） | 平均零力时间（s） | 最坏采样峰值（N） |
 |---|---|---|---|---|
-| T3 0.5/1 | 0.184 / 0.185 / 1.49 / 0.025 / 0 / 0 | 0.379 / 0.290 / 1.51 / 0.025 / 0.025 / 0 | 0.489 / 0.301 / 1.88 / 0.150 / 0.100 / 0 | 0.187 / 0.185 / 1.07 / 0 / 0.025 / 0 |
-| T3 0.5/4 | 0.262 / 0.203 / 1.50 / 0.100 / 0.025 / 0 | 0.398 / 0.299 / 1.51 / 0.025 / 0.025 / 0 | 0.450 / 0.295 / 1.71 / 0.075 / 0.050 / 0 | 0.200 / 0.192 / 1.10 / 0.025 / 0 / 0 |
-| T3 0.25/1 | 2.468 / 0.610 / 5.46 / 0.600 / 0.400 / 1 | 2.288 / 0.682 / 4.52 / 0.725 / 0.550 / 0 | 7.976 / 0.998 / 9.20 / 0.725 / 0.600 / 4 | 1.995 / 0.529 / 4.22 / 0.400 / 0.375 / 0 |
-| T3 0.25/4 | 3.545 / 0.694 / 6.15 / 0.625 / 0.400 / 2 | 2.926 / 0.744 / 4.79 / 0.775 / 0.575 / 0 | 7.487 / 1.059 / 8.33 / 0.750 / 0.675 / 4 | 2.053 / 0.535 / 4.26 / 0.400 / 0.375 / 0 |
-| T1/1 | 0.033 / 0.080 / 0.50 / 0 / 0 / 0 | 0.224 / 0.179 / 0.97 / 0.075 / 0.025 / 0 | 0.128 / 0.153 / 0.93 / 0.025 / 0 / 0 | 0.098 / 0.129 / 0.68 / 0 / 0 / 0 |
-| T1/4 | 0.047 / 0.098 / 0.61 / 0 / 0 / 0 | 0.274 / 0.199 / 1.02 / 0.125 / 0.025 / 0 | 0.202 / 0.202 / 1.26 / 0 / 0 / 0 | 0.156 / 0.163 / 0.85 / 0.025 / 0 / 0 |
+| 调优固定控制 B1 | 0.1472 | 4.7375 | 0.0026 | 9.3777 |
+| 估计＋刚度规则 EtR-A | 0.1204 | 4.6230 | 0.0000 | 5.9249 |
+| Haninger 阻尼规则适配 | 0.1402 | 4.8861 | 0.0000 | 8.2923 |
+| RLS＋规则 | 0.2447 | 5.4174 | 0.0000 | 7.6144 |
+| Duan 适配 | 0.5654 | 6.5930 | 0.0122 | 14.4272 |
+| Song 适配 | 0.1963 | 4.7538 | 0.0000 | 6.5617 |
+| Jin 单步 | 0.1161 | 4.5765 | 0.0000 | 6.8467 |
+| Jin 多步 | 0.1247 | 4.5911 | 0.0000 | 6.9013 |
+| Xue：初始表面先验 | 0.3281 | 5.2338 | 0.0000 | 7.6957 |
+| Xue：名义表面 | 0.3314 | 5.1973 | 0.0000 | 7.3440 |
+| 学习式 VIC（ES，3 种子） | 0.1179 | 4.5783 | 0.0007 | 9.3282 |
+| C1 v2：模型优化路线 | 0.0673 | 4.3123 | 0.0000 | 5.6032 |
+| C2：学习路线（3 种子） | 0.0896 | 4.4294 | 0.0000 | 5.9867 |
 
-**Table VI. Seed 5000, paired 95 % CIs of C1v3 minus reference; wins vs B1 out of 40 [V3].**
+**表 2：T3，40 个配对场景。**
 
-| Cell | ΔJ vs B1 | ΔRMSE vs B1 (N) | Δfrac > 7 N vs B1 | Δloss-scenes vs B1 | ΔJ vs EtR-A | ΔJ vs B3b 0.1 s | wins vs B1 |
-|---|---|---|---|---|---|---|---|
-| T3 0.5/1 | **−0.195 (−0.250, −0.145)** | **−0.105 (−0.130, −0.083)** | 0 (0, 0) | −0.025 (−0.075, 0) | **−0.305 (−0.455, −0.184)** | −0.003 (−0.035, +0.024) | 38 |
-| T3 0.5/4 | −0.136 (−0.264, +0.053) | **−0.095 (−0.129, −0.054)** | +0.075 (0, +0.175) | 0 (−0.075, +0.075) | **−0.188 (−0.248, −0.127)** | +0.062 (−0.041, +0.227) | 38 |
-| T3 0.25/1 | +0.180 (−0.635, +1.215) | −0.072 (−0.152, +0.014) | −0.125 (−0.275, +0.025) | **−0.150 (−0.275, −0.050)** | **−5.51 (−10.53, −2.02)** | +0.474 (−0.562, +1.646) | 29 |
-| T3 0.25/4 | +0.619 (−0.622, +2.109) | −0.050 (−0.160, +0.068) | −0.150 (−0.325, 0) | **−0.175 (−0.300, −0.075)** | **−3.94 (−7.26, −1.40)** | **+1.49 (+0.10, +3.23)** | 27 |
-| T1/1 | **−0.191 (−0.335, −0.083)** | **−0.099 (−0.143, −0.063)** | −0.075 (−0.175, 0) | −0.025 (−0.075, 0) | **−0.096 (−0.147, −0.057)** | **−0.065 (−0.098, −0.036)** | 38 |
-| T1/4 | **−0.228 (−0.414, −0.090)** | **−0.101 (−0.148, −0.063)** | **−0.125 (−0.225, −0.025)** | −0.025 (−0.075, 0) | **−0.155 (−0.207, −0.109)** | **−0.109 (−0.167, −0.059)** | 38 |
+| 方法 | 力 RMSE（N） | 场景平均峰值（N） | 平均零力时间（s） | 最坏采样峰值（N） |
+|---|---|---|---|---|
+| 调优固定控制 B1 | 0.3236 | 5.5519 | 0.0062 | 9.8619 |
+| 估计＋刚度规则 EtR-A | 0.2726 | 5.4244 | 0.0032 | 10.3161 |
+| Haninger 阻尼规则适配 | 0.2949 | 5.4440 | 0.0000 | 6.9814 |
+| RLS＋规则 | 0.5352 | 8.5816 | 0.0256 | 15.1715 |
+| Duan 适配 | 1.1370 | 8.7098 | 0.1730 | 19.0161 |
+| Song 适配 | 0.4317 | 5.9507 | 0.0030 | 9.6768 |
+| Jin 单步 | 0.2915 | 5.4442 | 0.0004 | 7.4090 |
+| Jin 多步 | 0.2819 | 5.3714 | 0.0000 | 6.4988 |
+| Xue：初始表面先验 | 0.6939 | 6.3557 | 0.1142 | 13.6064 |
+| Xue：名义表面 | 0.5997 | 6.2597 | 0.0484 | 13.8924 |
+| 学习式 VIC（ES，3 种子） | 0.3096 | 5.3698 | 0.0158 | 10.5038 |
+| C1 v2：模型优化路线 | 0.1726 | 5.1007 | 0.0000 | 7.1640 |
+| C2：学习路线（3 种子） | 0.2308 | 5.3028 | 0.0001 | 7.9063 |
 
-(Bold: interval excludes zero.)
+C1 v2 和 C2 的平均力 RMSE 在两批主任务场景中均低于全部竞争性对照。seed 4000 的 T1 最低对照为 Jin 单步 0.1161 N，C1 v2／C2 为 0.0673／0.0896 N；T3 最低对照为 EtR-A 0.2726 N，C1 v2／C2 为 0.1726／0.2308 N。但 T3 的 Jin 多步最坏采样峰值为 6.4988 N，低于 C1 v2 的 7.1640 N，因此平均精度收益并非所有物理量全面占优。神经方法的最坏峰值覆盖 120 个场景／种子运行，不能与单个模型的 40 次极值作等样本数统计推断。
 
-Reading of the headline cohort:
+以下给出候选相对本批最低平均 RMSE 对照的配对差；参照是描述性选择，区间是条件于已训练模型、以场景为单位的 10,000 次 bootstrap 边际 95% 区间，未作多重比较校正。负值表示候选误差较低。
 
-- **Slow pushes and ladders (four cells).** C1v3 lowers force RMSE against B1 by 0.095-0.105 N in all
-  four cells, with every interval excluding zero; J is significantly lower in three of the four. On
-  T3 0.5/4 the J difference is not significant (−0.136 (−0.264, +0.053)) and C1v3 has more scenes above
-  7 N than B1 (4 vs 1; three of the four at 7.03-7.08 N, one at 10.9 N, a scene that is also 9.95 N for
-  EtR-A) [V3]. C1v3 is better than EtR-A in J in all four cells and within noise of the 0.1 s oracle on
-  both T3 cells.
-- **Fast pushes (two cells).** C1v3 has significantly fewer scenes with contact loss than B1
-  (−0.150 and −0.175) but no J gain (intervals include zero), the reduction in scenes above 7 N is not
-  significant on this cohort (intervals touch or include zero), and 1-2 of 40 scenes per cell have
-  J > 20 where B1 has none [V3]. This is a robustness result, not a performance win (Sec. V-E1).
+| 任务 | 候选 | 参照 | RMSE 差（N） | 边际 95% 区间（N） |
+|---|---|---|---|---|
+| T1 | C1 v2：模型优化路线 | Jin 单步 | -0.0488 | [-0.0635, -0.0349] |
+| T1 | C2：学习路线（3 种子） | Jin 单步 | -0.0265 | [-0.0391, -0.0141] |
+| T3 | C1 v2：模型优化路线 | 估计＋刚度规则 EtR-A | -0.1000 | [-0.1248, -0.0798] |
+| T3 | C2：学习路线（3 种子） | 估计＋刚度规则 EtR-A | -0.0418 | [-0.0677, -0.0216] |
 
-#### 4) Consistency across cohorts (earlier cohorts, labelled)
+上述比较支持的是当前任务中的接触精度收益。学习式 VIC 是 ES 训练的 E27 启发对照，Haninger 仅移植阻尼规则；不称其整篇算法完整复现。C1 v2 的主任务配置与 C1 v3 的对应 1 mm 配置一致；不替换为另一个共享配置。C1 v1 的历史 T3/4000 运行曾出现 46.9164 N 峰值，该负结果仍保留在完整物理报告中。
 
-The same method family was evaluated on three cohorts as it evolved. The instances differ (v1 → v2 adds
-the supervisor and start prior; v2 → v3 changes only the 4 mm configuration choice), and the earlier
-cohorts were later inspected, so only seed 5000 is a clean final test for C1v3.
+## D. 更新时效与数值决策质量
 
-**Table VII. ΔJ vs B1 (paired 95 % CI) across cohorts [C1; V2; V3].**
+**表 3：已有策略调用计时。数值为各场景调用 P95 的平均值（ms），不是合并全体调用得到的 P95，也不是完整在线链路 P99。**
 
-| Cell | Seed 3000, C1v1 (original test; later inspected) | Seed 4000, C1v2 (fresh for v2; read-only diagnosis for v3) | Seed 5000, C1v3 (fresh, final) |
-|---|---|---|---|
-| T3 0.5/1 | −0.428 (−0.869, −0.185) | −0.48 (−0.98, −0.16) | −0.195 (−0.250, −0.145) |
-| T1/1 | −0.226 (−0.549, −0.049) | −0.18 (−0.41, −0.04) | −0.191 (−0.335, −0.083) |
-| T3 0.5/4 | – | **+0.07 (−0.57, +0.69)** (C1v2 negative) | −0.136 (−0.264, +0.053) |
-| T1/4 | – | −0.18 (−0.41, −0.05) | −0.228 (−0.414, −0.090) |
-| T3 0.25/1 | +23.19 (−0.75, +65.18) (C1v1, 2 diverging scenes) | −0.13 (−0.87, +0.67) | +0.180 (−0.635, +1.215) |
-| T3 0.25/4 | – | −0.46 (−1.75, +0.73) | +0.619 (−0.622, +2.109) |
-
-Absolute J values on seed 4000 (C1v2 / B1 / EtR-A / B3b 0.1 s): T3 0.5/1 0.153 / 0.638 / 0.397 / 0.141;
-T1/1 0.022 / 0.205 / 0.071 / 0.056; T3 0.5/4 0.739 / 0.666 / 0.390 / 0.153 [V2]. On seed 3000 the re-run
-C1v2 gives T3 0.5/1 J 0.139 and T1/1 0.021 [V2, `oldtest`].
-
-The sourced slow-push and ladder results reproduce on three cohorts. The one cell that changed sign is
-T3 0.5/4: C1v2 was not better than B1 and significantly worse than EtR-A on seed 4000
-(+0.35 (+0.03, +0.79)) [V2]. The cause was traced on train/dev and read-only seed-4000 traces to
-configuration selection, not to the breathing model: the 49-configuration search for that cell on 20
-train scenes had only 8 peak-feasible settings, the selected one had no excitation dither and a
-twice-faster stiffness random walk, and under it stiffness and surface drift were not separable while
-the probe followed the breathing surface (median k̂/k 2.12-2.53 on soft tissue across train, dev and
-seed 4000, against 1.11-1.14 with the 1 mm configuration) [V3]. The same setting is equally bad on the
-1 mm cell (dev J 0.58 vs 0.12), and the constant-velocity-plus-acceleration drift model fits 4 mm,
-0.33 Hz breathing to a cubic remainder of about 1e-8 m over the 0.13 s window [V3]. v3 therefore drops
-per-cell re-tuning for breathing amplitude. The old negative reproduces for C1v2 on seed 5000
-(ΔJ vs B1 +0.624 (+0.007, +1.573)), and C1v3 improves on it there (ΔJ vs C1v2 −0.760 (−1.555, −0.213))
-[V3]. This history is reported because the v3 change was motivated by a test-cohort result; seed 5000
-is the cohort that controls for it.
-
-#### 5) Candidate 2: a learned instance of the same information principle
-
-**Table VIII. C2 on seed 3000, 3 training seeds (mean ± sd of J; seed-averaged paired CIs) [C2].**
-
-| Cell | C2 J | RMSE (N) | frac > 7 N | ΔJ vs B1 | ΔJ vs EtR-A | ΔJ vs B3b 0.1 s |
-|---|---|---|---|---|---|---|
-| T3 0.5/1 | 0.255 ± 0.012 | 0.226 | 0.033 | −0.315 (−0.746, −0.072) | −0.152 (−0.261, −0.062) | +0.135 (+0.092, +0.184) |
-| T1/1 | 0.039 ± 0.001 | 0.093 | 0 | −0.207 (−0.528, −0.034) | −0.038 (−0.065, −0.018) | −0.023 (−0.041, −0.008) |
-| T3 0.25/1 (secondary) | 7.03 ± 2.69 | 0.877 | 0.60 | **+4.76 (+1.07, +10.46)** | −3.02 (−7.60, +1.58) | +5.95 (+2.16, +12.00) |
-
-C2 is one shared policy for both tasks (the baselines are tuned per cell) and is consistent across
-training seeds on the sourced cells (sd 0.012 and 0.001). It is better than B1 and EtR-A on both sourced
-cells but clearly behind the oracle on T3, and significantly worse than B1 on the fast-push cell (the
-EtR-A row there uses the 0.5 s tuning because no fast-cell tuning existed when C2 was tested) [C2]. In
-the physical replay C2's RMSE advantage over B1 reproduces on seed 4000 (T3 −0.093 (−0.161, −0.042) N,
-T1 −0.058 (−0.110, −0.021) N) [P]. C2 was not run on seed 5000 or on the 4 mm cells. Known-behaviour N1
-checks: soft 15 kPa J 0.0025-0.0028 vs B1(T3 gains) 0.0033; stiff 1 MPa J 0.051-0.068 vs B1(T3 gains)
-50.2 and B1(T1 gains) 0.051 [C2].
-
-**Computation.** Host-prototype policy-call times, single core, Python, mean of per-episode medians
-(p95) [P]: C1v2 0.088-0.090 ms (0.101-0.106 ms), C2 0.015 ms (0.016-0.017 ms), EtR-A 0.025-0.032 ms,
-Jin multi-step 0.248-0.276 ms, Xue 0.096-0.101 ms, against an 8 ms control period. Mean per-episode
-maxima reach 0.31 ms for C1v2 [P], and the largest single C1v1 call recorded on the seed-3000 test was
-8.3 ms [C1, `t_call_max`], i.e. about one control period. These are prototype timings during a
-two-process replay, excluding plant execution and communication; they are not real-time certification.
-
-### D. Ablations and Mechanism
-
-All C1 ablations were re-tuned with the final solver under the same 49-configuration budget on train
-and run once on the seed-3000 test (C1v1 design, k0 = 5000) [C1]. C2 ablations used the same training
-budget, initialisation and seeds [C2].
-
-#### 1) Information: what has to be separated
-
-**Table IX. C1 ablations, seed 3000, J (RMSE N; fraction > 7 N) [C1].**
-
-| Variant | T3 0.5/1 | T1/1 |
+| 方法 | T1：调用 P95 均值（ms） | T3：调用 P95 均值（ms） |
 |---|---|---|
-| C1v1 (full) | 0.142 (0.163; 0.025) | 0.021 (0.067; 0) |
-| (a) no surface-motion terms (vs = as = 0) | 10.0 (1.24; 0.925), no train-feasible setting | 4.27 (0.756; 0.70), no train-feasible setting |
-| (b) gains only (u_ff = 0; drift still used in prediction) | 0.341 (0.250; 0.075) | 0.076 (0.109; 0.025) |
-| (c) neighbouring / quasi-Newton update | 0.210 (0.198; 0.025) | 0.021 (0.067; 0) |
-| (d1) +0.1 s latency on the stiffness used by the OCP | 0.129 (0.161; 0) | 0.068 (0.115; 0) |
-| (d2) whole update every 40 ms | 0.275 (0.230; 0.05) | 0.166 (0.131; 0.075) |
-| B1 / EtR-A / B3b 0.1 s, for reference | 0.570 / 0.407 / 0.120 | 0.247 / 0.077 / 0.062 |
+| 调优固定控制 B1 | — | — |
+| 估计＋刚度规则 EtR-A | 0.03221 | 0.03305 |
+| Haninger 阻尼规则适配 | 0.03060 | 0.03313 |
+| RLS＋规则 | 0.00672 | 0.00581 |
+| Duan 适配 | — | — |
+| Song 适配 | 0.00292 | 0.00321 |
+| Jin 单步 | 0.08081 | 0.07468 |
+| Jin 多步 | 0.29593 | 0.27846 |
+| Xue：初始表面先验 | 0.21010 | 0.22443 |
+| Xue：名义表面 | 0.20563 | 0.22329 |
+| 学习式 VIC（ES，3 种子） | 0.00371 | 0.00344 |
+| C1 v2：模型优化路线 | 0.10511 | 0.10295 |
+| C2：学习路线（3 种子） | 0.01633 | 0.01645 |
 
-**Surface motion versus stiffness change.** Removing the surface-trajectory terms from the window
-model is the only ablation that destroys the method: no setting is train-feasible, and on test J rises
-to 10.0 (T3) and 4.27 (T1), worse than B1 by +9.44 (+5.40, +14.55) and +4.02 (+1.50, +7.54) [C1]. On dev
-scenes (n = 10) the estimate without these terms is biased low on bone (median k̂/k 0.450 on T3, 0.469
-on T1, against 1.026 and 1.049 with them) and on soft tissue (0.335 and 0.427 against 1.084 and
-1.229), and the first bone entry is detected later (median 144 ms vs 0 ms on T3; 368 ms vs 48 ms on T1)
-[C1, `estimator_bias_dev`]. The same confound — scanning onto bone raises force while the robot
-retracts, and surface motion adds force change at a fixed robot position — biases the RLS estimate used
-for Jin low by ×0.4-0.6 [M docstring] and corrupts EtR-A during patient motion [R]. This is the
-mechanism the paper claims: separating patient surface motion from stiffness change is what makes the
-contact information usable.
+固定增益直接在被控对象中执行，没有单独策略调用记录，故填“—”，不是零耗时。原候选计时与新增对照计时使用不同并发负载，不能据本表宣称严格的硬件加速比。全链路的 P99、期限错失率、通信／发布延迟及计算超时引起的真实闭环退化仍缺统一测量。
 
-**Excitation.** The window never identifies k confidently: the posterior-to-prior std ratio of log k
-is 0.92-0.99, and the data-only std is 0.34-0.47 with the dither and 0.6-1.0 without it [V3]. Removing
-the 20.8 Hz dither raises T3 dev J from 0.135 to 0.205, because bone-entry detection relies on it, and
-an excitation-aware dither was harmful in closed loop (T3 dev-12 J 0.31 vs 0.14) [V3]. The dither is
-therefore part of the method and part of its cost on soft tissue (Sec. V-E2).
+**表 4：旧 C1 的求解器机制试验，开发集每任务 6 场景；独立单进程计时使用其中 3 场景。**
 
-**Feedforward versus gains.** With u_ff = 0 (drift still used for prediction), C1 remains better than
-B1 on T3 (−0.230 (−0.608, −0.001)) and than EtR-A (−0.066 (−0.122, −0.018)), but loses about half of
-its T3 gain over B1 (gains-only recovers 0.229 of the 0.428 J reduction) and about a quarter on T1
-(0.171 of 0.226) (computed from [C1]). On T1 the gains-only variant is not significantly different
-from EtR-A (−0.001 (−0.027, +0.042)) [C1]. Both levers are therefore used: the gains carry the
-stiffness information, the feedforward carries the drift estimate. This matches the oracle probes
-(feedforward is the stronger lever on ladders) [R].
+| 求解方式 | T1 参考代价差（%） | T1 平均更新（ms） | T3 参考代价差（%） | T3 平均更新（ms） |
+|---|---|---|---|---|
+| ORD(1 iter) | 2.1179 | 0.12535 | 0.8206 | 0.11230 |
+| ORD(2 iter) | 0.1640 | 0.15433 | 0.1443 | 0.15247 |
+| ORD(5 iter) | 0.0025 | 0.27251 | 0.0025 | 0.29315 |
+| NU(ncorr1,nref2) | 1.2450 | 0.14031 | 0.9297 | 0.11409 |
 
-#### 2) Timeliness
+参考为相同状态、估计、目标和约束下，从上一解和当前解分别执行 25 次 GN 后取较低代价；它是双初始化多迭代数值参考，不是经过全局最优认证的解。表中间隙也不是力误差百分比。该试验隔离了旧 C1 内部的数值更新算法，不能直接当作当前 C1 v2／v3、C2 和所有 baseline 的统一近优性比较。
 
-- **Oracle delay (Table III).** The truth-stiffness schedule loses its value between 0.1 s and 0.2 s of
-  delay in every cell [G].
-- **Estimate latency.** Delaying only the stiffness used by the OCP by 0.1 s raises T1 J from 0.021 to
-  0.068, i.e. to the level of the 0.1 s oracle (ΔJ vs B3b 0.1 s +0.006 (−0.015, +0.027)); on T3 it does
-  not hurt (0.129 vs 0.142; vs B3b 0.1 s +0.009 (−0.0003, +0.019)) [C1]. The T1 advantage of C1 over
-  the 0.1 s oracle is therefore a timeliness effect; on T3 at the 0.5 s ramp, timeliness of the
-  stiffness alone is not the binding factor (the drift estimate is not delayed in this ablation).
-- **Update period.** Running the whole update (estimator and decision) every 40 ms instead of 8 ms
-  raises J to 0.275 (T3) and 0.166 (T1); on T1 it is then no longer significantly better than B1
-  (−0.081 (−0.462, +0.187)) [C1]. For C2, a decision every 0.096 s raises J to 0.500 ± 0.054 (T3) and
-  0.113 ± 0.072 (T1), and two of three seeds never met the train peak rule [C2].
+普通单次 GN 更新约需 0.11–0.13 ms，在当前载体下没有证据表明求解耗时已成为主要瓶颈。邻近更新 NU 在 T3 并未比普通单次 GN 更快或更接近该参考；因而当前数据不支持 NU 的独特优势。若正文继续声称“快速近优”，需补最终实现的质量—时间曲线与参考解收敛诊断；C2 尚无同口径参考代价差。
 
-#### 3) Neighbouring update (negative ablation)
+## E. 在线环境信息和决策频率为何有效
 
-The neighbouring / quasi-Newton update was part of the earlier candidate design as a way to update the
-decision cheaply when the context changes. It gave no benefit, and the paper claims no solver
-acceleration:
+**表 5：已有信息／频率消融，seed 3000；列中均为力 RMSE（N）。C1 是旧 v1 实例，C2 为原有三个训练种子。**
 
-- On train it was selected at J 0.210 on T3 against 0.144 for the ordinary one-iteration solve
-  (0.025 vs 0.025 on T1), so the ordinary warm-started Gauss-Newton solve was made the final solver
-  before any test run [C1, `candidate1_log.md`].
-- On test: T3 0.210 vs 0.142; T1 0.0208 vs 0.0205 [C1]. It used fewer rollout sets per update
-  (14.2 vs 18.0 on T3) but the call time was the same (mean 126.5 vs 125.4 µs) [C1].
-- In a controlled solver study on 6 dev scenes per cell (same hyperparameters, solver swapped), the
-  closed-loop J of the three NU variants (T3 0.066-0.068, T1 0.024-0.028) is not better than one
-  ordinary iteration (0.0655 / 0.0242), and converging the ordinary solve to 5 iterations changes
-  closed-loop J only marginally (0.0649 / 0.0229) while raising the mean update time from 112 to 293 µs
-  on T3 [C1, `solver_study`]. With four decision variables and about 0.1 ms per update against an 8 ms
-  period, computation is not the bottleneck in this problem; information is.
-
-#### 4) Candidate 2: which parts carry the result
-
-**Table X. C2 ablations, seed 3000, J mean ± sd over 3 seeds, with the seed-averaged paired ΔJ vs
-EtR-A (a ΔJ vs the full model is not stored in the results file) [C2].**
-
-| Variant | T3 0.5/1 J | ΔJ vs EtR-A (T3) | T1/1 J | ΔJ vs EtR-A (T1) | train-feasible seeds |
-|---|---|---|---|---|---|
-| full (teacher + ES) | 0.255 ± 0.012 | −0.152 (−0.261, −0.062) | 0.039 ± 0.001 | −0.038 (−0.065, −0.018) | 3/3 |
-| (a) no teacher (ES only, from EtR-A) | 0.329 ± 0.038 | −0.078 (−0.139, −0.027) | 0.069 ± 0.007 | −0.008 (−0.022, +0.004) | 3/3 |
-| (b) teacher only (no ES stage) | 0.302 ± 0.054 | −0.104 (−0.171, −0.050) | 0.042 ± 0.001 | −0.035 (−0.061, −0.016) | 3/3 |
-| (c) gains only (u_ff residual = 0) | 0.279 ± 0.025 | −0.127 (−0.239, −0.037) | 0.041 ± 0.002 | −0.036 (−0.062, −0.017) | 3/3 |
-| (d) no force history | 0.823 ± 0.175 | +0.417 (+0.212, +0.650) | 0.277 ± 0.059 | +0.199 (+0.068, +0.363) | 0/3 |
-| (e) decision every 0.096 s | 0.500 ± 0.054 | +0.093 (−0.013, +0.225) | 0.113 ± 0.072 | +0.036 (−0.010, +0.103) | 1/3 |
-
-(sd is the population standard deviation over the three seeds as stored in [C2]; variants d and e
-that never met the train peak rule report their last DAgger iterate and are included anyway [C2].)
-
-- The privileged teacher carries most of C2's value: without it (a), T1 is no longer distinguishable from
-  EtR-A; the task-cost ES stage adds little on top of the teacher (b vs full) [C2]. A diagnostic
-  regression confirmed that the causal force history carries more stiffness information than the
-  lock-in estimate (held-out log-RMSE 0.36 vs 0.54) [C2, `candidate2_log.md`].
-- Removing the force history (d) makes the policy worse than EtR-A on both cells; a slower decision
-  period (e) loses the advantage. Both repeat the C1 conclusions (information and timeliness).
-- The feedforward residual contributes little (c vs full); the attempt to distil a stiffness-map
-  feedforward failed (the u_ff head formed a high-gain force-to-position loop; dev J 100-400) [C2]. C2
-  is therefore mainly a gains-only instance of the principle, whereas C1 also uses drift feedforward.
-- Note: c seed 0 is identical to b seed 0, because ES did not improve dev for that seed [C2].
-
-### E. Robustness and Limitations (main text)
-
-#### 1) Fast 0.25 s pushes: robustness only
-
-The 0.25 s ramp is a fast, unsourced case (twice the speed of the sourced cough contraction). There
-C1v3 does not improve J over B1 on seed 5000 (+0.180 (−0.635, +1.215) and +0.619 (−0.622, +2.109)),
-reduces the fraction of scenes with contact loss (−0.150 (−0.275, −0.050) and −0.175 (−0.300, −0.075)),
-does not significantly reduce scenes above 7 N on this cohort, and has 1 (1 mm) and 2 (4 mm) scenes with
-J > 20 out of 40 where B1 has none [V3]. On seed 4000 C1v2 had no such scenes and significantly fewer
-scenes above 7 N than B1 (−0.175 (−0.30, −0.075), −0.25 (−0.40, −0.125)) [V2], so the >7 N result does
-not replicate as significant on the final cohort. C1 stays well behind the 0.1 s oracle at 4 mm
-(+1.49 (+0.10, +3.23)) [V3]. C1v1 without the supervisor diverged after contact loss in 2 of 40 test
-scenes (J 241.1 and 731.6) [C1]; the v2 supervisor removed those (post-hoc diagnostic on seed 4000:
-16.99 J and 4 runaways without the supervisor vs 2.13 with it, T3 0.25/1) [V2].
-
-The residual failure mode is known: a push on bone right after a short contact loss, after which the B1
-fallback gains bounce at 0-12 N (15.6 Hz) on 25-29 kN/m bone and the band exit (12 consecutive ticks in
-[1, 6] N) cannot be met [V3]. Five stiffness-aware fallback variants were tried on train/dev and
-rejected, because a stiffer fallback slows the in-loss approach (about 12 vs 60 mm/s) and each loss
-tick costs more than 20 in J, while a lower KPF removes the fast re-contact path [V3]. Every
-approach-speed law tried in v2 also failed [V2]. C2 is significantly worse than B1 in this regime
-(Table VIII). In short, neither candidate offers a performance gain at fast pushes.
-
-#### 2) Soft homogeneous tissue: slightly worse than B1
-
-On N1 15 kPa scenes, C1v3 has RMSE 0.046 N against 0.026 N for B1 with the T3 configuration and 0.039
-vs 0.023 N with the T1 configuration (3 scenes each) [V3]. The decomposition on N1 dev scenes attributes
-about a quarter of the gap to the dither (0.046 → 0.040 N without it) and most of the rest to the
-soft-side gain regime (D at the 20 N s/m floor, KPF at its 1e-3 cap); less aggressive soft-side settings
-recover at most 0.004 N and do not help T3 [V3]. The gap is inside the 0.5 N band by a factor of about
-10 and is reported, not fixed. Conversely, on stiff 1 MPa homogeneous tissue the T3-tuned B1 fails
-(J 50.2, RMSE 3.34 N) while C1v3 (T3 configuration) has J 0.014 and RMSE 0.060 N [V3];
-this shows that B1 is cell-specific, not that C1 is uniformly better (3 scenes, known-behaviour check).
-
-#### 3) No single configuration covers both push regimes
-
-C1v3 uses one configuration per push regime and task (T3 slow, T3 fast, T1). A declared pooled search
-for one shared configuration (51 candidates, 40 train scenes per cell) selected the T3 configuration
-with the T1 dither level [V3]. On seed 5000 it is as good as or better than the regime configurations
-on the four slow/ladder cells (T3 0.5/4 ΔJ vs B1 −0.202 (−0.267, −0.144)) but significantly worse than
-B1 on both fast-push cells (+3.86 (+1.06, +7.60) and +1.79 (+0.43, +3.34)), with 4 and 2 scenes above
-J = 20 [V3]. The slow-push configurations lose contact in fast pushes, and the fast configuration gives
-J 0.35 on T3 and 0.13 on T1 on train [V3]. Deployment therefore needs knowledge of the push regime, or
-a regime-switching layer that has not been built.
-
-#### 4) The fallback is B1
-
-The supervisor that removed the fast-push runaways falls back to the cell's B1 admittance on contact
-loss [V2]. C1v2/C1v3 is therefore C1 plus the best fixed controller, and B1's tuning is part of its
-cost. Its residual failure (above) occurs under these fallback gains.
-
-#### 5) Simulation only, one synthetic plant
-
-All results come from one synthetic 1-D normal-axis plant with a kinematic arm, one latency model at
-the low end of the sources, synthetic tissue and unsourced ridge geometry and push speeds [R;
-`plant.py`]. The design-round probes indicate that on faster platforms (500 Hz, 1 kHz torque) a jointly
-tuned fixed controller is near-optimal [R], so the benefit shown here is specific to the 125 Hz
-position-controlled class. The replay of archived metrics is not exact across environments: 19 of 232
-checks differ beyond a strict tolerance, including unstable Jin-literal trajectories and C1v1 on seed
-4000 [P]; the C1v1 fast-push seed-3000 value was 25.5 originally and 17.2 on re-run, because runaway
-scenes are chaotic [V2].
-
-#### 6) Test-contamination history and how fresh cohorts address it
-
-- Seed 3000 was the original test cohort for the gate, all baselines, C1v1 and C2. After the C1v1 test,
-  two diverging test traces (scenes 6 and 36) were used to diagnose the fast-push failure (no tuning on
-  them) [V2], and the start-prior issue was found on N1 [C1]. Seed 3000 numbers are therefore
-  "already known" for every later instance [V2].
-- Seed 4000 was fresh for C1v2 and all recomputed baselines [V2]. Its traces were then re-simulated
-  read-only to confirm the T3 0.5/4 mechanism for v3 [V3], and the physical replay extended it to all
-  controllers [P]; it is not a clean test for C1v3.
-- Seed 5000 was used once, after every v3 choice was fixed, for C1v3, C1v3-shared, C1v2, B1, EtR-A and
-  B3b [V3]. It is the headline cohort.
-- Residual concerns that fresh cohorts do not remove: the decision to make v3 was triggered by a
-  test-cohort negative; the cells and doses were chosen after in-sample design probes [R]; C2 has only
-  the seed-3000 test (plus the seed-4000 physical replay) [C2; P].
-
-### F. Figures Needed
-
-| Fig. | Content | Data source |
+| 机制配置 | T1 | T3 |
 |---|---|---|
-| 1 | Block diagram: window estimator (k, vs, as, g0) → short-horizon choice of (D, KPF, u0, u1) through the robot-side predictor → shared admittance; supervisor and B1 fallback; C2 as teacher/student with the same inputs | method description, no data |
-| 2 | Example T3 scene: surface trajectory (breathing + push), stiffness under the footprint, force for B1 / EtR-A / C1v3 / B3b | requires a replay of one stored seed-5000 scene with `plant.episode` (no new tuning) |
-| 3 | Headroom: J and RMSE of B1, B2, B3b at 0 / 0.1 / 0.2 s per cell; shows the bounded headroom and the 0.1 s budget | `gate_PC125.json` |
-| 4 | Sourced cells, all baselines: RMSE, mean max error and peak force with scene-bootstrap intervals, seeds 3000 and 4000 | `physical_results/summary.csv`, `paired_differences.csv` |
-| 5 | Headline forest plot: paired ΔJ and ΔRMSE of C1v3 vs B1, EtR-A, B3b 0.1 s for the six cells (seed 5000) | `candidate1_v3_results.json` → `final_seed5000` |
-| 6 | Cross-cohort consistency: ΔJ vs B1 per cell for seeds 3000 / 4000 / 5000 with instance labels | `candidate1_results.json` (`test`), `candidate1_v2_results.json` (`fresh`, `oldtest`), `candidate1_v3_results.json` |
-| 7 | Mechanism: k̂/k (soft, bone) and bone-entry detection delay with and without surface-motion terms; k̂/k under the v2 vs 1 mm configuration at 4 mm breathing | `candidate1_results.json` → `estimator_bias_dev`; `candidate1_v3_log.md` table (values in `candidate1_v3_results.json` → `development_notes`) |
-| 8 | Ablation bars for C1 and C2 (J and RMSE, both sourced cells) with B1 / EtR-A / oracle lines | `candidate1_results.json` → `test`; `candidate2_results.json` → `cells` |
-| 9 | Timeliness: oracle delay curve (0 / 0.1 / 0.2 s) overlaid with C1 latency (+0.1 s) and update-period (40 ms) ablations and C2 decision-period ablation | `gate_PC125.json`, `candidate1_results.json`, `candidate2_results.json` |
-| 10 | Solver study: closed-loop J and update time vs rollout sets for NU and ordinary solves (negative result) | `candidate1_results.json` → `solver_study` |
-| 11 | Fast-push robustness: per-scene J of C1v3 vs B1 (log axes) and contact-loss scene fractions, both fast cells; marks the 1-2 runaway scenes | `candidate1_v3_results.json` → `J_per_scene`, `loss_per_scene` |
-| 12 | Residual failure trace: loss on bone, B1-fallback bounce at 15.6 Hz | requires a replay of T3_4 train scene 36 or fast-push dev scenes 6/43 (named in `candidate1_v3_log.md`) |
-| 13 | Computation: policy-call median and p95 per method vs the 8 ms period | `physical_results/summary.csv` |
+| C1 v1 完整 | 0.0672 | 0.1633 |
+| C1 去表面运动估计 | 0.7563 | 1.2417 |
+| C1 只调增益 | 0.1087 | 0.2497 |
+| C1 环境信息额外延迟 100 ms | 0.1152 | 0.1610 |
+| C1 每 40 ms 决策 | 0.1310 | 0.2299 |
+| C2 完整 | 0.0934 | 0.2260 |
+| C2 无教师 | 0.1192 | 0.2507 |
+| C2 仅教师训练 | 0.0968 | 0.2364 |
+| C2 只调增益 | 0.0952 | 0.2342 |
+| C2 移除力派生信息 | 0.1863 | 0.3667 |
+| C2 每 96 ms 决策 | 0.1226 | 0.2843 |
 
-### G. Gaps a Reviewer Will Raise
+移除表面运动估计使 C1 的 T1／T3 RMSE 从 0.0672／0.1633 N 增至 0.7563／1.2417 N，显示组织运动与材料变化的分离对该实例具有实际控制作用。减慢 C1、C2 的决策频率均使两个主任务误差上升。但是 C1 的环境信息额外延迟 100 ms 在 T3 未增加平均 RMSE（0.1633→0.1610 N），T1 则变差（0.0672→0.1152 N）；信息时效的作用随任务而异，不能概括成任意信息越新越好。
 
-1. **No hardware validation.** All evidence is from one synthetic plant; no phantom or volunteer
-   experiment, and no image-quality or task-level outcome (only normal force).
-2. **Sensitivity to platform latency.** The declared sweep (dead time 1-2 cycles, lag 10-60 ms) and the
-   PC125dead bracket have no results; the latency structure "must be identified on hardware before any
-   claim" [R]. The benefit depends on the 125 Hz class.
-3. **Other robots.** Torque-controlled and 500 Hz-1 kHz platforms appear only in in-sample design
-   probes, which suggest the fixed controller is near-optimal there [R]. A negative-control run on
-   PC500 with the final methods is missing.
-4. **Missing declared baselines.** B1-robust and breathing feedforward for all methods were declared but
-   not implemented [R]. Jin was anchored to B1 and Xue's grid was limited by its numerical model; a
-   reviewer may ask for closer reproductions.
-5. **Missing task.** T2 (non-inferiority / false adaptation on homogeneous tissue with pushes) was
-   defined but not run; N1 has only 3 + 3 scenes per configuration.
-6. **Fast pushes.** No method, candidate or baseline, meets the peak rule; C1 gives robustness (fewer
-   loss scenes) but no J gain and occasional runaways; the fallback-bounce failure is unresolved.
-7. **Regime dependence.** No single configuration covers both push regimes; regime detection is not
-   implemented.
-8. **Unequal development budget.** C1 used more exploratory configurations than the mapped baselines
-   (Sec. V-A7), though B1 had the largest single search. A budget-matched comparison or a sensitivity
-   to C1's hyperparameters is not reported.
-9. **Statistics.** 40 scenes per cohort, many intervals, no multiplicity correction; several
-   significant differences are marginal.
-10. **C2 coverage.** C2 has not been evaluated on seed 5000 or on the 4 mm cells.
-11. **Computation claims.** Timings are host Python prototypes; one recorded single call reached
-    8.3 ms; no real-time implementation exists.
-12. **Unsourced doses.** Ridge geometry, modulus ratio and push speeds are engineering choices; the
-    sourced push speed is where the gain is bounded (both controllers inside the 0.5 N band).
+旧 C1 的 10 场景开发集估计诊断中，T1 首次骨样区域检测延迟中位数为 48 ms，移除表面运动项后为 368 ms；T3 分别为 0／144 ms。这些值已存于 JSON，但本次未在可执行来源中定位该诊断的生成代码和完整检测判据，因此仅作历史诊断记录，不把它们直接作为通用适应时间的正文主证据。完整消融和估计偏差均已存在，但最终 C1 v2／v3 的关键消融、统一事件恢复时间和运动振荡指标仍需补测。
 
----
+## F. 已有压力测试与适用边界
 
-### Author notes: inconsistencies found between files (resolve before submission)
+**表 6：seed 5000，40 场景／任务。单位 N，均为力 RMSE；此处是 C1 v3，与前述修正后所有论文对照的主表分开。**
 
-1. `README.md` states that without surface-motion terms "the estimated bone stiffness is biased by
-   about ×0.45 ... and bone entry is detected after 368 ms instead of 48 ms". The ×0.45 is the T3 value
-   (T1: 0.469), while 368 vs 48 ms is the T1 value (T3: 144 vs 0 ms); all are dev medians over 10 scenes
-   [C1, `estimator_bias_dev`]. This draft reports both cells.
-2. `README.md` says C1 closes "about 95 %" of the EtR-A-to-oracle gap on T3. On seed 3000 the computed
-   value is 92 % ((0.407 − 0.142)/(0.407 − 0.120)); about 95 % holds on seed 4000 for C1v2
-   ((0.397 − 0.153)/(0.397 − 0.141)). C2 is 53 % (README "about 50 %").
-3. `README.md` (gate) says all six B1 solutions have "ki up to its bound". In `gate_PC125.json` ki is 30
-   only in three cells; it is 4.56 (T3 0.25/1), 11.3 (T1/1) and 14.5 (T1/4). K also ranges 0-677 N/m.
-   The README also does not mention that B1 is not train-feasible in the two fast-push cells (train J
-   includes the 1000 infeasibility penalty).
-4. `README.md` (v3 summary) lists "fewer contact-loss scenes than B1 (−0.15 and −0.18)"; the v3 log and
-   JSON give −0.150 and −0.175. The seed-4000 claim of fewer scenes above 7 N (CIs excluding 0) does not
-   replicate as significant on seed 5000 (CIs touch or include 0).
-5. "Within noise of the 0.1 s oracle on T3" (README, v2 and v3) holds for J and RMSE, but the physical
-   replay shows the oracle significantly better in RMSE by +0.007 to +0.009 N and in mean maximum error
-   by about +0.29 to +0.32 N on seeds 3000 and 4000 [P].
-6. The README calls T3 0.5/1 and T1/1 the "sourced" cells. The 0.5 s ramp is sourced, but 1 mm breathing
-   is below every cited breathing range, while 4 mm matches the prone-spine value. The sourced label
-   should refer to push speed only.
-7. The EtR-A row for the fast-push cell differs by file: `candidate2_results.json` uses the T3 0.5 s
-   tuning (seed 3000 J 10.05), whereas `candidate1_v2_results.json` re-tuned EtR-A for that cell
-   (seed 3000 J 6.03). Label the tuning wherever EtR-A appears in fast-push tables.
-8. The C1v1 fast-push value on seed 3000 is 25.5 in `candidate1_results.json` but 17.2 on the re-run in
-   `candidate1_v2_results.json` (`oldtest`); the physical replay also flags 4000/T3/Candidate1_v1 as
-   differing beyond tolerance [P]. Runaway scenes are not reproducible to tolerance.
-9. `baselines_learned.py` says "~130 parameters"; `learned_results.json` records 126. Minor.
-10. `physical_results/results.md` says Xue "has kmax=0"; `mpc_results.json` specs do not list kmax, so
-    this could not be checked from the results file.
+| 任务条件 | B1 | EtR-A | C1 v3 | C2 |
+|---|---|---|---|---|
+| T1，呼吸 1 mm | 0.1793 | 0.1527 | 0.0800 | 0.1029 |
+| T1，呼吸 4 mm | 0.1991 | 0.2023 | 0.0978 | 0.1691 |
+| T3，0.5 s／1 mm | 0.2903 | 0.3011 | 0.1849 | 0.2562 |
+| T3，0.5 s／4 mm | 0.2985 | 0.2952 | 0.2035 | 0.2917 |
+| T3，0.25 s／1 mm | 0.6822 | 0.9978 | 0.6097 | 1.0483 |
+| T3，0.25 s／4 mm | 0.7440 | 1.0593 | 0.6939 | 0.9995 |
+
+C1 v3 在这些场景中保持较低平均误差；C2 在快速推拉下明显退化，T3fast 为 1.0483 N，高于 B1 的 0.6822 N。因此不能把两个主任务的结果扩展为所有扰动条件下的普遍优势。该表未包含已修正并重新调参的全部论文 baseline；它支持候选的压力边界，不支持“全部对照上的泛化领先”。
+
+**表 7：已完成的平台压力测试，seed 6000。B1 为平台上重新调优；C1 在非标称平台也重新调优；C2 为原 PC125 模型直接迁移。单位 N，均为 RMSE。**
+
+| 平台 | 任务 | B1：平台调优 | C1 v3：标称／平台调优 | C2：直接迁移 |
+|---|---|---|---|---|
+| PC125 | T1 | 0.1473 | 0.0720 | 0.0973 |
+| PC125 | T3 | 0.3050 | 0.1824 | 0.2452 |
+| PC125_lag0.5 | T1 | 0.1341 | 0.0857 | 1.4528 |
+| PC125_lag0.5 | T3 | 0.2522 | 0.1881 | 1.6902 |
+| PC125dead | T1 | 0.4936 | 0.1575 | NA（2/40 场景含非有限值） |
+| PC125dead | T3 | 0.7286 | 0.9660 | NA（1/40 场景含非有限值） |
+| PC500 | T1 | 0.0414 | 0.0482 | 1.0689 |
+| PC500 | T3 | 0.0576 | 0.0701 | 2.2664 |
+
+PC500 的平台调优 B1 已达到 T1／T3 的 0.0414／0.0576 N，低于平台调优 C1 的 0.0482／0.0701 N。C2 的直接迁移结果也很差，不能隐藏。但跨采样周期后，固定历史窗口的物理时长、激励和归一化语义也改变；这些结果是未重新训练／校准的迁移压力结果，不能代替公平平台适配后的学习算法排名。PC125dead 的 C2 在 T3／T1 分别有 1／2 个场景的种子平均值含积分失败，整组 RMSE 因而记 NA；原始汇总曾忽略非有限值而给出有限均值，这里不把它当成完整 40 场景结果。因此现有证据将收益限定在特定信息、执行平台与更新条件下。
+
+均匀软组织的已有负对照也未显示普遍收益：T3 配置迁移到 15 kPa 均匀组织的 3 个场景时，C1 v3 平均力 RMSE 为 0.0464 N，比较的 B1 为 0.0261 N。这只是小样本配置迁移检查，不能替代完成 T2 推拉任务及其独立调参比较。
+
+## G. 需要补哪些实验
+
+已有结果不需要重新发明一套总分；应补齐下列明确证据。前三项直接对应当前完整研究主张，后两项取决于希望声称的泛化范围。
+
+| 待补试验 | 具体操作和产出 | 现有基础与缺口 |
+|---|---|---|
+| 1．最终方法的实际运动与全链路计时 | 同一 PC125 场景重放所有最终控制器，保存高频法向位置／速度和逐调用／发布原始时间戳；统一硬件、单进程计时与预热。报告高／低频速度 RMS、轨迹／频谱、全链路中位数／P99、8 ms 期限错失率。 | 目前只有力主表与调用计时；不需要先改横向模型就能补法向运动。若要声称横向跟踪收益，另需可受控制器影响的耦合运动任务。 |
+| 2．孤立环境变化的恢复与信息时效 | 分别施加刚度变化、表面移动和组合事件，使用冻结的最终 C1／C2 及对照；测事件对齐响应、恢复时间，扫描信息延迟与决策周期。原有 ±0.5 N 容差带可沿用，持续保持时长须在看结果前固定。 | 已有旧版单点延迟／频率消融，缺最终版的系统曲线和统一恢复时间；不得把未恢复事件丢掉。 |
+| 3．最终方法的数值决策质量—计算时间 | 固定相同状态、可用估计、目标和可实现动作集合，构建多初始化、多迭代且有收敛检查的数值参考；给预算—参考代价差及对应闭环物理结果。C2 若动作类不同，须统一动作类或分别声明参考类，不能直接混排差值。 | 旧 C1 有局部参考试验，C2 没有同口径结果；普通一步求解已很快，需直接检验效率收益而非预设瓶颈。 |
+| 4．统一最终对照的独立场景与边界 | 在新的未查看场景中统一最终候选和已修正的论文 baseline；必要时覆盖快推拉／大呼吸。完成平台 lag2、额外两周期延迟和 T2 均匀组织推拉后再声称相应泛化。 | seed 5000／6000 有候选和部分基线，但不是全部修正对照；lag2 仅部分选参，两周期延迟测试和 T2 没有结果。 |
+| 5．应用与理论主张需要独立证据 | 只有声称图像／重建收益时才补超声或声学模型／实物指标；只有声称被动性或能量保证时才补适用执行模型下的理论与能量核查。 | 当前模型无图像、关节力矩和执行器功率，不能编造成像质量、真实能耗或实物安全结论；这些不是当前接触控制表必须硬加的列。 |
+
+## 附录 A：逐篇“研究问题—实验任务—评价指标”核读映射
+
+下列核读记录是本次选择指标的原始依据。正文仅保留与自身主张相匹配的指标；不把 12 篇所有指标的并集当作投稿清单。
+
+**Xue，RAS 2025**（[原文实验段](../literature/extracted_text/xue.txt#L475)；核读段落行号 [(1, 45), (475, 630)]）
+
+- 研究问题：未知软环境和突发推拉下兼顾接触保持、柔顺性与约束。
+- 实验任务：非均匀硅胶的撤离／推压、位置约束和手臂交互。
+- 原文评价：分扰动阶段的力 RMSE、最大绝对误差、推压后的力增量、每步计算时间；位置／力／阻抗曲线。
+- 本研究如何使用：迁移分阶段接触与冲击指标、更新计时；不据力误差声称成像效果。
+
+**Jin，TMECH 2023**（[原文实验段](../literature/extracted_text/field_papers/E41.txt#L629)；核读段落行号 [(1, 45), (629, 814)]）
+
+- 研究问题：在线调整运动精度与柔顺性的权衡，同时处理约束。
+- 实验任务：轨迹遇障、状态约束、不同速度的自由空间轨迹／插入。
+- 原文评价：最大／RMS 位置误差与最大／RMS 接触力，速度和增益轨迹。
+- 本研究如何使用：力与运动必须分开验证；只有存在独立运动目标和可受方法影响的运动通道，位置误差才有比较意义。
+
+**Song，RA-L 2025**（[原文实验段](../literature/extracted_text/field_papers/E04.txt#L382)；核读段落行号 [(1, 38), (382, 477)]）
+
+- 研究问题：环境位置和刚度未知时实现鲁棒力跟踪。
+- 实验任务：刚度突变平面、斜面、正弦面；仿真与实际接触。
+- 原文评价：力误差、超调和调节时间，位置／力响应曲线。
+- 本研究如何使用：补环境变化后的恢复时间，不能只用整段平均误差掩盖短时迟滞。
+
+**Duan，RAS 2018**（[原文实验段](../literature/extracted_text/field_supplements/F02.txt#L416)；核读段落行号 [(1, 44), (416, 527)]）
+
+- 研究问题：未知环境和变化期望力下的自适应接触力跟踪。
+- 实验任务：平面刚度变化、斜面、正弦／复合面、动态期望力。
+- 原文评价：位置与力的时域响应、稳态偏差和适应过渡；不虚构原文不存在的统一统计总表。
+- 本研究如何使用：采用能区分刚度变化与表面运动的任务；位置曲线不等于位置跟踪误差。
+
+**Li，T-RO 2025（E27）**（[原文实验段](../literature/extracted_text/field_papers/E27.txt#L784)；核读段落行号 [(1, 38), (578, 718), (784, 874)]）
+
+- 研究问题：通过仿真阻抗学习提高未知地形上的力跟踪与泛化。
+- 实验任务：平面／斜面／复杂面、训练迭代、未见地形及加工／剥皮／人机任务。
+- 原文评价：力误差、调节时间、最大超调与振荡；训练阶段误差；应用任务另报剥皮厚度或人用力。
+- 本研究如何使用：训练曲线和未见环境对学习路线有意义；剥皮／人用力不适用于当前扫描模型。
+
+**Haninger，RAS 2023**（[原文实验段](../literature/extracted_text/haninger.txt#L643)；核读段落行号 [(1, 44), (643, 748)]）
+
+- 研究问题：用未知接触模型和任务代价调节交互阻抗。
+- 实验任务：未知刚度接触、导轨装配、人工引导抛光与振动扰动。
+- 原文评价：高／低频实际速度 RMS（表 3 以 15 Hz 分带）、计算规模；同时检查任务运动。
+- 本研究如何使用：接触运动的振荡代价比套用无人机平顺性更直接；频带和激励应统一公开，不能单独按速度越小越好排序。
+
+**Kong，TSMC: Systems 2025（NNBO）**（[原文实验段](../literature/extracted_text/nnbo.txt#L610)；核读段落行号 [(1, 39), (610, 779)]）
+
+- 研究问题：改善软环境模型，并通过最优阻抗关系优化交互性能。
+- 实验任务：Franka 与硅胶／海绵交互、HC／KV 模型和不同目标权重。
+- 原文评价：力模型 ME／AE／MaxE，位置／力轨迹，收敛代价和累计代价。
+- 本研究如何使用：最优控制论文可以报告已定义的任务代价；不能把本项目调参综合分数冒称物理量或最优性证明。
+
+**Matschek，TCST 2023**（[原文实验段](../literature/extracted_text/field_supplements/F04.txt#L578)；核读段落行号 [(1, 43), (578, 655)]）
+
+- 研究问题：模型不确定时同时控制运动和接触力并满足安全约束。
+- 实验任务：机器人接触路径、GP 混合模型、输入扰动及实物验证。
+- 原文评价：力 RMS 误差、位置输出与约束满足；总计算时间及传感器通信／OCP 分解。
+- 本研究如何使用：完整链路计时与约束验证应独立于纯策略调用时间。
+
+**Jin，TMECH 2025**（[原文实验段](../literature/extracted_text/field_supplements/F06.txt#L816)；核读段落行号 [(1, 44), (816, 868)]）
+
+- 研究问题：稳定可变阻抗下保持精度、柔顺性和平顺性。
+- 实验任务：机器人抛光、能量罐对比、近似等跟踪精度的控制比较。
+- 原文评价：最大／平均控制力、圆轨迹误差、控制力变化平顺性指标。
+- 本研究如何使用：评价需对应任务；圆轨迹误差不搬到无圆轨迹目标的扫描任务，也不混淆控制力与接触力。
+
+**YOPO，RA-L 2024**（[原文实验段](../literature/extracted_text/method_transfer/YOPO.txt#L476)；核读段落行号 [(1, 45), (476, 545)]）
+
+- 研究问题：把在线规划负担转移至离线学习，兼顾规划质量与低延迟。
+- 实验任务：同目标的优化专家比较、不同障碍密度／速度的森林飞行。
+- 原文评价：候选平均／最佳轨迹代价，分模块／总延迟，障碍距离，积分平方 jerk、路径长度和成功率。
+- 本研究如何使用：迁移质量—时间联合评价和离线／在线分工；不强行搬入障碍距离和飞行成功率。
+
+**Wang，TASE 2024**（[原文实验段](../literature/extracted_text/field_supplements/F09.txt#L475)；核读段落行号 [(1, 40), (475, 535)]）
+
+- 研究问题：位置控制机器人上的六维柔顺运动和力调节。
+- 实验任务：独立自由空间轨迹、外力扰动及超声接触。
+- 原文评价：独立轨迹的平均／最大位置误差、相对力误差和各维响应。
+- 本研究如何使用：运动评价来自可比较的运动任务，而不是给当前统一横向伺服轨迹补一列无区分度误差。
+
+**AuSoScan，TMECH 2025**（[原文实验段](../literature/extracted_text/field_supplements/F08.txt#L568)；核读段落行号 [(1, 43), (515, 541), (568, 621)]）
+
+- 研究问题：软接触建模、图像感知和脊柱超声自动扫描／重建。
+- 实验任务：阶跃／斜坡／波形力与路径跟踪、模体和人体脊柱扫描。
+- 原文评价：力／位置跟踪误差，图像定位置信和脊柱重建结果。
+- 本研究如何使用：力控制收益与成像／重建质量分层；本项目无声学或图像模型，不能把力合格率当成成像质量。
+
+## 附录 B：来源与复算
+
+- [修正后完整物理结果](../experiments/cobot_scan_benchmark/refined_baselines/results.md)包含两个主测试批次、配对边际区间及原始逐场景数据。
+- [正文表格数据](../experiments/cobot_scan_benchmark/paper_tables/)由原始 JSON／CSV 直接提取；不混用不同版本、平台和场景的数值。
+- [candidate1_results.json](../experiments/cobot_scan_benchmark/candidate1_results.json)：旧 C1 消融、求解器质量—耗时和估计诊断。
+- [candidate2_results.json](../experiments/cobot_scan_benchmark/candidate2_results.json)：原 C2 消融和训练记录。
+- [gaps_results.json](../experiments/cobot_scan_benchmark/gaps_results.json)：新同步的 seed 5000／6000 结果；部分平台未完成。
+- 复算：`python -X utf8 experiments/cobot_scan_benchmark/build_paper_experiments.py`。
+
+主表的配对置信区间是以场景为单位、条件于已训练模型的边际区间，未作多重比较校正。旧消融和求解器表主要给描述量，不另制造显著性星号。全部论文原件、抽取文本、已有控制代码／权重和 B0 冻结快照均未改动。

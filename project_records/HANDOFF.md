@@ -2,6 +2,37 @@
 
 Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
 
+**Current presentation and evidence interpretation:** the user requested original-paper
+reading followed by a Chinese, paper-style experimental section with existing
+results and explicit missing experiments. The [experiment section](../research/paper_experiments_draft.md)
+was updated in place to Chinese at the user's explicit request. It links the
+questions, tasks and metrics of 12 directly relevant original papers; this is
+focused experimental-section reading, not a fresh full-text reading of all 36.
+[Re-extraction code](../experiments/cobot_scan_benchmark/build_paper_experiments.py)
+and [tables/source manifest](../experiments/cobot_scan_benchmark/paper_tables/)
+keep the comparisons reproducible. No new control simulations were run.
+
+The section includes the repaired-baseline physical results, historical policy
+call timing, old C1 numerical-reference gaps, information/frequency ablations,
+and newly pulled seed-5000/6000 results. Ordinary one-step GN is already about
+0.11-0.13 ms; the old neighbouring update has no demonstrated unique advantage.
+C2 fails under fast pushes, and retuned B1 outperforms retuned C1 on PC500.
+PC125dead C2 has nonfinite scene outcomes (T3: 1/40, T1: 2/40); the Chinese table
+shows NA instead of the finite means obtained by omitting failed integrations.
+Cross-period C2 results remain direct, uncalibrated transfers, not fair rankings
+of fully adapted algorithms. Raw source results were preserved.
+
+The remaining evidence directly needed for the full claim is final-method normal
+motion/vibration and matched end-to-end timing/deadlines, isolated-event recovery
+and information/cadence curves, and final-method quality-versus-time against an
+explicitly converged reference in a declared action class. Existing C1 reference
+gaps use two initializations with 25 GN iterations, not a global-optimum certificate.
+T2, the lag2 sweep and an additional two-cycle delay test are not complete; the
+newer cohorts also lack all repaired paper baselines. Image quality/actuator energy
+are not measured by this kinematic contact model and are only required if those
+application claims are made. This presentation task is complete; no automatic
+continuation of the old gap-experiment plan is implied.
+
 **Current numerical entry, superseding the October 19 status below:** the October 21
 [36-paper setup analysis](../research/simulation_setup_reverse_analysis.md) led to
 the implemented [cobot benchmark](../experiments/cobot_scan_benchmark/README.md).
