@@ -60,24 +60,26 @@ Assessment given to the user (honest, agreed by the user as the current state):
   while the evidence shows the gain comes from decoupling motion from stiffness plus
   reference compensation (gains-only T3 0.489 vs 0.147).
 
-Next work, in this order (user correction 2026-10-22: start from the research process
-in `long_term_requirements.md`, not from protecting C1):
-1. Stage 1, field status: core-read the original papers in the user's local
-   impedance-control library (path to be given by the user) plus `literature/`.
-   Organise existing methods by capability (mechanism, real capability, conditions,
-   cost), separate direct neighbours from transferable mechanisms, and keep paper facts
-   apart from agent judgments. The current "status" summary (built from our 5-6
-   baselines) is not a stage-1 result.
-2. Stage 2, research question: derive it from that status by Socratic questioning of
-   the strong methods. Hypothesis to test, not a decision: when tissue motion and
-   stiffness change coexist, force changes are not attributable from force alone, so
-   variable impedance fails; decouple them online and adjust impedance and reference
-   jointly. Do not narrow the question so an existing candidate wins.
-3. Stage 3, method: design from the required capability. C1 (joint stiffness/motion
-   estimation plus impedance and reference optimisation) is one candidate, not the
-   presumed answer; its known gaps are the T2 stiff push/retract failure, missing
-   identifiability and variable-gain stability arguments, and unchecked novelty. C2 is
-   likely a comparison only.
+Status of question and candidates (corrected 2026-10-22 after the user asked why they
+had "changed"): nothing has been discarded or changed. The research question in
+`research/research_question.md` is unchanged and remains the active question. C1 and C2
+both remain candidates; per `long_term_requirements.md` each is improved against its own
+specific failures, not dropped. My earlier "demote/drop C2" and "reframe the question"
+lines were unconfirmed suggestions made without checking `research/field_state.md`, and
+are withdrawn. Note that `field_state.md` already records that unknown/changing
+environment position (Liu TCST2021, E45) and joint reference-plus-impedance planning
+(Haninger RAS2023) exist, so "decouple motion from stiffness and adjust reference with
+impedance" is not by itself a contribution. The ablation finding (gain comes from the
+motion/stiffness separation plus reference compensation) is a mechanism result inside
+the current question, not grounds to replace it.
+Known gaps: C1 fails sustained stiff push/retract (T2 1.372 vs Haninger 0.433 N) and its
+"near-optimal" claim is unsupported (local reference gaps up to 199%); C2 is not
+significantly better than EtR-A on T3 (0.210 vs 0.230 N). The evaluated C1/C2 are reduced
+implementations, not the full B0/HJB/spatial-preview/NEOC design.
+Next work: build on `research/field_state.md` (stage 1 already exists, not a full
+systematic review) and supplement it with the user's local literature library where it
+is thin; then, per stages 2-5, decide with the user how each candidate is improved and
+whether any question revision is warranted (a substantive revision is the user's call).
 Start the new conversation by restating, in Chinese: goal, standing requirements
 (especially stages 1-3), current results, this plan, and the first concrete step with
 its quota cost; get the user's confirmation before running anything.
