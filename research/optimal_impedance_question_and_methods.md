@@ -173,14 +173,16 @@
 
 ## 5. 哪些实验能用于后续
 
+下表中的早期实验目录已于2026-10-26移出工作区，可用 `git show b7a3f91:<路径>` 或检出 `b7a3f91` 恢复；结论与边界保留于此。
+
 | 保留资源 | 可用结论 | 不支持的结论 |
 |---|---|---|
-| [NNBO最小复现](../experiments/nnbo_source_reproduction/README.md) | 原critic方程、力—位置反解和数值接口可核查 | B0四增益最优控制已经复现 |
-| [有限时域](../experiments/finite_horizon_contact/README.md)、[缓变更新](../experiments/continuous_slow_variation_updates/README.md) | 局部灵敏度、critic质量和成本比较 | NEOC普遍优于Newton或完整B0已失败 |
-| [最优阻抗更新](../experiments/optimal_impedance_update/README.md) | 已知模型映射、RBF/网络、结构化导数和有限速率过渡 | 未知环境估计或候选2已打通 |
-| [接触约束更新](../experiments/contact_constrained_impedance_update/README.md) | 四增益执行、任务代价学习、发布对齐与后台优化 | 完整空间扫描、原PPO或真实安全保证 |
-| [同次扫描原型](../experiments/within_scan_impedance_feedback/README.md) | 噪声/延迟、简单估计、强简单反馈、CEM公式及修正接触模型可复用 | 完整MHE/空间预瞄已成立，或该公式就是候选2 |
-| [空间估计核查](../experiments/spatial_contact_estimation_audit/README.md) | 有条件的力矩/材料/位移估计及噪声、失配例 | 新颖性、闭环收益或临床有效性 |
+| NNBO最小复现（`experiments/nnbo_source_reproduction`） | 原critic方程、力—位置反解和数值接口可核查 | B0四增益最优控制已经复现 |
+| 有限时域（`experiments/finite_horizon_contact`）、缓变更新（`experiments/continuous_slow_variation_updates`） | 局部灵敏度、critic质量和成本比较 | NEOC普遍优于Newton或完整B0已失败 |
+| 最优阻抗更新（`experiments/optimal_impedance_update`） | 已知模型映射、RBF/网络、结构化导数和有限速率过渡 | 未知环境估计或候选2已打通 |
+| 接触约束更新（`experiments/contact_constrained_impedance_update`） | 四增益执行、任务代价学习、发布对齐与后台优化 | 完整空间扫描、原PPO或真实安全保证 |
+| 同次扫描原型（`experiments/within_scan_impedance_feedback`） | 噪声/延迟、简单估计、强简单反馈、CEM公式及修正接触模型可复用 | 完整MHE/空间预瞄已成立，或该公式就是候选2 |
+| 空间估计核查（`experiments/spatial_contact_estimation_audit`） | 有条件的力矩/材料/位移估计及噪声、失配例 | 新颖性、闭环收益或临床有效性 |
 
 具体样本、正负结果、时间与边界见[实验索引](../experiments/experiment_index.md)及各报告。学习模仿、策略滚动、后验规划等工具不能仅因在某个小载体上有/无收益就成为完整方法的定论。
 

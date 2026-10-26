@@ -37,4 +37,4 @@ B0路线为：柱面有限接触足迹 → Fn/Ft/My与MHE → 环境描述符η 
 
 此前转向“有限资源下整段有效采集”的候选A缺乏充分改题依据，已退出当前主线。相关错误和少量可用认识见[失败复盘](../project_records/research_failures_and_corrections.md)，原文件由Git保留。
 
-用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)，原问题保持。当前进度与下一步见[HANDOFF](../project_records/HANDOFF.md)最上方检查点；此前的[双候选任务仿真](../experiments/dual_candidate_task_simulation/README.md)为二维历史实例。
+用户确认的方法形成与贡献尺度认识已落实[长期要求](../project_records/long_term_requirements.md)，原问题保持。当前进度与下一步见[HANDOFF](../project_records/HANDOFF.md)最上方检查点；此前的双候选任务仿真（`experiments/dual_candidate_task_simulation`，已移出工作区，Git `b7a3f91` 可恢复）为二维历史实例。

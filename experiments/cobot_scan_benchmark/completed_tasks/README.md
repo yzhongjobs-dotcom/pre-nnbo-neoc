@@ -2,7 +2,7 @@
 
 This is the focused completion of the October 21 benchmark: isolate stiffness,
 isolate surface motion, and retain the original combined scan. The Chinese
-[experiment section](../../../research/paper_experiments_draft.md) presents
+[experiment section](../../../research/paper_experiments_final_zh.md) presents
 the setup, results, interpretation and original-paper mapping.
 
 ## Experimental contract

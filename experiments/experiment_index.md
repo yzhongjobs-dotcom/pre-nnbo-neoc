@@ -1,54 +1,41 @@
-# Experimental resources for subsequent research
+# Experiment index
 
-**Latest numerical entry:** [completed focused scanning tasks](cobot_scan_benchmark/completed_tasks/README.md),
-[Chinese experiment section](../research/paper_experiments_draft.md). Fresh paired
-stiffness/motion/combined tasks, repaired frozen baselines, final-method runtime
-ablations, actual motion traces, serial update timing and local numerical
-references. This completes the requested simulation evaluation; mixed task
-outcomes and large individual reference gaps remain explicit. Isolation tasks
-transfer frozen settings and are not separately retuned algorithm rankings.
+## Current
 
-Retained materials serve environment estimation, both candidate designs, reasonable simple/strong comparators, and physical/numerical checks. They use different carriers, protocols and implementations; they are not a unified ranking of complete candidates 1/2 and need not be rerun in table order.
+[Cobot scan benchmark](cobot_scan_benchmark/README.md): synthetic PC125 normal-axis plant (8 ms outer loop, 8 ms transport delay, 19 ms servo, 1 kHz force with 30 Hz low-pass and 0.08 N noise). It holds the current C1 and C2 implementations, repaired field baselines and the seed-7200 three-task evidence.
 
-## Purpose and reproduction entries
-
-| Resource | Subsequent use | Required boundary |
+| Entry | Use | Boundary |
 |---|---|---|
-| [Cobot benchmark and repaired baseline comparison](cobot_scan_benchmark/README.md) | October 21 task redesign; same-scene physical metrics after Xue/Jin/learned adaptation repair and additional train/dev tuning | Synthetic PC125 normal-axis plant; frozen C1 v2/C2; historically inspected test cohorts; accuracy gains do not establish peak-force dominance or full B0/journal readiness |
-| [Realistic scan task](realistic_scan_task/README.md) | Planar 3R arm, viscoelastic B0 footprint contact, F/T noise/delay, three representative tasks, tolerance-based score, headroom check against fixed impedance and force PI | First benign tasks only; no candidate ported yet; synthetic parameters |
-| [NNBO source reproduction](nnbo_source_reproduction/README.md) | Critic equations, exploration and Newton position inversion | Minimal mechanism, without complete identification/robot experiments; not B0 four gains |
-| [Finite-horizon contact](finite_horizon_contact/README.md) | Cylindrical contact, Bellman carrier and independent trajectories; dependency of slow-variation tests | Single K rate/fixed D, not the full-dimensional B0 critic |
-| [Continuous slow variation](continuous_slow_variation_updates/README.md) | Sensitivity/re-anchoring, cost accounting and slow/small-step instances | Retain both original failures and exploratory groups, not favorable selection |
-| [Dynamic strong comparators](dynamic_contact_strong_comparators/README.md) and [Q2](dynamic_contact_strong_comparators/Q2/README.md) | Actual K/D, energy execution, feedback/cheap prediction and independent integration | Strong conceptual controls, not whole-paper reproduction; Q2 assumes a known motion program |
-| [Observation/local roots](observation_local_roots/test_report.md) | Separate estimation, geometry and critic approximation errors | Known geometry/ideal normal moment, not complete MHE |
-| [Parameter/observation boundaries](parameter_observation_boundaries/README.md) | Descriptor revision, physical slow variation and full-wrench conditions | Rechecks B0 boundaries, not a new field failure |
-| [Constraint switching/value roots](constraint_switching_value_roots/candidate_description.md) | Regularity, reduced-root/projection tools candidate 1 may borrow | Conditional revision, not a third selected question; multinode actions may equal simple prediction |
-| [B0 evidence audit](b0_problem_evidence_audit/README.md) | Leading-footprint information, geometry timing and model scales | Known structure/synthetic parameters, not useful-preview, real-load or MHE validation |
-| [Contact-history audit](contact_history_mechanism_audit/README.md) | Realizable histories, ordinary observers and prediction versus control benefits | Two known Maxwell histories, not unknown-tissue/scan-control validation |
-| [Optimal impedance updates](optimal_impedance_update/README.md) | Network/RBF/simple solvers, adjoints, finite-rate optimization and delay accounting | Known local model, not complete candidate 2 |
-| [Constrained contact updates](contact_constrained_impedance_update/README.md) | Four-gain execution, task-cost learning, prediction release and background improvement | 0.3s known-model transition, not spatial MHE/original PPO |
-| [Within-scan prototype](within_scan_impedance_feedback/README.md) | Local responses, fixed/analytic/reference baselines, CEM feedback and physics corrections | Small offline formula, not NN/PPO; original/corrected physics separate, not complete candidates |
-| [Spatial estimation audit](spatial_contact_estimation_audit/README.md) | Extracted material/displacement estimation, noise propagation and scale tools | Synchronous sampling/affine conditions; no closed-loop/novelty evidence |
+| [C1 repair results](cobot_scan_benchmark/contact_update_results/README.md), [controller](cobot_scan_benchmark/contact_update.py), [evaluation](cobot_scan_benchmark/evaluate_contact_update.py) | Current C1 on the original three tasks, estimator ablation, peaks, recovery, timing | T2 development data used for the repair; baselines keep earlier settings |
+| [Completed tasks](cobot_scan_benchmark/completed_tasks/README.md) | Seed-7200 protocol, 40 paired scenes per task, fixed extremes, figures | T1/T2 transfer frozen T3 settings; not separately retuned rankings |
+| [Repaired baselines](cobot_scan_benchmark/refined_baselines/results.md) | Xue, Jin, learned VIC and others after adaptation repair | Task adaptations, not reproductions of the original robot experiments |
+| [Paper tables](cobot_scan_benchmark/paper_tables/), [builder](cobot_scan_benchmark/build_paper_experiments.py) | Original-paper task/metric mapping used by the experiment section | No new control simulations |
 
-Added [MHE–impedance engineering precheck, paused at that time](mhe_guided_impedance_pilot/README.md). Reduced rolling estimation, gain execution and local-gradient tools are reusable. It stopped after the user's baseline correction, without strong NNBO-type methods, completed NN training or independent tests; it cannot establish candidate superiority or journal readiness.
+The Chinese simulation section is [paper_experiments_final_zh.md](../research/paper_experiments_final_zh.md).
 
-Work then resumed under the user's latest instruction: [separate-candidate iteration](separate_candidate_validation/README.md), [grouped independent results](separate_candidate_validation/independent_results.md). Includes actual rate actions, state coverage/sampling alignment, separate model/learning experiments and paper-mechanism adaptations. Nonzero-force NNBO inversion failures are isolated from contribution comparisons. This carrier omits full B0 objectives/constraints and does not establish complete candidates/journal readiness. The old paused directory is a historical record, not the present stopping point.
+## Early experiments removed from the working tree
 
-**Latest: [dual-candidate task simulations](dual_candidate_task_simulation/README.md), [results](dual_candidate_task_simulation/results.md).** Implemented both routes from the research question, then selected Jin multistep predictive VIC task adaptation. Restored B0 two-region Hertz, positive-definite gain/rate costs, terminal terms, four actual gains and trajectory checks. Candidate 1 uses local quadratic HJB feedback/directional Riccati updates, not original B0 collocation roots. Candidate 2 is an actual task-gradient NN with three training seeds. Keep 24 independent main cases, preview/neighbor ablations, eight softening/faster-surface cases and isolated compute/release experiments separate. Both candidates still trail comparator force/tangential performance; low totals due to gain preferences do not establish a win.
+On 2026-10-26 the early B0 and 2D directories were removed from the working tree. Recover them from Git `b7a3f91`, for example with `git show b7a3f91:experiments/<dir>/README.md`, or by checking that commit out into a copy.
 
-## How to use key results
+The removed directories are:
+- NNBO source reproduction, finite-horizon contact and continuous slow variation;
+- dynamic strong comparators, observation/local roots, parameter/observation boundaries and constraint-switching value roots;
+- B0 evidence audit and contact-history audit;
+- optimal impedance update and constrained contact update;
+- within-scan prototype, spatial-estimation audit and realistic scan task;
+- MHE pilot, separate-candidate validation and the 2D dual-candidate task simulation.
 
-- Local NEOC/sensitivity computation does not stably beat adequate ordinary solvers; even one Newton step may be better in finite-horizon cases. This limits specific speed claims, not the original complete question.
-- Steady-state networks/RBF approximate numerical references; RBF is faster, and tuned fixed gains approach references in some tasks. Weights, training configuration and results support reproducibility of this comparison, not original candidate 2.
-- Release-aligned background model improvement has local gains about 0.67%–0.78%; old waiting negatives alone cannot reject the model route. Difficult contact/energy constraints were not active.
-- Initial 48-case joint CEM feedback improves about 0.433% over analytic control; 24 new pure-K/D cases do not beat continuously tuned fixed control; a separate corrected-physics 24-case joint comparison gives about 0.201%, interval crossing zero. Protocols differ; no pooled sample or attribution of joint feedforward benefit to gain learning.
-
-## Materials removed from the workspace
-
-Removed misread candidate-2 direct PPO training, candidate-A scan/coverage/public-acquisition branches, unselected policy-library rollout and two-stage posterior planning pipelines. No-advantage outcomes/lessons appear in the [failure review](../project_records/research_failures_and_corrections.md); original versions remain in Git. Independent spatial-estimation tools were extracted and retained. Removal does not revoke measurements or invalidate original candidate 2.
+Lessons retained from them:
+- **NEOC speed:** local NEOC/sensitivity computation does not stably beat adequate ordinary solvers; even one Newton step may be better in finite-horizon cases. This limits specific speed claims, not the original question.
+- **Networks versus RBF:** steady-state networks/RBF approximate numerical references; RBF is faster, and tuned fixed gains approach the references in some tasks.
+- **Background model improvement:** release-aligned background improvement gives local gains of about 0.67%–0.78%, so old waiting negatives alone cannot reject the model route.
+- **Within-scan CEM feedback:**
+  - the initial 48-case joint CEM feedback improves about 0.433% over analytic control;
+  - 24 pure-K/D cases do not beat continuously tuned fixed control;
+  - a corrected-physics 24-case joint comparison gives about 0.201%, with an interval crossing zero.
+- **2D dual-candidate simulation:** both candidates trailed the Jin MS adaptation on force and tangential error. Low totals driven by gain preferences did not establish a win.
+- **Scope of these instances:** none of them was the complete B0, the original candidate 2 or a robot validation. Detailed mistakes are in the [failure review](../project_records/research_failures_and_corrections.md).
 
 ## Usage notes
 
-Source, parameters/protocols, necessary models, per-case results and independent checks correspond to their historical versions. Old result source hashes may refer to the commits stated in reports; never silently relabel them as current hashes. Select the relevant Git version and reproduce in a copy to avoid overwriting results. Historical paths retain their spelling in the corresponding Git version.
-
-Root requirements cover older numerical resources; newer environments are specified by local requirements/environment.json. Preservation checks are not scientific reruns or validation of synthetic physics on real tissue. See [HANDOFF](../project_records/HANDOFF.md) for continuation.
+Result hashes refer to the versions stated in each report. Reproduce in a copy so original data are not overwritten. File checks are not scientific reruns or physical validation.

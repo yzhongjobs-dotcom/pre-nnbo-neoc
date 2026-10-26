@@ -8,7 +8,7 @@ no sampled low-contact episodes in the 20 stiff scenes, at the cost of higher
 static-stiffness error (0.060 to 0.087 N). See the report for the estimator
 ablation, peaks, recovery, timing and comparison limits. C2 is unchanged.
 
-**Chinese experiment section:** [setup, literature-grounded metrics, existing results and missing experiments](../../research/paper_experiments_draft.md).
+**Chinese experiment section:** [final section](../../research/paper_experiments_final_zh.md). The earlier generated draft (`research/paper_experiments_draft.md`, rebuilt by `build_paper_experiments.py`) was removed from the workspace; recover it from Git `b7a3f91`.
 The section now maps 12 original papers' questions/tasks/metrics, separates physical
 outcomes from decision quality and runtime, and includes the newly synchronized
 seed-5000/6000 pressure results. It does not treat incomplete platform entries or

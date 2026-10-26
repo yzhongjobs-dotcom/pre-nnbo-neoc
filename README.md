@@ -2,7 +2,7 @@
 
 Research goal: during continuous robotic scanning of soft tissue, use new contact information to generate near-optimal impedance promptly, with actual force and motion-control benefits. The target paper requires a substantive scientific contribution and evidence sufficient to compete at leading journals; a complete method and evidence at that level have not yet been established.
 
-Read the [handoff](project_records/HANDOFF.md) first. Confirmed method-formation principles and contribution expectations are in the [long-term requirements](project_records/long_term_requirements.md), grounded in the [paper-by-paper analysis](research/independent_reverse_analysis_of_top_journal_methods.md). The latest work implements [two task-simulation candidates](experiments/dual_candidate_task_simulation/README.md) under the original question, completes [24 scenarios, ablations, generalization and release-delay experiments](experiments/dual_candidate_task_simulation/results.md), and compares an explicitly adapted Jin multistep predictive variable-impedance controller. Force/tangential errors remain worse; neither candidate has established a leading-journal contribution. Candidate 1 uses local quadratic value feedback, not the B0 fixed-collocation-node root.
+Read the [handoff](project_records/HANDOFF.md) first for the current state and next work. Confirmed goals and stage standards are in the [long-term requirements](project_records/long_term_requirements.md); stage-by-stage guidance is in [research_workflow](project_records/research_workflow/). The current method is C1 on the [cobot scan benchmark](experiments/cobot_scan_benchmark/README.md): it repairs stiff push/retract contact loss on three simulated tasks, but fair closest-prior comparisons, the gain ablation, a stability condition and real-robot evidence are still missing.
 
 The research proceeds iteratively through field analysis, question refinement,
 method design, experimental verification, failure review and long-term improvement.
@@ -15,7 +15,6 @@ Use the entries below to connect each claim to its method, evidence and limitati
 | [Field state](research/field_state.md) | Existing capabilities, conditions and full-text access boundaries |
 | [Two candidate methods](research/optimal_impedance_question_and_methods.md) | Correct candidate definitions and distinction between specific experiments and complete concepts |
 | [Method design](research/method_design.md) | Complete B0 model, assumptions, decisions and execution relationships |
-| [Candidate design and iteration](research/separate_candidate_design_and_iteration.md) | How each implementation changed, why it changed and which claims remain unsupported |
 | [Transferable mechanisms](research/transferable_mechanisms.md) | Reviewed mature mechanisms and adaptation conditions; no newly selected final method |
 | [Literature index](literature/literature_index.md) | Local originals, text, sources and reading scope from two external repositories and existing project literature |
 | [Experiment index](experiments/experiment_index.md) | Reusable models, solvers, comparators, results and reproduction entries |
