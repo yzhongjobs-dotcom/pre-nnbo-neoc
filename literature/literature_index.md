@@ -119,7 +119,7 @@ G09 is a local author manuscript with a placeholder journal DOI; its exact equiv
 
 ## Task-scoped local coverage supplements (2026-10-26)
 
-The user-requested source-library audit adds only four selected originals/manuscripts. [Scope and capability analysis](../research/related_work_scope_and_coverage.md) defines what belongs in the current related work before supplementation; [coverage sources](related_work_coverage_sources.json) records the inventory and file-level dispositions. The Chinese [field assessment](../research/field_state.md) includes their specific relevance. This local audit does not claim a completed new online search: the ARIS Controller is waiting for approval of the validated [source policy](aris_source_policy_candidate.yaml).
+The user-requested source-library audit adds only four selected originals/manuscripts. [Scope and capability analysis](../research/related_work_scope_and_coverage.md) defines what belongs in the current related work before supplementation; [coverage sources](related_work_coverage_sources.json) records the inventory and file-level dispositions. The Chinese [field assessment](../research/field_state.md) includes their specific relevance. This local audit does not claim a completed new online search: the ARIS Controller validated the [source policy](aris_source_policy_candidate.yaml), and the user explicitly deferred retrieval.
 
 | ID | Source and retained version | Scientific role and reading boundary |
 |---|---|---|

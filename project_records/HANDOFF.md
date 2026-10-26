@@ -2,7 +2,7 @@
 
 Research status updated: 2026-10-26. Check the current user request and Git state first; historical plans are not today's instructions.
 
-**Latest literature-only checkpoint (2026-10-26): scope-first local omission audit; ARIS search pending user approval.**
+**Latest literature-only checkpoint (2026-10-26): scope-first local omission audit complete; user explicitly deferred ARIS search.**
 The user requested a careful definition of this project's related work, a check
 of `D:/桌面/科研Agent Harness设计/impedance-control-e2e/source-materials`, then
 an attempt to use `D:/桌面/科研Agent Harness设计/ARIS` for further search. The
@@ -38,10 +38,11 @@ Run `c1-related-work-20261026`, root
 `dcbe5a27b0d64da992181180a98328e1`, canonical policy SHA256
 `b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`.
 The exact local skill explicitly forbids retrieval until the user approves that
-validated candidate; an asynchronous user question is pending. Zero provider
-queries have run. Do not call this a completed ARIS search, approve the gate on
-the user's behalf, or silently substitute ordinary hosted search. Once the user
-approves, resume the same Controller run and verify the current policy binding.
+validated candidate. The user answered: finish the local audit and defer ARIS
+retrieval. Zero provider queries have run. Do not automatically resume search,
+call this a completed ARIS search, approve the gate on the user's behalf, or
+silently substitute ordinary hosted search. If the user later authorizes and
+approves the policy, resume the same Controller run and verify its binding.
 DOSMAC/MHE-VIC full methods, joint-estimation citation chains and recent
 observer/predictive-admittance ultrasound leads remain material coverage gaps.
 
