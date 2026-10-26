@@ -10,7 +10,7 @@ This directory retains original papers, extracted texts, sources and actual read
 - Requested repository 2: [e2e/User Batch V2](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/source-materials/user-batch-v2) and [idea-stage](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/idea-stage). Of the original 61 screened papers, local material includes 25 directly relevant, six partly relevant and five background papers; 25 currently irrelevant papers retain exclusion reasons only. Ten originals added from existing leads are also local.
 - Complete screening, original pages and neighbors without obtained full text appear in [sources/screening](impedance_literature_sources_and_screening.json). Do not copy all 2653 discovery records, 105 old evidence cards or 3822 search events, or treat them as confirmed conclusions.
 
-There are **87** deduplicated local PDFs with corresponding texts. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
+There are **91** deduplicated local PDFs with corresponding texts. The 94 usage records include field sources, background/method transfer, and independent reverse-analysis samples; this is not the number of core related-work references. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
 
 ## Original methods and direct evidence
 
@@ -116,6 +116,17 @@ The 2026-10-22 review selected 21 additional originals/author manuscripts from t
 | G25 | [Model Predictive Robot-Environment Interaction Control for Mobile Manipulation Tasks](papers/field_supplements/G25.pdf) · [text](extracted_text/field_supplements/G25.txt) | Adjacent online identification/predictive interaction control |
 
 G09 is a local author manuscript with a placeholder journal DOI; its exact equivalence to an arXiv revision is not asserted. G23/G24/G25 are retained arXiv author versions with journal/conference identities recorded separately. G12 and G22 have identity/abstract-level reading in this review. Neither is used to infer detailed theory or missing capabilities.
+
+## Task-scoped local coverage supplements (2026-10-26)
+
+The user-requested source-library audit adds only four selected originals/manuscripts. [Scope and capability analysis](../research/related_work_scope_and_coverage.md) defines what belongs in the current related work before supplementation; [coverage sources](related_work_coverage_sources.json) records the inventory and file-level dispositions. The Chinese [field assessment](../research/field_state.md) includes their specific relevance. This local audit does not claim a completed new online search: the ARIS Controller is waiting for approval of the validated [source policy](aris_source_policy_candidate.yaml).
+
+| ID | Source and retained version | Scientific role and reading boundary |
+|---|---|---|
+| H01 | [Fu et al., TIM2024, 10.1109/TIM.2024.3372209](papers/field_supplements/H01.pdf) · [text](extracted_text/field_supplements/H01.txt) | Medical static/scanning contact control; one-step QP robot-stiffness selection and energy tank. PDF1–4 and selected PDF5–7 experiment passages. |
+| H02 | [Dyck et al., RA-L2022, 10.1109/LRA.2022.3184800](papers/field_supplements/H02.pdf) · [text](extracted_text/field_supplements/H02.txt) | Mesh/surface impedance for ultrasound and contact-retention/recontact comparison. PDF1–3 and PDF7–8; not a full geometric-proof audit. |
+| H03 | [Duan et al., local arXiv:2203.02126v1 author manuscript](papers/field_supplements/H03.pdf) · [text](extracted_text/field_supplements/H03.txt) | Ultrasound task QP and demonstration-derived gains. PDF1,3–6 selected passages; final venue/version not independently verified here. |
+| H04 | [Kronander and Billard, T-RO2016, 10.1109/TRO.2016.2593492](papers/field_supplements/H04.pdf) · [text](extracted_text/field_supplements/H04.txt) | Supporting time-varying-impedance stability foundation. PDF1–3 and PDF6; conditions do not automatically certify C1. |
 
 ## Independent reverse-analysis samples
 

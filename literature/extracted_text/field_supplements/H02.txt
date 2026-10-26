@@ -1,0 +1,641 @@
+          7738                                                                                     IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 3, JULY 2022
+
+
+
+
+                       Impedance Control on Arbitrary Surfaces for
+                          Ultrasound Scanning Using Discrete
+                                 Differential Geometry
+                        Michael Dyck , Arne Sachtler , Julian Klodmann , and Alin Albu-Schäffer , Fellow, IEEE
+
+
+             Abstract—We propose an approach to robotic ultrasound scan-                     sonographer, capable of simultaneously adjusting probe orien-
+          ning and interaction control with arbitrary surfaces using a                       tation and contact force to improve image quality and maximize
+          passivity-based impedance control scheme. First, we introduce                      patient comfort. This induces a very high cognitive and physical
+          task coordinates depending on the geometry of the surface, which
+          enable hands-on guidance of the robot along the surface, as well as                workload, while quality and repeatability of the imaging process
+          teleoperated and autonomous ultrasound image acquisition. Our                      become strictly operator-dependent [2].
+          coordinates allow controlling the signed distance of the robot to the                 Robotic ultrasound (RUS) systems have been subject of ex-
+          surface and alignment of the tool to the surface normal using clas-                tensive research efforts [3] recently, ranging from teleoperated
+          sical impedance control. This corresponds to implicitly obtaining a
+                                                                                             image acquisition, to semi- and fully autonomous RUS systems.
+          foliation of parallel surfaces. By setting the desired signed distance
+          negative, i.e., into the surface, we obtain passive contact forces and             These systems show promising trends towards mitigating the
+          simultaneously provide an intuitive way to control the maximum                     operator-dependence, high cognitive workload and ergonomic
+          penetration depth into the surface. We extend the approach to also                 deficits of physician-performed US, while increasing the repro-
+          incorporate coordinates allowing to control the specific point on                  ducibility and accessibility of diagnostic US scanning. Li et al.
+          the surface and, automatically, on all parallel surfaces. Finally, we
+                                                                                             identify contact force control as a major feature in RUS image
+          demonstrate the performance of the controller on the seven degrees
+          of freedom lightweight robot DLR MIRO: the robot tracks complex                    acquisition [3]. Any excessive force leading to tissue deforma-
+          trajectories while accurately keeping the desired distance to the                  tion can lead to image artifacts, patient pain and tissue damage.
+          surface and applying an almost constant contact force. Finally, we                 Simultaneously, good acoustic coupling is necessary to achieve
+          compare the approach to the state of the art.                                      high image quality.
+             Index Terms—Compliance and impedance control, comput-                              Impedance control [4] is a very popular approach to realize
+          ational geometry, medical robots and systems, telerobotics and                     compliant behavior, allowing the definition of force ranges inter-
+          teleoperation, physical human-robot interaction.                                   acting between robot and environment. Direct and indirect force
+                                                                                             control compose the two main techniques for active interaction
+                                                                                             control [5]. Indirect force control methods, e.g., via a feed-
+                                      I. INTRODUCTION
+                                                                                             forward force, suffer from unpredictable, non-passive behavior
+                 LTRASOUND (US) has become one of the most com-
+          U      monly used diagnostic and therapeutic imaging modali-
+          ties in medicine [1]. US provides major advantages over other
+                                                                                             upon contact loss. Similar issues arise in the direct force control
+                                                                                             paradigm and methods such as hybrid position/force control [6],
+                                                                                             lacking in robustness and ability to deal with environmental
+          medical imaging techniques, such as low cost, portability, non-                    uncertainties. The authors in [7] propose a method combining
+          invasiveness, has real-time capabilities and is radiation-free [1].                force tracking and impedance control for interaction with arbi-
+          However, US image acquisition requires the presence of a skilled                   trary analytic surfaces, while proving passivity and stability for
+                                                                                             arbitrary passive environments.
+             Manuscript received 24 February 2022; accepted 1 June 2022. Date of                Several authors have investigated solutions to RUS tissue
+          publication 22 June 2022; date of current version 1 July 2022. This letter was     scanning in the past [8]–[10]. Usually, a feed-forward force
+          recommended for publication by Associate Editor X. Li and Editor C. Gosselin       controller realizes a desired contact force between US probe and
+          upon evaluation of the reviewers’ comments. This work was supported in part by
+          the International Graduate School of Science and Engineering (IGSSE); TUM          tissue. These solutions generally rely on the built-in force-torque
+          Graduate School. (Corresponding author: Arne Sachtler.)                            (F/T) sensing capabilities of the robotic system to estimate the
+             Michael Dyck, Arne Sachtler, and Alin Albu-Schäffer are with the Institute of   external force at the end-effector. Virga et al. present a RUS
+          Robotics and Mechatronics, German Aerospace Center (DLR), 82234 Wessling,
+          Germany, and also with the Department of Informatics, Technical Univer-            system for screening of abdominal aortic aneurysms and use a
+          sity of Munich, 80333 Munich, Germany (e-mail: michael.dyck@dlr.de; arne.          standard Cartesian impedance controller [11] in x, y to move
+          sachtler@dlr.de; Alin.Albu-Schaeffer@dlr.de).                                      the US probe along a trajectory based on elastical registration
+             Julian Klodmann is with the Institute of Robotics and Mechatronics, Ger-
+          man Aerospace Center (DLR), 82234 Wessling, Germany (e-mail: julian.               of the patient to a generic MRI-based atlas [8]. The simplicity
+          klodmann@dlr.de).                                                                  of this control scheme makes it unsuitable for US scanning
+             This letter has supplementary downloadable material available at                on tissues of complex geometry. Similarly, [10] use Carte-
+          https://doi.org/10.1109/LRA.2022.3184800, provided by the authors.
+             Digital Object Identifier 10.1109/LRA.2022.3184800                              sian impedance control guiding the robotic manipulator along
+
+
+                                   2377-3766 © 2022 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                                 See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+         DYCK et al.: IMPEDANCE CONTROL ON ARBITRARY SURFACES FOR ULTRASOUND SCANNING USING DISCRETE DIFFERENTIAL GEOMETRY                                            7739
+
+
+
+         a predefined trajectory on the human spine. Augmenting the
+         impedance controller with a feed-forward force controller they
+         perform RUS scanning, intended for application in neurosurgical
+         scenarios. Jiang et al. [9] additionally employ a F/T-sensor to
+         improve force control accuracy and to automatically adjust the
+         orientation of the US probe perpendicular to the tissue surface.
+         Huang et al. [12] use a depth camera to estimate the 3D surface
+         of the target anatomy via a point cloud. The robot is controlled in
+         a point-to-point mode, using force feedback of two F/T-sensors
+                                                                                           Fig. 1. Target surface and task coordinates of our impedance controller. Each
+         attached to either side of the probe to adjust in-plane rotation.                 point on the surface S0 can be assigned a unique, directed normal vector (left).
+            Another field of research that involves controlling a tool onto                The task coordinates result in a wrench pulling the tool to the surface and
+         a surface is robotic manufacturing like polishing, grinding, or                   orienting it along the surface normal (middle). Calculation of the coordinates
+                                                                                           is based on the proxy point χ̄ ∈ S0 on the surface, the corresponding surface
+         painting. Many publications deal with these kinds of problems,                    normal n and the vector c between χ̄ and tool position xt .
+         e.g. [7], [13], [14]. The classical setting in these scenarios is pre-
+         computing a Cartesian trajectory based on the object model and
+         then executing it using a Cartesian impedance controller. Contact                        II. IMPEDANCE CONTROL ON PARALLEL SURFACES
+         forces are usually generated by additional feed-forward force
+                                                                                              Our aim is to design an impedance controller regulating the
+         control. Ochoa and Cortesão capture polishing movements from
+                                                                                           end-effector of a robot to a desired signed distance from an
+         humans and transform them to surfaces by shifting and rotating
+                                                                                           arbitrary surface (Fig. 1). At the same time the controller shall
+         the movements in space [15]. These approaches precompute
+                                                                                           align the end-effector with the normal of the surface.
+         trajectories and cannot be used for hands-on modes. Kana et al.
+                                                                                              Consider a two-dimensional target surface S0 ⊂ R3 and sup-
+         show a method to control the end-effector to an arbitrary surface
+                                                                                           pose that the surface is oriented, i.e., it has an in- and an outside.
+         by introducing a virtual proxy point that wanders around on
+                                                                                           Each point χ ∈ S0 has a unit normal vector n(χ) such that
+         the surface [16]. Their method allows for hands-on scenarios
+                                                                                           n : S0 → S2 with the two-sphere S2 is smooth on S0 . The
+         in human-robot co-manipulation. Additional contact forces are
+                                                                                           normal vectors allow defining consistent signed distances. Fig. 1
+         applied using active force control.
+                                                                                           sketches an example for a target surface in yellow and shows
+            We present a novel approach to RUS scanning using a
+                                                                                           some normal vectors in black.
+         passivity-based impedance control scheme [17] on arbitrary
+                                                                                              Impedance controllers can be visualized as virtual springs and
+         surfaces, allowing for hands-on US probe guidance, as well as
+                                                                                           dampers in task coordinates. Likewise, with our proposed task
+         for teleoperated or intuitive two-dimensional (2D) path planning
+                                                                                           coordinate the control goal of regulating the end-effector to a
+         for autonomous execution of scanning paths. Our proposed
+                                                                                           signed distance d and aligning the tool to the surface normal is
+         control paradigm is based on representation of the environ-
+                                                                                           achieved by virtual springs and dampers (Fig. 1).
+         ment as discretized, triangular mesh objects, thus providing
+                                                                                              When controlling the distance coordinate to d = 0, we implic-
+         high flexibility for usage in various applications. To this end,
+                                                                                           itly control the end-effector onto a parallel surface Sd obtained
+         pre-operative imaging can be used to obtain a three-dimensional
+                                                                                           by shifting the base surface S0 along the normals
+         (3D) representation of the tissue surface, that can be seamlessly
+         integrated with our controller. In contrast to [7]–[10], [13]–[16],                                   Sd = {χ + dn(χ) | χ ∈ S0 } .                            (1)
+         we present a novel method for interaction with arbitrary surfaces,
+                                                                                              This family of surfaces generates a foliation, where the par-
+         relying solely on classical impedance control augmented by
+                                                                                           allel surfaces and S0 are the leaves. We sketch the base leaf S0
+         special task coordinates, inherently guaranteeing stability and
+                                                                                           and two parallel surfaces S1 and S−1 in Fig. 2(c).
+         passivity. One of these coordinates is the signed distance to the
+                                                                                              Consider the example in two dimensions in Fig. 2(a) where
+         surface. This coordinate can be used to continuously adjust the
+                                                                                           a couple of offset surfaces as well as two osculating circles
+         interaction force and realize probe-surface interaction with a
+                                                                                           are shown. The parallel surfaces start self-intersecting as soon
+         desired impedance.
+                                                                                           as the distance |d| is larger than the smallest curvature radius
+                                                                                           rmin of the base surface. For −rmin < d < rmin a smooth fo-
+         A. Contributions                                                                  liation is obtained and a one-to-one mapping between points
+            (C1) Impedance control on arbitrary surfaces featuring con-                    on the parallel surfaces Sd and the base surface S0 can be
+                 tinuous interaction force adjustment and control over                     obtained: we can find Ψd : S0 → Sd such that Ψ is continuous
+                 the penetration depth even for soft structures;                           and invertible. For parallel surfaces farther than rmin the offset
+            (C2) Novel choice of task coordinates respecting the surface                   surfaces self-intersect and no one-to-one mapping is possible.
+                 geometry and curvature, and intuitively applicable for                    This generalizes to the three-dimensional case. We assume we
+                 hands-on, teleoperated and autonomous RUS scanning;                       stay in the allowed region for d from now on.
+            (C3) Real-time control on triangular meshes, efficiently cal-                     Because the map Ψd is invertible, we can transport functions
+                 culating surface-specific quantities in a 3 kHz control                   ϕ0 : S0 → Y on S0 to Sd
+                 loop.                                                                                                  ϕd = ϕ0 ◦ Ψ−1
+                                                                                                                                   d .                                 (2)
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+          7740                                                                                        IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 3, JULY 2022
+
+
+
+                                                                                                its z-axis with the normal of the surface. Fig. 1 shows this
+                                                                                                case for the example surface representing the forces as springs.
+                                                                                                This choice of desired coordinates is particularly useful for
+                                                                                                interaction cases, e.g. when clinicians want to guide the robot in
+                                                                                                hands-on mode along the tissue.
+                                                                                                   Let us now design p(q). Assume the Cartesian forward kine-
+                                                                                                matics fkin : Q → SE(3) | q → x is given and also the corre-
+                                                                                                sponding geometric Jacobian J x (q)
+                                                                                                                            
+                                                                                                                            v
+                                                                                                                      ẋ =       = J x (q)q̇,                 (5)
+                                                                                                                            ω
+                                                                                                where ω denotes the angular velocity vector and v translational
+                                                                                                velocities. We defer the computation of the proxy point on the
+                                                                                                surface χ̄(q) to a later section and assume it given for now. Let
+                                                                                                c(q) = xt − χ̄, with xt ∈ R3×1 representing the translational
+                                                                                                component of x = fkin (q). Then the signed distance is deter-
+          Fig. 2. Foliation view on the introduced task coordinates. (a) 2D example of
+          offset curves with two representative osculating circles. Red curves: when going      mined by (rightmost column Fig. 1)
+          beyond the minimal curvature radius the map Ψd is no longer one-to-one. (b)                        d(q) = sign(n(χ̄(q)) · c(q)) c(q).                     (6)
+          Interaction force between tool and surface via a spring in the distance coordinate,
+          pulling the tool towards its proxy point on S0 . (c) Three leaves of the foliation       Next, let’s design (q) via the quaternion h(q) describing
+          as parallel surfaces given by d = const.
+                                                                                                the relative rotation between the tool z-axis ẑ T (q) and the unit
+                                                                                                normal n(χ̄). For any input vectors n = −ẑ T we use
+             Setting ϕ0 = n we can, for instance, pull the normals to all                                          ⎡                                   ⎤
+          the other parallel surfaces Sd . The same is true for any kind of                                     ⎢                                ⎥
+                                                                                                                ⎢ 2 (1 + ẑ · n)      ẑ × n      ⎥
+          chart on S0 . Similar to the idea in previous work [18], we can                                       ⎢
+                                                                                                         h(q) = ⎢                ,               ⎥.                  (7)
+          first define coordinates on S0 and let them grow to other leaves                                      ⎣      2            2(1 + ẑ · n) ⎥
+                                                                                                                                                  ⎦
+                                                                                                                                  
+          of the foliation.                                                                                                                     (q)
+             Commanding a desired distance d < 0, a passive interaction
+          force can be realized (Fig. 2(b)). In contrast to classical ap-
+                                                                                                                   ⊥
+                                                                                                and h(q) = [0, n ] otherwise. The vector n⊥ is any unit vector
+          proaches [7], no additional force control is required to be able                      orthogonal to n. The combination of (6) and (7) yields the
+          to continuously adjust the interaction force, but the approach                        desired task coordinates p(q).
+          is rather based purely on passive impedance laws. Given the                              For the impedance controller we need the overall Jacobian
+          stiffness of the controlled distance spring kd and the object                         J p ∈ R4×n , where n denotes the number of joints. Apply the
+          stiffness kO the required distance for a desired contact force                        chain rule and write
+          f can be computed by d = kd −k  f
+                                              .                                                          ∂p      ∂p(x) ∂x(q) ∂q(t)
+                                            O                                                      ṗ =       =                       = J px J x q̇ = J px ẋ. (8)
+                                                                                                         ∂t        ∂x      ∂q     ∂t
+          A. Task Coordinates and Impedance Controller                                             We can express the desired Jacobian J p as a product J p =
+             Let us define the surface-specific task coordinates p ∈ R4                         J px J x of the known geometrical Jacobian J x and a new Jaco-
+                                                                                              bian J px to be determined. Let’s split it into blocks:
+                                            d(q)                                                                                           
+                                  p(q) =            ,                  (3)                                                       J dv  0       v
+                                            (q)                                                                ṗ = J px ẋ =                      .          (9)
+                                                                                                                                 J v J ω ω
+          where d(q) computes the signed-distance of the end-effector to
+          the surface. Let χ̄(q) implement a map Ψ (2) between Sd and                              The first component J dv ∈ R1×3 describes the linear relation
+          S0 . As our manifold is oriented, we can look up the normal                           between translational Cartesian velocities v and the velocity in
+          of the proxy point χ̄(q) and take the quaternion h = [λ, ] ∈ H                       the distance coordinate d.˙ This relation is given by the orthogonal
+          between the end-effector orientation and the normal of the proxy                      projection of v onto the normal vector between the proxy point
+          point. We stack its vector part  into p(q) (3). q ∈ Q are the                        χ̄ and the end-effector position xt
+          generalized configuration coordinates of the manipulator.                                                             (xt − χ̄)T
+                                                                                                                       J dv =              .                         (10)
+             Using the task coordinate function (3) we define an impedance                                                       |xt − χ̄|
+          control law [4], [11]
+                                                                                                   The mapping from angular velocities ω ∈ R3 of the end-
+                    τ = J Tp (q) [K(pd − p(q)) + D(q)(ṗd − ṗ)] ,                       (4)    effector onto velocities in  ∈ R3 is given by [20]
+                                                                                                                           ⎡                  ⎤
+          where K is a symmetric, positive definite (pd) stiffness matrix                                                     λ     3 −2
+          and J p (q) = ∂p/∂q denotes the Jacobian of p(q). The symmet-                                                  1⎢                   ⎥
+                                                                                                                J ω = ⎣−3         λ      1 ⎦ ,    (11)
+          ric and pd damping matrix D(q) is designed based on the double                                                 2
+          diagonalization design proposed in [19]. For pd = ṗd = 0 the                                                       2 −1       λ
+          controller will pull the end-effector onto the surface and align                      with λ, 1,2,3 being the components of the quaternion h.
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+         DYCK et al.: IMPEDANCE CONTROL ON ARBITRARY SURFACES FOR ULTRASOUND SCANNING USING DISCRETE DIFFERENTIAL GEOMETRY                                          7741
+
+
+
+                                                                                             fundamental form [23]
+                                                                                                                                                      
+                                                                                                                                               κ1   0
+                                                                                                        dn(v) = P IIP v = P
+                                                                                                                      T                T
+                                                                                                                                                         P v,      (12)
+                                                                                                                                               0    κ2
+                                                                                             where P ∈ R2×3 contains X 1 and X 2 as rows.
+                                                                                                Using these concepts we derive an expression for our Jacobian
+                                                                                             component J v ∈ R3×3 , relating translational Cartesian veloci-
+                                                                                             ties of the tool to velocities in the orientational task coordinates 
+                                                                                                                    J v = J ω [n]× P T IIP ,                (13)
+         Fig. 3. (a) Normal curvature and principal curvatures. Intersecting the surface
+         with a plane containing the normal and a tangent vector X yields a locally planar   where [n]× denotes the skew-symmetric cross product matrix of
+         curve with normal curvature κn . (b) Parallel surfaces share principal directions   the vector n. The cross-product matrix is introduced to transform
+         of curvature, the curvature values change with the distance d.                      the change in the normal to angular velocities.
+                                                                                                Consider a case where the robot is at a distance d+ > 0
+                                                                                             and assume the robot is moving along the surface keeping d+
+                                                                                             constant. We travel along a parallel surface S+ . Fig. 3(b) depicts
+            Lastly, the component J v ∈ R3×3 relates translational Carte-
+                                                                                             a local section of the planar curves γ ⊂ S0 and γ+ ⊂ S+ . Both
+         sian velocities and velocities ˙ describing the rate of change of
+                                                                                             surfaces S0 and S+ have the same principal directions [21].
+         the relative orientation between surface normal and the end-
+                                                                                             However, the radius r = r + d+ of the osculating circle of
+         effector. In other words, J v represents the change in  by the
+                                                                                             S+ differs from the radius r of the osculating circle and thus the
+         change in the surface normal dn, arising from any tangential
+                                                                                             curvature of S0 . This change in curvature for parallel surfaces
+         motion along the non-planar surface.
+                                                                                             with an offset d is encoded in the second fundamental form in
+            We briefly recap some central concepts of the differential
+                                                                                             principal coordinates by
+         geometry of surfaces that are relevant to finally derive J v .                                                                           
+         The presented material can be found in any textbook like [21];                                             κ1 (1 − dκ1 )           0
+                                                                                                            ĨI =                                     .       (14)
+         we recommend [22] for a visual and intuitive introduction.                                                       0           κ2 (1 − dκ2 )
+         Consider again n : S0 → S2 , the vector field mapping points                          This generalizes to d = 0 and we consequently implement
+         on the manifold S0 to their corresponding unit normal vector.                       (13) always using ĨI .
+         The map n associates each point on S0 to a point on the unit
+         sphere S 2 . This is known as the Gauß map. Now, the differential                   B. Optional Surface Parametrization
+         dn of the Gauß map, referred to as the Weingarten map, tells
+         how the surface normal changes while moving along the surface.                         The concept in the previous section allows controlling the
+         Since n maps onto unit vectors, we know that any change of the                      robot to a distance to the surface and aligning the surface normal
+         surface normal can only be tangential to the surface itself. Hence,                 and the tool. This is especially helpful for interaction cases when
+         the Weingarten map dn in a tangential direction X ∈ Tχ S0                           the position on the surface shall not be constrained.
+         at a point χ ∈ S0 is a mapping from the tangent space Tχ S0                            For a variety of tasks, such as teleoperation or autonomous
+         to itself [21]. The Weingarten map dn relates velocities in the                     path scanning (cmp. Section I) it is also required to stabilize
+         tangent space to changes in the normal, which is precisely what                     and control the particular position on the surface. In that case
+         we need for the block J v .                                                        we require additional coordinates to specify the position of the
+            Before deriving J v , let us briefly recap normal curvature and                 proxy point χ̄ on the surface. We consider 2D surfaces here,
+         principal curvature with help of the example in Fig. 3(a). The                      therefore two additional coordinates are required.
+         normal curvature κn at a point χ ∈ S0 in direction X ∈ Tχ S0 is                        We need the inverse of a parametrization Φ : X → S0 of
+         the curvature of the planar curve γ ⊂ S0 obtained by intersecting                   a surface where X is called the parameter domain [21]. The
+         the surface with the plane spanned by X and the normal n(χ).                        function Φ(s), with s = [s1 , s2 ]T , maps a point s ∈ X onto
+         The blue planes in Fig. 3(a) show two special cases of such                         the immersed surface S0 . Provided that we find a Φ(s) for our
+         planes. We take the tangential directions X 1 , X 2 where the                       target surface S0 , we can use its inverse s = Φ−1 (χ) as global
+         surface bends the most and least. These directions are called                       coordinates to specify where we are on the surface. We augment
+         principal directions of curvature and their corresponding cur-                      the previously chosen task coordinates:
+                                                                                                                                       ⎡        ⎤
+         vature values are called principal curvatures κ1 , κ2 . Fig. 3(a)
+                                                                                                                                       s1 (q)
+         shows the resulting planar curves γ1,2 and the corresponding                                                   s(χ̄(q))       ⎢s (q)⎥
+                                                                                                                                       ⎢ 2 ⎥
+         osculating circles with radius 1/κ1,2 . Principal directions are                                    ρ(q) =                =⎢           ⎥.           (15)
+                                                                                                                          p(q)         ⎣ d(q) ⎦
+         always orthogonal [21].
+            We use the directions of principal curvature at each point                                                                          (q)
+         to determine local coordinates of the manifold S0 . In these                          Any non-singular parametrization Φ can be used. We have
+         coordinates the second fundamental form II is particularly sim-                     defined coordinates on the base manifold S0 which we can
+         ple, being a diagonal matrix of the principal curvatures. The                       propagate to all leaves Sd of the foliation using Ψd as in [18]. In
+         Weingarten map can be computed projecting a vector v onto                           our case Ψd is implemented by the proxy point function χ̄, i.e.,
+         the tangent plane spanned by X 1 , X 2 and applying the second                      on Sd we use s = Φ−1 ◦ χ̄. Thus, we implicitly have consistent
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+          7742                                                                                        IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 3, JULY 2022
+
+
+
+
+                                                                                               Fig. 5. Discretization of the smooth surface S0 . (a) Wireframe of the dis-
+                                                                                               cretized surface. (b) Closest point query between tool position and surface. (c)
+          Fig. 4. (a) Parametrization Φ of the surface S0 ⊂ R3 with coordinates s1 , s2        Barycentric coordinates used for interpolation of various per-vertex quantities
+          in the parameter domain X . Red and green lines represent isolines of the coordi-    defined on the triangular mesh.
+          nates s1 , s2 in X and S0 , respectively. The blue trajectory shows an exemplary
+          lissajous curve in X and its corresponding image on S0 . (b) Orthogonal foliations
+          represented by s1 = const. (red), s2 =const. (green).                                and edges is not manifold, discrete differential geometry offers
+                                                                                               techniques to handle edges and corners by smoothing out the
+          coordinates s on all leaves Sd and obtain also foliations for s1 =                   normal map.
+          const. and s2 = const. (Fig. 4(b)).                                                     Let the target surface S0 be described by a triangular mesh (see
+             In order to incorporate these parametrization coordinates into                    Fig. 5(a)). This is encoded by a matrix of N vertices V ∈ RN ×3
+          the impedance control, we extend our Jacobian J px to include                        and M faces F ∈ NM ×3 , where the entries in F are the vertex
+          the mapping from translational velocities v to velocities ṡ                         indices. Further, we assume a list of normals N ∈ RN ×3 , where
+                                            ⎡           ⎤                                      the i-th row is the unit normal at the i-th vertex.
+                                              J sv   0
+                                            ⎢           ⎥                                         For the task coordinates the proxy point query χ̄(q) must be
+                          ρ̇ = J ρx (x)ẋ = ⎣J dv    0 ⎦ ẋ.             (16)                  implemented. We first use the Cartesian forward kinematics to
+                                              J v J ω                                        determine the position of the end-effector xt (q). Then, we find
+             For any point on the surface the gradients ∇s1 and ∇s2                            the closest triangle
+          determine the directional derivatives of s1 and s2 for tangent                                           f̄(q) =     min d (fj , xt (q)),                     (21)
+          vectors to the surface. However, the gradients ∇s1 and ∇s2                                                         j∈{1..M }
+
+          cannot be computed for points x ∈  / S0 . Therefore, we again use                    where d (f, x) computes the distance of a point x ∈ R3 to the
+          the proxy point χ̄ and need to adapt the gradients to compensate                     face f (Fig. 5(b)). In order to perform the query (21) efficiently we
+          for the change of curvature (see Fig. 3(b)). Intuitively, for                        use an axis-aligned bounding box (AABB) tree [26], which can
+          curved surfaces, the proxy and query point do not travel with                        be constructed before execution. The AABB tree allows query
+          the same speed. Consider again the local coordinates given by                        in O(log M ) time and thus enables us to use (21) in real-time
+          the principal directions P ∈ R2×3 used in (12). Then, the first                      applications also for large meshes. The construction time of the
+          fundamental form on a parallel surface at given distance d to S0                     tree is in the order of milliseconds to seconds for meshes with
+          in local principal coordinates is given by                                           up to a million triangles.
+                                                          
+                                 (1 − dκ1 )2        0                                             Given the closest triangle f̄ we compute the corresponding
+                          Ĩ =                               .         (17)                    closest point on it and take the proxy point χ̄ to be that point.
+                                     0         (1 − dκ2 )2
+                                                                                               We have taken the term proxy point from Kana et al. [16].
+            To include the influence of d into our Jacobian, we set                            They project the connection vector into the tangent space of
+                                                             
+                                                 2
+                     ∇T s1 (χ̄)     T (1 − dκ1 )        0                                      the surface at the proxy point and then describe its motion using
+            J sx =                P                               P . (18)                     first order dynamics. On the one hand this ensures a continuous
+                     ∇T s2 (χ̄)            0        (1 − dκ2 )2
+                                                                                               trajectory of the proxy point; on the other hand the additional
+            We calculate the total Jacobian J ρ (q) ∈ R6×n relating joint                      dynamics make the task forces depend not only on q, but also
+          velocities q̇ to velocities in the task coordinates ρ̇ via                           on their history: one cannot integrate the task forces to potential
+                              ρ̇ = J ρ (q)q̇ = J ρx (x)J x (q)q̇                      (19)     fields and there are no coordinates, such that their proxy point
+          and implement an impedance controller in ρ by                                        position is a function of q only. In contrast, we directly take the
+                                                                                               closest point query to obtain the proxy point: our coordinates
+                 τ = J Tρ (q) [K ρ (ρd − ρ(q)) + D ρ (q)(ρ̇d − ρ̇)] .                 (20)
+                                                                                               only depend on q, not on any dynamics. We ensure continuity
+                                                                                               by constraining the maximally allowed distance to rmin as before.
+          C. Discrete Differential Geometry                                                    In this region the map Ψ−1  d between parallel surfaces Sd and S0
+             Instead of using analytic methods to describe the target surface                  is one-to-one and continuous; it is implemented by the closest
+          S0 as in e.g. [7], [24], we use a discrete representation in terms of                point query.
+          a triangular mesh. Triangular meshes provide a flexible interface                       In discrete meshes many properties like the normals, curva-
+          to load surfaces into the controller and are generated e.g. by                       tures and later the parametrization s(χ) are only known on
+          CAD software, 3D scanning or computer vision approaches [25].                        the vertices. Therefore, we apply the principle of barycentric
+          Additionally, the discrete version can handle basically arbitrary                    interpolation. Given a point χ on the triangle we assign masses
+          surfaces including complicated topologies and sharp corners. In                      mi to the three vertices of the triangle such that i mi = 1.
+          contrast to the smooth setting, where a surface with sharp corners                   The barycenter of the triangle with the new vertex masses will
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+         DYCK et al.: IMPEDANCE CONTROL ON ARBITRARY SURFACES FOR ULTRASOUND SCANNING USING DISCRETE DIFFERENTIAL GEOMETRY                                          7743
+
+
+
+         be at χ. Suppose we have a scalar function u : S0 → R on
+         the surface, which we only know on the vertices. Using the
+         barycentric coordinates we can approximate u(χ) at any point
+         on the surface by (see Fig. 5(c))
+                                           3
+                                           
+                                u(χ) =           mi (χ)u(vi ).                    (22)
+                                           i=1
+
+             We use barycentric interpolation on the vertex normals to
+         obtain the normal at the proxy point n(χ̄(q)).
+             In order compute the Jacobian (9) also the principal curvatures
+         and principal curvature directions are required. We use quadric
+         fitting by Panozzo et al. [27] to estimate the principal curvatures
+         and their directions at every vertex and again use barycentric
+         interpolation to enable computing the them everywhere. The
+         principal curvatures and their directions are precomputed and
+         stored for every vertex.
+             Next we add the parametrization χ = Φ(s) for the discrete
+         mesh. Here we assume that the surface is of disk-topology, i.e.,
+         two-dimensional, with no holes and a single boundary. To our
+                                                                                           Fig. 6.   Experimental setup, silicone phantom and implementation.
+         advantage this is a well studied problem in the field of computer
+         graphics and various approaches are available. Sheffer et al. [28]
+         provide an overview on these techniques. We use the as-rigid-
+         as-possible (ARAP) parametrization by Liu et al. [29], which                      a cylinder and a spherical tip and a total length of 14 cm. We use
+         optimizes for isometry. We have shown the result obtained by                      MIRO’s built-in F/T-sensors (10 DoF) to estimate the interaction
+         this algorithm already in Fig. 4(a).                                              force on the tool tip.
+             The rationale behind using the ARAP parametrization be-                          We implemented our impedance controller (20) in MAT-
+                                                                                           LAB/Simulink, and designed a custom Simulink block in C++
+         comes clear when considering the telemanipulation case: using
+         a joystick or arrow-keys to command velocities in the parameter                   using the libigl library [31] for geometry processing, calculating
+         domain X , we desire that these velocities map to the same veloc-                 our task coordinates ρ(x) and Jacobian J ρx (x) (Fig. 6(c)).
+         ities on the surface. Additionally, isometry implies conformality,                This can be easily connected to a block computing the forward
+         i.e, arrow keys in orthogonal directions will also correspond to                  kinematics of any robot. We output the task coordinates and
+         right angles on the surface.                                                      Jacobian, which is multiplied to the geometric Jacobian of the
+             The output of the ARAP parametrization algorithm is a ma-                     robot to obtain J ρ as required by the impedance controller (20).
+         trix S ∈ RN ×2 , where the i-th row s(vi ) ∈ X represents the                     The target surface S0 is specified by a triangular mesh in terms
+         coordinates of the i-th vertex in the parametrization domain X .                  of an STL or Wavefront file.
+         Using barycentric interpolation we compute s(χ). Finally, the                        Our test surface consists of N = 13367 vertices and M =
+         gradients ∇sk are required, which we obtain calculating the                       26360 faces. It has a maximum curvature of κmax = 65.77 and
+         discrete gradient operator for the piecewise linear functions sk at               we set our allowed distance cautiously to dmax = 15 mm. For
+         each mesh vertex and again interpolating barycentrically. Now,                    this surface, the construction of the AABB tree takes tinit = 18
+         we have everything to implement the concept from the smooth                       ms. One cycle of querying the tree and computing all quantities
+         setting on the discrete mesh.                                                     required for ρ and J ρx takes tcall = 11.91 ms. We use our
+                                                                                           controller within a 3 kHz real-time control loop.
+                                                                                              The seven DoF robot is kinematically redundant under the
+                                    III. EXPERIMENTS                                       given choice task coordinates ρ(q) and has an inherent nullspace
+             We demonstrate our approach in our experimental setup with                    at the elbow joint. We control this nullspace and apply an
+         the seven degrees of freedom (DoF) robot arm DLR MIRO [30].                       additional joint spring in the seventh joint and project them by
+         It is equipped with torque sensors allowing to directly command                   a dynamically consistent nullspace projection [32].
+         the joint torques computed by our impedance controller (4) or                        We provide a video of all experiments in the multimedia mate-
+         (20) to the joint-level torque controllers. Fig. 6(a) shows our                   rial attached to the letter. Additionally, we perform experiments
+         experimental setup. To simulate soft tissue, we have cast a                       on teleoperation mode and hands-on guidance and show results
+         model of our target surface using Dragon SkinTM silicone with                     in the video.
+         Shore 10 A hardness (on the ASTM D-2240 scale) with a wall
+         thickness of approximately 1 cm and solid material underneath
+         (Fig. 6(b)). From that we can estimate the object stiffness kO and                A. Commanding a Trajectory in Our Task Coordinates
+         thus specify dd and control gain kd to realize intended passive                      For the first experiment, we command a desired trajectory in
+         interaction forces. Further, we take a dummy tool consisting of                   the surface coordinates s and d by defining a Lissajous curve
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+          7744                                                                                     IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 3, JULY 2022
+
+
+
+                                         TABLE I                                                                          TABLE II
+                         STIFFNESS PARAMETERS FOR THE EXPERIMENTS                                     MEAN AND STD OF INTERACTION FORCE IN SECTION III-B
+
+
+
+
+                                                                                            tool axis ẑ T . Overall we achieve a good tracking performance,
+                                                                                            with a root-mean-square error (RMSE) in the parametrization
+                                                                                            coordinates of RMSEs1 = 0.917 mm, RMSEs2 = 1.465 mm.
+                                                                                            Commanding a sine trajectory in the distance coordinate we
+                                                                                            show consistency of the parametrization coordinates s along all
+                                                                                            leaves of the foliation, and demonstrate the effect of controlling
+                                                                                            the tool at different distances to the surface. For sections where
+                                                                                            dd > 0 mm we achieve a RMSEd = 0.871 mm. As expected, for
+                                                                                            dd < 0 mm a discrepancy between actual and desired distance
+                                                                                            remains. As a result, the tool exerts forces onto the surface,
+                                                                                            whose magnitude depends on object and controller stiffnesses
+                                                                                            kO , kd , and the magnitude of dd < 0 mm. We demonstrate how
+                                                                                            controlling the distance can be used to realize passive interaction
+                                                                                            forces and, more importantly, continuously adjust these forces
+                                                                                            without the need of explicit force control. At the same time,
+                                                                                            our control method provides a straightforward way of limiting
+                                                                                            the penetration depth of the US tool into the tissue. The images
+                                                                                            of the Gauß map along the commanded and actual trajectories
+                                                                                            (n(sd ), n(s)) in Fig. 7(c) illustrate the high curvature of our test
+                                                                                            surface and the capability of our controller to accurately realize
+                                                                                            a tool orientation normal to the surface.
+
+                                                                                            B. Comparison of Contact Force Control Strategies
+                                                                                               We show three additional experiments, comparing different
+                                                                                            strategies for contact force control, which is of major impor-
+          Fig. 7.   Results of commanding a Lissajous trajectory in our task coordinates.   tance for US scanning. The stiffness parameters for all three
+                                                                                            experiments are listed in Table I.
+                                                                                               1) Cartesian Impedance Control With Feed-Forward Force:
+          (cmp. Fig. 4(a)) in s and a sine trajectory in d
+            ⎡          ⎤          ⎡            ⎤                                            For comparison to the state of the art we use classical 6D Carte-
+              s1,d (t)              sin(3ω0 t)                                              sian impedance control to move the robot along a pre-planned
+            ⎢          ⎥          ⎢            ⎥           −1
+            ⎣s2,d (t)⎦ = 45 mm ⎣sin(4ω0 t)⎦ for ω0 = 0.12 s . (23)                          trajectory on the surface. We use the same trajectory (23) in
+                                                                                            s and map each point on the Lissajous curve to 6D Cartesian
+               dd (t)               sin(4ω0 t)
+                                                                                            poses x ∈ SE(3). We set the stiffness in the z-coordinate to
+             Further, we command d = 0, i.e., the tool’s normal shall                      Kz = 0 N/m and add a feed-forward force term F d ∈ R6 with
+          follow the surface normal. We set the stiffness matrix K ρ                        z-component Fz,d = −2 N and zero elsewhere
+          to a diagonal matrix with the values given in Table I (row
+          III-A) and specify a damping ratio of ζ = 0.7. The selected                            τ = J Tx (q) [F d + K x (xd − x) + D x (ẋd − ẋ)] .                (24)
+          values rest on heuristic experimental examination and the known                      We show the results in the left column in Fig. 8. The upper
+          stiffness of our silicone object. Since we deploy an almost                       row shows the distance of the tool tip to the phantom surface,
+          isometric ARAP parametrization, we note that the units of the                     the lower figure depicts the measured external force at the end-
+          stiffnesses ks1 , ks2 will only be approximately N/m. We use the                  effector in z-direction. Mean and std of the interaction force
+          impedance control law (20) and achieve the results shown in                       Fz are given in Table II, which shows constant and accurate
+          Fig. 7. The evolutions of the three task coordinates s1 , s2 and                  interaction force overall. Observe that the tool is not constantly
+          d are shown in Fig. 7(a) together with the external force Fext                    in contact with the silicone surface. The high peak in the distance
+          in z-direction measured at the end-effector. Additionally, we                     plot at t ≈ 23 sec represents loss of contact and results in a
+          show the achieved and desired trajectory in the parametrization                   subsequent control input arising from the feed-forward force
+          domain in Fig. 7(b) and the resulting trajectory of the tool tip                  term F d , forcing the tool back onto the surface with an impact
+          on the surface. Finally, Fig. 7(c) presents the image of the Gauß                 (negative peak in measured force).
+          map, i.e., the path unit vectors trace out on the unit sphere, for                   2) Mesh Impedance Control With Feed-Forward Force: We
+          the desired normal n on sd and the actual orientation of the                      extend our controller (20) adding an additional feed-forward
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+         DYCK et al.: IMPEDANCE CONTROL ON ARBITRARY SURFACES FOR ULTRASOUND SCANNING USING DISCRETE DIFFERENTIAL GEOMETRY                                          7745
+
+
+
+
+         Fig. 8. Left column, experiment III-B1: Cartesian impedance control with feedforward force. The upper row shows the distance d in mm of the tool tip to the
+         surface of the silicon phantom, the lower figure depicts the measured external force Fext in N in z-direction. Middle column, experiment III-B2: Mesh impedance
+         control with feedforward force. Right column, experiment III-B3: Mesh impedance control with negative distance.
+
+         force term F d ∈ R6 as in (24) and control the tool to the same                   in the vicinity of a constant force, with a standard deviation of
+         Lissajous curve. We set the stiffness in the d-coordinate to                      0.498 N comparable to classical approaches with feed-forward
+         zero and command Fd,d = −2 N. The middle column in Fig. 8                         force control (Table II). Our proposed control method allows to
+         depicts the results. Again, overall the contact force of 2 N is                   continuously adjust the interaction force by simply adjusting
+         realized (see Table II); however, the tool clearly looses contact                 stiffness and set point of our impedance control. This is in
+         to the surface at t ≈ 7 sec, leading to a subsequent impact                       contrast to current methods deploying indirect, direct or hybrid
+         collision due to the feed-forward force control.                                  position/force control to achieve a desired interaction force [6],
+            3) Mesh Impedance Control With Negative Distance: Fi-                          [7], which inherently suffer from passivity and stability issues
+         nally, we use our presented impedance controller (20) and                         upon contact loss.
+         command a negative desired distance of dd = −10 mm, i.e., we                         Our choice of task coordinates form an integrable system,
+         control the tool onto the parallel surface S−10 mm . We select a                  which can be seen in the results of Section III-A and Fig. 7(a).
+         lower stiffness kd for the distance coordinate for this experiment                The parametrization coordinates s are valid on all leaves of the
+         (Table I) and follow the same Lissajous curve (23) (see Fig. 8,                   foliation and can be controlled independently from the distance
+         right column). In contrast to the previous force control strategies,              coordinate d. This is an immediate consequence of the foliation
+         we show that our control results in almost continuous contact                     structure of the parallel surfaces. This enables us to continuously
+         between tool and phantom. At the same time, the controller                        switch within the foliation, i.e. adjust the interaction force or
+         realizes an interaction force comparable to the two force control                 increase the distance to the surface, while using consistent
+         experiments (see Table II), without the issue of contact loss and                 parametrization coordinates s.
+         subsequent impact collision.                                                         Overall, our proposed control scheme is capable of continu-
+                                                                                           ous adjustment of the interaction force, and shows comparable
+                                                                                           performance to classical Cartesian impedance control with an
+                         IV. DISCUSSION AND CONCLUSIONS                                    additional feed-forward force when it comes to realization of
+            We presented a novel approach to impedance control on                          constant forces (Table II). We bypass some of the downsides
+         arbitrary surfaces, which can be used for robotic ultrasound                      inherent to force control, providing a novel way of contact force
+         applications. Our experiments show strong performance in                          control for robotic US scanning. The inherent passivity and
+         tracking of a complex Lissajous trajectory. We demonstrate our                    stability of our controller leads to deterministic and safe behavior
+         choice of task coordinates (3) allows controlling the robot along                 on contact loss and guarantees that no uncontrolled and unde-
+         complex surfaces including patches of high curvature, where                       sired impact onto the tissue surface occurs. Our task coordinates
+         the controller generates high velocities in the robot’s joints.                   allow to intuitively control the maximum penetration depth of
+         By quantifying the relationship between curvature and joint                       the US probe into the tissue, thus making it possible to limit
+         velocities, it may be possible to predict and limit situations                    tissue deformation during US scanning.
+         of high joint velocities to increase safety in medical scenarios.
+         There were no issues regarding real-time capabilities despite
+         using a complex surface with many faces. The AABB tree                            A. Future Work
+         structure helps to obtain fast queries. No discretization artefacts                  We will further evaluate our controller in more realistic
+         were apparent during the experiments. Barycentric interpolation                   clinically relevant settings for RUS, conducting more in-vitro
+         locally smoothens properties on the mesh. Thus, we can utilize                    experiments and consulting clinicians. From a technological
+         discretized representations of arbitrary surfaces, which clearly                  point of view, we would like to extent our controller by an
+         distinguishes us from previous work on impedance control on                       outer cascade, adjusting the impedance and its desired task
+         analytic surfaces, see e.g. [7].                                                  coordinates based on visual servoing to enhance the US image
+            Furthermore, our results prove the expected behavior when                      quality. Besides that, using a F/T-sensor at the tool could be
+         controlling the tool at a negative distance to the surface, i.e.                  utilized for stiffness estimation of the object at the current
+         when applying an interaction force to the surface. The right                      point of interaction, making it possible to locally update the
+         column in Fig. 8 depicts the evolution of the interaction force                   mesh structure representing the surface, and thus providing new
+         during tracking of the Lissajous trajectory. Overall, we see an                   means for dealing with deformable tissue. Additionally, we con-
+         interaction force between tool and silicone phantom which stays                   sider extending our method to also realize out-of-plane rotation
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+          7746                                                                                        IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 7, NO. 3, JULY 2022
+
+
+
+          around the transducer axis. Furthermore, we will investigate                         [15] H. Ochoa and R. Cortesão, “Impedance control architecture for robotic-
+          how the presented control can be extended to be applicable as                             assisted mold polishing based on human demonstration,” IEEE Trans. Ind.
+                                                                                                    Electron., vol. 69, no. 4, pp. 3822–3830, Apr. 2022.
+          prohibited zone virtual fixture in robotic surgery. Lastly, we plan                  [16] S. Kana, K.-P. Tee, and D. Campolo, “Human–robot co-manipulation
+          on enhancing our control methodology by considering solutions                             during surface tooling: A general framework based on impedance control,
+          for the in Fig. 2(a) introduced focal points of parallel surfaces,                        haptic rendering and discrete geometry,” Robot. Comput.- Integr. Manuf.,
+                                                                                                    vol. 67, 2021, Art. no. 102033.
+          and generalizing to arbitrary foliations.                                            [17] A. Albu-Schäffer, C. Ott, and G. Hirzinger, “A unified passivity-based
+                                                                                                    control framework for position, torque and impedance control of flexible
+                                             REFERENCES                                             joint robots,” Int. J. Robot. Res., vol. 26, no. 1, pp. 23–39, 2007.
+                                                                                               [18] A. Albu-Schäffer and A. Sachtler, “Quasi-orthogonal foliations of the
+           [1] K. K. Shung, “Diagnostic ultrasound: Past, present, and future,” J. Med.             configuration space: A redundancy resolution approach at position level,”
+               Biol. Eng., vol. 31, no. 6, pp. 371–374, 2011.                                       2022, arXiv:2202.09869. [Online]. Available: https://arxiv.org/abs/2202.
+           [2] W. A. Berg, J. D. Blume, J. B. Cormack, and E. B. Mendelson, “Op-                    09869
+               erator dependence of physician-performed whole-breast US: Lesion de-            [19] A. Albu-Schäffer, C. Ott, U. Frese, and G. Hirzinger, “Cartesian impedance
+               tection and characterization,” Radiol., vol. 241, no. 2, pp. 355–365,                control of redundant robots: Recent results with the DLR-light-weight-
+               2006.                                                                                arms,” in Proc. IEEE Int. Conf. Robot. Automat., 2003, pp. 3704–3709.
+           [3] K. Li, Y. Xu, and M. Meng, “An overview of systems and techniques for           [20] B. Siciliano, Differential Kinematics and Statics. London, U.K.:Springer,
+               autonomous robotic ultrasound acquisitions,” IEEE Trans. Med. Robot.                 2009, pp. 105–160.
+               Bionics, vol. 3, no. 2, pp. 510–524, May 2021.                                  [21] M. P. Do Carmo, Differential Geometry of Curves and Surfaces: Revised
+           [4] N. Hogan, “Impedance control: An approach to manipulation: Part I-                   and Updated, 2nd ed., New York, NY, USA: Dover, 2016.
+               theory; Part II-implementation; Part III-applications,” J. Dyn. Syst., Meas.    [22] T. Needham, Visual Differential Geometry and Forms: A. Mathemati-
+               Control, vol. 107, no. 1, pp. 1–24, 1985.                                            cal Drama in Five Acts. Princeton, NJ, USA: Princeton Univ. Press,
+           [5] L. Villani and J. De Schutter, “Force control,” in Springer Handbook of              2021.
+               Robotics. Berlin, Germany: Springer, 2016, pp. 195–220.                         [23] S. Rusinkiewicz, “Estimating curvatures and their derivatives on triangle
+           [6] M. H. Raibert and J. J. Craig, “Hybrid position/force control of manip-              meshes,” in Proc. 2nd Int. Symp. 3D Data Process., Visualization Trans-
+               ulators,” J. Dyn. Syst., Meas., Control, vol. 103, no. 2, pp. 126–133, 6             miss., 2004, pp. 486–493.
+               1981.                                                                           [24] T. Bahls, F. A. Fröhlich, A. Hellings, B. Deutschmann, and A. O. Albu-
+           [7] C. Schindlbeck and S. Haddadin, “Unified passivity-based Cartesian                   Schäffer, “Extending the capability of using a waterjet in surgical inter-
+               force/impedance control for rigid and flexible joint robots via task-energy          ventions by the use of robotics,” IEEE Trans. Biomed. Eng., vol. 64, no. 2,
+               tanks,” in Proc. IEEE Int. Conf. Robot. Automat., 2015, pp. 440–447.                 pp. 284–294, Feb. 2017.
+           [8] S. Virga et al., “Automatic force-compliant robotic ultrasound screening of     [25] M. Botsch, L. Kobbelt, M. Pauly, P. Alliez, and B. Lévy, Polygon Mesh
+               abdominal aortic aneurysms,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots             Processing. Boca Raton, FL, USA: CRC Press, 2010.
+               Syst., 2016, pp. 508–513.                                                       [26] G. van den Bergen, “Efficient collision detection of complex deformable
+           [9] Z. Jiang, M. Grimm, M. Zhou, Y. Hu, J. Esteban, and N. Navab, “Auto-                 models using AABB trees,” J. Graph. Tools, vol. 2, no. 4, pp. 1–13,
+               matic force-based probe positioning for precise robotic ultrasound acqui-            Jan. 1998.
+               sition,” IEEE Trans. Ind. Electron., vol. 68, no. 11, pp. 11 200–11 211,        [27] D. Panozzo, E. Puppo, and L. Rocca, “Efficient multi-scale curvature and
+               Nov. 2021.                                                                           crease estimation,” in Proc. Comput. Graph., Comput. Vis. Math., 2010,
+          [10] O. Zettinig et al., “3D ultrasound registration-based visual servoing for            pp. 9–16.
+               neurosurgical navigation,” Int. J. Comput. Assist. Radiol. Surg., vol. 12,      [28] A. Sheffer, E. Praun, and K. Rose, “Mesh parameterization methods and
+               no. 9, pp. 1607–1619, 2017.                                                          their applications,” Found. Trends Comput. Graph. Vis., vol. 2, no. 2,
+          [11] O. Khatib, “A unified approach for motion and force control of robot                 pp. 105–171, 2006.
+               manipulators: The operational space formulation,” IEEE J. Robot. Autom.,        [29] L. Liu, L. Zhang, Y. Xu, C. Gotsman, and S. J. Gortler, “A local/global
+               vol. 3, no. 1, pp. 43–53, Feb. 1987.                                                 approach to mesh parameterization,” Comput. Graph. Forum, vol. 27, no. 5,
+          [12] Q. Huang, J. Lan, and X. Li, “Robotic arm based automatic ultrasound                 2008, pp. 1495–1504.
+               scanning for three-dimensional imaging,” IEEE Trans. Ind. Informat.,            [30] U. Seibold, B. Kübler, T. Bahls, R. Haslinger, and F. Steidle, “The DLR
+               vol. 15, no. 2, pp. 1173–1182, Feb. 2019.                                            Mirosurge surgical robotic robotic demonstrator,” in The Encyclopedia of
+          [13] I. Bonilla et al., “A vision-based, impedance control strategy for industrial        Medical Robotics. Singapore: World Scientific, Aug. 2018, pp. 111–142.
+               robot manipulators,” in Proc. IEEE Int. Conf. Automat. Sci. Eng., 2010,         [31] A. Jacobson et al., “libigl: A simple C geometry processing library,” 2018.
+               pp. 216–221.                                                                         [Online]. Available: https://libigl.github.io/
+          [14] D. Song, T. Lee, and Y. J. Kim, “Artistic pen drawing on an arbitrary           [32] A. Dietrich, C. Ott, and A. Albu-Schäffer, “An overview of null space
+               surface using an impedance-controlled robot,” in Proc. IEEE Int. Conf.               projections for redundant, torque-controlled robots,” Int. J. Robot. Res.,
+               Robot. Automat., 2018, pp. 4085–4090.                                                vol. 34, no. 11, pp. 1385–1400, 2015.
+
+
+
+
+Authorized licensed use limited to: Nanjing University of Information Science and Technology. Downloaded on September 05,2026 at 12:27:38 UTC from IEEE Xplore. Restrictions apply.
+

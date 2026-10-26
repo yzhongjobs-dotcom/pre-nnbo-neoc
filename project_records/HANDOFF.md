@@ -1,6 +1,49 @@
 # Handoff: rapid impedance updates under environmental change
 
-Research status updated: 2026-10-22. Check the current user request and Git state first; historical plans are not today's instructions.
+Research status updated: 2026-10-26. Check the current user request and Git state first; historical plans are not today's instructions.
+
+**Latest literature-only checkpoint (2026-10-26): scope-first local omission audit; ARIS search pending user approval.**
+The user requested a careful definition of this project's related work, a check
+of `D:/桌面/科研Agent Harness设计/impedance-control-e2e/source-materials`, then
+an attempt to use `D:/桌面/科研Agent Harness设计/ARIS` for further search. The
+[scope analysis](../research/related_work_scope_and_coverage.md) uses original
+Jin/Li/Xue introductions and the existing reverse analysis. Related work is
+task-relevant contact force control, environmental identification and
+gain/reference adaptation, including alternative disturbance/vision/learning
+routes; generic optimization and pure reconstruction do not become direct priors.
+
+The pre-audit library had 87 unique PDFs and 90 usage records, not 65 core
+related-work papers. The field-state body linked 37 distinct local PDFs plus
+online-only sources. The source folder contains 145 PDF-named files, 141 with
+PDF signatures, 138 distinct valid-file hashes; 71 files matched retained hashes,
+70 did not. Unmatched hash does not mean an omitted scientific work. The
+[coverage records](../literature/related_work_coverage_sources.json) preserve
+file/version dispositions and the one scanned candidate without usable text.
+
+Four sources were selected, copied unchanged, and read at recorded passage
+scope: H01 Fu TIM2024 medical QP stiffness/energy-tank contact control; H02 Dyck
+RA-L2022 surface-impedance ultrasound/contact-loss comparison; H03 Duan
+arXiv:2203.02126v1 scoliosis scanning with QP and demonstration-derived gains;
+H04 Kronander/Billard T-RO2016 variable-impedance stability foundation. The
+Chinese field assessment and index were updated. Library: 91 unique PDFs,
+94 usage records. No new novelty verdict, controller change, training, or
+simulation was performed; C1 focus and C2 optimization deferral remain.
+
+ARIS `research-lit` was actually started through `python -m arisctl`, in an
+isolated working root to avoid installing its project layer over this repository.
+Run `c1-related-work-20261026`, root
+`D:/pip_env/temp/scan_impedance_literature_20261026/aris_run`. The validated
+[policy candidate](../literature/aris_source_policy_candidate.yaml) opened
+`source_policy_approval`; stage `WAITING_FOR_HUMAN`, approval request
+`dcbe5a27b0d64da992181180a98328e1`, canonical policy SHA256
+`b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`.
+The exact local skill explicitly forbids retrieval until the user approves that
+validated candidate; an asynchronous user question is pending. Zero provider
+queries have run. Do not call this a completed ARIS search, approve the gate on
+the user's behalf, or silently substitute ordinary hosted search. Once the user
+approves, resume the same Controller run and verify the current policy binding.
+DOSMAC/MHE-VIC full methods, joint-estimation citation chains and recent
+observer/predictive-admittance ultrasound leads remain material coverage gaps.
 
 **Current focus: C1 only; set C2 optimization aside.** The user asks for concrete
 differences from closest work and whether the three simulations suffice before
