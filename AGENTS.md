@@ -25,6 +25,9 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    actively transfer mature mechanisms where useful. For a substantially changed
    core question, explain grounded options for user selection; explore within
    the selected question proactively without repeated approval.
+   When entering a research stage, read only the matching file in
+   `project_records/research_workflow/` (linked from the stage table); load
+   reverse-analysis examples only when a specific case needs checking.
 4. Distinguish baseline, candidate changes and tested instances. Negative local
    results only change the supported layer; accumulated evidence may justify
    higher-level revision. Do not use locality to shield an idea indefinitely.
