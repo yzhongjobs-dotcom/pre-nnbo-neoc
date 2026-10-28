@@ -63,12 +63,9 @@ changes plainly, without making the user read inventory dumps.
 
 ## Working conventions
 
-Use English for user-facing responses and new technical documentation.
-When editing existing documents, preserve their current language.
 Do not translate existing material unless explicitly requested.
 Preserve scientific meaning, equations, values, assumptions, references and
 evidence boundaries. Keep original sources, extracted texts, raw data,
 historical identifiers and the frozen snapshot unchanged.
-Use English for new working paths. Maintain one working language version per
-document. Explain actions, methods and results clearly and concisely.
+Explain actions, methods and results clearly and concisely.
 On Windows, use `python -X utf8`.

@@ -6,7 +6,7 @@ Updated 2026-10-26. This file records the current state and what the project doe
 
 - Read this file, then the relevant parts of [long-term requirements](long_term_requirements.md). When entering a research stage, read only the matching file in [research_workflow](research_workflow/). Check [failure review](research_failures_and_corrections.md) before repeating a judgment that failed before.
 - Standing user preferences:
-  - Reply in Chinese, with concrete numbers, tables and conclusions in the chat, not only file links.
+  - Report concrete numbers, tables and conclusions in the chat, not only file links.
   - State the quota cost before any large run; do not auto-resume large work.
   - No further simple-controller tuning or scenario expansion.
   - The best-tuned fixed impedance is not a main baseline; fixed impedance uses the method's own lower/upper bounds.
