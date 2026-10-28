@@ -1,6 +1,6 @@
 # Handoff: rapid impedance updates under environmental change
 
-Updated 2026-10-26. This file records the current state and what the project does next. The latest user request overrides it. Earlier checkpoint narratives were removed; recover them with `git show b7a3f91:project_records/HANDOFF.md`.
+Updated 2026-10-28. This file records the current state and what the project does next. The latest user request overrides it. Earlier checkpoint narratives were removed; recover them with `git show b7a3f91:project_records/HANDOFF.md`.
 
 ## 1. Start here
 
@@ -84,7 +84,7 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
    - the DOB plus model-predictive admittance ultrasound lead (CEP 2026);
    - joint-estimation citation chains.
 
-   ARIS search is deferred by the user (see section 6).
+   ARIS first metadata batch has run after user resumption; unresolved screening and native-runtime conditions prevent formal reading (see section 6). This literature-only checkpoint does not start any comparison run or simulation.
 8. **Update** the paper overview and the simulation section after items 1–5.
 
 **Open user decisions:**
@@ -112,10 +112,15 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 
 - Preserve `00_基线快照_2026-10-14/` byte for byte. File check: `python -X utf8 literature/verify_materials.py`.
 - Early B0 and 2D experiment directories, plus superseded drafts, were removed from the working tree on 2026-10-26. Recover them from Git `b7a3f91`. Their lessons are in the experiment index and the failure review.
-- **ARIS (deferred):**
+- **ARIS (resumed, metadata checkpoint):**
   - run `c1-related-work-20261026`, root `D:/pip_env/temp/scan_impedance_literature_20261026/aris_run`;
-  - stage `WAITING_FOR_HUMAN`, approval request `dcbe5a27b0d64da992181180a98328e1`;
-  - policy [candidate](../literature/aris_source_policy_candidate.yaml) SHA256 `b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`.
+  - user resumed the bounded literature task on 2026-10-28; Controller recorded approval of the same validated [policy](../literature/aris_source_policy_candidate.yaml), canonical SHA256 `b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`;
+  - stage `METADATA_RETRIEVAL`: ten query attempts, seven completed / three no-result adapter failures; 92 returned rows, 87 candidates; 85 formal decisions, two unresolved identities;
+  - [query plan](../literature/aris_query_plan.json), [search/screening data](../literature/aris_literature_search.json), [scope and leads](../research/related_work_scope_and_coverage.md);
+  - 26 actual abstracts inspected; 45 obvious mismatches screened by title; 14 verified identities lack abstracts. 54 other-task/excluded records stay outside core related work. E32/E57 are reused identities; no new PDFs or accepted Evidence Cards;
+  - `finish-retrieval` rejected closure for `gMWRiNK4FNIJ` and `0lAQg2LGLs8J`. Both remain unresolved after metadata rechecks; do not mark them unrelated just to close the stage;
+  - two other records have Scholar2026 / metadata2027 year conflicts; no within-cutoff capability is attributed before earliest-publication checks;
+  - active Codex task root differs from the formal run root. Before native readers, use the formal project root and follow its `AGENTS.md` requirement for explicit Hook trust. Do not bypass attestation, dispatch nested CLI readers or manufacture accepted Evidence;
+  - no initial reading subset or Field Map yet. Resolve screening/runtime conditions, reuse complementary local reviews/originals, then follow Controller reading and targeted/citation expansion. DOSMAC, MHE-VIC and DOB-MPC ultrasound gaps remain. The first batch is not saturation and does not reopen idea generation, C2, controller tuning or publication-readiness adjudication.
 
-  Zero provider queries have run. Resume the same run only after the user approves that policy; never approve it on the user's behalf or substitute another search silently.
 - After each completed checkpoint, run `python -X utf8 scripts/research_sync.py --message "research: ..."`. Never force-push.
