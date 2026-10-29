@@ -1,0 +1,1015 @@
+Autonomous Robots (2021) 45:371–388
+https://doi.org/10.1007/s10514-021-09970-z
+
+
+
+
+Sensorless environment stiffness and interaction force estimation for
+impedance control tuning in robotized interaction tasks
+Loris Roveda1        · Dario Piga1
+
+Received: 23 April 2020 / Accepted: 7 November 2020 / Published online: 6 March 2021
+© The Author(s) 2021
+
+
+Abstract
+Industrial robots are increasingly used to perform tasks requiring an interaction with the surrounding environment (e.g.,
+assembly tasks). Such environments are usually (partially) unknown to the robot, requiring the implemented controllers to
+suitably react to the established interaction. Standard controllers require force/torque measurements to close the loop. However,
+most of the industrial manipulators do not have embedded force/torque sensor(s) and such integration results in additional
+costs and implementation effort. To extend the use of compliant controllers to sensorless interaction control, a model-based
+methodology is presented in this paper. Relying on sensorless Cartesian impedance control, two Extended Kalman Filters
+(EKF) are proposed: an EKF for interaction force estimation and an EKF for environment stiffness estimation. Exploiting
+such estimations, a control architecture is proposed to implement a sensorless force loop (exploiting the provided estimated
+force) with adaptive Cartesian impedance control and coupling dynamics compensation (exploiting the provided estimated
+environment stiffness). The described approach has been validated in both simulations and experiments. A Franka EMIKA
+panda robot has been used. A probing task involving different materials (i.e., with different - unknown - stiffness properties)
+has been considered to show the capabilities of the developed EKFs (able to converge with limited errors) and control tuning
+(preserving stability). Additionally, a polishing-like task and an assembly task have been implemented to show the achieved
+performance of the proposed methodology.
+
+Keywords Sensorless force control · environment stiffness estimation · interaction force estimation · Extended Kalman
+Filter · impedance control · industrial robots.
+
+
+1 Introduction                                                              the robot to learn/adapt its behavior on the basis of the oper-
+                                                                            ating conditions (Dattaprasad and Rao 2018). Considering
+1.1 Context                                                                 the manufacturing context, robots have to provide a flexible
+                                                                            solution, adapting to new tasks/production, while guarantee-
+Robots are increasingly involved in daily life activities, pro-             ing target performance (Polverini et al. 2016a; Mohamed
+viding assistance in many domains (Ben-Ari and Mondada                      2018). Considering interaction tasks (i.e., robot exchang-
+2018; Yang et al. 2018). Robots are no longer used to                       ing forces/torques with the environment), the capability to
+only execute repetitive simple task thousands of times, but                 adapt to new scenarios becomes even more critical (Hogan
+rather they have to face thousands of different tasks in an                 1984). To avoid any unwanted/unstable behavior, the interac-
+ever-changing environment. It will be, therefore, difficult to              tion force has to be controlled (Vukobratovic 2010; Roveda
+pre-program all the possible tasks and scenarios, requiring                 et al. 2016). Common interaction control strategies, however,
+                                                                            make use of expensive sensors (Roveda et al. 2018a; Roveda
+B Loris Roveda                                                              2018; Polverini et al. 2019), increasing the hardware costs
+    loris.roveda@idsia.ch
+                                                                            and the setup time. To avoid the use of such devices having
+    Dario Piga                                                              the robot able to adapt to uncertain interaction, many works
+    dario.piga@supsi.ch
+                                                                            are investigating external wrench estimation algorithms and
+1   Istituto Dalle Molle di studi sull’Intelligenza Artificiale             sensorless control methodologies.
+    (IDSIA), Scuola Universitaria Professionale della Svizzera
+    Italiana (SUPSI), Università della Svizzera Italiana (USI),
+    6928 Manno, Switzerland
+
+
+                                                                                                                                123
+372                                                                                           Autonomous Robots (2021) 45:371–388
+
+
+1.2 Related works                                                 computation of the inverse of the robot mass matrix that
+                                                                  amplify measurements noise. Model uncertainties are com-
+Being able to achieve a stable interaction between sensor-        pensated adopting a radial basis neural networks approach.
+less industrial robots and the environment is taking many         Actuation saturation is also considered in order to prop-
+attentions from the research community. On the one hand,          erly manage the control inputs. Some state of the art works
+force-sensorless methodologies to estimate the interaction        structure the identification as an optimization problem. In
+between the robot and its environment have been proposed.         Van Damme et al. (2011) the filtered dynamic equations are
+Such research area is strongly connected with the main aim        combined with a recursive least-square estimation algorithm
+of this paper, since the proper estimation of the established     to provide a smooth external force estimation. The described
+interaction between the robot and its environment is required     methodology is compared with a generalized momentum-
+in order to design a stable and high-performance interaction      based disturbance observer. Simulation and experimental
+controller for a sensorless robot. Developed methodologies        results highlighted a strong connections between the two
+relying on robot dynamic identification (Janot et al. 2013)       approaches. In Linderoth et al. (2013) a convex optimiza-
+have been addressed, aiming at deriving an accurate robot         tion problem is solved in real time to estimate the interaction
+dynamical model. Such a computed high-accuracy model              force accounting for velocity-dependent uncertainties of the
+can then be exploited in order to estimate the external           Coulomb friction modeling. In fact, while Coulomb friction
+forces/torques applied on the robot during task execution.        can be well-modeled when a joint is moving, huge uncer-
+Some of the state of the art contributions exploit disturbance    tainties are shown for velocities close to zero. Some state
+observers to perform the identification. Such approaches          of the art methodologies exploit the definition of virtual
+make use of the inverse of the identified robot model to          sensors based on high-performance dynamic model cali-
+observe the disturbance (i.e., the external wrench) applied to    bration. In Villagrossi et al. (2018) a virtual force sensor
+the manipulator. In Chen et al. (2000) a nonlinear disturbance    to estimate the interaction force is proposed by exploit-
+observer is proposed to estimate the external interaction. Tak-   ing a task-oriented robot dynamic model calibration. The
+ing into account the physical parameters and constraints (e.g.,   proposed robot dynamics includes also a thermal friction
+maximum joint velocities) of the robot, the method is capa-       model for the robot joints. The robot dynamics is calibrated
+ble to guarantee the stability of the disturbance observer by     making use of exciting trajectories composed by suitable
+properly tune its design parameters. In addition, the described   paths generated by a genetic-based two-stage optimization.
+nonlinear disturbance observer allowed for the first time         Such a dynamic model is then used to estimate the exter-
+the possibility to include in its design nonlinear systems        nal joint torques as a difference between measured motor
+(such as robot manipulators). In Colomé et al. (2013) a           torques and modelled torques (i.e., residual method). Other
+task-oriented dynamics model learning and a robust distur-        methodologies have been developed in order to map the inter-
+bance state observer are proposed to estimate the external        action between the robot and the environment on the basis
+interaction. Making use of a learning-based approach, the         of Artificial Intelligence approaches, exploiting such learned
+proposed methodology was able to avoid to analytically            dynamics in the controller. In Sharifi et al. (2015) a robot
+model the robot dynamics terms (such as joints’ friction          position controller is implemented by exploiting the inter-
+or Coriolis effects), resulting in a general and easy imple-      action force estimation between the robotic tool and a soft
+mentable approach. In Hu and Xiong (2017) a parametric            tissue. A Lyapunov time-varying equation is proposed for
+robot dynamics modeling based on rigid-body dynamics              the design of the force observer. In addition, the assumption
+(RBD) is combined with a non-parametric compensator               of modeling the interaction environment as a visco-elastic
+trained with multilayer perception (MLP) to eliminate errors      system is considered, since it has a great impact on the effec-
+resulting from the former modeling. Exploiting such a two-        tiveness of the force-control strategy when working with soft
+layer modeling, a high-accuracy robot dynamics description        tissues. In Dong et al. (2020) an online sparse Gaussian pro-
+is obtained, achieving better model accuracy than either the      cess regression (OSGPR) approach is proposed to estimate
+RBD model or the MLP model itself. Such a modeled dynam-          the interaction forces between the slave manipulator and its
+ics is then exploited in a disturbance Kalman filter based        surrounding environment for a bilateral tele-operation sys-
+on a time-invariant composite robot model to perform the          tem. The proposed observer is completely independent of
+interaction force estimation, providing robust and accurate       the dynamic model of the slave manipulator. After offline
+estimation against uncertainty. In Peng et al. (2020) a sen-      training exploiting historical dataset, a generalized regres-
+sorless admittance control scheme exploiting a disturbance        sion model is obtained with OSGPR. The proposed observer
+observer based on generalized momentum to model a linear          can be finally carried out in real time to estimate the inter-
+environment dynamics is proposed for sensorless interaction       action forces. The main feature of the described work is
+applications. The generalized momentum modeling allows            that the proposed approach avoid the use of the inverse of
+to avoid the use of acceleration-level measurements and the       Jacobian transpose. Some approaches make use of external
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                             373
+
+
+sensors in order to acquire more data to be processed for          dynamics is presented. A radial basis function (RBF) neural
+interaction force estimation purposes. In Magrini et al. (2014)    network is derived in order to compensate for the unmod-
+external contacts between the robot and the environment are        eled/unknown robot dynamics. The main limitations of the
+detected using a depth camera, while determining in paral-         described paper are related to the fact that only simulation
+lel the external joint torques using the residual method. The      results are given. In Phuong et al. (2018) a force estima-
+combination of such exteroceptive sensing and model-based          tion approach is proposed. On the basis of a dither periodic
+techniques is proven, under suitable conditions, to provide        component elimination Kalman filter and on a disturbance
+a reliable estimation of the current exchanged force at the        observer, the estimation of the interaction force is provided.
+contact point. The described algorithm is also capable to          Exploiting such an interaction force estimation, a fine sensor-
+manage a multiple contacts scenario. In Mendizabal et al.          less force control system under the existence of static friction
+(2019) a Neural Network approach to classify force ranges          is proposed. The main limitation of the proposed approach is
+from optical coherence tomography (OCT) images is pro-             related to the fact that a simple 1 DoF system has been consid-
+posed. To avoid the need for large real data sets, the network     ered for experimental evaluation. In Nakamura et al. (2018)
+is trained on images of simulated deformed sclera. This sim-       a notch-type friction-free disturbance observer (DOB) and
+ulation is based on a finite element method, and the model is      a notch-type friction-free reaction force observer (FFRFO)
+parameterized using a Bayesian filter applied to observations      are proposed to implement a fine sensorless force controller.
+of the deformation in OCT images. In Marban et al. (2019)          The proposed approach allows to take into account the static
+visual feedback is exploited for observing soft-tissues’ defor-    friction phenomena, stabilizing the proposed controller. The
+mation. A force estimation model based on Convolutional            main limitation of the proposed approach is related to the
+Neural Networks and Long-Short Term Memory networks is             fact that a simple 1 DoF system has been considered for
+proposed. The proposed model is designed to process both the       experimental evaluation. While all these contribution allow
+spatio-temporal information included in a video sequences          to control the interaction between the sensorless robot and the
+and the temporal structure of tool data.                           environment, none of them is capable to provide an estimate
+    On the other hand, sensorless methodologies to control         of the environment properties. It is, therefore, not possible
+the interaction have been proposed. Such research area is          to tune the control parameters w.r.t. the interaction dynamics
+strongly connected with the main aim of this paper, since the      properties, useful approach to guarantee stability and control
+herein main goal is to make a sensorless robot able to interact    performance.
+with an (unknown) environment while achieving high force-              Considering model-based approaches, state of the art
+tracking performance. In Alonge et al. (2010) an adaptive          methods allow to estimate and control the interaction
+force-position controller to track a target force without its      between the robot and the environment only making use of
+measurements has been proposed based on Lyapunov tech-             the robot dynamical model, without modeling and estimating
+niques. A pure elastic model is considered in the contribution     the environment dynamics. Such modeling and estimation,
+in order to describe the environment dynamics. The main lim-       however, is of great importance to design the interaction
+itation of the here described approach is the fact that a linear   controller to avoid instabilities and to achieve required per-
+interaction environment is considered, together with the fact      formance (Hogan 1988; Roveda et al. 2018b). From the state-
+that only simulation results (considering a simple 2 degrees       of-the-art review, the only sensorless approach estimating
+of freedom - DoFs - robot) have been provided. In Huang            the environment compliance can be found in Dehghan et al.
+et al. (2013) a nonlinear matrix mapping function between          (2015). This contribution proposes an adaptive force/position
+each joint motor control input and end-effector actuating          controller exploiting a position-based force estimator and
+force/torques vector is achieved, exploiting such a mapping        a force-based environment compliance estimator. However,
+into a model-free fuzzy sliding mode control for interac-          the convergence of the method is guaranteed only in the pres-
+tion control. The main limitation of the proposed approach         ence of a persistent excitation (i.e., a constant reference force
+is the fact that the computation of such a nonlinear matrix        cannot be applied - as required by the most of the indus-
+mapping function relies on a time-consuming manual and             trial tasks). Therefore, the presented paper aims to extend the
+ad hoc experimental procedure, requiring to positioning and        sensorless force control literature proposing the estimation
+actuate the manipulator in many operating configurations.          of both the interaction force and the environment stiffness
+In Polverini et al. (2016b) sensorless admittance control is       without any use of persistent excitation. While the interac-
+implemented to perform an insertion task. A real-time trajec-      tion force estimation will be used in order to close the force
+tory generator, exploiting a model-based sensorless observer       loop, the environment stiffness estimation will be used to
+of the interaction forces is proposed to perform the assem-        compensate for coupled interaction dynamics and to tune the
+bly. In Zhou et al. (2017) a force/position decentralized          control parameters, guaranteeing the stability of the interac-
+robust control problem for constrained reconfigurable manip-       tion.
+ulator system with parameter perturbation and unmodeled
+
+
+                                                                                                                         123
+374                                                                                                     Autonomous Robots (2021) 45:371–388
+
+
+                                                                            EMIKA panda robot has been used (Figure 1). A prob-
+                                                                            ing task involving different materials (i.e., with different -
+                                                                            unknown - stiffness properties) has been considered to show
+                                                                            the capabilities of the developed EKFs and of the proposed
+                                                                            sensorless force controller. In addition, a polishing-like task
+                                                                            and an assembly task of a gear into its shaft have been tested
+                                                                            exploiting the estimation of the interaction force.
+
+                                                                            1.4 Paper outline
+
+                                                                            The paper is structured as follows. Section 2 provides the pro-
+                                                                            posed control framework overview. Section 3 describes the
+                                                                            implemented sensorless Cartesian impedance controller with
+                                                                            redundancy management. Section 4 describes the derivation
+                                                                            of the proposed Extended Kalman Filter for sensorless inter-
+                                                                            action force estimation. Section 5 describes the derivation of
+                                                                            the Extended Kalman Filter for the (unknown) environment
+                                                                            stiffness estimation. Section 6 describes the control tuning
+                                                                            on the basis of the performed environment stiffness estima-
+                                                                            tion. Section 7 provides both simulation and experimental
+                                                                            results. Section 8 shows advanced applications exploiting
+                                                                            the interaction force estimation (i.e., a polishing-like task
+                                                                            and an assembly task of a gear into its shaft). Conclusions
+                                                                            and directions for future works are given in Section 9.
+
+
+Fig. 1 Experimental set-up including the Franka EMIKA panda manip-
+ulator for the target probing task execution. The interaction environment
+                                                                            2 Methodology
+with unknown stiffness Ke is highlighted
+                                                                            The main objective of the proposed contribution is the def-
+                                                                            inition of a sensorless force control framework allowing to
+1.3 Paper contribution                                                      estimate both the interaction force and the environment stiff-
+                                                                            ness. Two EKFs are proposed to achieve the proposed goal.
+Extending the work in Roveda et al. (2013) to sensorless                    While an EKF is designed to estimate the interaction force,
+robotic applications (i.e., modifying the proposed EKF for                  another EKF is designed to estimate the environment stiff-
+the environment stiffness estimation to sensorless applica-                 ness. The former EKF estimation of the interaction force
+tions), the proposed contribution aims to design a model-                   is used to enable the estimation of the environment stiff-
+based methodology to estimate both the interaction force and                ness as soon as the contact with the environment is detected,
+the environment stiffness for sensorless robotized interaction              and to close the force loop. The latter EKF environment
+tasks. To this end, relying on sensorless Cartesian impedance               stiffness estimation is instead used to compensate for the cou-
+control, two Extended Kalman Filters (EKF) are designed.                    pling terms in the controlled robot dynamics and to tune the
+On the one hand, an EKF is proposed in order to estimate the                impedance control parameters, ensuring stability. The pro-
+interaction force. On the other hand, an EKF is proposed in                 posed control architecture is shown in Figure 2, highlighting
+order to estimate the environment stiffness. The force esti-                the proposed EKFs and the control schema.
+mation provided by the former EKF is used to detect the no
+contact/contact transitions (to activate the latter EKF for envi-
+ronment stiffness estimation) and to close the force loop. The              3 Robot control
+latter EKF is used to compensate for the coupling terms in the
+controlled robot dynamics and to tune the impedance control                 3.1 Sensorless Cartesian impedance control
+parameters, ensuring stability. Both the proposed EKFs take
+into account the non-linear coupled robot dynamics resulting                To design the proposed sensorless Extended Kalman Filter
+from the sensorless Cartesian impedance controller, together                for the estimation of the environment stiffness, the sensorless
+with the environment dynamics. The described approach has                   Cartesian impedance controller has to be implemented. The
+been validated in simulations and experiments. A Franka                     following manipulator dynamics is considered (Siciliano and
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                           375
+
+Fig. 2 Proposed control schema
+highlighting the two
+implemented EKFs, the
+sensorless Cartesian impedance
+control and the force loop
+
+
+
+
+Villani 2000):                                                     rotational part of the sensorless Cartesian:
+                                                                                                       
+B(q)q̈ + C(q, q̇) + g(q) + τ f (q̇) = τ − J(q)T hext ,      (1)    ω̇cd = T(ϕcd ) Mr−1 −Dr ϕ̇cd − Kr ϕcd
+                                                                          +Ṫ(ϕcd )ϕ̇cd ,                                     (4)
+where B(q) is the inertia matrix, C(q, q̇) is the Coriolis vec-
+tor (i.e., embedding in the C(q, q̇) term the multiplication
+                                                                   where matrix T(ϕcd ) defines the transformation from Euler
+between the Coriolis matrix and the joint velocity vector q̇),
+                                                                   angles derivatives to angular velocities ωcd = T( ϕcd )ϕ̇cd ,
+g(q) is the gravitational vector, τ f (q̇) is the joint friction
+                                                                   and ω = Ree ωcd (with Ree the rotation matrix from the
+vector, q is the joint position vector, J(q) is the Jacobian
+                                                                   robot base to its end-effector) (Siciliano and Villani 2000).
+matrix, and hext is the external force/torque vector, τ is the                     r = (Ree T(ϕcd ))−1 Mr and 
+                                                                   By defining M                                  Dr = Dr −
+joint torque vector. Based on (1), it is possible to design         r Ree Ṫ(ϕcd ), (4) can be written as:
+                                                                   M
+the sensorless Cartesian impedance controller with dynam-
+ics compensation (Siciliano and Villani 2000), defining the                                   
+                                                                         r−1 −
+                                                                   ω̇ = M      Dr ϕ̇cd − Kr ϕcd .                             (5)
+joint torque vector τ as:
+                                                                   The formulation resulting from (5), (4), and (3) can be written
+τ = B(q)γ + C(q, q̇) + g(q) + τ f (q̇),                     (2)    in a compact form as follows:
+
+where γ is the sensorless Cartesian impedance control law.         ẍimp = −M−1 (D ẋ + K x) ,                               (6)
+Cartesian impedance control rotations are described consid-
+ering the set of Euler angles ϕcd extracted from Rcd = RdT Rc ,    where the target acceleration computed by the sensorless
+describing the mutual orientation between the compliant            Cartesian impedance control is ẍimp = [ẍt ; ẍr ] = [p̈; ω̇].
+frame Rc (at the end-effector) and the target frame Rd . Trasla-   M = [Mt 0; 0 M    r ], D = [Dt 0; 0 Dr ], K = [Kt 0; 0 Kr ]
+tional p̈ and rotational ϕ̈cd accelerations of the sensorless      are the sensorless Cartesian impedance mass, damping and
+Cartesian impedance controller γ can be written as:                stiffness matrices composed by both the traslational and rota-
+                                                                   tional parts, and x = x − xd = [p; ϕcd ]. x is the current
+   p̈ = Mt−1 (−D t ṗ − Kt p) ,                                   robot end-effector pose vector including both traslational and
+                                                          (3)
+                                                                   rotational components, while xd is the reference robot end-
+ϕ̈cd = Mr−1 −Dr ϕ̇cd − Kr ϕcd .
+                                                                   effector pose vector including both traslational and rotational
+Considering the traslational part of the sensorless Cartesian      components. The sensorless Cartesian impedance control
+impedance control, Mt is the mass matrix, Dt is the damp-          law γ can then be written as follows:
+ing matrix, and Kt is the stiffness matrix. p is the actual                                      
+Cartesian positions vector, while p = p − pd , where pd is        γ = J(q)−1 ẍimp − J̇(q, q̇)q̇ .                            (7)
+the target position vector. Concerning the rotational part of
+the sensorless Cartesian impedance control, Mr is the inertia      In general, matrix J(q)−1 can be substituted with the pseudo-
+matrix, Dr is the damping matrix, Kr is the stiffness matrix.      inverse of the Jacobian matrix J(q)# (Chang and Lee
+Angular accelerations ω̇cd can be computed considering the         1988). Substituting (2) in (1), under the hypothesis that the
+
+
+                                                                                                                       123
+376                                                                                                Autonomous Robots (2021) 45:371–388
+
+
+manipulator dynamics is known (such identification can be
+performed with state-of-the-art techniques (Pedrocchi et al.
+2013)), the controlled robot dynamics results in:
+
+q̈ = γ − B(q)−1 J(q)T hext ,                               (8)
+
+where hext = [f, TT (ϕcd ) μd ] (considering the external
+forces f and torques μd - referred to the target frame Rd
+- acting on the robot related to the interaction with the envi-
+ronment). Substitution of (7) into (8) leads to:
+
+J(q)q̈ + J̇(q, q̇)q̇ = ẍ
+                    = ẍimp − J(q)B(q)−1 J(q)T hext ,      (9)
+
+having ẍ = J(q)q̈ + J̇(q, q̇)q̇ the resulting Cartesian accel-
+eration of the robot end-effector resulting from the imple-
+mentation of the proposed sensorless Cartesian impedance          Fig. 3 Cartesian impedance control is shown for the robot in interaction
+controller. Finally, substituting (6) into (9), the controlled    with the environment, highlighting the impedance control matrices M,
+                                                                  D, K, the external wrench hext , and the base (Ob ), the compliant (Oc ),
+robot dynamics resulting from the design of the sensorless        and the target (Od ) reference frames
+Cartesian impedance control is described by the following
+equation:                                                                         
+                                                                   I − J(q)# J(q) is the null-space projection matrix. The term
+Mẍ + Dẋ + Kx = −L(q)hext ,                             (10)    −Dn q̇ allows to damp the null-space motion. The control law
+                                                                  (2) is, therefore, modified as follows:
+where L(q) = MJ(q)B(q)−1 J(q)T . The resulting dynamic
+equation is therefore coupled in the Cartesian degrees of free-   τ = B(q)γ + C(q, q̇) + g(q) + τ f (q̇) + τ R .                     (12)
+dom (DoFs) by the matrix L(q).
+  The proposed sensorless Cartesian impedance control is
+                                                                  The control torque τ R acts in the null-space of the manip-
+depicted in Figure 3.
+                                                                  ulator, i.e., not affecting the Cartesian motion of the robot.
+Remark 1 The sensorless Cartesian impedance control is            Indeed, the Cartesian controlled robot behavior in 10 is not
+therefore resulting in a coupled controlled robot dynamics.       affected by this term.
+Matrix L(q) redistributes interaction forces along all the
+Cartesian DoFs. While the decoupled robot behavior can-
+not be achieved implementing such controller, the sensorless      4 Sensorless extended Kalman Filter for
+Cartesian impedance control strategy allows to implement a          interaction forces estimation
+tunable compliant robot behavior, ensuring a safe and stable
+interaction with the target environment.                          The aim of this Section is to propose a sensorless model-
+                                                                  based methodology to estimate the interaction force between
+3.2 Redundancy management                                         the robot and the environment along traslational directions.
+                                                                  Therefore, in the following Extended Kalman Filter (EKF)
+The Franka EMIKA panda manipulator has been used as               design, only the traslational Cartesian DoFs will be consid-
+a test platform for experimental validation. Such a robot is      ered. Such estimation of the interaction force will be used
+redundant, requiring to manage its null-space configuration       to:
+while performing the main task. In this paper, a pure damping
+behavior is proposed for the null-space configuration control,     – detect no contact/contact transitions to enable the esti-
+aiming to damp the null-space motion:                                mation of the environment stiffness;
+                                                               – close the force loop to control the interaction between the
+τ R = B(q)     I − J(q)# J(q) (−Dn q̇) ,                  (11)       robot and the environment;
+                                                                   – possibly implement contact-motion tasks (e.g., polishing
+where τ R is the null-space control torque, I is the identity        tasks), controlling the interaction force (i.e., the normal
+matrix, J(q)# is the pseudo-inverse of the Jacobian matrix,          force w.r.t. the contact surface) while moving on the target
+and Dn is the null-space damping diagonal matrix. The term           surface. In such a way, the estimation of the friction forces
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                             377
+
+
+    (i.e., the tangential forces along sliding directions) is also   are based on the dynamics of the state and the model uncer-
+    performed.                                                       tainties. Matrices Aa and Ga are defined respectively as:
+
+   Exploiting the coupled robot-environment dynamic equa-                    ∂f                              ∂f
+                                                                     Aa =          ;                 Ga =           .          (20)
+tion (10), it is possible to design the EKF to be used for the              ∂xa xa                           ∂νa xa
+estimation of the interaction force f.
+   The robot-environment interaction dynamics can be defined         Matrix Q, used for the estimation of the parameters, is defined
+by the following filter state xa composed by the robot veloc-        as:
+ity ẋt and position xt states (along traslational directions),
+and augmented with the interaction force f:                          Q = Ga E{νa νaT }GaT = Ga VGaT .                          (21)
+
+xa = [ẋt , xt , f]T .                                       (13)
+                                                              It has to be underlined that in the filter dynamics (14) the
+                                                              matrix L(q) appears as a function of the joint position q.
+Substituting the augmented state xa (13) in the interaction   Analyzing the definition of L(q), the joint position depen-
+dynamics model (10), the filter dynamics results in:          dence is due to the matrices J(q) and B(q). It has to be
+            ⎡ ⎤                                               noted that, when the robot is in interaction with an environ-
+              ẍt                                             ment while executing a task (e.g., an assembly task), its joint
+f(xa , ν) = ⎣ẋt ⎦                                            configuration is not excessively modifying, or at least such
+               ḟ                                             modification is happening with a dynamics much slower than
+            ⎡ −1                                        ⎤
+              Mt −Dt ẋt − Kt xt − L(q)f + Kt xt + νxt
+                                                  d           the interaction dynamics. It is therefore possible to neglect
+          = ⎣                         −1                  ⎦                        ˙
+                                                            , the time-derivative L(q)
+                             ẋt + Mt νẋt                                              in (20), considering the constant
+                                   νf                         matrix L(q), updating q = q as soon as the robot joint con-
+                                                         (14) figuration modifications are affecting the values of J(q) and
+                                                              B(q). In such a way, (14) can be written as follows:
+where the vector νa = [νxt , νẋt , νf ]T accounts for uncer-                    ⎡ ⎤
+tainties in models parameters/estimates. The observer of the                      ẍt
+augmented state is therefore defined as:                             f(xa , ν) = ⎣ẋt ⎦
+                                                                                   ḟ
+                                                                                 ⎡ −1                                      ⎤
+  x˙ a = f(xa , νa ) + K E K F (y − Ca xa ),                                      Mt −Dt ẋt − Kt xt − L(q)f + Kt xtd + νxt
+                                                             (15)
+    y = h(xa , w),                                                             =⎣              ẋt + Mt−1 νẋt               ⎦,
+                                                                                                     νf
+with xa the augmented state estimate, Ca the observation                                                                    (22)
+matrix for the robot velocity ẋt and the robot position xt , and
+K E K F the gain matrix:                                             Remark 2 The approximation of L(q) in L(q) introduces
+                                                                     negligible modeling errors, that are of orders of magni-
+K E K F = PCa R−1 .                                          (16)    tude smaller than common modeling errors resulting from
+                                                                     the robot dynamics identification procedures, therefore not
+R is the measurement noise matrix defined as:                        affecting the target estimation.
+
+R = HE{ww T }HT = HWHT ,                                     (17)
+                                                                     5 Sensorless Extended Kalman Filter for
+where the observation function h linearly maps the sam-                environment stiﬀness estimation
+ple inaccuracies, due to measurement noise w, through the
+matrix H:                                                            The aim of this Section is to propose a sensorless model-
+                                                                     based methodology to estimate the environment stiffness
+       ∂h                                                            along traslational directions. Therefore, in the following
+H=           .                                               (18)
+       ∂w xa                                                         Extended Kalman Filter (EKF) design, only the traslational
+                                                                     Cartesian DoFs will be considered. Such estimation of the
+The covariance matrix P and its rate, as in:                         environment stiffness will be used to:
+
+Ṗ = Aa P − PCaT R−1 Ca P + Q + PAaT ,                       (19)     – define the robot-environment dynamic model;
+
+
+                                                                                                                         123
+378                                                                                             Autonomous Robots (2021) 45:371–388
+
+
+ – compensate for the coupled dynamics resulting from the           5.2 Extended Kalman Filter design
+   implementation of the sensorless Cartesian impedance
+   controller described in 3;                                       Exploiting the coupled robot-environment dynamic equation
+ – tune the impedance control parameters ensuring stability         (26), it is possible to design the EKF to be used for the esti-
+   of the interaction.                                              mation of the interaction environment stiffness Ke .
+                                                                    Modifying the augmented state in (13), the robot-environment
+5.1 Interaction environment dynamics modeling                       interaction dynamics can be defined by the following filter
+                                                                    state xa composed by the robot velocity ẋt and position xt
+In order to design the EKF to be used for the estimation of         states (along traslational directions), and augmented with the
+the interaction environment stiffness, the interaction envi-        environment stiffness properties Ke :
+ronment dynamics has to be modeled. Based on (Roveda
+et al. 2013), the simplest way to describe the interaction          xa = [ẋt , xt , Ke ]T .                                  (27)
+environment dynamics is the linear spring-damper model
+(with environment stiffness matrix Ke , environment damp-           Substituting the augmented state xa (27) in the interaction
+ing matrix De - both diagonal and positive definite -, and          dynamics model (26), the filter dynamics results in:
+environment position vector xe ):
+                                                                                   ⎡    ⎤
+                                                                                   ẍt
+      (Die ẋei + Kei xei ) = f, ∀i = 1, ··, N ,           (23)    f(xa , νa ) = ⎣ ẋt ⎦
+ i                                                                                  K̇e
+                                                                                  ⎡ −1                                  ⎤
+for all the finite number N of interaction ports. Considering                       Mt −Dt ẋt − Kt (q)xt + Kt xtd + νxt
+                                                                                  ⎢                   −1                  ⎥
+the environment traslational DoFs xe,t and under the hypoth-                    =⎣             ẋt + Mt νẋt                ,
+                                                                                                                          ⎦ (28)
+esis of a stable single contact point (i.e., the robot and the                                      νKe
+environment are always in contact with xe,t = xt , where xt
+is the robot end-effector traslational DoFs vector), (23) can       where the vector νa = [νxt , νẋt , νKe ]T accounts for uncer-
+be written as follows:                                              tainties in models parameters/estimates.
+                                                                       The same derivation of the EKF dynamics described in
+De ẋt + Ke xt = f.                                        (24)    Sect. 4 can be followed for the EKF implementation. The
+                                                                    same considerations described in Sect. 4 for L(q) are valid
+The identification of the environment damping De is not pos-        for Kt (q).
+sible without a persistent excitation (Dehghan et al. 2015)
+(option not applicable in the context of the proposed contribu-     Remark 3 It has to be underlined that the EKF is capable
+tion). The environment damping does not affect the stiffness        to perform the estimation even for a non-linear interaction
+estimation at steady-state (being related to the robot velocity     dynamics, estimating the linearized stiffness value in the con-
+in (24)), while affecting the transitory dynamics. However,         sidered operating condition.
+since the robot end-effector velocity is limited along the inter-
+action directions (due to the contact with the environment),        Remark 4 It has to be underlined that the proposed EKF for
+the damping can be neglected in the environment dynamics            the estimation of the environment stiffness is activated as
+(24), considering a pure elastic dynamics:                          soon as the contact is established between the robot and the
+                                                                    environment. On the basis of the interaction force estimation
+                                                                  f provided in Sect. 4, it is possible to enable the estimation
+Ke xt − xe,t
+         0
+               = f,                                         (25)    of the environment stiffness when the contact is detected. In
+                                                                    particular, a threshold force T f is considered on the com-
+where xe,t0 is the equilibrium position of the environment.
+                                                                    ponents of f to enable the environment stiffness estimation.
+                  0 = 0 is considered. By substituting (25)
+For simplicity, xe,t                                                When an estimated force component goes below the thresh-
+in (10), the coupled robot-environment interaction dynamics         old, the estimation is deactivated in such a direction.
+can be defined as:
+
+Mt ẍt + Dt ẋt + Kt (q)xt = Kt xtd ,                       (26)    6 Sensorless Cartesian impedance control
+                                                                      adaptation
+where Mt = Mt , Dt = Dt , Kt (q) = Kt + L(q)Ke . It has to
+be underlined that the equivalent stiffness matrix Kt (q) is a      Exploiting the estimated environment stiffness Ke provided
+function of the joint position q due to the presence of L(q).       by the EKF, it is possible to:
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                                  379
+
+                                                                                                                          
+ – design a compensator for the coupled dynamics result-             By considering that the damping term Dt,i = 2h t,i       Mt,i K t,i ,
+   ing from the implementation of the sensorless Cartesian           the damping ration h t,i can be computed as:
+   impedance controller;
+                                                                               
+ – tune the sensorless Cartesian impedance control param-
+                                                                                   K t,i + K e,i
+   eters to ensure the stability of the interaction.                 h t,i >                     .                                 (34)
+                                                                                        K t,i
+   The coupling compensator xt,dc allows to deal with the
+coupled dynamics resulting from the inner sensorless Carte-
+sian impedance controller (10). As resulting from (26), the          Remark 5 The Cartesian impedance control stiffness can be
+term L(q) multiplies the environment stiffness Ke , coupling         imposed to a value that is smaller or equal to the one of
+the dynamic equations (i.e., the Cartesian DoFs). Despite            the estimated environment stiffness in order to absorb the
+such a term is a function of the robot joint configuration q, it     interaction force during the task execution.
+can be considered as constant (i.e., L(q) = L) as described
+                                                                     Remark 6 It is important to underline that the sensorless
+in Sect. 4. The coupling compensator can be defined as in the
+                                                                     Cartesian impedance control is interconnected with the EKF
+following:
+                                                                     (exploiting the provided environment stiffness estimation)
+                    j                                                for the update of its parameters. Therefore, even if the EKF
+xt,dc,i = L i, j K e xt, j + L i,k K ek xt,k .                (29)
+                                                                     and the impedance control are individually stable, the dynam-
+                                                                     ics of the estimation given by the EKF affects the stability
+where i defines the controlled Cartesian DoF, while j and
+                                                                     of the controller. Therefore, it is important that the dynamics
+k the coupled Cartesian DoFs. (29) can be included in the
+                                                                     of the EKF is faster than the controller dynamics (the band-
+definition of the sensorless Cartesian impedance setpoint xtd
+                                                                     width of the EKF should be at least one decade faster then the
+in (26) to decoupling the Cartesian DoFs.
+                                                                     bandwidth of the controller) to avoid any instability resulting
+   The sensorless Cartesian impedance control parameters
+                                                                     from the transient dynamics of the EKF.
+can also be tuned in order to guarantee the stability of
+the robot-environment system described by (26). Once the
+coupling terms compensation is performed, the resulting
+robot-environment interaction dynamics results in:                   7 Results
+
+                                                                     A Franka EMIKA panda manipulator has been used as a test
+Mt ẍt + Dt ẋt + (Kt + Ke ) xt = Kt xtd ,                    (30)
+                                                                     platform (Figure 1). The robot torque controller has been
+                                                                     exploited (control frequency 1 kHz). A probing task (with
+considering that the coupling compensator has been applied
+                                                                     different interacting environments, i.e., different stiffness)
+to the setpoint xtd . Substituting in (30) the estimated environ-
+                                                                     has been considered as a reference task.
+ment stiffness Ke :
+                                                                   7.1 Simulation results
+Mt ẍt + Dt ẋt + Kt + Ke xt = Kt xtd ,                       (31)
+
+the robot-environment interaction dynamics can be exploited          Simulations have been performed in Matlab implementing
+to tune the sensorless Cartesian impedance control parame-           the Franka EMIKA panda kinematics and dynamics using the
+ters.                                                                Robotics Toolbox (Corke 2017). Control law (12) has been
+   The Cartesian impedance control damping can be imposed            implemented. The robot-environment interaction is simu-
+in order to achieve an over-damped behavior for the coupled          lated along all the traslational Cartesian DoFs exploiting (26).
+interaction dynamics. The eigenvalues of (31) can be com-               The following sets of environment stiffness parameters
+puted as:                                                            has been applied in simulation: Ke1 = diag([1000, 1000,
+                                                                     1000]) N/m, Ke2 = diag([50000, 50000, 50000]) N/m,
+                                                                  Ke3 = diag([10000, 20000, 50000]) N/m. The impedance
+          −Dt,i ±            2 − 4M
+                            Dt,i    t,i K t,i + K e,i                control matrices have been imposed as follows: mass param-
+λi1,2 =                                                   ,   (32)
+                                2Mt,i                                eters into the diagonal matrix M have been imposed equal to
+                                                                     10 kg, while inertia parameters have been imposed equal to
+for each Cartesian DoF i. In order to achieve an over-damped         10 kg m2 ; traslational parameters into the diagonal stiffness
+stable system dynamics, the following condition has to be            matrix K has been imposed equal to 1000 N/m, while rota-
+satisfied:                                                           tional parameters have been imposed equal to 5000 Nm/rad;
+                                                                   damping ratio parameters into the diagonal matrix h have
+ 2
+Dt,i − 4Mt,i K t,i + K e,i > 0.                               (33)   been imposed equal to 0.7.
+
+
+                                                                                                                          123
+380                                                                                                         Autonomous Robots (2021) 45:371–388
+
+
+
+
+Fig. 4 Estimated interaction force f (dashed line) vs. measured interaction force f (continuous line) for the considered simulations
+
+
+   Starting the simulations, the robot position is not in con-              is moving in free-space and the estimated force is equal to
+tact with the environment. The impedance control setpoint                   zero. As soon as the contact is established, the estimated force
+is applied xtd = xt + [0.0075, 0.0075, 0.0075]T m along all                 tracks the measured force with a limited delay. The effective-
+the Cartesian traslational DoFs. The EKF for the interac-                   ness of the proposed methodology is shown, having the EKF
+tion force estimation is activeted immediately. As soon as a                able to estimate the interaction force with a fast dynamics
+steady interaction estimated force f higher than the thresh-                and reduced delays. The achieved accuracy in the estimation
+old T f = 3 N is achieved, the impedance control setpoint is                allows to implement the force loop for sensorless interaction
+modified to xtd = xt + [0.015, 0.015, 0.015]T , and the EKF                 task execution.
+for the environment stiffness estimation is activated.
+                                                                            7.1.2 Estimated environment stiffness
+7.1.1 Estimated interaction force
+                                                                            Figure 5 shows the results related to the EKF for the envi-
+Figure 4 shows results related to the EKF for the interac-                  ronment stiffness Ke estimation described in Sect. 5.2. The
+tion force f estimation described in Sect. 4. The estimated                 estimated environment stiffness Ke is plotted against the
+interaction force f is plotted against the measured interac-                nominal environment stiffness Ke in the simulation scenar-
+tion force f in the simulation scenarios. Initially, the robot              ios. The estimation of the environment stiffness is enabled
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                                          381
+
+
+
+
+Fig. 5 Estimated environment stiffness Ke (continuous line) vs. real environment stiffness Ke (dashed line) for the considered simulations
+
+
+as soon as the interaction estimated force f is at its steady              friction term (currently under development):
+state and higher than the defined threshold T f = 3 N. The
+effectiveness of the proposed methodology is shown, having                 τ = B(q)γ + C(q, q̇) + g(q) + τ R .
+the EKF able to estimate the environment stiffness with a
+fast dynamics. The proposed methodology allows to achieve                     Three different environments have been tested with dif-
+a high accuracy in the estimation, making possible to exploit              ferent (unknown) stiffness characteristics. The impedance
+such estimation in the control parameters tuning for stability             control matrices have been initialized as follows: mass
+purposes.                                                                  parameters into the diagonal matrix M have been imposed
+                                                                           equal to 10 kg, while inertia parameters have been imposed
+                                                                           equal to 10 kg m2 ; traslational parameters into the diago-
+7.2 Experimental results                                                   nal stiffness matrix K has been imposed equal to 1500 N/m
+                                                                           (to achieve a medium-soft robot behavior, i.e., a safe inter-
+Experiments have been performed on the Franka EMIKA                        action with the unknown stiff environment), while rotational
+panda manipulator (Figure 1), establishing the interaction                 parameters have been imposed equal to 8000 Nm/rad; damp-
+along the z Cartesian DoF. The implemented controller (12)                 ing ratio parameters into the diagonal matrix h have been
+has been considered, without the compensation of the joint                 initially imposed equal to 0.7.
+
+
+                                                                                                                                     123
+382                                                                                           Autonomous Robots (2021) 45:371–388
+
+Fig. 6 a estimated interaction
+force f z (continuous line) vs.
+measured interaction force f z
+(dot-dashed line) for the three
+experimental scenarios.
+Reference force f zd (dashed
+line) is highlighted. b estimated
+interaction force error e f ,z
+
+
+
+
+                                                      (a)                                            (b)
+
+
+
+
+                                                       (a)                                           (b)
+
+
+
+
+                                                       (a)                                           (b)
+
+
+   In the proposed experiments, the proposed EKFs (Sect. 4       (i.e., estimated value taken after four seconds from the EKF
+and Sect. 5.2) and the controller (Sect. 6) are implemented      activation), the update of the impedance control damping
+and are running in parallel. The EKF for the interaction force   exploiting (34) is performed to guarantee stability. In partic-
+estimation is immediately activated, while the EKF for the       ular, h t,z = 1.1 (K t,z + K e,z )/K t,z is imposed to deal with
+environment stiffness estimation will be activated as soon       estimation uncertainties.
+as the contact is established. The robot moves along the
+Cartesian DoF −z until the contact with the environment          Remark 7 The sensorless Cartesian impedance control param-
+is detected (exploiting the interaction force estimation f z )   eters update, on the basis of the estimate provided by the
+                                                 d = x
+by applying an impedance control setpoint xt,z           t,z +   EKF, is performed at a slower rate w.r.t. the EKF esti-
+0.0075 m. As soon as the estimated force f z overcomes the       mation. In particular, having an estimation frequency of
+threshold T f = 5 N, the EKF for the environment stiffness       1 kHz, the impedance parameters update is performed at
+estimation is enabled. After the convergence of K e,z to K e,z   0.5 Hz to preserve the controller + observer stability. The
+                                                                 update of the impedance parameters is also slower than the
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                                     383
+
+
+impedance control dynamics to avoid non-smooth transition
+of the parameters. In the case the EKF estimation diverges,
+the experiment is safely stopped.
+    To show the possibility to exploit the estimations provided
+by the EKFs (in Sect. 4 and Sect. 5.2) to implement a sensor-
+less force controller, f z is used to close a force-loop, while
+K e,z is used to tune the PI force-control gains. A reference
+force f zd = 30N has been imposed. The sensorless Cartesian
+impedance setpoint is defined along the z direction as:
+                                                  
+xt,z = xt,z + K p, f /K t,z e f ,z + K i, f /K t,z e f ,z dt, (35)
+  d
+
+
+
+where e f ,z = f zd − f z is the force error, K p, f is the propor-
+tional gain and K i, f is the integral gain. Model in (31) has
+been used to tune the control gains to achieve a 0.5 Hz band-
+width. The impedance setpoint along the x and y directions i
+is defined to include the coupling compensator term (29) as
+ d
+xt,i = x t,i + xt,dc,i ,
+
+where x t,i is the robot position measured at the time of the
+estimation of K e,z .
+    Figure 6 shows the estimated interaction force f z vs. the
+measured interaction force f z (exploiting the internal estima-
+tion of the interaction force provided by the Franka EMIKA
+panda robot on the basis of its joint torque sensors), also
+highlighting the reference force f zd , for the three environ-
+ments (first column), and the interaction force estimation
+error e f ,z = f z − f z (second column). Limited steady state
+errors (maximum error less than 5 N) are shown, compa-
+rable to state-of-the-art techniques for sensorless external
+force estimation. A fast estimation is achieved, showing the
+convergence of the estimation in approximately 0.1 s (i.e.,
+EKF bandwidth approximately equal to 10 Hz, an order of
+magnitude faster than the force-tracking impedance control
+bandwidth), as it can be seen from the interaction force esti-
+mation error plots. Figure 7 shows the estimated interaction
+environment stiffness K e,z and its converged value K e,z for
+the three environments vs. the real (calibrated) environment
+stiffness K e,z . The estimated environment stiffness has a fast      Fig. 7 Estimated interaction environment stiffness K e,z (black con-
+dynamics and a limited error (less than 10%, i.e., acceptable         tinuous line) and its converged value K e,z (red circle) for the three
+                                                                      experimental scenarios vs. the real (calibrated) environment stiffness
+error in line with state of the art techniques), allowing the         K e,z (black dashed line)
+proper tuning of the sensorless Cartesian impedance control
+parameters as described in Sect. 6.
+    As shown by simulation results, estimation performance            Remark 8 The EKFs gains have been experimentally tuned
+can be improved including friction compensation in the con-           in order to achieve the fastest dynamics. Initialization of the
+troller. In fact, without including it, modeling errors are           EKF estimated stiffness values has been randomized in order
+shown in (26), decreasing the estimation performance of the           to show the proper convergence of the EKF.
+proposed EKFs. Authors wanted to evaluate the performance
+of the proposed approach in the presence of modeling errors           Remark 9 The implemented PI force controller aims to show
+to verify the applicability of the approach in non-optimized          the stability of the performed environment stiffness estima-
+conditions.                                                           tion, i.e., of the related interaction force estimation, making
+
+
+                                                                                                                                123
+384                                                                                          Autonomous Robots (2021) 45:371–388
+
+Fig. 8 (a) estimated interaction
+forces f x , f y , and f z
+(dot-dashed line) vs. measured
+interaction forces f x , f y , and f z
+(continuous line) for the
+polishing-like task. Reference
+force f zd (dashed line) is
+highlighted. (b) estimated
+interaction force errors e f ,x ,
+e f ,y , and e f ,z
+
+
+
+
+                                                        (a)                                         (b)
+
+
+
+
+                                                        (a)                                          (b)
+
+
+
+
+                                                        (a)                                         (b)
+
+
+possible to perform an interaction task with the proposed         To improve the performance of the proposed EKF (described
+approach.                                                         in Sect. 4), friction compensation based on Gaz et al. (2019)
+                                                                  has also been implemented.
+
+
+8 Advanced applications                                           8.1 Polishing-like task
+
+In order to show the capabilities of the proposed approach,       The proposed task consists in approaching the target envi-
+two more advanced applications have been implemented: a           ronment along z direction. Then, the robot has to maintain
+polishing-like task, and an assembly task of a gear into its      a constant contact with the environment by applying a ref-
+shaft. The sensorless Cartesian impedance control together        erence force f zd , while sliding along directions x and y.
+with the estimation of the interaction force have been            The reference force has been imposed as f zd = 30 N. The
+exploited in order to control the robot for the task execution.   same controller in (35) has been implemented, exploiting
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                                         385
+
+
+                                                                          8.2 Assembly task
+
+                                                                          The proposed task consists in an assembly of a gear into its
+                                                                          shaft. The target task is shown in Fig. 9. The main task direc-
+                                                                          tion is z and, therefore, a reference force f zd = 30 N has been
+                                                                          defined to perform the insertion task. The same controller in
+                                                                          (35) has been implemented, exploiting the estimated force f z
+                                                                          to close the force loop. The sensorless Cartesian impedance
+                                                                          control is exploited in order to have the robot compliant along
+                                                                          the other Cartesian DoFs. The impedance control matrices
+                                                                          have been initialized as follows: mass parameters into the
+                                                                          diagonal matrix M have been imposed equal to 10 kg, while
+                                                                          inertia parameters have been imposed equal to 10 kg m2 ;
+                                                                          traslational parameters into the diagonal stiffness matrix K
+                                                                          has been imposed equal to 1000 N/m (to achieve a medium-
+                                                                          soft robot behavior, i.e., a safe interaction with the unknown
+                                                                          stiff environment), while rotational parameters have been
+                                                                          imposed equal to 1000 Nm/rad; damping ratio parameters
+                                                                          into the diagonal matrix h have been imposed equal to 1.
+                                                                                Figure 10 shows in the first column the estimated interac-
+Fig. 9 Experimental set-up including the Franka EMIKA panda manip-        tion forces f x , f y , and f z vs. the measured interaction forces
+ulator for the target assembly task. The manipulated gear and its shaft    f x , f y , and f z (exploiting the internal estimation of the inter-
+are highlighted                                                           action force provided by the Franka EMIKA panda robot on
+                                                                          the basis of its joint torque sensors), also highlighting the ref-
+                                                                          erence force f zd . The second column shows the interaction
+the estimated force f z to close the force loop. A sinusoidal             force estimation errors e f ,x = f x − f x , e f ,y = f y − f y , and
+motion has been imposed along directions x and y. The                     e f ,z = f z − f z . Limited steady state errors (around 2 N) are
+impedance control matrices have been initialized as fol-                  shown, comparable to state-of-the-art techniques for sensor-
+lows: mass parameters into the diagonal matrix M have been                less external force estimation. A fast estimation is achieved,
+imposed equal to 10 kg, while inertia parameters have been                showing the convergence of the estimation in approximately
+imposed equal to 10 kg m2 ; traslational parameters into the              0.1 s (i.e., EKF bandwidth approximately equal to 10 Hz, an
+diagonal stiffness matrix K has been imposed equal to 1000                order of magnitude faster than the force-tracking impedance
+N/m (to achieve a medium-soft robot behavior, i.e., a safe                control bandwidth), as it can be seen from the interaction
+interaction with the unknown stiff environment), while rota-              force estimation error plots.
+tional parameters have been imposed equal to 8000 Nm/rad;
+damping ratio parameters into the diagonal matrix h have
+been imposed equal to 1.                                                  9 Conclusions and future work
+      Figure 8 shows in the first column the estimated interac-
+tion forces f x , f y , and f z vs. the measured interaction forces       The presented paper proposed a sensorless model-based
+ f x , f y , and f z (exploiting the internal estimation of the inter-    methodology (exploiting sensorless Cartesian impedance
+action force provided by the Franka EMIKA panda robot on                  control and Extended Kalman Filters) to estimate both the
+the basis of its joint torque sensors), also highlighting the ref-        interaction force and the environment stiffness for interaction
+erence force f zd . The second column shows the interaction               control purposes. The estimated interaction force can be used
+force estimation errors e f ,x = f x − f x , e f ,y = f y − f y ,         to close a force loop, making the sensorless robot able to per-
+and e f ,z = f z − f z . Limited errors are shown, comparable             form interaction task. In addition, the environment stiffness
+to state-of-the-art techniques for sensorless external force              estimation is used to compensate for the coupled dynam-
+estimation. A fast estimation is achieved, making possible                ics and to tune the Cartesian impedance control parameters,
+to estimate the interaction forces while performing the task.             ensuring stability. With respect to state of the art method-
+Estimation performance can be enhanced by improving the                   ologies for the environment stiffness estimation in sensorless
+friction compensation as proposed in Roveda et al. (2017),                applications, the main advantage of the proposed approach is
+where a local friction model identification and compensation              that no persistent excitation is required to perform the estima-
+are performed w.r.t. the specific task and workspace area in              tion. The described approach has been validated in a probing
+which the robot is operating.                                             task in both simulations and experiments, using the Franka
+
+
+                                                                                                                                    123
+386                                                                                          Autonomous Robots (2021) 45:371–388
+
+Fig. 10 (a) estimated
+interaction forces f x , f y , and f z
+(dot-dashed line) vs. measured
+interaction forces f x , f y , and f z
+(continuous line) for the
+polishing-like task. Reference
+force f zd (dashed line) is
+highlighted. (b) estimated
+interaction force errors e f ,x ,
+e f ,y , and e f ,z
+
+
+
+
+                                                       (a)                                           (b)
+
+
+
+
+                                                       (a)                                          (b)
+
+
+
+
+                                                       (a)                                          (b)
+
+
+EMIKA panda manipulator. Simulation and experimental             Cartesian impedance control parameters and the force con-
+results show fast dynamics performing the proposed esti-         trol law (considering SDRE control (Çimen 2007)). Machine
+mation and limited estimation errors. In addition, advanced      learning techniques are also considered for the offline tuning
+applications have been tested, considering a polishing-like      of the sensorless force controller. In particular, performance
+task and an assembly task of a gear into its shaft. The esti-    can be improved using force/torque sensor measurements
+mation of the interaction force has been exploited for control   in the offline sensorless controller tuning phase, then online
+purposes, showing the capabilities of the proposed approach.     exploited for the sensorless control of the manipulator in
+    Current/future work is devoted to improve the estima-        unknown scenarios. The optimization of the tuning of the
+tion accuracy (of both interaction force and environment         EKF gains is under investigation, making use of machine
+stiffness) developing local high-performance friction com-       learning techniques.
+pensation algorithms based on learning techniques. The
+design of sensorless force control exploiting the proposed
+framework is under investigation for the tuning of both the
+
+
+123
+Autonomous Robots (2021) 45:371–388                                                                                                              387
+
+
+Acknowledgements The work has been developed within the project                  robot identification. IEEE Transactions on Control Systems Tech-
+ASSASSINN, funded from H2020 CleanSky 2 under grant agreement                    nology, 22(1), 132–145.
+n. 886977.                                                                  Jin, Hu, & Xiong, Rong. (2017). Contact force estimation for robot
+                                                                                 manipulator using semiparametric model and disturbance kalman
+Funding Open Access funding provided by SUPSI - University of                    filter. IEEE Transactions on Industrial Electronics, 65(4), 3365–
+Applied Sciences and Arts of Southern Switzerland.                               3375.
+                                                                            Marban, Arturo, Srinivasan, Vignesh, Samek, Wojciech, Fernández,
+Open Access This article is licensed under a Creative Commons                    Josep, & Casals, Alicia. (2019). A recurrent convolutional neu-
+Attribution 4.0 International License, which permits use, sharing, adap-         ral network approach for sensorless force estimation in robotic
+tation, distribution and reproduction in any medium or format, as                surgery. Biomedical Signal Processing and Control, 50, 134–150.
+long as you give appropriate credit to the original author(s) and the       Mendizabal, Andrea, Sznitman, Raphael, & Cotin, Stephane.
+source, provide a link to the Creative Commons licence, and indi-                (2019). Force classification during robotic interventions through
+cate if changes were made. The images or other third party material              simulation-trained neural networks. International journal of com-
+in this article are included in the article’s Creative Commons licence,          puter assisted radiology and surgery,14(9), 1601–1610.
+unless indicated otherwise in a credit line to the material. If material    Mendizabal, Andrea, Sznitman, Raphael, & Cotin, Stephane.
+is not included in the article’s Creative Commons licence and your               (2019). Force classification during robotic interventions through
+intended use is not permitted by statutory regulation or exceeds the             simulation-trained neural networks. International journal of com-
+permitted use, you will need to obtain permission directly from the copy-        puter assisted radiology and surgery, 14(9), 1601–1610.
+right holder. To view a copy of this licence, visit http://creativecomm     Mohamed, Zubair M. (2018). Flexible Manufacturing Systems: Plan-
+ons.org/licenses/by/4.0/.                                                        ning Issues and Solutions. Routledge.
+                                                                            Mordechai, Ben-Ari., & Francesco, Mondada. (2018). Robots and their
+                                                                                 applications. Elements of robotics (pp. 1–20). New York: Springer.
+                                                                            Nakamura, Hiroshi, Ohishi, Kiyoshi, Yokokura, Yuki, Kamiya, Naoki,
+                                                                                 Miyazaki, Toshimasa, & Tsukamoto, Akifumi. (2018). Force
+References                                                                       sensorless fine force control based on notch-type friction-free dis-
+                                                                                 turbance observers. IEEJ Journal of Industry Applications, 7(2),
+Chen, Wen-Hua, Ballance, Donald J., Gawthrop, Peter J., & O’Reilly,              117–126.
+     John. (2000). A nonlinear disturbance observer for robotic manip-      Pedrocchi, Nicola, Villagrossi, Enrico, Vicentini, Federico, & Moli-
+     ulators. IEEE Transactions on industrial Electronics, 47(4), 932–           nari Tosatti, Lorenzo. (2013). On robot dynamic model identi-
+     938.                                                                        fication through sub-workspace evolved trajectories for optimal
+Dattaprasad, Shetve, & Rao, Yedukondala V. (2018). A survey of var-              torque estimation. In Intelligent Robots and Systems (IROS), 2013
+     ious robot learning techniques. International Journal of Pure and           IEEE/RSJ International Conference on, pages 2370–2376. IEEE.
+     Applied Mathematics, 118(20), 1314–3395.                               Peng, G., Yang, C., He, W., & Chen, C. L. P. (2020). Force sensorless
+Dehghan, S. A. M., Danesh, M., & Sheikholeslam, F. (2015). Adap-                 admittance control with neural learning for robots with actua-
+     tive hybrid force/position control of robot manipulators using an           tor saturation. IEEE Transactions on Industrial Electronics,67(4),
+     adaptive force estimator in the presence of parametric uncertainty.         3138–3148.
+     Advanced Robotics, 29(4), 209–223.                                     Peng, G., Yang, C., He, W., & Chen, C. L. P. (2020). Force sensorless
+Dong, Ai., Zhijiang, Du., & Yan, Zhiyuan. (2020). A sensorless inter-            admittance control with neural learning for robots with actuator
+     action forces estimator for bilateral teleoperation system based            saturation. IEEE Transactions on Industrial Electronics, 67(4),
+     on online sparse gaussian process regression. Mechanism and                 3138–3148.
+     Machine Theory,143, 103620.                                            Phuong, Thao Tran, Ohishi, Kiyoshi, & Yokokura, Yuki. (2018).
+Dong, Ai, Zhijiang, Du, & Yan, Zhiyuan. (2020). A sensorless inter-              Fine sensorless force control realization based on dither periodic
+     action forces estimator for bilateral teleoperation system based            component elimination kalman filter and wide band disturbance
+     on online sparse gaussian process regression. Mechanism and                 observer. IEEE Transactions on Industrial Electronics,67(1), 757–
+     Machine Theory, 143, 103620.                                                767.
+Gaz, Claudio, Cognetti, Marco, Oliva, Alexander, Giordano, Paolo            Phuong, Thao Tran, Ohishi, Kiyoshi, & Yokokura, Yuki. (2018).
+     Robuffo, Luca, De, & Alessandro., (2019). Dynamic identifica-               Fine sensorless force control realization based on dither periodic
+     tion of the franka emika panda robot with retrieval of feasible             component elimination kalman filter and wide band disturbance
+     parameters using penalty-based optimization. IEEE Robotics and              observer. IEEE Transactions on Industrial Electronics, 67(1),
+     Automation Letters, 4(4), 4147–4154.                                        757–767.
+Hogan, Neville. (1984). Impedance control: An approach to manipula-         Polverini, Matteo Parigi, Formentin, Simone, Merzagora, Luca, &
+     tion. In 1984 American control conference, pages 304–313. IEEE.             Rocco, Paolo. (2019). Mixed data-driven and model-based robot
+Hogan, Neville. (1988). On the stability of manipulators performing              implicit force control: A hierarchical approach. IEEE Transactions
+     contact tasks. IEEE Journal on Robotics and Automation, 4(6),               on Control Systems Technology,99, 1–4.
+     677–686.                                                               Polverini, Matteo Parigi, Rossi, Roberto, Morandi, Giacomo, Bascetta,
+Huang, Shiuh-Jer., Liu, Yu-Chi., & Hsiang, Su-Hai. (2013). Robotic               Luca, Zanchettin, Andrea Maria, & Rocco, Paolo. (2016a). Per-
+     end-effector impedance control without expensive torque/force               formance improvement of implicit integral robot force control
+     sensor. International Journal of Mechanical, Aerospace, Indus-              through constraint-based optimization. In 2016 IEEE/RSJ interna-
+     trial, Mechatronic and Manufacturing Engineering,7(7), 1446–                tional conference on intelligent robots and systems (IROS), pages
+     1453.                                                                       3368–3373. IEEE.
+Huang, Shiuh-Jer, Liu, Yu-Chi, & Hsiang, Su-Hai. (2013). Robotic end-       Polverini, Matteo Parigi, Zanchettin, Andrea Maria, Castello, Sebas-
+     effector impedance control without expensive torque/force sen-              tiano,& Rocco, Paolo. (2016b). Sensorless and constraint based
+     sor. International Journal of Mechanical, Aerospace, Industrial,            peg-in-hole task execution with a dual-arm robot. In 2016 IEEE
+     Mechatronic and Manufacturing Engineering, 7(7), 1446–1453.                 International Conference on Robotics and Automation (ICRA),
+Janot, Alexandre, Vandanjon, Pierre-Olivier, & Gautier, Maxime.                  pages 415–420. IEEE.
+     (2013). A generic instrumental variable approach for industrial
+
+
+                                                                                                                                        123
+388                                                                                                             Autonomous Robots (2021) 45:371–388
+
+
+Polverini, Matteo Parigi, Formentin, Simone, Merzagora, Luca, &                                                     Loris Roveda received the M.Sc.
+      Rocco, Paolo. (2019). Mixed data-driven and model-based robot                                                 (2011) and the Ph.D. (2015) in
+      implicit force control: A hierarchical approach. IEEE Transactions                                            Mechanical Engineering at Politec-
+      on Control Systems Technology, 99, 1–4.                                                                       nico di Milano. Currently, he is
+Roveda, Loris. (2018). Adaptive interaction controller for compliant                                                a senior researcher at SUPSI-IDSIA,
+      robot base applications. IEEE Access, 7, 6553–6561.                                                           working on AI and ML techniques
+Roveda, Loris, Iannacci, Niccoló, & Tosatti, Lorenzo Molinari. (2018b).                                             applied to industrial robotics (such
+      Discrete-time formulation for optimal impact control in interaction                                           as robot control, human-robot col-
+      tasks. Journal of Intelligent and Robotic Systems, 90(3–4), 407–                                              laboration, dynamics identification).
+      417.                                                                                                          He has been involved in many
+Roveda, Loris, Pallucca, Giacomo, Pedrocchi, Nicola, Braghin,                                                       national and European projects,
+      Francesco, & Tosatti, Lorenzo Molinari. (2017). Iterative learn-                                              and he is now coordinating the
+      ing procedure with reinforcement for high-accuracy force tracking                                             EUROBENCH STEPbySTEP project
+      in robotized tasks. IEEE Transactions on Industrial Informatics,                                              and he is the P.I. of the H2020
+      14(4), 1753–1763.                                                                                             CS2 ASSASSINN project.
+Roveda, Loris, Pedrocchi, Nicola, Beschi, Manuel, & Tosatti, Lorenzo
+      Molinati. (2018a). High-accuracy robotized industrial assembly
+      task control schema with force overshoots avoidance. Control                                                 Dario Piga received his Ph.D.
+      Engineering Practice, 71, 142–153.                                                                           in Systems Engineering from the
+Roveda, Loris, Pedrocchi, Nicola, & Tosatti, Lorenzo Molinari. (2016).                                             Politecnico di Torino (Italy) in
+      Exploiting impedance shaping approaches to overcome force                                                    2012. He was a Postdoctoral
+      overshoots in delicate interaction tasks. International Journal of                                           Researcher at the Delft Univer-
+      Advanced Robotic Systems, 13(5), 1729881416662771.                                                           sity of Technology (The Nether-
+Sharifi, M, Talebi, HA, & Shafiee, M. (2015). Adaptive estimation of                                               lands) in 2012 and at the Eind-
+      robot environmental force interacting with soft tissues. In 2015                                             hoven University of Technology
+      3rd RSI International Conference on Robotics and Mechatronics                                                (The Netherlands) in 2013. From
+      (ICROM), pages 371–376. IEEE.                                                                                2014 to early 2017 he was Assis-
+Siciliano, Bruno, & Villani, Luigi. (2000). Robot Force Control (1st ed.,                                          tant Professorat the IMT School
+      p. 0792377338). Norwell: Kluwer Academic Publishers.                                                         for Advanced Studies Lucca (Italy)
+Siciliano, Bruno, & Villani, Luigi. (2000). Robot Force Control (1st ed.,                                          and since March 2017 he has been
+      p. 0792377338). Norwell: Kluwer Academic Publishers.                                                         Senior Researcher at the IDSIA
+Van Damme, Michaël, Beyl, Pieter, Vanderborght, Bram, Grosu, Vic-                                                  Dalle Molle Institute for Artificial
+      tor, Van Ham, Ronald, Vanderniepen, Innes, Matthys, Arnout, &             Intelligence in Lugano (Switzerland) and Lecturer at the SUPSI Uni-
+      Lefeber, Dirk. (2011). Estimating robot end-effector force from           versity of Applied Sciences and Arts of Southern Switzerland. His
+      noisy actuator torque measurements. In 2011 IEEE International            main research interests include system identification, robust control,
+      Conference on Robotics and Automation, pages 1108–1113. IEEE.             Bayesian filtering and non-convex optimization, with applications to
+Villagrossi, E., Simoni, L., Beschi, M., Pedrocchi, N., Marini, A., Moli-       process control and smart manufacturing.
+      nari Tosatti, L., et al. (2018). A virtual force sensor for interaction
+      tasks with conventional industrial robots. Mechatronics, 50, 78–
+      86.
+Vukobratovic, M. (2010). Robot-environment dynamic interaction sur-
+      vey and future trends. Journal of Computer and Systems Sciences
+      International, 49(2), 329–342.
+Yang, Guang-Zhong., Bellingham, Jim, Dupont, Pierre E., Fischer, Peer,
+      Floridi, Luciano, Full, Robert, et al. (2018). The grand challenges
+      of science robotics. Science robotics,3(14), 7650.
+Yang, Guang-Zhong, Bellingham, Jim, Dupont, Pierre E., Fischer, Peer,
+      Floridi, Luciano, Full, Robert, et al. (2018). The grand challenges
+      of science robotics. Science robotics, 3(14), 7650.
+Zhou, Fan, Dong, Bo, & Li, Yuanchun. (2017). Torque sensorless
+      force/position decentralized control for constrained reconfigurable
+      manipulator with harmonic drive transmission. International Jour-
+      nal of Control, Automation and Systems, 15(5), 2364–2375.
+
+
+Publisher’s Note Springer Nature remains neutral with regard to juris-
+dictional claims in published maps and institutional affiliations.
+
+
+
+
+123
+

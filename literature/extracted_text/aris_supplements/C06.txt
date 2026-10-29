@@ -1,0 +1,902 @@
+IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025                                                                            2349
+
+
+
+
+              Safe Learning by Constraint-Aware Policy
+                      Optimization for Robotic
+                         Ultrasound Imaging
+                 Anqing Duan , Member, IEEE, Chenguang Yang , Fellow, IEEE, Jingyuan Zhao ,
+                  Shengzeng Huo , Graduate Student Member, IEEE, Peng Zhou , Member, IEEE,
+               Wanyu Ma , Graduate Student Member, IEEE, Yongping Zheng , Senior Member, IEEE,
+                              and David Navarro-Alarcon , Senior Member, IEEE
+
+
+
+   Abstract— Ultrasound-based medical examination usually                      value for the scanning force, despite the fact the force strategy
+requires establishing proper contact between an ultrasound probe               plays an important role in the quality of the ultrasound images.
+and a human body that ensures the quality of ultrasound images.                This paper suggests the usage of reinforcement learning to
+The scanning skills are quite challenging for a robot to learn                 identify the optimal interaction force due to the complex acoustic
+primarily due to the complex coupling between the applied                      coupling between the force and the ultrasound image quality.
+force profile and the resulting ultrasound image quality. While                Specifically, we propose constraint-aware reinforcement learning
+reinforcement learning appears as a powerful tool for learning                 in view of the safety-critical issues as a result of physical human-
+complex robot skills, the deployment of these algorithms in                    probe interaction. We then conduct a theoretical analysis of
+medical robots demands special attention due to the evident safety             the proposed safe reinforcement learning, including monotonic
+concerns that arise from physical probe-tissue interactions. In this           improvement and policy value bound under mild assumptions.
+paper, we explicitly consider external constraints on the force                Preliminary real experiments on ultrasound imaging of the spine
+magnitude when searching for the optimal policy parameters to                  of a phantom for scoliosis assessment suggest that the proposed
+enhance safety during ultrasound-guided robotic interventions.                 approach can safely learn the optimal scanning force without
+In particular, we study policy optimization under the frame-                   violating the prescribed force threshold. In the future, we would
+work of a constrained Markov decision process. The resulting                   like to apply our approach to learning the optimal scanning force
+gradient-based policy update is then subject to the involved                   on different organs of interest of human subjects.
+constraints, which can be readily addressed by the primal-dual
+interior-point technique. In addition, upon the observation that                  Index Terms— Medical robotics, reinforcement learning, imi-
+policy update requires consecutive policies to be close to each                tation learning, optimization, sequential decision making.
+other to have stable and robust performance with reinforcement
+learning algorithms, we design the learning rate of policy gradient                                    I. I NTRODUCTION
+from an imitation perspective. The performance of the proposed
+constraint-aware policy optimization method is validated with
+experiments of robotic ultrasound imaging for spinal diagnosis.                M       EDICAL robots are promising in the healthcare
+                                                                                       industry as they can bring many benefits, such as
+                                                                               freeing medical personnel from tedious jobs and standardizing
+   Note to Practitioners—This paper was motivated by the prob-                 the treatment procedure [1]. Yet, before medical assistive
+lem of safely learning the optimal interaction force strategy
+to facilitate robotic ultrasound imaging. Existing approaches to
+                                                                               robots can widely penetrate people’s daily lives, a series
+robotic ultrasound imaging usually empirically set a constant                  of technical problems need to be addressed, with safety
+                                                                               being the most critical one [2]. There are many examples
+  Manuscript received 6 December 2023; revised 8 February 2024;                of physical human-robot interactive systems in healthcare,
+accepted 14 March 2024. Date of publication 25 March 2024; date of current     e.g., robot-assisted stethoscopes, ultrasound scanning robots,
+version 5 February 2025. This article was recommended for publication by
+Associate Editor S. Gao and Editor D. Song upon evaluation of the reviewers’   prosthetics and orthotics, shock-wave therapy, automated mas-
+comments. This work was supported in part by the Research Impact Fund of       sage systems, etc. [3]. Unlike contact with objects [4],
+the Hong Kong (HK) Research Grants Council under Grant R5017-18F, in part      interactions with humans require more caution for safe
+by The Hong Kong Polytechnic University (PolyU) through the Intra-Faculty
+Interdisciplinary Project under Grant ZVVR, and in part by PolyU under Grant   operation.
+G-UANS. (Corresponding author: David Navarro-Alarcon.)                            Due to the radiation-free, high portability, and non-
+  Anqing Duan, Shengzeng Huo, and Wanyu Ma are with the Faculty of             invasiveness features, ultrasound imaging is extensively used
+Engineering, The Hong Kong Polytechnic University (PolyU), Hong Kong.
+  Chenguang Yang is with the Department of Computer Science, University        in various types of diagnostic tasks and interventions [5].
+of Liverpool, L69 3BX Liverpool, U.K. (e-mail: cyang@ieee.org).                In this paper, we particularly deal with ultrasound imaging
+  Jingyuan Zhao is with the School of Electrical and Electronic Engineering.   of spines for scoliosis assessment, a procedure that evaluates
+Nanyang Technological University, Singapore 639798.
+  Peng Zhou is with the Department of Computer Science, The University of      the abnormal lateral curvature of spines [6]. Our focus is on
+Hong Kong, Hong Kong.                                                          safely learning the optimal force profile for ultrasound imaging
+  Yongping Zheng and David Navarro-Alarcon are with the Faculty of             of a spine with a robot arm [7].
+Engineering, and the Research Institute for Smart Ageing, The Hong Kong
+Polytechnic University (PolyU), Hong Kong (e-mail: dna@ieee.org).                 The manual procedures for ultrasound-based scoliosis
+  Digital Object Identifier 10.1109/TASE.2024.3378915                          assessment are shown in Fig. 1(a), where a sonographer holds
+                      1558-3783 © 2024 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                    See https://www.ieee.org/publications/rights/index.html for more information.
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+2350                                                                     IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+                                                                                 between the ultrasound probe and the back can also cause
+                                                                                 discomfort to the subject. The adequate control of these forces
+                                                                                 plays a decisive role in the quality of the 3D spinal model [10].
+                                                                                 Therefore, it is important to learn the optimal contact force
+                                                                                 strategies that can provide satisfying imaging results, which is
+                                                                                 precisely the goal of this paper.
+                                                                                    From an algorithmic perspective, a popular technique for
+                                                                                 solving complex problems of robotic decision-making is policy
+                                                                                 optimization, a paradigm of reinforcement learning centered
+                                                                                 around the policy [11]. Policy optimization aims at finding an
+                                                                                 optimal set of control policy parameters based on the feedback
+Fig. 1. Illustration of medical diagnosis of scoliosis for adolescents through   of a specified cost or reward function. The generality of the
+ultrasound scanning conducted by (a) a human operator and (b) a robotic arm.
+                                                                                 reinforcement learning paradigm gradually makes it an attrac-
+                                                                                 tive tool for autonomous ultrasound acquisitions, see e.g., [10],
+                                                                                 [12], and [13]. Despite recent progress in this direction, the
+                                                                                 safety issue resulting from random exploratory policies (which
+                                                                                 may result in large contact forces) is usually overlooked.
+                                                                                 This situation requires special attention in our application
+                                                                                 scenario as it entirely relies on physical interactions between
+                                                                                 the robot-manipulated probe and the human subject [14].
+                                                                                    We propose to complement the policy update procedure of
+                                                                                 vanilla policy gradient with user-specified force constraints.
+                                                                                 In addition, upon the observation that policy optimization
+                                                                                 restricts consecutive policies to be close to each other,
+                                                                                 we design the learning rate of policy gradient from an imitation
+                                                                                 principle. In brief, our contributions are outlined as follows:
+                                                                                    • Safe policy learning for robotic ultrasound imaging with
+Fig. 2. Illustration of spinal anatomy, including cervical, thoracic, lumbar,
+and sacral vertebrae (left), spinous process and intervertebral gap (middle),          constraint-aware policy optimization;
+and their appearances in ultrasound imaging (right).                                • Imitation learning-informed design of the learning rate
+                                                                                       for updating policy parameters;
+an ultrasound probe to capture images, which are later used                         • Theoretical analysis of the properties of the proposed safe
+to reconstruct the spine’s 3D structure [6]. During this task,                         learning method;
+the probe’s motion is adjusted based on real-time ultrasound                        • Experimental studies for validating the proposed method
+images; Fig. 2 shows the spine’s anatomy with its different                            by safely scanning a phantom’s spine.
+regions and corresponding ultrasound images.                                        The remainder of the paper is organized as follows. Related
+   To automate the scanning procedure using a robot arm                          work is discussed in Sec. II. Subsequently, Sec. III reviews
+(as depicted in Fig. 1(b)), our focus lies on the motion                         relevant preliminaries on the technical background. The pro-
+skills of the held ultrasound probe, encompassing both ori-                      posed methods are presented in Sec. IV, analyzed in Sec. V,
+entation and translation. Regarding orientation, we make it                      and evaluated in Sec. VI. Finally, Sec. VII concludes the paper.
+remain perpendicular to the back surface normals to ensure
+optimal ultrasonic acoustic coupling [8]. As for translation,
+we decouple it into three directions: vertical, lateral, and                                          II. R ELATED W ORK
+longitudinal, with each direction responsible for a specific                        Robotic ultrasound image acquisition has received gradual
+aspect of the robotic ultrasound imaging task. In particular,                    research attention in recent years [5]. It has been observed
+the vertical direction is set as a constant value, enabling the                  that various robotic techniques have been applied to scan
+probe to slide smoothly from the waist to the neck. The lateral                  different parts of the human anatomy, such as limbs [15],
+direction is utilized for the tracking task, aiming to maintain                  breasts [16], livers [17], kidneys [13], etc. Despite the high
+the spinous process of the spine within the center of the                        importance of the force schedule, the aforementioned studies
+ultrasound window. Lastly, the longitudinal direction governs                    mainly prescribe the contact force between the tissue and the
+the regulation of the interaction force, the value of which                      probe with an empirically designed reference force profile,
+significantly impacts the quality of the acquired ultrasound                     which heavily depends on the expertise of a sonographer.
+images [9].                                                                      In contrast, our focus lies on developing methods to safely
+   In general, the quality of acquired ultrasound images does                    search for the optimal contact force.
+not necessarily improve with an increasing magnitude of the                         Due to the complex acoustic coupling between the inter-
+interaction force exerted by the ultrasound probe. Setting the                   action force and the ultrasound image quality, we resort to
+force to a maximum allowable reference value may not be                          the reinforcement learning paradigm to address the issue.
+the optimal strategy, as excessive force can compress tissues,                   Moreover, in view of the safety concerns inherent to any
+leading to poorer image quality. Furthermore, tight contact                      physical human-robot interaction task like our scenario,
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+DUAN et al.: SAFE LEARNING BY CONSTRAINT-AWARE POLICY OPTIMIZATION                                                                               2351
+
+
+
+the learning procedure should take external constraints into                visitation frequency:
+account, i.e., to constrain the maximum allowable force output.                                             ∞
+                                                                                                            X
+We refer to this kind of approach as safe reinforcement                                 dπ (s) = (1 − γ )          γ t P(st = s | π, d0 ),        (1)
+learning [18]. Compared with vanilla reinforcement learning                                                  t=0
+algorithms, safe reinforcement learning is thought to be more
+                                                                            which characterizes visitation measure over states.
+suitable in our application due to its merit of constraint
+awareness.
+   Safe reinforcement learning can be achieved by several                   B. Reinforcement Learning
+approaches, such as solving a constrained optimization prob-                   The goal of reinforcement learning is to find an optimal
+lem [19], employing Lyapunov-based approaches [20], and                     policy π ∗ such that it can minimize the expected cumulative
+leveraging model information [21]. Our proposed method                      discounted cost J (π ). Formally, reinforcement learning solves
+for safe learning also follows the spirit of [19]. Differently,             the following optimization problem:
+we tackle the problem through the lens of the mirror descent                                                          "∞                 #
+                                                                                                                       X
+framework [22], where the learning rate for policy updates is                 π ∗ = argmin J (π ), with J (π ) = E        γ t c(st , at ) (2)
+devised from the perspective of imitation learning. The result-                        π∈5                                 τ ∼π
+                                                                                                                                  t=0
+ing nonlinear optimization problem for policy update is then
+                                                                            where s0 ∼ d0 , at ∼ π(·|st ), and st+1 ∼ P(·|st , at ).
+addressed by the primal-dual interior-point technique. More-
+                                                                               Typically, in the context of robotics, (2) is tackled by policy
+over, in contrast to [19], we present monotonic improvement
+                                                                            gradient algorithms, where the learned policy πθ belongs to
+and show the policy value bound using the error propagation
+                                                                            a parametric policy set 52 with θ ∈ 2 and 2 ⊂ Ro being
+analysis.
+                                                                            the parameter space. Specifically, the gradient of J (πθ ) with
+   Another closely related research topic on safe learning is
+                                                                            respect to policy parameter θ is given by [27]:
+constrained learning from demonstration, which concentrates                                           " ∞                        ! #
+on bounding policy representations [23], [24], [25]. While                                               X
+constrained learning from demonstration has shown favorable                          ∇θ J (πθ ) = E           ∇θ log πθ (at |st ) 9 ,      (3)
+                                                                                                    τ ∼π
+                                                                                                             t=0
+outcomes in dealing with the limit-violation problem for
+                                                                            where 9 =           t=0 γ c(st , at ). Akin to stochastic gradient
+                                                                                             P∞       t
+robot trajectory generation, our proposed approach focuses
+instead on safe policy search, which applies to more gen-                   descent, the gradient (3) can be estimated from a number I
+eral scenarios. Additionally, specifically designed hardware                                             I
+                                                                            of trajectory samples {τi }i=1   ,
+prototypes can also be used to achieve safety interaction.                                                 I      ∞
+                                                                                                                                       !
+For example, a customized clutch is designed to achieve the                                            1 X       X
+                                                                                   g := ∇ˆ θ J (πθ ) =              ∇θ log πθ (at |st ) 9i . (4)
+                                                                                                                                i   i
+safe operation of an ultrasound robot [26]. By contrast, our                                           I i=1 t=0
+approach primarily focuses on the algorithmic perspective for
+dealing with the safety concern in robot-assisted ultrasound                Then at the n-th iteration, the parameters of the policy can be
+imaging.                                                                    simply updated with policy gradient:
+                                                                                                      θn+1 = θn − ηn g,                           (5)
+                      III. P RELIMINARIES
+                                                                            where ηn > 0 is a learning rate of the n-th iteration.
+A. Markov Decision Process                                                     Furthermore, given any two policies π and π ′ , their
+   A Markov decision process (MDP) is a tuple M =                           respective values are related by the well-known performance
+(S, A, P, c, γ , d0 ) where S is a set of states, A is a set of             difference lemma [28]:
+actions, P : S × A × S → R is a transition probability
+                                                                                                             "∞                 #
+                                                                                                              X
+distribution, c : S × A → R is a cost function, γ ∈ [0, 1) is a                        J (π ) = J (π ) + E ′
+                                                                                           ′
+                                                                                                                 γ Aπ (st , at ) ,
+                                                                                                                  t
+                                                                                                                                    (6)
+                                                                                                            τ ∼π
+discount factor, and d0 (s) → R is the starting state distribution                                                   t=0
+that refers to the probability distribution of the initial states.          where Aπ (s, a) is called the advantage function whose defini-
+We assume that the absolute value of the cost function is upper             tion is given by:
+bounded by Cmax , i.e. |c(s, a)| ≤ Cmax , ∀(s, a) ∈ S × A.
+A stochastic policy π ∈ 5 : S → P(A) returns a distribution                                    Aπ (s, a) = Q π (s, a) − Vπ (s),                   (7)
+over actions given the encountered state, where 5 denotes the               where Q π (s, a) denotes the state-action value function and
+set of all stationary policies.                                             Vπ (s) the value function.
+   The Markov decision process works as follows. The agent
+starts from a state sampled by s0 ∼ d0 . Then at each time step
+t, the agent executes an action at according to π(·|st ), receives          C. Problem Statement
+an immediate cost c(st , at ), and observes the next state st+1                As discussed in Sec. I, reinforcement learning emerges as a
+according to the process transition dynamics P(·|st , at ). The             promising tool to identify the optimal contact force scheduling
+above procedure repeats and finally results in a trajectory                 that generates high-quality ultrasound images of the spine.
+τ = (s0 , a0 , s1 , a1 , . . .) that records the agent-environment          Nevertheless, it calls for extra attention on restricting contact
+interaction history. Additionally, one useful notion for studying           force strength when directly applying (5) in search for the
+infinite-horizon MDP is defined, namely the discounted state                optimal parameters of the controller. To this end, we propose
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+2352                                                                    IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+                                                                                where Dh : 2 × 2 → R is the Bregman divergence from θn
+                                                                                to θ with respect to the function h : 2 → R [30]. Specifically,
+                                                                                Dh is defined as:
+                                                                                       Dh (θ∥θn ) = h(θ ) − h(θn ) − ⟨∇h(θn ), θ − θn ⟩.         (11)
+                                                                                By choosing h(θ ) = 21 ∥θ∥2 , vanilla policy gradient update (5)
+                                                                                can then be recovered. It will be shown later that mirror
+                                                                                descent provides a convenient framework to analyze policy
+                                                                                search subject to constraints.
+Fig. 3.      Schematic diagram of the proposed methodology for safely
+learning the optimal contact force in ultrasound imaging. The constrained       B. Imitation-Guided Learning Rate
+reinforcement learning algorithm takes spine information as input and outputs
+interaction force displacement 1Fz .                                               In this section, we consider the design of the learning
+                                                                                rate ηn in (10), which decides how far the policy parameters
+                                                                                progress in one iteration and is often left as a constant
+to take into account the external constraints on the force                      hyper-parameter in vanilla policy gradient. Generally speak-
+magnitude. Specifically, a Markov decision process associated                   ing, the value of a learning rate plays an important role in
+with external constraints forms a constrained Markov decision                   the algorithm’s performance. For the reinforcement learning
+process (CMDP) [29]. We denote the concerning cost func-                        process to be stable, it has been observed that one common
+tions as C = {C1 , . . . , Cm } with Ci : S × A → R being the                   strategy is to additionally refrain the new policy from deviating
+corresponding cost function. The expected discounted return                     too far away from the old one.
+of policy π with respect to a cost function is given by:                           For example, in trust region policy optimization (TRPO), the
+                                "∞
+                                 X
+                                                    #                           maximum Kullback–Leibler (KL) divergence between the old
+               JCi (π ) = E          γ Ci (st , at ) .
+                                      t
+                                                          (8)                   and the new policy is constrained given any states [11]. Due to
+                               τ ∼π
+                                      t=0                                       the intractability of the constraint for numerical optimization
+Each cost function needs to be bounded by its corresponding                     and estimation, the practical implementation of TRPO instead
+threshold di . Consequently, the policy optimization problem                    uses an average KL divergence between the old policy and the
+within the framework of CMDP is formulated as:                                  new policy averaged over the state distribution induced by the
+                                                                                old policy, which is de facto behavior cloning [31].
+             πC∗ =argmin J (πθ )                                        (9a)       Similarly, relative entropy policy search (REPS) constrains
+                     πθ ∈52
+                                                                                the KL divergence between the old and the new state-action
+                    s.t.    JCi (πθ ) ≤ di , i = 1, . . . , m.         (9b)
+                                                                                distribution [32]. As there is a one-to-one correspondence
+Intuitively, the optimal policy πC∗from (9) accumulates the                     between policy and state-action visitation frequency, given
+minimum possible costs while interacting with the environ-                      a state-action occupancy measure, its corresponding pol-
+ment while respecting the hard constraints by expectation.                      icy is unique [33]. In other words, the constraint of the
+Such policy optimization procedures featured by constraint                      observed state-action distribution and the state-action distri-
+awareness will enhance safety and thus be more suitable for                     bution induced by the new policy in REPS is also equivalent
+medical robots interacting with human bodies.                                   to making the new policy imitate the old one.
+                                                                                   Typical perspectives to imitation lie in discriminative meth-
+                           IV. M ETHODOLOGY                                     ods [31] and generative methods [33]. In this paper, we choose
+   In this section, we present the algorithmic perspective of the               the discriminative imitation approach because of its straight-
+proposed methodology. We first introduce the mirror descent                     forward formulation and the absence of a requirement for
+framework in Sec. IV-A. Then, we illustrate the design of                       interacting with the environment [34]. When constraining the
+the learning rate in Sec. IV-B. Finally, constraint-aware policy                discrepancy between consecutive policies from an imitation
+optimization is elaborated in Sec. IV-C.                                        perspective, we view the old policy πθn as an expert and
+                                                                                new policy πθn+1 as a learner. Our goal is to bound the value
+A. Mirror Descent Framework                                                     discrepancy between πθn and πθn+1 . To this end, the imitation
+   As a central topic in online optimization, mirror descent is                 loss between the expert and the learner can be quantified as1 :
+increasingly employed to study decision-making algorithms                                          E DKL (πn (·|s), πn+1 (·|s)) ,
+                                                                                                                                
+                                                                                                                                             (12)
+due to its high analog to on-policy decision-making algo-                                         s∼dπn+1
+
+rithms. Notably, several reinforcement learning algorithms and                  where DKL denotes the KL divergence between two proba-
+imitation learning algorithms can be recovered by the mirror                    bility distributions [35]. Due to the unknown and complex
+descent framework [22]. We first cast the iterative update rule                 dynamics, the state distribution dπn+1 induced by the learner
+of policy optimization into the mirror descent framework.                       policy πn+1 is typically hard to obtain. In practice, one
+   Formally, given the first-order oracle g, policy update at the               common solution to this issue is the so-called behavior cloning
+n-th iteration conforming to mirror descent is formulated as:                   where expert policy’s state distribution dπn is employed in lieu
+               θn+1 = argmin ηn ⟨g, θ⟩ + Dh (θ∥θn ),                   (10)       1 For simplicity, we write π
+                            θ ∈2                                                                              θn as πn in the following.
+
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+DUAN et al.: SAFE LEARNING BY CONSTRAINT-AWARE POLICY OPTIMIZATION                                                                                   2353
+
+
+
+of the learner policy distribution dπn+1 . The imitation loss that          in [19]. Specifically, the constraints at the n-th iteration are
+we would like to bound is then written as:                                  approximated as:
+          JI L (πn+1 ) = E DKL (πn (·|s), πn+1 (·|s)) .
+                                                                                            ⊺
+                                                             (13)                            pi (θ − θn ) + φi ≤ 0, i = 1, . . . , m,                (18)
+                         s∼dπn
+
+Our designing principle on learning rate is that the policy                 where pi = ∇ JCi represents the gradient of the corresponding
+parameters shall increment by a maximum allowable step                      constraint Ci and we denote:
+along the first-order oracle within a given imitation loss δ.
+                                                                                                            φi = JCi (πn ) − di .                    (19)
+To this end, we first derive the Taylor expansions of (13) with
+respect to θn+1 evaluated at θn to yield the relationship between           By imposing (18) on (10), a constraint-aware version of the
+policy increment value ηn g as well as imitation discrepancy δ:             policy update is thus formulated as:
+                             ⊺
+  JI L (π ) ≈ JI L (πn ) + ∇ JI L (θ − θn )                                         min       f (θ )                                                (20a)
+                                                                                     θ ∈2
+                 1
+               + (θ − θn )⊺ F(θn )(θ − θn ) + o(∥θ − θn ∥2 ), (14)                  s.t.
+                                                                                              ⊺
+                                                                                             pi (θ − θn ) + φi ≤ 0, i = 1, . . . , m.               (20b)
+                 2
+where JI L (πn ) = 0 since the imitation discrepancy is zero                For simplicity, we denote:
+when two policies are identical. Also, as the Taylor expansion
+is evaluated at θn which serves as the optimal expert policy by                                   f (θ ) = ηn ⟨g, θ⟩ + Dh (θ∥θn ).
+definition, the first order derivative thus remains zero, namely            It can be observed that (20) constitutes a constrained nonlinear
+∇ JI L = 0. Notably, the fact that both JI L (πn ) and ∇ JI L equal         optimization problem. In order to solve it, we employ a primal-
+to zero shall be analytically verified by the properties of the KL          dual interior-point method that is simple and efficient for
+divergence. Finally, ∇ 2 JI L = F(θn ) is the Fisher information            solving constrained optimization problems [36].
+matrix [28]:                                                                   To implement the primal-dual interior-point method, the
+        F(θn ) = E ∇ log(πn (a|s))∇ log(πn (a|s))⊺ .
+                                                      
+                                                               (15)         inequality-constrained optimization problem (20) is first trans-
+                s∼dπn
+                a∼πn                                                        formed into an unconstrained optimization problem with the
+                                                                            help of barrier functions. The corresponding logarithmic bar-
+   As the largest learning step happens when the new policy
+                                                                            rier function associated with (20b) to convert the inequality
+results in the maximum allowable imitation loss δ compared
+                                                                            constraints into a penalizing term is defined by:
+with the previous policy, this implies JI L (πn+1 ) = δ. By sub-
+stituting (5) into (14), we then have:                                                                m
+                                                                                                      X              ⊺
+                                                                                                  −         log(− pi (θ − θn ) − φi ).               (21)
+                      1
+                        ηn g ⊺ F(θn )ηn g = δ.         (16)                                           i=1
+                      2
+                                                                               Consequently, the unconstrained optimization problem upon
+Consequently, the imitation-guided learning rate ηn at n-th
+                                                                            integrating (21) into the objective (20a) is given by:
+iteration is obtained as:
+                               s                                                                                 m
+                                      2δ
+                                                                                                                 X               ⊺
+                       ηn =                  .         (17)                     8(θ, µ) = − f (θ ) − µ                 log(− pi (θ − θn ) − φi ),    (22)
+                                 g ⊺ F(θn )g                                                                     i=1
+
+   Compared with the constant learning rate that is used in                 where µ > 0 is called the barrier parameter, which usually
+traditional policy gradient methods, our developed adaptive                 makes the problem (22) a better approximation of (20) as it
+learning rate dictates the step size of the policy progress from            approaches zero.
+a principled perspective of imitation learning.                               To tackle the minimization problem (22), we equate its
+                                                                            derivative with respect to the design variables to zero, which
+C. Constraint-Aware Policy Optimization                                     implies that:
+   Our ultimate goal is to search for the optimal policy param-                                                        m
+                                                                                                                       X           pi
+eters that minimize the cost function under external constraints                            ∇8 = −β(θ ) − µ                  ⊺                      (23a)
+                                                                                                                           p
+                                                                                                                       i=1 i
+                                                                                                                               (θ − θn ) + φi
+as formulated in (9). Though performing vanilla reinforcement
+                                                                                                                   m
+learning algorithms such as (10) can lead to a solution to (9a),                                                   X
+                                                                                                  = −β(θ ) −             λi pi                      (23b)
+the obtained optimal parameters could potentially violate the
+                                                                                                                   i=1
+constraints as specified by (9b).
+   To guarantee that the policy search procedure respects the                                     = −β(θ ) − P λ = 0,⊺
+                                                                                                                                                    (23c)
+constraints over the course of task execution, we propose                   where we denote
+to augment (10) with (9b) such that each step of parameter
+update will take place within the allowed safety region, which                       β(θ ) = ∇ f (θ ) = ∇h(θ ) + (ηn g − ∇h(θn )).
+is of critical importance in the case of physical human-                                                      ⊺
+                                                                            And we have P = p1 , . . . , pm . The dual variable λ ∈ Rm
+                                                                                               
+robot interaction. Therefore, at each update step, a constrained
+                                                                            is introduced as:
+optimization problem needs to be solved.
+                                                                                                               µ
+   To make the constraints trackable, we propose to linearize                                 λi =       ⊺                .        (24)
+the constraints following a similar treatment of (3) as shown                                         − pi (θ − θn ) − φi
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+2354                                                                 IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+Algorithm 1 Constraint-Aware Policy Optimization                             the monotonic improvement of the proposed algorithm
+  Input: Initial policy parameters θ0 , trajectory samples num-              (Sec. V-A) as well as the bound of value difference between
+  ber I, max policy optimization iteration N , max interior                  consecutive policies (Sec. V-B).
+  point iteration K , imitation loss δ, and step size ηθ and ηλ ;               To begin with, the following assumptions are made to
+  for n = 0, 1, . . . , N do                                                 facilitate theoretical analysis as in prior work on sequential
+    for i = 1, 2, . . . , I do                                               decision making [37].
+       Roll out policy θn and collect trajectory τi ;                           Assumption 1: We assume that h is α-strong convex,
+    end for                                                                  namely ∀θ1 , θ2 ∈ 2, ∃α > 0 such that:
+    Compute the Fisher information matrix F(θn ) as per (15);
+    Calculate the policy learning rate ηn as per (17);                                  (∇h(θ1 ) − ∇h(θ2 ))(θ1 − θ2 ) ≥ α∥θ1 − θ2 ∥22 .          (27)
+    Estimate the policy gradient g as per (4);
+                                                                               Assumption 2: We assume that J is l-Lipschitz continuous,
+    Approximate the constraints C as per (18);
+                                                                             namely ∀θ1 , θ2 ∈ 2, ∃l > 0 such that:
+    for k = 0, 1, . . . , K do
+       Form the system of linear equations as per (25);                                                                     l
+                                                                                 J (θ2 ) − J (θ1 ) ≤ ⟨∇ J (θ1 ), θ2 − θ1 ⟩ + ∥θ1 − θ2 ∥22 .      (28)
+       Update policy parameters as per (26);                                                                                2
+    end for
+  end for                                                                    A. Monotonic Improvement
+  Output: Optimal parameters θ ∗ .
+                                                                               We first consider proving monotonic improvement for
+                                                                             constraint-free policy optimization.
+                                                                               Proposition 1: In the case of ηn l < 2α, monotonic
+  The zeros of (23), which represent the solution to (22),                   improvement for (10) holds, i.e.
+can be found with the help of root-finding algorithms. Here
+we employ the popular Newton’s method to address (23c)                                                  J (θn+1 ) < J (θn ).                     (29)
+and (24). The search directions can be determined by solving                     Proof: Using the fact of optimality and convexity proper-
+the following system of linear equations:                                    ties for (10), we have:
+       −∇ 2 h(θ ) −P ⊺ 1θ           −β(θ) + P ⊺ λ
+                                             
+                                =                   ,   (25)                           1
+         IλP        C      1λ         µ1 − Cλ                                   ⟨g +      (∇h(θn+1 ) − ∇h(θn )), θ − θn+1 ⟩ ≥ 0, ∀θ ∈ 2.
+                                                                                       ηn
+                            ⊺                             ⊺
+where C = diag(− p1 (θ − θn ) − φ1 , . . . , − pm (θ − θn ) −                                                                          (30)
+φm ) with diag(·) returning a diagonal matrix, I denotes the
+                                                                             By re-arranging (30), we then have:
+identity matrix, and 1 denotes a (column) vector of ones. The
+solution to (25) is then used to perform iterations as follows:                                      1
+                                                                                  ⟨g, θn − θn+1 ⟩ ≥     ⟨∇h(θn ) − ∇h(θn+1 ), θn − θn+1 ⟩
+                                                                                                     ηn
+                    θk+1     θ        η 1θ
+                                        
+                          = k + θ k                        (26)                                      α
+                   λk+1      λk       ηλ 1λk                                                        ≥ ∥θn+1 − θn ∥22 .                    (31)
+                                                                                                     ηn
+where ηθ and ηλ denote the step size for θ and λ, respec-                    From the smoothness assumption on J made in Assumption 2,
+tively. Each step of the policy update procedure will undergo                it can be obtained that:
+iteration as (26), which guarantees that the obtained policy
+will respect the specified constraints. The overall procedure for                      J (θn+1 ) − J (θn )
+safe reinforcement learning of scanning skills is summarized                                                         l
+                                                                                          ≤ ⟨∇ J (θn ), θn+1 − θn ⟩ + ∥θn+1 − θn ∥22            (32a)
+in Algorithm 1. See Fig. 3 for a conceptual illustration of the                                                      2
+proposed method.                                                                                               l
+                                                                                          = ⟨g, θn+1 − θn ⟩ + ∥θn+1 − θn ∥22                    (32b)
+   Remark 1: When implementing the proposed method in our                                                      2
+actual application, we choose the displacement 1Fz (i.e., the                                   α      l
+                                                                                          ≤ (− + )∥θn+1 − θn ∥22 .                              (32c)
+increase/decrease) of the interaction force Fz as the action a                                 ηn      2
+in CMDP. The state st of CMDP is defined as the ultrasound                   Therefore, when ηn l < 2α, (32c) becomes negative, which
+images It ∈ R H ×W acquired at time step t, with H and W                     yields J (θn+1 ) < J (θn ).
+being the image size. The reward function Rψ (It ) ∈ (0, 1) is                  This implies that the cumulative cost is reduced after each
+determined based on the output quality score of the ultrasound               iteration and thus policy improves monotonically. Note that
+perception network that is parametrized by ψ. To ensure                      here we use g as an expectation of policy gradient. For a
+safety, we designed a constraint function C(a) = 1(|Fz +a| >                 more general analysis that takes randomness of sampling g
+Fmax ) that specifies the maximum threshold Fmax for the                     into account, interested readers are referred to [22].
+interaction force, where 1(·) returns one when the argument                     In the case where the constraints are imposed, we consider
+holds and zero otherwise.                                                    studying the issue of monotonic improvement in terms of two
+                                                                             situations, depending on whether the constraints are triggered
+                  V. T HEORETICAL A NALYSIS                                  or not. If the constraints are not triggered during optimization,
+  This section analyzes the performance of the proposed                      the property of monotonic improvement can be concluded
+constraint-aware policy optimization. In particular, we prove                following the same proof for the unconstrained case as in
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+DUAN et al.: SAFE LEARNING BY CONSTRAINT-AWARE POLICY OPTIMIZATION                                                                                    2355
+
+
+
+Proposition 1. We then prove that monotonic improvement also                B. Policy Value Bound
+holds in the case where there are constraints triggered during                 In this part, we aim to provide the bound on the absolute
+policy optimization with ηn l < 2α. To this end, we first show              value of the value difference between two consecutive policies
+that (31) holds for the case of constraints triggered as well,              to showcase the properties of the evolution of the learned
+as illustrated in the following lemma.                                      policy. Specifically, we derive the bound by leveraging the
+  Lemma 1: Consider (20) under Assumption 1 and 2; It                       error propagation analysis framework [38].
+holds that:                                                                    Lemma 2: The expected return of the updated policy πn+1
+                                  α                                         is given by2 :
+                ⟨g, θn − θn+1 ⟩ ≥ ∥θn+1 − θn ∥22 .         (33)
+                                 ηn                                                                X          X
+                                                                                       J (πn+1 ) =    dπn (s)   πn+1 (a|s)c(s, a).    (41)
+    Proof: Let the indices of the active constraints collectively
+                                                                                                              s                a
+expressed as Ca = [Ca1 , . . . , Cak ]. When considering only
+the active constraints, (20) shares the same solution as the                   Proof:     We first write the performance difference
+following inequality-constrained optimization problem:                      lemma (6) in terms of the state visitation frequency as:
+                                                                                                     X           X
+                   min ηn ⟨g, θ⟩ + Dh (θ∥θn )                     (34a)        J (πn+1 ) = J (πn ) +   dπn+1 (s)    πn+1 Aπn (s, a). (42)
+                   θ ∈2                                                                                                s            a
+                   s.t.   Aθ = b                                  (34b)
+                                                                            As pointed out in [11], the second term of the right-hand
+where A and b are defined as follows:                                       side can be locally approximated using the state visitation
+             ⊺ 
+              pCa1
+                                   ⊺
+                                    pCa1 θn − φCa1
+                                                                           frequency induced by policy πn , which implies that:
+
+        A =  ...  and b =               ..
+                                                                                X            X
+                                
+                                            .      .
+                                                   
+                                                                   (35)            dπn+1 (s)   πn+1 (a|s)Aπ (s, a)
+                   ⊺                        ⊺
+                  pCak                    pCak θn − φCak                          s
+                                                                                          X
+                                                                                                  a
+                                                                                                          X
+                                                                                      =       dπn+1 (s)                πn+1 (a|s)c(s, a) − J (πn )   (43a)
+By employing the Lagrangian multiplier λ E ≥ 0, the corre-                                s                       a
+sponding Lagrangian function of (34) can be written as:                                   X             X
+                                                                                      ≈       dπn (s)                 πn+1 (a|s)c(s, a) − J (πn ).   (43b)
+                                               ⊺
+ min    L(θ, λ E ) = ηn ⟨g, θ⟩ + Dh (θ∥θn ) + λ E (Aθ − b).        (36)                   s               a
+ θ∈2
+                                                                            Substituting (43b) into (42), we can obtain the expression for
+Similarly to (31), from (36) we can obtain:                                 the value of πn+1 as:
+                                      α
+         ⟨g + A⊺ λ∗E , θn+1 − θn ⟩ ≤ − ∥θn+1 − θn ∥22 ,            (37)
+                                                                                                  X          X
+                                      ηn                                              J (πn+1 ) =    dπn (s)   πn+1 (a|s)c(s, a),     (44)
+                                                                                                              s                a
+where λ∗E represents the optimal value of the multiplier and
+can be expressed as                                                         which completes the proof.
+                                                                               Proposition 3: The upper bound of the absolute value of
+                   λ∗E = argmax infL(θ, λ E ).                     (38)     the value difference between two consecutive policies πn and
+                                     θ
+                            λ E ≥0
+                                                                            πn+1 is given by:
+Furthermore, we can show that:                                                                          √
+                                                                                                       2 2Cmax
+                                                                                                               r
+                                                                               |J (πn+1 ) − J (πn )| ≤            E DKL (πn+1 , πn ) .
+                                                                                                                                   
+           ⟨A⊺ λ∗E , θn+1 − θn ⟩ = λ∗E ⊺ (b − Aθn ) ≥ 0,           (39)                                 1−γ     s∼dπn
+
+where we used the facts that Aθn+1 = b as (34b) and Aθn ≤                       Proof: By resorting to the framework of the error propa-
+b as shown by (35). As a result, by leveraging the property                 gation analysis, the policy value difference is upper bounded
+of (39), we can further conclude from (37) that:                            by:
+                      α
+   ⟨g, θn+1 − θn ⟩ ≤ − ∥θn+1 − θn ∥22 − ⟨A⊺ λ∗E , θn+1 − θn ⟩                   |J (πn+1 ) − J (πn )|
+                      ηn
+                      α                                                                   1 X
+                   ≤ − ∥θn+1 − θn ∥22 ,
+                                                                                                             X
+                                                           (40)                     =              dπn (s)       (πn+1 − πn )c(s, a)                 (45a)
+                      ηn                                                               1−γ s                  a
+which reveals (33).                                                                    Cmax X               X
+   Proposition 2: For ηn l < 2α, monotonic improvement                              ≤              dπn (s)      |πn+1 − πn |                         (45b)
+                                                                                       1−γ s
+for (20) holds, i.e. J (θn+1 ) < J (θn ).                                                                    a
+                                                                                       2Cmax
+                                                                                                E DTV (πn+1 , πn )
+                                                                                                                     
+    Proof: When there is no active constraint, the proof of                         =                                                                (45c)
+monotonic improvement follows directly from Proposition 1.                             1 − γ s∼dπn
+When there are active constraints, the proof can be derived by                         2Cmax       hp                    i
+                                                                                    ≤           E       2DKL (πn+1 , πn )                            (45d)
+combining Lemma 1 and (32c).                                                           1 − γ s∼dπn
+                                                                                        √
+   Intuitively, such a conclusion is as expected, with evidence                        2 2Cmax
+                                                                                                  r
+                                                                                                       E DKL (πn+1 , πn )
+                                                                                                                           
+from the unconstrained case that a smaller step increment                           ≤                                                                (45e)
+                                                                                         1−γ         s∼dπn
+will lead to a lower cost for the next policy. When external
+constraints are imposed, policy update will become more con-                  2 For compactness, the dependency on state and/or action is omitted when
+servative, and thus monotonic improvement can be admitted.                  there is no ambiguity.
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+2356                                                                      IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+
+                                                                                Fig. 5. Control block of ultrasound scanning for scoliosis diagnosis. The
+Fig. 4.   Illustration of the experimental platform for scoliosis assessment.   path planner is to track the spinous process, the force controller is responsible
+                                                                                for maintaining the interaction force, and the orientation regulator ensures that
+                                                                                the probe is perpendicular to the back surface.
+wherein DTV denotes the total variation between two probabil-
+ity distributions. Notably, the inequality (45d) is obtained due
+to Pinsker’s inequality that bounds the total variation distance                composed of the probability of each pixel being a spinous
+in terms of the KL divergence. The inequality (45e) is obtained                 process. The point with the maximum probability is then
+following Jensen’s inequality.                                                  identified as the spinous process. Notably, the confidence score
+                                                                                in localizing the spinous process is used as the reward function
+                           VI. E XPERIMENTS                                     to quantify the clarity of an ultrasound image.
+   In this section, we evaluate the effectiveness of our method
+by conducting ultrasound scanning experiments with a robotic                    B. Experimental Results
+manipulator and a tissue phantom. The overall experimental
+                                                                                   The effectiveness of our proposed constraint-aware pol-
+setup is first introduced in Sec. VI-A. Subsequently, we report
+                                                                                icy optimization is validated by safely learning the optimal
+the obtained results in Sec. VI-B.
+                                                                                interaction force profile. The learned optimal force strategy
+                                                                                will then be used for ultrasound scanning the phantom to
+A. Experimental Setup                                                           reconstruct its 3D spinal image. As a good quality of the
+   An illustration of the hardware setup for evaluating the                     finally reconstructed 3D spinal image is desired, it suggests
+proposed method of safe robotic ultrasound imaging is shown                     the design of a reward based on the quality of the 3D image.
+in Fig. 4. The test subject involved in the experiments is                      Notwithstanding, the cost function for numerical evaluation of
+a phantom model with realistic mechanical properties. The                       the quality of 3D spinal images is quite arduous to constitute.
+phantom has a deformed spine embedded inside its upper body.                    For the same spinal image, consensus on its quality can be
+The high-fidelity phantom resembles a human upper body with                     hardly reached among sonographers as the evaluation can be
+a mean stiffness of 195 N/m. At the core of the setup is                        quite subjective [6]. Moreover, improving the contact force
+a six DoFs industrial robot manipulator UFACTORY xArm,                          policy on the cost that evaluates the quality of the 3D spinal
+which is connected via the TCP/IP protocol to the control                       images could suffer from the credit assignment issue since the
+computer. A USB ultrasound probe Sonoptek is attached to                        outcomes of the policy are delayed to the very end of 3D
+the end-effector of the robot manipulator, capturing ultrasound                 spinal image reconstruction.
+images at a frequency of 7.5 MHz. To sense the interaction                         As a workaround, our cost is designed using the ultrasound
+force between the phantom’s back and the ultrasound probe,                      image quality instead of the quality of the 3D spinal image.
+a six-axis force/torque sensor Robotiq FT300 is attached                        To evaluate ultrasound image quality, traditional methods
+between the ultrasound probe and the robot manipulator.                         such as random walks [40] typically penalize the undesirable
+A depth camera RealSense is placed at the base link of the                      shadow areas. This principle is not suitable in our case because
+robot manipulator to have the point cloud of the phantom’s                      the shadow area is desired when ultrasound imaging of rigid
+back. The phantom is placed on the Scolioscan platform,                         objects. The ultrasound signals will be dramatically attenuated
+which receives ultrasound images and coordinates of the probe                   at the tissue-spine interface, which makes the spine appear as a
+for final 3D reconstruction of the spine [39].                                  shadow area in an ultrasound image. To this end, we propose
+   The overall control system for our ultrasound scanning task                  to leverage the ultrasonic perception network that localizes
+is depicted in Fig. 5. The proposed robot control system is                     the spinous process to quantify the clarity of the ultrasound
+composed of three components, namely, a path planner, a force                   images. More precisely, the confidence probability Pc (t) of
+controller, and an orientation regulator. Specifically, the path                localizing the spinous process, which can be read in real-time,
+planner is responsible for making the ultrasound probe track                    is used to indicate the ultrasound image quality at time step t.
+the detected spinous process. Detection of the spinous process                  The immediate cost is thus expressed as c(t) = −Pc (t).
+is achieved by processing the ultrasound images with an                            To have better efficiency, we consider selecting several key
+ultrasound processing neural network, which uses ResNet18 as                    locations containing the spinous processes on the phantom’s
+its backbone followed by three deconvolutional layers and one                   back to separately identify the optimal contact strength rather
+convolutional layer. The output of the network is a heatmap,                    than learning over the whole back. When finally assessing
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+DUAN et al.: SAFE LEARNING BY CONSTRAINT-AWARE POLICY OPTIMIZATION                                                                                      2357
+
+
+
+
+Fig. 6.   Force versus ultrasound images quality for lumbar top row and thoracic bottom row.
+
+
+
+
+Fig. 7. Force strategy learning at different locations of the phantom’s back.   Fig. 8. Probabilities of identifying the spinous process with different force
+Three locations are located in the lumbar region (left column) and the other    magnitudes at lumbar (top row) and thoracic (bottom row).
+three locations are located in the thoracic region (right column).
+
+
+
+
+the spine conditions of the phantom, the force profile along
+the phantom’s back is obtained by fitting the optimal force
+magnitude learned at different representative locations. Par-
+ticularly, we take the lumbar and thoracic regions as they
+mainly determine the spine shape. Three key locations are
+selected in the lumbar region and the other three locations
+are placed in the thoracic region, as shown in Fig. 7. All the
+selected locations share a similar learning procedure. The state
+is chosen as the received ultrasound image. The action of the
+policy is a force magnitude given the current state. The policy
+is trained to gradually improve the quality of the ultrasound
+image within the constraint of the force limits.
+   Before applying the proposed safe reinforcement learning
+algorithm, we first show the effects of different force mag-
+nitudes on the resulting ultrasound image quality. We exert                     Fig. 9.    Force evolution versus iterations at different locations of the
+                                                                                phantom’s back where blue curves denote the results from vanilla reinforce-
+different constant force magnitudes ranging from 0.5 N to                       ment learning, green curves denote the results from constraint-aware policy
+5 N at one lumbar spinous process and one thoracic spinous                      optimization, and red curves denote the maximum force limits.
+process. It can be qualitatively observed that the clarity of
+the ultrasound images becomes higher as the force magnitude
+increases, as shown in Fig. 6. Quantitatively, Fig. 8 shows                     probability of finding out the spinous process becomes higher
+the confidence probability of identifying the spinous process                   when increasing the interaction force.
+with the ultrasound perception neural network with respect                        For the constraint of safe reinforcement learning, the max-
+to different force strategies. It can be concluded that the                     imum force limit is set as 10 N. The number of the trajectory
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+2358                                                                  IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+                                                                              and constraint-aware policy optimization, respectively. Then
+                                                                              we use both fitted force profiles to scan the phantom’s back.
+                                                                              The ultrasound probe begins from the sacrum region and
+                                                                              slides the phantom’s back in a caudo-cranial direction. The
+                                                                              measured force evolution versus the phantom’s back is shown
+                                                                              in Fig. 10. Finally, the 3D spinal images are reconstructed
+                                                                              using the volume projection imaging method for scoliosis
+Fig. 10. Applying the optimal force profiles on the phantom’s back, which
+are learned from vanilla reinforcement learning (left) and constraint-aware   assessment [41]. The volume projection imaging algorithm
+policy optimization (right), respectively.                                    visualizes spine anatomy by slicing the collected ultrasound
+                                                                              images together with the corresponding 3D spatial informa-
+                                                                              tion. Fig. 11 shows the evolution of the reconstructed spines
+                                                                              along the vanilla reinforcement learning procedure. Fig. 12
+                                                                              shows the evolution of the reconstructed spines along the
+                                                                              constraint-aware policy optimization learning procedure. It can
+                                                                              be seen that the trend of clarity for obtained spines is gradually
+                                                                              improved for both cases. Qualitatively, the transverse processes
+                                                                              are becoming more and more identifiable and the black spots
+                                                                              due to contact loss are becoming less and less prominent [6].
+                                                                              Also, the quality of the final spine image constructed by
+                                                                              safe learning is comparable to the one constructed by vanilla
+                                                                              reinforcement learning, which is sufficient to be used for
+Fig. 11. Evolution of 3D reconstruction image of the phantom spine with       scoliosis assessment.
+vanilla reinforcement learning.
+                                                                                                       VII. C ONCLUSION
+                                                                                 In this paper, we presented constraint-aware policy opti-
+                                                                              mization to safely learn the optimal force profile for ultrasound
+                                                                              scanning spines in scoliosis assessment. The effectiveness of
+                                                                              the proposed algorithm is verified with real experiments of
+                                                                              finding out the optimal force profile for 3D spinal recon-
+                                                                              struction by ultrasound scanning a phantom. It is observed
+                                                                              that the vanilla reinforcement learning algorithm exceeds the
+                                                                              pre-specified threshold during policy search while our pro-
+                                                                              posed approach can respect the force limit and thus guarantee
+                                                                              safety.
+                                                                                 There are still a few limitations existing in our work.
+Fig. 12. Evolution of 3D reconstruction image of the phantom spine with       In our current setting for reward design, we use the confidence
+constraint-aware policy optimization.                                         probability of the spinous process to quantify the ultrasound
+                                                                              image quality, while a more direct evaluation is expected.
+                                                                              Another limitation in our framework lies in the absence of
+samples is I = 5. The maximum iteration steps of policy                       a theoretical analysis of the algorithm’s complexity.
+optimization are N = 100 and the maximum interior point                          Regarding future work, we would like to develop a force
+iteration is K = 10. The imitation loss for bounding the                      observer such that robotic ultrasound scanning can be con-
+deviation of the step for policy update is set as δ = 0.05.                   ducted without F/T sensors by estimating the interaction force
+The step size parameters for the primal-dual update are set                   between the probe and the subject’s back [42]. In addition,
+as ηθ = ηλ = 0.01. The policy of interaction force is                         with the availability of the dynamics model P, it is worth
+parametrized with a five-layer fully connected neural network                 investigating the acquisition of the optimal policy based on
+with the ReLU activation. The starting policy is initialized as               an optimization approach [43]. Furthermore, to make the
+a constant of 0.5 N. The learning results are shown in Fig. 9.                interaction skill generalizable to real human testers, we would
+It can be observed that the vanilla reinforcement learning                    like to investigate the relationship between the interaction skill
+algorithm significantly violates the specified force limits in                with respect to relevant features, e.g. body mass index, skin
+some cases while the force limit is well respected using the                  elasticity, muscle distribution, etc.
+proposed constraint-aware policy optimization. Notably, the
+occasional violation of the force threshold could be caused by                                             R EFERENCES
+multiple reasons, such as noises in the F/T sensor and high                    [1] M. Kyrarini et al., “A survey of robots in healthcare,” Technologies,
+stochasticity of the tissue-spine system.                                          vol. 9, no. 1, p. 8, Jan. 2021.
+   With the learned optimal force magnitudes at different loca-                [2] C. Huang, H. Huang, J. Zhang, P. Hang, Z. Hu, and C. Lv,
+                                                                                   “Human-machine cooperative trajectory planning and tracking for safe
+tions, we obtain the optimal force profile by fitting these values                 automated driving,” IEEE Trans. Intell. Transp. Syst., vol. 23, no. 8,
+along the phantom’s back for vanilla reinforcement learning                        pp. 12050–12063, Aug. 2022.
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+DUAN et al.: SAFE LEARNING BY CONSTRAINT-AWARE POLICY OPTIMIZATION                                                                                          2359
+
+
+
+ [3] C. Esterwood and L. P. Robert, “A systematic review of human and robot        [25] M. Davoodi, A. Iqbal, J. M. Cloud, W. J. Beksi, and N. R. Gans,
+     personality in health care human–robot interaction,” Frontiers Robot. AI,          “Rule-based safe probabilistic movement primitive control via control
+     vol. 8, p. 306, Sep. 2021.                                                         barrier functions,” IEEE Trans. Autom. Sci. Eng., vol. 20, no. 3,
+ [4] A. Duan et al., “Robust grasping by bimanual robots with                           pp. 1500–1514, Jul. 2023.
+     stable parameterization-based contact servoing,” IEEE/ASME                    [26] S. Wang et al., “Analysis of a customized clutch joint designed for the
+     Trans. Mechatronics, early access, Feb. 27, 2024, doi:                             safety management of an ultrasound robot,” Appl. Sci., vol. 9, no. 9,
+     10.1109/TMECH.2024.3363699.                                                        p. 1900, May 2019.
+ [5] Z. Lu, M. Li, A. Annamalai, and C. Yang, “Recent advances in robot-           [27] R. J. Williams, “Simple statistical gradient-following algorithms for
+     assisted echography: Combining perception, control and cognition,”                 connectionist reinforcement learning,” Mach. Learn., vol. 8, nos. 3–4,
+     Cognit. Comput. Syst., vol. 2, no. 3, pp. 85–92, Sep. 2020.                        pp. 229–256, 1992.
+ [6] Y.-P. Zheng et al., “A reliability and validity study for scolioscan:         [28] S. Kakade and J. Langford, “Approximately optimal approximate
+     A radiation-free scoliosis assessment system using 3D ultrasound imag-             reinforcement learning,” in Proc. Int. Conf. Mach. Learn., 2002,
+     ing,” Scoliosis Spinal Disorders, vol. 11, no. 1, pp. 1–15, Dec. 2016.             pp. 267–274.
+ [7] A. Duan, M. Victorova, J. Zhao, Y. Sun, Y. Zheng, and                         [29] E. Altman, Constrained Markov Decision Processes, vol. 7. Boca Raton,
+     D. Navarro-Alarcon, “Ultrasound-guided assistive robots for scoliosis              FL, USA: CRC Press, 1999.
+     assessment with optimization-based control and variable impedance,”           [30] L. Bregman, “The relaxation method of finding the common point
+     IEEE Robot. Autom. Lett., vol. 7, no. 3, pp. 8106–8113, Jul. 2022.                 of convex sets and its application to the solution of problems in
+ [8] L. Hu, A. Duan, M. Li, A. Cherubini, L. Li, and D. Navarro-Alarcon,                convex programming,” USSR Comput. Math. Math. Phys., vol. 7, no. 3,
+     “Paint with the sun: A thermal-vision guided robot to harness                      pp. 200–217, Jan. 1967.
+     solar energy for heliography,” IEEE Sensors J., vol. 22, no. 18,              [31] D. A. Pomerleau, “Efficient training of artificial neural networks for
+     pp. 18130–18142, Sep. 2022.                                                        autonomous navigation,” Neural Comput., vol. 3, no. 1, pp. 88–97, 1991.
+ [9] Z. Zhou, Y. Guo, and Y. Wang, “Handheld ultrasound video high-quality         [32] J. Peters, K. Mulling, and Y. Altun, “Relative entropy policy search,” in
+     reconstruction using a low-rank representation multipathway generative             Proc. 24th AAAI Conf. Artif. Intell., 2010, pp. 1607–1612.
+     adversarial network,” IEEE Trans. Neural Netw. Learn. Syst., vol. 32,         [33] J. Ho and S. Ermon, “Generative adversarial imitation learning,” in Proc.
+     no. 2, pp. 575–588, Feb. 2021.                                                     Adv. Neural Inf. Process. Syst., vol. 29, 2016, pp. 1–9.
+[10] M. Tirindelli et al., “Force-ultrasound fusion: Bringing spine robotic-       [34] A. Duan, I. Batzianoulis, R. Camoriano, L. Rosasco, D. Pucci, and
+     US to the next ‘level,”’ IEEE Robot. Autom. Lett., vol. 5, no. 4,                  A. Billard, “A structured prediction approach for robot imitation learn-
+     pp. 5661–5668, Oct. 2020.                                                          ing,” Int. J. Robot. Res., vol. 43, no. 2, pp. 113–133, Feb. 2024.
+[11] J. Schulman, S. Levine, P. Abbeel, M. I. Jordan, and P. Moritz, “Trust        [35] Y. Hu, G. Chen, Z. Li, and A. Knoll, “Robot policy improvement with
+     region policy optimization,” in Proc. ICML, 2015, pp. 1889–1897.                   natural evolution strategies for stable nonlinear dynamical system,” IEEE
+[12] K. Li, A. Li, Y. Xu, H. Xiong, and M. Q.-H. Meng, “RL-                             Trans. Cybern., vol. 53, no. 6, pp. 4002–4014, Jun. 2023.
+     TEE: Autonomous probe guidance for transesophageal echocardio-                [36] F. A. Potra and S. J. Wright, “Interior-point methods,” J. Comput. Appl.
+     graphy based on attention-augmented deep reinforcement learning,”                  Math., vol. 124, nos. 1–2, pp. 281–302, Jan. 2000.
+     IEEE Trans. Autom. Sci. Eng., early access, Feb. 22, 2023, doi:               [37] J. N. Lee, M. Laskey, A. K. Tanwani, A. Aswani, and K. Goldberg,
+     10.1109/TASE.2023.3246089.                                                         “Dynamic regret convergence analysis and an adaptive regularization
+[13] X. Deng, Y. Chen, F. Chen, and M. Li, “Learning robotic ultrasound                 algorithm for on-policy robot imitation learning,” Int. J. Robot. Res.,
+     scanning skills via human demonstrations and guided explorations,”                 vol. 40, nos. 10–11, pp. 1284–1305, Sep. 2021.
+     in Proc. IEEE Int. Conf. Robot. Biomimetics (ROBIO), Dec. 2021,               [38] T. Xu, Z. Li, and Y. Yu, “Error bounds of imitating policies and
+     pp. 372–378.                                                                       environments for reinforcement learning,” IEEE Trans. Pattern Anal.
+[14] G. Peng, C. L. P. Chen, and C. Yang, “Robust admittance control                    Mach. Intell., vol. 44, no. 10, pp. 6968–6980, Oct. 2022.
+     of optimized robot-environment interaction using reference adap-              [39] K. K.-L. Lai, T. T.-Y. Lee, M. K.-S. Lee, J. C.-H. Hui, and Y.-P. Zheng,
+     tation,” IEEE Trans. Neural Netw. Learn. Syst., vol. 34, no. 9,                    “Validation of scolioscan air-portable radiation-free three-dimensional
+     pp. 5804–5815, Sep. 2023.                                                          ultrasound imaging assessment system for scoliosis,” Sensors, vol. 21,
+[15] Z. Jiang, M. Grimm, M. Zhou, Y. Hu, J. Esteban, and N. Navab,                      no. 8, p. 2858, Apr. 2021.
+     “Automatic force-based probe positioning for precise robotic ultra-           [40] A. Karamalis, W. Wein, T. Klein, and N. Navab, “Ultrasound confi-
+     sound acquisition,” IEEE Trans. Ind. Electron., vol. 68, no. 11,                   dence maps using random walks,” Med. Image Anal., vol. 16, no. 6,
+     pp. 11200–11211, Nov. 2021.                                                        pp. 1101–1112, Aug. 2012.
+[16] J. Tan et al., “A flexible and fully autonomous breast ultrasound             [41] C. J. Cheung, G.-Q. Zhou, S.-Y. Law, T.-M. Mak, K.-L. Lai, and
+     scanning system,” IEEE Trans. Autom. Sci. Eng., vol. 20, no. 3,                    Y.-P. Zheng, “Ultrasound volume projection imaging for assessment of
+     pp. 1920–1933, Jul. 2023.                                                          scoliosis,” IEEE Trans. Med. Imag., vol. 34, no. 8, pp. 1760–1768,
+[17] H. Huang et al., “Robust passivity-based dynamical systems for compli-             Aug. 2015.
+     ant motion adaptation,” IEEE/ASME Trans. Mechatronics, vol. 27, no. 6,        [42] W. He, Y. Sun, Z. Yan, C. Yang, Z. Li, and O. Kaynak, “Disturbance
+     pp. 4819–4828, Dec. 2022.                                                          observer-based neural network control of cooperative multiple manip-
+[18] J. Garcia and F. Fernández, “A comprehensive survey on safe reinforce-             ulators with input saturation,” IEEE Trans. Neural Netw. Learn. Syst.,
+     ment learning,” J. Mach. Learn. Res., vol. 16, no. 1, pp. 1437–1480,               vol. 31, no. 5, pp. 1735–1746, May 2020.
+     2015.                                                                         [43] M. Muddassir, G. Limbert, B. Zhang, A. Duan, J.-J. Tan, and
+[19] J. Achiam, D. Held, A. Tamar, and P. Abbeel, “Constrained policy                   D. Navarro-Alarcon, “Model predictive thermal dose control of a robotic
+     optimization,” in Proc. Int. Conf. Mach. Learn., 2017, pp. 22–31.                  laser system to automate skin photorejuvenation,” IEEE/ASME Trans.
+[20] Y. Chow, O. Nachum, E. Duenez-Guzman, and M. Ghavamzadeh,                          Mechatronics, vol. 28, no. 2, pp. 737–747, Apr. 2023.
+     “A Lyapunov-based approach to safe reinforcement learning,” in Proc.
+     Adv. Neural Inf. Process. Syst., vol. 31, 2018, pp. 1–10.
+[21] H. Ma et al., “Model-based constrained reinforcement learning using
+     generalized control barrier function,” in Proc. IEEE/RSJ Int. Conf. Intell.
+     Robots Syst. (IROS), Sep. 2021, pp. 4552–4559.                                                         Anqing Duan (Member, IEEE) received the bach-
+[22] C.-A. Cheng, X. Yan, N. Wagener, and B. Boots, “Fast policy learning                                   elor’s degree in mechanical engineering from
+     through imitation and reinforcement,” in Proc. 34th Conf. Uncertainty                                  Harbin Institute of Technology, Harbin, China,
+     Artif. Intell., 2018, pp. 845–855.                                                                     in 2015, the master’s degree in mechatronics from
+[23] A. Duan, R. Camoriano, D. Ferigo, D. Calandriello, L. Rosasco,                                         the Royal Institute of Technology, Stockholm,
+     and D. Pucci, “Constrained DMPs for feasible skill learning on                                         Sweden, in 2017, and the joint Ph.D. degree
+     humanoid robots,” in Proc. IEEE-RAS 18th Int. Conf. Humanoid Robots                                    in robotics from Italian Institute of Technol-
+     (Humanoids), Nov. 2018, pp. 1–6.                                                                       ogy and the University of Genoa, Genoa, Italy,
+[24] Z. Lu, N. Wang, and C. Yang, “A constrained DMPs framework                                             in 2021. Since 2021, he has been a Research Asso-
+     for robot skills learning and generalization from human demonstra-                                     ciate with The Hong Kong Polytechnic University.
+     tions,” IEEE/ASME Trans. Mechatronics, vol. 26, no. 6, pp. 3265–3275,                                  His research interests include robotic ultrasound
+     Dec. 2021.                                                                                             imaging.
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+2360                                                                   IEEE TRANSACTIONS ON AUTOMATION SCIENCE AND ENGINEERING, VOL. 22, 2025
+
+
+
+                         Chenguang Yang (Fellow, IEEE) received the                                     Wanyu Ma (Graduate Student Member, IEEE)
+                         B.Eng. degree in measurement and control from                                  received the B.Eng. and M.Eng. degrees in con-
+                         Northwestern Polytechnical University, Xi’an,                                  trol science and engineering from Harbin Institute
+                         China, in 2005, and the Ph.D. degree in control                                of Technology, Harbin, China, in 2016 and 2018,
+                         engineering from the National University of                                    respectively, and the Ph.D. degree in mechani-
+                         Singapore, Singapore, in 2010. He performed                                    cal engineering from The Hong Kong Polytechnic
+                         post-doctoral studies in human–robotics at Imperial                            University, Hong Kong, in 2024. Her research
+                         College London, London, U.K., from 2009 to 2010.                               interests include robotic manipulation, machine
+                         He is currently the Chair of Robotics with the                                 intelligence, human–robot interaction, and multi-
+                         Department of Computer Science, University of                                  modal perception.
+                         Liverpool, U.K. His research interests include
+human–robot interaction and intelligent system design. He received the U.K.
+EPSRC UKRI Innovation Fellowship and the EU Marie Curie International
+Incoming Fellowship. As the lead author, he won IEEE T RANSACTIONS
+ON ROBOTICS Best Paper Award in 2012 and IEEE T RANSACTIONS ON
+N EURAL N ETWORKS AND L EARNING S YSTEMS Outstanding Paper Award                                          Yongping Zheng (Senior Member, IEEE) received
+in 2022. He is the Corresponding Co-Chair of the IEEE Technical Committee                                 the B.Sc. and M.Eng. degrees in electronics
+on Collaborative Automation for Flexible Manufacturing.                                                   and information engineering from the Univer-
+                                                                                                          sity of Science and Technology of China and
+                                                                                                          the Ph.D. degree in biomedical engineering from
+                                                                                                          The Hong Kong Polytechnic University (PolyU),
+                                                                                                          Hong Kong, in 1997.
+                        Jingyuan Zhao received the B.Eng. degree in                                         After a post-doctoral fellowship at the University
+                        mechanical engineering from The Hong Kong Poly-                                   of Windsor, Canada, he joined PolyU as an Assistant
+                        technic University (PolyU), Kowloon, Hong Kong,                                   Professor, where he was a Professor in 2008 and
+                        in 2021. He is currently pursuing the M.Sc. degree                                the Chair Professor in 2019. In July 2017, he was
+                        with Nanyang Technological University, Singapore.      appointed as the Henry G. Leong Professor of Biomedical Engineering. He is
+                        His research interests include perceptual robotics     currently the Director of the Jockey Club Smart Ageing Hub and the Research
+                        and dynamic consensus algorithms of multi-agent        Institute for Smart Ageing, PolyU. His research interests include biomedical
+                        systems.                                               ultrasound instrumentation, soft tissue elasticity measurement and imaging,
+                                                                               3D ultrasound imaging, ultrasound assessment of musculoskeletal tissues,
+                                                                               ultrasound image and signal processing, and smart aging technologies.
+                                                                                 Prof. Zheng is a fellow of The Hong Kong Institution of Engineers,
+                                                                               Hong Kong; a Secretary of the World Association of Chinese Biomedical
+                                                                               Engineers from 2017 to 2019; the Past Chair of the Biomedical Engineering
+                                                                               Division, HKIE; and an Honorary Advisor of the Hong Kong Medical
+                        Shengzeng Huo (Graduate Student Member, IEEE)          and Healthcare Device Industry Association (HMHDIA). He serves as the
+                        received the B.Eng. degree in vehicle engineer-        President for Guangdong Hong Kong Macau Chapter of the International
+                        ing from South China University of Technology,         Society of Gerontechnology.
+                        China, in 2019, and the M.Sc. degree in mechanical
+                        engineering from The Hong Kong Polytechnic Uni-
+                        versity, Hong Kong, in 2020, where he is currently
+                        pursuing the Ph.D. degree. His current research
+                        interests include bimanual manipulation, deformable                             David Navarro-Alarcon (Senior Member, IEEE)
+                        object manipulation, and robot learning.                                        received the master’s degree in robotics from the
+                                                                                                        Centre for Research and Advanced Studies, National
+                                                                                                        Polytechnic Institute of Mexico, in 2009, and the
+                                                                                                        Ph.D. degree in mechanical and automation engi-
+                                                                                                        neering from The Chinese University of Hong Kong
+                                                                                                        (CUHK), Hong Kong, in 2014.
+                         Peng Zhou (Member, IEEE) received the M.Sc.                                      From 2014 to 2017, he was a Post-Doctoral Fellow
+                         degree in software engineering from Tongji Uni-                                and then a Research Assistant Professor with the T
+                         versity, Shanghai, China, in 2017, and the Ph.D.                               Stone Robotics Institute, CUHK. Since 2017, he has
+                         degree in robotics from The Hong Kong Polytechnic                              been with The Hong Kong Polytechnic University
+                         University, Hong Kong, in 2022. In 2021, he was a     (PolyU), Hong Kong, where he is currently an Associate Professor with
+                         Visiting Ph.D. Student with the Robotics, Percep-     the Department of Mechanical Engineering, the Principal Investigator of
+                         tion, and Learning Laboratory, KTH Royal Institute    the Robotics and Machine Intelligence Laboratory, an Investigator with the
+                         of Technology, Stockholm, Sweden. He is currently     Research Institute for Smart Ageing (RISA), and a fellow of the Institute for
+                         a Research Officer with the Centre for Transfor-      Higher Education Research and Development (IHERD). His research interests
+                         mative Garment Production and a Post-Doctoral         include perceptual robotics and control theory.
+                         Research Fellow with The University of Hong Kong,       Dr. Navarro-Alarcon serves as an Associate Editor for IEEE T RANS -
+Hong Kong. His research interests include deformable object manipulation,      ACTIONS ON ROBOTICS and an Associate Editor for IEEE Robotics and
+robot learning, and task and motion planning.                                  Automation Magazine.
+
+
+
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:12 UTC from IEEE Xplore. Restrictions apply.
+

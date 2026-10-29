@@ -14,6 +14,8 @@ Updated 2026-10-29. This file records the current state and what the project doe
   - Real-robot experiments come later.
   - New long-term constraints are written only after the user confirms them.
 
+**Latest user scope and stop (2026-10-29):** Continue ARIS supplementation, self-correct drift, admit only scientifically relevant research status, then stop for acceptance. Available-material delivery is ready: ten valid new originals, three reused primary representatives, 20 accepted partial-text cards; main prose updated. Do not automatically resume experiments, ideas or further searches. Two original/timing issues remain (invalid DOB-MPC HTML and missing ACT-US), with explicit coverage limits; see the manual checklist.
+
 ## 2. Question and current method
 
 - **Parent question** ([research_question.md](../research/research_question.md)): when the environment changes during continuous robotic scanning of soft tissue, use new contact information to rapidly update impedance and improve actual contact force and motion.
@@ -80,11 +82,11 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 
    Platform availability is unconfirmed; ask the user.
 7. **Literature gaps:**
-   - full texts of DOSMAC and Zhang MHE-VIC;
-   - the DOB plus model-predictive admittance ultrasound lead (CEP 2026);
+   - DOSMAC and Zhang MHE-VIC now have the recorded original-passage evidence; remaining access and coverage issues are in section6;
+   - the DOB plus model-predictive admittance ultrasound lead (January2027 issue; earliest online date pending);
    - joint-estimation citation chains.
 
-   ARIS has completed two query plans and seven selected-passage Evidence Cards; the current literature-only run awaits one eight-original human fulltext batch (see section 6). No comparison run or simulation is started.
+   Available-material supplementation is delivered with20 selected-passage Evidence Cards; current remaining originals and coverage limits are in section6. Wait for user acceptance; no comparison or simulation is started.
 8. **Update** the paper overview and the simulation section after items 1–5.
 
 **Open user decisions:**
@@ -105,22 +107,22 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 | Field state and related-work scope | [field_state.md](../research/field_state.md), [related_work_scope_and_coverage.md](../research/related_work_scope_and_coverage.md) |
 | Methods, C1/C2 specification, closest-prior comparison | [optimal_impedance_question_and_methods.md](../research/optimal_impedance_question_and_methods.md) |
 | How top papers form methods and run experiments | [reverse analysis](../research/independent_reverse_analysis_of_top_journal_methods.md), [simulation setup analysis](../research/simulation_setup_reverse_analysis.md), [transferable mechanisms](../research/transferable_mechanisms.md) |
-| Literature | [literature index](../literature/literature_index.md): 91 unique PDFs, 94 usage records |
+| Literature | [literature index](../literature/literature_index.md): 101 unique PDFs, 104 usage records |
 | Experiments | [experiment index](../experiments/experiment_index.md), [cobot benchmark](../experiments/cobot_scan_benchmark/README.md) |
 
 ## 6. Rules and recovery
 
 - Preserve `00_基线快照_2026-10-14/` byte for byte. File check: `python -X utf8 literature/verify_materials.py`.
 - Early B0 and 2D experiment directories, plus superseded drafts, were removed from the working tree on 2026-10-26. Recover them from Git `b7a3f91`. Their lessons are in the experiment index and the failure review.
-- **ARIS (literature supplementation; evidence checkpoint):**
-  - run `c1-related-work-20261026`, root `D:/pip_env/temp/scan_impedance_literature_20261026/aris_run`; approved policy unchanged, canonical SHA256 `b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`;
-  - latest user instruction: review established requirements, then continue supplementing project-related research status through ARIS. Unavailable originals may be listed in a single batch for the user to obtain. Do not restart idea generation or publication-readiness judgment;
-  - stage **HUMAN_SEARCH_REQUIRED**, waiting for **human_fulltext_batch**. Seven accessible-source cards were accepted; one formal request contains eight selected originals. The [manual checklist](../literature/manual_fulltext_requests.md) includes these eight plus three existing critical leads (DOSMAC, MHE-VIC, DOB-MPC ultrasound). User files can go to the ignored local `literature/manual_inbox/`; verify identity/version/hash and copy to the run source-materials before batch registration;
-  - 20 query attempts: 15 completed, five historical zero-result adapter failures; two fresh retries completed empty. 130 candidate/local/alias records: 83 OUT_OF_SCOPE, two DUPLICATE, two HOLD_IDENTITY, 43 IN_SCOPE. These are not core-paper or demonstrated-capability counts. Two year conflicts remain unresolved;
-  - [initial plan](../literature/aris_query_plan.json), [gap plan](../literature/aris_gap_query_plan.json), [queries/abstracts/decisions and bindings](../literature/aris_literature_search.json), [scope](../research/related_work_scope_and_coverage.md), [formal request](../literature/aris_human_fulltext_request.json), [manifest template](../literature/aris_fulltext_manifest_template.json);
-  - accepted partial-text evidence: E32/G22 reviews and E57, H01, G02, G13, G21 originals. Scientific facts were integrated into their existing routes in [field state](../research/field_state.md). E57 has RLSE stiffness/damping, a first-contact equilibrium position and a reference QP; G02 optimizes impedance damping and environment stiffness against historical force-prediction error, separately from velocity-input MPC; CARE's joint-estimation observability has specific known-plane/two-force conditions; Cao already uses visual motion prediction to update the admittance reference. Preserve these capabilities and limits;
-  - no new PDF or simulation: 91 unique PDFs /94 usage records unchanged. The canonical map remains PARTIAL, based on E32/G22/E57; the new four cards await the next map revision. No coverage/saturation acceptance;
-  - two identity-unverified records remain held and unread, not declared irrelevant. Cwd/Hooks prerequisites were removed as the user requested; source/admission/hash checks remain. Runtime fix [f5f16ca](https://github.com/yzhongjobs-dotcom/harness/commit/f5f16ca07a410b55bc5d0c9084b64f4c646c9d1e), intake/zero-hit continuation fix [fa080a6](https://github.com/yzhongjobs-dotcom/harness/commit/fa080a6458e958095894c796034dc342b1bae95c) were pushed. Do not claim Hook provenance;
-  - **resume from the human batch**, not new search from scratch. Read the requested originals, update the same map/field account, then complete meaningful citation-chain and closest-prior coverage checks. S03 DOB-MPC has an existing January2027 issue record; verify earliest publication before applying the approved cutoff. Other latest identities also need original timing checks. No automatic C2 work, tuning or method selection.
+- **ARIS delivery for user acceptance (2026-10-29):**
+  - run `c1-related-work-20261026`, root `D:/pip_env/temp/scan_impedance_literature_20261026/aris_run`; approved policy/cutoff unchanged, canonical SHA256 `b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`.
+  - current stage **HUMAN_SEARCH_REQUIRED / human_fulltext_batch**. Original eight-paper batch completed. Current formal request is ACT-US only; the [consolidated checklist](../literature/manual_fulltext_requests.md) also identifies the invalid DOB-MPC file. Do not claim completion without these direct-neighbor/timing gaps.
+  - 11 user files: ten valid PDFs retained, one Elsevier security-verification HTML not admitted as paper Evidence. Library is 101 unique PDFs /104 usage records. Existing PDF/text bytes and B0 snapshot unchanged.
+  - 25 query attempts (20 completed, five preserved historical adapter failures), 158 candidate/local/alias records; 103 OUT_OF_SCOPE, two DUPLICATE, two HOLD_IDENTITY, 51 IN_SCOPE. Do not use these as core-paper counts. Latest backbone refinement returned two below-threshold diagnostic abstracts; it does not certify high-citation coverage.
+  - 20 accepted selected-passage cards: earlier E32/G22/E57/H01/G02/G13/G21; new C01–C08/S01–S02; reused E27/G23/E41. [Field state](../research/field_state.md) incorporates task/control capabilities and conditions; reviews/resources do not automatically enter the main comparison.
+  - DOSMAC S01 now has original equations: lumped stiffness/position compensation in zero-K admittance; hardware combined variation comes from fixed curved surfaces, simulation uses true nominal position. MHE-VIC S02 assumes a premeasured/static normal surface; MHE estimates Ke/De/robot disturbance and rules update gains. E27/G23 learning interfaces and E41 OS/MS optimization are source-grounded, not algorithm-name overlap judgments.
+  - independent fresh-context [review](../literature/aris_coverage_review.json) returned **CONTINUE**, accepted via the actual native-child transcript. Registry omissions for learned/predictive representatives were corrected afterward; no second sufficient-coverage review claimed. The [formal map](../literature/aris_active_field_map.md) remains the last17-card PARTIAL version, while3 newer cards await allowed map revision after the pending batch. Historical search and unavailable decisive evidence remain explicit limits.
+  - [Search/decisions](../literature/aris_literature_search.json), [scope and self-corrections](../research/related_work_scope_and_coverage.md), [current request](../literature/aris_human_fulltext_request.json), [manifest template](../literature/aris_fulltext_manifest_template.json). Do not replay old download requests or start from scratch.
+  - **Stop for user acceptance now.** If the user supplies the remaining originals and asks to resume: verify originals/date, register and read the current ACT-US batch, inspect DOB-MPC, then revise the same map/account and review the remaining material coverage gaps. No automatic C2 work, tuning, simulations or method selection.
 
 - After each completed checkpoint, run `python -X utf8 scripts/research_sync.py --message "research: ..."`. Never force-push.

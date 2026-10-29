@@ -1,0 +1,858 @@
+                    This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+                                       IEEE/ASME TRANSACTIONS ON MECHATRONICS                                                                                          1
+
+
+
+
+  Safety-Critical Passive Control for Robotic Soft
+  Tissue Interaction via Control Barrier Functions
+                    Wenxin Zhu , Member, IEEE, Qinyuan Ren , Senior Member, IEEE,
+              Shenyuan Li, Student Member, IEEE, Yilin Lang , Graduate Student Member, IEEE,
+                                    and Yan Wu , Senior Member, IEEE
+
+
+   Abstract—In robotic physical interaction tasks, passive
+control is significant to guarantee robust stability of the
+systems with unknown environments. In this article, a
+safety-critical passive control approach via control barrier
+functions (CBFs) is proposed for robotic soft tissue cut-
+ting tasks. To achieve stable cutting motion, this approach
+builds upon unified force-impedance control enhanced with
+the energy tanks that constrain the system energy. The
+energy tanks are formulated with optimization theory to
+constrain both time-varying energy and power flow, incor-
+porated with high-order time-varying CBFs (HoTvCBFs). To
+address unknown higher order derivatives in HoTvCBFs
+under external disturbances, a time-varying projection-
+to-state safe differentiator-adaptive HoTvCBF (tPSSf-DA–
+HoTvCBF) approach is developed. The proposed approach
+employs an input-to-state stable (ISS) differentiator to esti-
+mate unknown parameters with bounded errors, and adap-                               Fig. 1. Typical tool-environment interaction application, i.e., a soft tis-
+tively adjusts safety margins to reduce conservatism com-                            sue cutting task. The system consists of a robotic manipulator with tactile
+pared to fixed-bound approaches. Furthermore, to address                             sensors mounted on the gripper to measure interaction forces at the
+potential conflicts between the time-varying CBF con-                                cutting interface. A safety-critical controller utilizing energy tank man-
+straints and the input constraints, a dynamic-convergence                            agement ensures safe and stable operation under contact/noncontact
+                                                                                     transitions and unpredictable disturbance.
+approach, which transforms decay rates into optimization
+variables to ensure solution feasibility, is introduced. A
+series of robotic soft tissue cutting experiments is carried
+out to validate the effectiveness of the proposed approach,                          operations that involve transitioning between free-space opera-
+demonstrating the capability to handle time-varying con-                             tion and soft tissue contact, namely, noncontact/contact transi-
+straints and maintain robustness.
+                                                                                     tions [1]. During these transitions, the manipulator experiences
+  Index Terms—Energy tanks, passivity, safe manipulation.                            discontinuous dynamics, leading to large impact forces, contact
+                                                                                     instability, or even system oscillations [2]. To guarantee system
+                                                                                     stability, passive control is introduced [3] to manage energy
+                          I. INTRODUCTION
+                                                                                     exchange, particularly effective when interacting with unknown
+      OBOTIC soft tissue interaction involves complex motion
+R     transitions. Fig. 1 illustrates a typical example of robotic
+interaction: a robotic manipulator performing soft tissue cutting
+                                                                                     environments [4], [5]. Therefore, a safety-critical passive con-
+                                                                                     troller is essential for stable and safe cutting task execution.
+                                                                                        The safe physical interaction depends on robot compliance
+                                                                                     to dynamically adapt to environmental changes [6], which has
+                                                                                     been widely adopted in cutting tasks [7], [8], [9]. To manage both
+   Received 10 December 2025; accepted 27 July 2026. Recommended                     safe motion and precise force tracking, unified force-impedance
+by Technical Editor T. Watanabe and Senior Editor C. C. Cheah. This
+work was supported in part by the National Natural Science Foundation,               control (UFIC) has been presented in [10], which integrates
+China under Grant 62173300 and in part by the State Key Laboratory of                impedance regulation with direct force control. Considering
+Industrial Control Technology under Grant ICT2025A17. (Correspond-                   the system passivity requirement, the stability of UFIC can be
+ing author: Qinyuan Ren.)
+   Wenxin Zhu, Qinyuan Ren, Shenyuan Li, and Yilin Lang are                          analyzed through energy tanks [11]. In this study, the energy
+with the College of Control Science and Engineering, Zhejiang Uni-                   tanks implement a virtual energy storage mechanism to regulate
+versity, Hangzhou 310027, China (e-mail: wenxin_zhu@zju.edu.cn;                      the energy budget for control actions [12], [13]. Typically, UFIC
+renqinyuan@zju.edu.cn; lishenyuan@zju.edu.cn; langyilin@zju.edu.
+cn).                                                                                 employs a valve-based design where the energy tanks are acti-
+   Yan Wu is with the A*STAR Institute of Advanced Intelligence and                  vated or deactivated via Boolean logic [10], [14]. Nevertheless,
+Computing, Singapore 138632 (e-mail: wuy@a-star.edu.sg).                             the discrete “if–else” switching strategy produces nonsmooth
+   Color versions of one or more figures in this article are available at
+https://doi.org/10.1109/TMECH.2026.3725669.                                          control commands, causing the chattering that increases me-
+   Digital Object Identifier 10.1109/TMECH.2026.3725669                              chanical wear on robotic actuators [15]. In addition, since a
+1083-4435 © 2026 IEEE. All rights reserved, including rights for text and data mining, and training of artificial intelligence and similar technologies.
+   Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html
+                                                                 for more information.
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                     This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+2                                                                                                                    IEEE/ASME TRANSACTIONS ON MECHATRONICS
+
+
+
+large amount of energy might be drawn rapidly with abrupt                               presented in [26], that rely on static worst-case bounds. In fact,
+robotic action, ensuring passivity through energy tanks does                            when energy tank constraints conflict with input constraints, the
+not inherently guarantee safety [16], which indicates that only                         QP optimization problem may become infeasible [28]. To guar-
+limiting energy is insufficient, and the constraints on the rate of                     antee feasibility under such conflicts, a dynamic-convergence
+energy transfer, i.e., power flow, are also required.                                   form of HoTvCBF-QP is proposed. This formulation transforms
+   Control barrier functions (CBFs) offer an alternative                                the fixed decay rate parameters into optimization variables,
+methodology to enforce the safety constraints continuously,                             enabling adaptive constraint relaxation. Finally, the validation
+ensuring that the system operates within defined boundaries                             of the proposed approach is proved through a robotic soft tissue
+and generates smooth control commands [17], [18]. As pointed                            cutting task and the experimental platform is illustrated in
+from [19], when the constraints are applied to preserve passivity                       Fig. 1. It should be mentioned that several tactile sensors are
+by altering desired control actions, the operation performance                          utilized in the robotic prototype as sensing feedback. The key
+often degrades. In order to minimize this performance reduction,                        advantage of using tactile sensing is that it enables the system to
+CBFs limit modifications to the control actions as much as                              estimate tool localization and tool-environment forces through
+possible to prevent unstable system behavior [20]. When control                         gripper-handle contact pattern analysis, thereby allowing
+inputs indirectly influence safety constraints, High-order CBFs                         adaptation to various tools without requiring modifications to
+(HoCBFs) are proposed in [21] for systems with arbitrary                                the setup. More details can be found in our previous work [29].
+relative degree to guarantee safety. The work presented in [22]                         The main contributions of this work are summarized as follows.
+implements HoCBFs in the energy management systems,                                         1) Different with time-invariant CBF hard to maintain time-
+simultaneously considering energy constraints and power flow                                   varying constraint satisfaction, this article proposes an
+constraints into a unified HoCBF quadratic program (QP)                                        energy tank optimization formulation incorporated with
+optimization problem, preventing system damage from rapid                                      time-varying CBFs and HoTvCBFs to ensure smooth
+energy extraction or injection. When power limits remain                                       transitions in multiphase cutting tasks with time-varying
+fixed during task execution, robots may fail to achieve control                                power requirements.
+objectives if the limit is set too conservatively, or experience                            2) To handle unmatched disturbances with unknown deriva-
+instability if set too aggressively. Thus, multiphase cutting tasks                            tives in practical cutting tasks, the tPSSf approach for
+exhibit varying power and energy demands across different                                      HoTvCBFs is integrated with an ISS differentiator that
+phases. To accommodate these varying demands, phase-specific                                   estimates the unknown propagation dynamics and bounds
+power constraints that adjust dynamically according to task                                    estimation errors, thereby ensuring robust safety.
+requirements have been proposed [23]. Under such time-varying                               3) Considering the possible conflicts between time-varying
+constraints, standard time-invariant CBF approach cannot main-                                 energy tank constraints and input constraints, a dynamic-
+tain constraint satisfaction, because this approach do not account                             convergence form of HoTvCBF-QP is utilized to guaran-
+for the time-derivative of the changing constraint boundary.                                   tee feasible optimal solutions.
+   In this article, HoTvCBFs are integrated within the energy                              The rest of this article is organized as follows. Section II
+tank optimization. In practice, the safety guarantees provided by                       reviews the preliminaries. Section III presents the stability anal-
+CBFs rely on precise system models and are compromised by                               ysis of the cutting process and formulates the problem. Section
+model uncertainties and disturbances [24]. To quantify the effect                       IV introduces the proposed methodology. Section V presents the
+of disturbances on safety guarantees, input-to-state safety (ISSf)                      experimental results. Finally, Section VI concludes this article.
+has been proposed in [25]. Nevertheless, ISSf is commonly used
+for compensating the matched disturbances entering through                                                           II. PRELIMINARIES
+the control input channel, which is not suitable for unmatched
+                                                                                        A. Passivity and Energy Tanks
+disturbances acting directly on the system states. To address
+this limitation, projection-to-state safety (PSSf) quantifies safety                       The passivity theory can guarantee stability in unknown en-
+through the projected disturbance acting on the barrier function                        vironments [30]. Consider a dynamical system with state ξ,
+derivative [26]. However, the existing PSSf formulations, such                          input u, and output y. The system is passive if there exists a
+as the study presented in [27], apply only to relative-degree-one                       continuously differentiable positive semidefinite function S(ξ),
+CBFs. For HoCBFs, the safety constraint involves higher order                           namely, the storage function, satisfying
+derivatives of the barrier function, which depend on unknown                                                                 t1
+time-varying disturbances and cannot be directly bounded.                                          S(ξ(t1 )) − S(ξ(t0 )) ≤       y T (t)u(t)dt       (1)
+                                                                                                                                         t0
+   This article proposes a time-varying PSSf differentiator-
+adaptive HoTvCBF (tPSSf-DA–HoTvCBF) approach. To                                        for all t1 ≥ t0 and admissible inputs u(t).
+estimate unknown higher order derivatives, the differentiator-                             The system stability is guaranteed when input u and output y
+adaptive (DA) component employs an input-to-state stable (ISS)                          satisfy
+differentiator. Through bounding estimation errors, the ISS
+                                                                                                               Ṡ(ξ(t1 )) − Ṡ(ξ(t0 )) ≤ uT y.                          (2)
+differentiator avoids noise amplification inherent in numerical
+differentiation. To adaptively bound the estimation error,                                 To maintain system passivity, an energy tank functions as a
+time-varying PSSf (tPSSf) is utilized, reducing conservatism                            virtual reservoir regulating both energy and power flow between
+compared to standard robust CBF methods, such as the study                              controller and system [23]. Here, Tt represents stored energy,
+
+    Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                   This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+ZHU et al.: SAFETY-CRITICAL PASSIVE CONTROL FOR ROBOTIC SOFT TISSUE INTERACTION VIA CONTROL BARRIER FUNCTIONS                                                            3
+
+
+
+and Pt ≤ 0 denotes power flow rate, which evolves as                                where the term O(h(ξ)) captures the remaining Lie derivatives
+                                                                                   along f
+                          0 if Pt ≤ 0 and Tt ≤ Emin
+       Ṫt = αPt , α =                                                      (3)                                    
+                                                                                                                   m−1
+                          1 otherwise                                                              O(h(ξ)) =             Ljf (αm−j (ψm−j−1 ))(ξ).                     (12)
+with power regulation                                                                                              j=1
+                                                                                      Remark 1: In existing literature, the HoCBFs are commonly
+                   †
+                            Pmin
+                                   if Pt < Pmin ≤ 0
+                 α =        Pt                                              (4)     utilized to enforce safety constraints that are assumed to be
+                           1       otherwise.                                       time-invariant [21]. Consequently, the explicit time-dependent
+                                                                                    terms are omitted in Definition 3. Although effective for static
+Here, Pt ≤ 0 indicates energy dissipation, Emin and Pmin are the
+                                                                                    environments, this simplification can not handle time-varying
+minimum allowable energy and power, respectively. The control
+                                                                                    constraints.
+law, considering both energy and power constraints, is given by
+                            Pt+ = α† αPt .                                  (5)                     III. STABILITY ANALYSIS FOR CUTTING
+                                                                                    A. System Dynamics
+B. Control Barrier Functions
+                                                                                     As shown in Fig. 1, the tool-tissue contact interaction is
+ For controller design, the second-order system can be refor-
+                                                                                    modeled as a nonlinear viscoelastic model
+mulated into control affine form
+                                                                                                             Fe = Ke (−δ)a − ζ(−δ)b δ̇                                (13)
+                         ξ˙ = f (ξ) + g(ξ)u                                 (6)
+                                                                                    where δ represents the penetration depth, Ke and ζ are the stiff-
+where ξ ∈ Rn denotes the system state, u ∈ Rm represents the                        ness and damping coefficients, a and b are nonlinear parameters.
+control input, f (ξ) and g(ξ) are the drift and input dynamics.                        The dynamics of an n-joint manipulator are formulated in
+   Consider a continuously differentiable function h : Rn ×                         joint space as
+[t0 , ∞) → R that defines a safe set
+                                                                                                       M (q)q̈ + C(q, q̇)q̇ = τ + J  (q)Fe                           (14)
+                       C = {ξ ∈ R |h(ξ) ≥ 0}
+                                     n
+                                                                            (7)
+                                                                                    and in Cartesian space as
+with boundary ∂C = {ξ ∈ Rn |h(ξ) = 0} and interior Int(C) =
+{ξ ∈ Rn |h(ξ) >}. To maintain ξ(t) ∈ C, CBF is introduced as                                              Mc (q)ẍ + Cc (q, q̇)ẋ = Fctl + Fe                         (15)
+follows.                                                                            where q ∈ R represents the joint position, x ∈ R denotes
+                                                                                                      n                                                   nf
+   Definition 1 (CBFs [31]): For a dynamical system in (6)                          the end-effector position, τ is the joint torque, Fctl is the control
+with f and g being locally Lipschitz continuous, a continuously                     input, Fe is the external force, and M , C, and J denote the
+differentiable function h : Rn × [t0 , ∞) → R is a time-varying                     inertia, Coriolis, and Jacobian matrices, respectively.
+CBF if there exists a class K function α such that
+             sup [Lf h(ξ) + Lg h(ξ)u] > −α(h(ξ)).                           (8)     B. Unified Force-Impedance Control
+            u∈Rm
+                                                                                       To achieve simultaneous motion and force regulation, the
+   However, when Lg h(ξ) vanishes, higher order derivatives of                      UFIC strategy structures the control input Fctl as a combination
+h must be considered, leading to the concepts of relative degree                    of impedance Fimp and force FF control components
+and HoCBFs.
+   Definition 2 (Relative degree [32]): For systems with high-                                                    Fctl = Fimp + FF .                                  (16)
+relative degree constraints, an mth-order differentiable function                   Defining the position error x̃ = xd − x and the force tracking
+h(ξ) is characterized by                                                            error ef = Fe − Fd , the control terms are designed as
+             ψ0 = h(ξ)                                                      (9)                 Fimp = Mc ẍd + Cc ẋd + Kc x̃ + Dc x̃˙
+                                                                                                                             t
+             ψi = ψ̇i−1 + αi (ψi−1 ), i ∈ {1, . . ., m}                   (10)
+                                                                                                 FF = Kp ef + Kd ėf + Ki       ef (t)dt − Fd                         (17)
+where αi (·) are differentiable class K functions. The relative                                                                         0
+
+degree m indicates that the control input u first appears explicitly                where Kc and Dc are the impedance gains, and Kp , Kd , and Ki
+in the mth time derivative of h. When m = 1, the HoCBF                              are the PID gains for force control. Substituting (16) and (17)
+reduces to the first-order case in (8).                                             into (15) yields the closed-loop error dynamics
+  Definition 3 (Time-invariant HoCBFs [21]): A function h :                                        ¨ + (Cc + Dc )x̃˙ + Kc x̃ + FF + Fe = 0.
+                                                                                                Mc x̃                                                                 (18)
+Rn → R represents a HoCBF with relative degree m for the sys-
+tem (6) when differentiable class K functions αi , i ∈ {1, . . ., m}
+                                                                                    C. Nominal Dynamics of Energy Tank
+exist such that
+                                                                                     For system stability analysis, a storage function is defined as
+sup Lm  f h(ξ)  + L  L
+                    g f
+                       m−1
+                           h(ξ)u  +  O(h(ξ))    ≥ −αm (ψm−1 (ξ))
+                                                                                                                 ˙ =   1 ˙T         1
+                                                                                                                         x̃ Mc x̃˙ + x̃T Kc x̃
+u∈U
+                                                                          (11)                            S(x̃, x̃)                                                   (19)
+                                                                                                                       2            2
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                     This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+4                                                                                                                    IEEE/ASME TRANSACTIONS ON MECHATRONICS
+
+
+
+and its time derivative is                                                                 Classical energy tanks in [33] enforce these constraints via
+                                                                                        discrete switching
+              ˙ = −x̃˙ T Dc x̃˙ + ẋT FF + ẋT Fe − x˙d T (FF + Fe )
+      Ṡ(x̃, x̃)                                                                                         
+                                                                                                           0 if hi < 0 or energy depleted
+               ≤ ẋT FF + ẋT Fe − x˙d T (FF + Fe )                           (20)                   β=
+                                                                                                           1 otherwise
+where Ṁc − 2Cc is skew-symmetric, and Dc is the positive-                                              u = β · unom                                                    (27)
+definiteness of the damping matrix. Energy exchange between
+the system and the environment relies on the passivity with                             where β ∈ {0, 1} is the binary scaling factor and unom = Pt is
+respect to the port (ẋ, FF ). The instantaneous power associated                       the nominal control input. This leads to discontinuous control
+with the nonpassive component is defined as                                             signals and chattering [34]. CBFs provide an alternative by
+                                                                                        solving
+                                 Pt = ẋT FF                                  (21)
+                                                                                                                1
+                                                                                          u∗ = arg min            u − unom 2
+where Pt represents the energy flow introduced by FF . By                                               u∈R     2
+ensuring FF satisfies this passivity condition, the term ẋT FF                                           s.t. ḣi (ξ, t, u) + αi hi (ξ, t) ≥ 0, i = 1, . . . , 4
+dissipates energy, preventing unbounded growth of the system’s                                                                                                (28)
+                                                         ˙
+total energy, represented by the storage function S(x̃, x̃).
+   To manage the power flow during interaction, the energy tank                         which guarantees hi (ξ, t) ≥ 0 for all t ≥ 0 continuously.
+is modeled as                                                                              However, applying standard HoCBF theory in (11) to
+                                                                                        time-varying constraints (25) under disturbed dynamics (24)
+                             ëf = kf (Pt − ėf )                             (22)      presents three challenges. First, computing time derivatives
+                                                                                        Ṗmin (t) and Ëmin (t) amplifies measurement noise and may
+where ef represents the energy level in the tank, ėf tracks the                        cause safety violations. Second, unmatched disturbances d(t)  ˜
+actual power flow, and kf > 0 is the control gain.                                      directly corrupt CBF derivatives, invalidating nominal safety
+  For controller design, this second-order system can be refor-                         guarantees. Finally, when energy tank constraints conflict with
+mulated into control affine form (6) with                                               input constraints, the QP optimization problem may become
+                                                                                  infeasible.
+         e                  ė                0
+   ξ=       , f (ξ) =             , g(ξ) =       , u = Pt .                                As illustrated in Fig. 2, this article develops a robust safety
+         ė              −kf ė              kf                                         approach that extends HoCBFs theory to time-varying con-
+                                                            (23)                        straints, incorporates tPSSf to bound the effect of unmatched
+                                                                                        disturbances via time-varying robust margins, and employs ISS
+D. Problem Formulation                                                                  high-gain observers to robustly estimate noisy derivatives.
+  However, real robotic systems inevitably experience distur-
+                                                                                                                    IV. METHODOLOGY
+bances. The true system dynamics are described as
+                                                                                        A. Energy Tank Formulation With HoTvCBF Constraints
+                                             ˜
+                        ξ˙ = f (ξ) + g(ξ)u + d(t)                             (24)
+                                                                                          In (25), the HoCBF theory assumes time-invariant constraints
+        ˜ : R≥0 → Rn represents the unmatched disturbance
+where d(t)                                                                              and thus cannot directly handle the time-varying safety require-
+acting directly on system states. In robotic cutting tasks, such                        ments. This section extends the HoCBF theory to accommodate
+disturbances arise from unmodeled contact dynamics, sensor                              explicit time dependence in barrier functions.
+noise, and model uncertainty.                                                             Definition 4 (HoTvCBFs): Consider a continuously differ-
+   To ensure passivity and prevent power/energy violations, the                         entiable function h : Rn × [t0 , ∞) → R with relative degree
+energy tank need to satisfy time-varying safety constraints                             m with respect to the system. Define a sequence of auxiliary
+                                                                                        functions ψi : Rn × [t0 , ∞) → R as
+             (Power Limits) h1 (ξ, t) = ė − Pmin (t) ≥ 0
+                                                                                          ψ0 (ξ, t)  h(ξ, t)
+                                   h2 (ξ, t) = Pmax (t) − ė ≥ 0
+                                                                                           ψi (ξ, t)  ψ̇i−1 (ξ, t) + αi (ψi−1 (ξ, t)), i = 1, . . . , m − 1
+            (Energy Limits) h3 (ξ, t) = e − Emin (t) ≥ 0                                                                                                  (29)
+                                   h4 (ξ, t) = Emax (t) − e ≥ 0               (25)
+                                                                                        where αi are differentiable class-K functions. The function h is
+                                                                                        a HoTvCBF if there exists an αm ∈ K such that for all (ξ, t) ∈
+where Pmin (t) and Pmax (t) denote time-varying power bounds,                             m
+Emin (t) and Emax (t) are time-varying energy bounds. The safe                            i=1 {ψi−1 (ξ, t) ≥ 0} × [t0 , ∞)
+
+set is defined as                                                                                                                         ∂ m h(ξ, t)
+                                                                                        sup Lm             m−1
+                                                                                             f h(ξ, t)+Lg Lf   h(ξ, t)u+                              + O(h(ξ, t))
+                                  4                                                     u∈U                                                  ∂tm
+                       C(t) =          ξ : hi (t, ξ) ≥ 0.                     (26)
+                                                                                           ≥ −αm (ψm−1 (ξ, t))                                                          (30)
+                                 i=1
+
+
+    Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                   This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+ZHU et al.: SAFETY-CRITICAL PASSIVE CONTROL FOR ROBOTIC SOFT TISSUE INTERACTION VIA CONTROL BARRIER FUNCTIONS                                                            5
+
+
+
+
+Fig. 2. Control scheme of the proposed approach for safe robotic cutting. Given the end-effector velocity ẋ and contact force Fe from the robotic
+interaction system, the energy tank dynamics compute the power flow Pt and tank energy Tt to the CBF module. The ISS differentiator estimates
+unmatched disturbances d(t) and provides the adaptive safety margin ē(t) via tPSSf. The dynamic-convergence QP then generates optimal control
+input u∗f under passivity and input constraints, and the robotic controller outputs the joint torque τ .
+
+
+where the term O(h(ξ, t)) aggregates the remaining Lie deriva-                         Definition 5 (Time-Varying PSSf [27]): Consider a disturbed
+tives along f and partial derivatives with respect to time t                        system ξ˙ = f + gu + d(t) and a safety function h(ξ, t). Let the
+                                                                                   projected disturbance be δ(t, ξ)  ∂h∂ξ d(t), and assume a known,
+                       
+                       m−1
+         O(h(ξ, t))         Ljf (αm−j (ψm−j−1 )) (ξ, t)                            time-varying bound δ̄(t) exists such that |δ(t, ξ)| ≤ δ̄(t). A ro-
+                          j=1                                                       bust function ψ̄(ξ, t)  h(ξ, t) − δ̄(t) is defined. If an extended
+                                                                                   class-K function α exists satisfying the tPSSf dynamic condition
+                           ∂ j (αm−j (ψm−j−1 )) (ξ, t)
+                         +                              .                 (31)                          ˙ + δ̄(t) ≤ −α(−δ̄(t)) ∀t ≥ 0
+                                                                                                      −δ̄(t)                                                          (35)
+                                      ∂tj
+Any Lipschitz continuous controller satisfying (30) renders the                     then any controller u satisfying the constraint Lf ψ̄ + Lg ψ̄u +
+                                                                                     ∂t ≥ −α(ψ̄) renders the original set C(t) = {ξ : h(ξ, t) ≥ 0}
+                                                                                    ∂ ψ̄
+time-varying safe set C(t) = {ξ ∈ Rn : h(ξ, t) ≥ 0} forward
+invariant.                                                                          forward invariant.
+   Applying Definition 4 to constraints (25), the HoTvCBF                               The tPSSf cannot be directly applied to HoCBFs under un-
+conditions for power constraints are                                                matched disturbances. Consider the disturbed system from (24),
+                                                                                    which can be expressed in the general form
+             kf u − kf ė − Ṗmin (t) + α1 (h1 (ξ, t)) ≥ 0
+                                                                                                      ξ˙ = f (ξ, t) + g(ξ, t)u + p(ξ, t)δp (t)                        (36)
+          −kf u + kf ė + Ṗmax (t) + α2 (h2 (ξ, t)) ≥ 0.                 (32)
+                                                                                    where p(ξ, t) represents the unmatched disturbance channel.
+For the energy constraints, define the sequences
+                                                                                    Suppose this disturbance affects the energy constraint h3 at the
+            ψ3,1 (ξ, t) = ė − Ėmin (t) + α3,1 (h3 (ξ, t))                         first relative degree. The HoCBF chain propagates this distur-
+                                                                                    bance as follows.
+           ψ4,1 (ξ, t) = Ėmax (t) − ė + α4,1 (h4 (ξ, t))                (33)          1) First-order chain
+and the HoTvCBF conditions are as follows:                                                       ψ̇3,1 = ψ̇3,1
+                                                                                                           nom
+                                                                                                               + Lp ψ3,1 δp (t) = ψ̇3,1
+                                                                                                                                    nom
+                                                                                                                                        + δ1 (ξ, t).                  (37)
+   kf u+(α3,1 −kf )ė− Ëmin (t)−α3,1 Ėmin (t)+α3,2 (ψ3,1 ) ≥ 0                         2) Second-order chain
+−kf u+(kf −α4,1 )ė+ Ëmax (t)+α4,1 Ėmax (t)+α4,2 (ψ4,1 ) ≥ 0.                                             d nom
+                                                           (34)                                   ψ̇3,2 =     (ψ   + δ1 )
+                                                                                                            dt 3,1
+   Remark 2: The constraints in (32) and (34) guarantee safety                                          = (nominal dynamics) + Lg ψ3,1 u + δ̇1 .                      (38)
+only for the nominal system. They will fail in the presence of
+disturbances.                                                                          The final mth order constraint depends not only on the dis-
+                                                                                    turbance δ1 but also on its time derivative δ̇1 . Consequently, the
+B. Time-Varying PSSf                                                                final constraint takes the form
+
+  For handling the uncertainties in relative-degree-one CBF                                     kf u + · · · + α3,2 (ψ3,1 ) + fp (δ1 , δ̇1 , . . .) ≥ 0.              (39)
+                                                                                                                                                
+systems, tPSSf has been proposed [27].                                                                                               unknown terms
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                     This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+6                                                                                                                    IEEE/ASME TRANSACTIONS ON MECHATRONICS
+
+
+
+   Remark 3: The tPSSf requires knowledge of a disturbance                                Next, the recursive property of HoCBFs is invoked.
+                                ˙
+bound δ̄(t) and its derivative δ̄(t), which cannot accommodate                          Since ψm−1 (ξ, θ, t) ≥ 0, and by definition ψm−1 = ψ̇m−2 +
+these unknown disturbance derivatives that propagate through                            αm−1 (ψm−2 ), the inequality ψ̇m−2 ≥ −αm−1 (ψm−2 ) holds.
+higher order barrier constraints.                                                       This condition ensures the forward invariance of the set {ξ |
+                                                                                        ψm−2 (ξ, θ, t) ≥ 0}. By mathematical induction down to the
+C. Safety with Differentiator-Adaptive HoTvCBFs                                         zeroth layer, it is concluded that ψ0 (ξ, t) = h(ξ, t) ≥ 0 for all
+                                                                                        t ≥ 0.                                                          
+   The propagated disturbance vector, consisting of the un-
+matched disturbance and its derivatives up to the (m − i)th                             D. Time-Varying PSSf Differentiator-Adaptive
+order, is treated as an unknown time-varying parameter vector                           HoTvCBFs
+denoted by θ(t) ∈ Rq . To estimate θ(t) in the presence of
+measurement noise, an ISS differentiator is employed.                                      Although Theorem 1 compensates for unknown parameter
+   Definition 6 (ISS differentiator [35]): Consider a noisy                             derivatives via the error bound ē(t), practical systems often
+measurement y(t) = θ(t) + v(t), where v(t) denotes bounded                                                                           ˜
+                                                                                        encounter additional bounded disturbances d(t),   e.g., unmod-
+noise. An ISS differentiator is defined as a dynamical system                           eled dynamics. The dynamics of the fully disturbed augmented
+ ˙                                                                                      system are given by
+θ̂ = F (θ̂, y(t)) that generates an estimate θ̂(t) ∈ Rq of the true
+                                                                                                               ˙
+parameter vector θ(t). The estimation error e(t)  θ(t) − θ̂(t)                                                       ˜ t) + g̃(ξ,
+                                                                                                              ξ˜ = f˜(ξ,                ˜
+                                                                                                                                ˜ t)u + d(t).                           (46)
+is uniformly bounded by a known, continuously differentiable
+time-varying function ē(t) ≥ 0                                                         The safety verification problem is reformulated by utilizing
+                                                                                            ˜ as the candidate barrier function. Since ψ̃ exhibits relative
+                                                                                        ψ̃(t, ξ)
+                               
+                   θ(t) − θ̂(t) ≤ ē(t) ∀t ≥ 0.              (40)                     degree one with respect to the control input u, this formulation
+                                                                                        constitutes a standard robust CBF problem amenable to the tPSSf
+    According to the parameter estimate θ̂ and the error bound                          approach. The projected disturbance acting on ψ̃ is defined as
+ē(t), a robust high-order barrier function is constructed.
+    Theorem 1 (Differentiator-adaptive HoTvCBFs): Let ξ˜                                                                     ˜  ∂ ψ̃ d(t).
+                                                                                                                    δproj (t, ξ)       ˜                                (47)
+[ξ , θ̂T ]T ∈ X × Rq denote the state of the augmented system
+   T                                                                                                                              ∂ ξ˜
+                  ˙
+with dynamics ξ˜ = f˜(ξ)         ˜ Let ψm−1 (ξ, θ, t) be the fi-
+                         ˜ + g̃(ξ)u.                                                    It is assumed that a known time-varying bound δ̄(t) ≥ 0 ex-
+nal function in the HoCBF chain. It is assumed that ψm−1 is                                                       ˜ ≤ δ̄(t) for all t ≥ 0. A unified robust
+                                                                                        ists such that |δproj (t, ξ)|
+Lipschitz continuous with respect to the parameter vector θ                             safety function ψ̄ is then constructed by incorporating both the
+with a Lipschitz constant Lh > 0. A robust candidate function                           parameter estimation error and the projected disturbance bound
+ψ̃ : R≥0 × X × Rq → R is defined as                                                                       ˜ − δ̄(t) = hfinal (ξ,
+                                                                                                ˜  ψ̃(t, ξ)
+                                                                                          ψ̄(t, ξ)                            ˜ t) − Lh ē(t) − δ̄(t). (48)
+                         ˜  ψm−1 (ξ, θ̂, t) − Lh ē(t).
+                   ψ̃(t, ξ)                                                   (41)         Theorem 2 (Time-varying PSSf differentiator-adaptive
+                                        ˜ t) exists satisfying                          HoTvCBFs): Consider the DA-HoTvCBF function ψ̃(t, ξ)   ˜ de-
+If a locally Lipschitz controller u = k(ξ,
+                                                                                        fined in Theorem 1 and the projected disturbance bound δ̄(t).
+         Lf˜ψ̃(ξ,            ˜ t)u + ∂ ψ̃ ≥ −α(ψ̃(ξ,
+               ˜ t) + Lg̃ ψ̃(ξ,                   ˜ t))                       (42)
+                                                                                        If an extended class-K function α exists such that the bound
+                                     ∂t                                                 dynamics satisfy
+                                                   ˙
+where ∂∂tψ̃ explicitly accounts for the term −Lh ē(t),   then the                                         ˙ + δ̄(t) ≤ −α(−δ̄(t)) ∀t ≥ 0
+                                                                                                         −δ̄(t)                                                         (49)
+original safety set C(t) = {ξ | h(ξ, t) ≥ 0} is rendered forward                                                                    ˜ t) satisfying
+                                                                                        then any locally Lipschitz controller u = k(ξ,
+invariant for the disturbed system.
+   Proof: First, the nonnegativity of the final HoCBF layer is es-                                                                  ∂ ψ̄
+tablished. Condition (42) renders the superlevel set of ψ̃ forward                                           Lf˜ψ̄ + Lg̃ ψ̄u +           ≥ −α(ψ̄)                       (50)
+                                                                                                                                    ∂t
+                                                     ˜
+invariant. Assuming valid initial conditions ψ̃(0, ξ(0))    ≥ 0, it
+                                                                                        where ∂∂tψ̄ explicitly accounts for both −Lh ē(t)˙            ˙
+                                                                                                                                               and −δ̄(t),
+                    ˜
+follows that ψ̃(t, ξ(t)) ≥ 0 for all t ≥ 0. By substituting the
+definition from (41), the following is obtained:                                        renders the original safety set C(t) = {ξ | h(ξ, t) ≥ 0} forward
+                                                                                        invariant for the fully disturbed augmented system.
+                         ψm−1 (ξ, θ̂, t) ≥ Lh ē(t).                          (43)         Proof: The proof proceeds by establishing a chain of im-
+Leveraging the Lipschitz continuity of ψm−1 with respect to θ                           plications regarding the forward invariance of the associated
+and the ISS error bound, the inequality is derived as follows:                          superlevel sets. The robustness against the additive disturbance
+                                                                                       ˜ is established initially. By the tPSSf theory [27], the sat-
+                                                                                        d(t)
+                                                
+  |ψm−1 (ξ, θ, t) − ψm−1 (ξ, θ̂, t)| ≤ Lh θ − θ̂ ≤ Lh ē(t).                          isfaction of condition (50) combined with the bound dynamics
+                                                                                                                                       ˜ ≥ 0} is forward
+                                                                                        (49) guarantees that the set Ch̄ = {ξ˜ | ψ̄(t, ξ)
+                                                                              (44)
+                                                                                        invariant. This implies that for any trajectory starting within Ch̄ ,
+This inequality implies                                                                                      ˜
+                                                                                        the inequality ψ̄(t, ξ(t)) ≥ 0 holds for all t ≥ 0.
+                                                                                           Subsequently, substituting the definition of ψ̄ from (48) yields
+               ψm−1 (ξ, θ, t) ≥ ψm−1 (ξ, θ̂, t) − Lh ē(t).                   (45)                            ˜ ≥ δ̄(t) ≥ 0. Following the logic estab-
+                                                                                        the inequality ψ̃(t, ξ)
+Combining (43) and (45) yields ψm−1 (ξ, θ, t) ≥ 0.                                      lished in Theorem 1, the nonnegativity of ψ̃ ensures that the
+
+    Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                   This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+ZHU et al.: SAFETY-CRITICAL PASSIVE CONTROL FOR ROBOTIC SOFT TISSUE INTERACTION VIA CONTROL BARRIER FUNCTIONS                                                         7
+
+
+
+true final-layer function satisfies hfinal (ξ, θ, t) ≥ 0, despite the
+presence of parameter estimation errors.
+   The proof concludes by invoking the recursive structure of
+the HoCBF approach. The condition hfinal = ψm−1 ≥ 0 implies
+the satisfaction of the lower layer barrier constraints, ultimately
+ensuring that ψ0 = h(ξ, t) ≥ 0. Thus, the original safety require-
+ment is met.                                                       
+
+E. Optimization with Dynamic Convergence
+   Applying Theorem 2 to the passivity constraints in (25) yields
+the robust functions
+                   ˜ = ψi,1 (ξ, θ̂, t) − Lh ēi (t) − δ̄i (t)
+           ψ̄i (t, ξ)                                                     (51)
+
+where indices i ∈ {1, 2} correspond to power limits and i ∈
+{3, 4} to energy bounds.
+   To enforce these constraints while mitigating potential infea-
+sibility arising from actuator limits or conflicting objectives, a
+dynamic-convergence QP is employed. This formulation relaxes                        Fig. 3. Experimental platform for robotic cutting. The system consists
+the convergence rates ρ to maintain feasibility while minimizing                    of a ROKAE xMate3 Pro manipulator communicating with the computing
+deviations from the nominal control. The robust safety-critical                     platform via TCP/IP at 100 Hz, equipped with a Robotiq 2F-85 two-finger
+                                                                                    gripper and XELA uSkin tactile sensors providing force feedback at
+controller is synthesized by solving                                                100 Hz through a serial connection. The setup enables closed-loop
+                                                                                    control for tool-environment interaction during cutting tasks.
+                      1               2  4
+                                  ˜ t)
+  u∗ , ρ∗ = arg min     u − unom (ξ,   +     cρi (ρi − ρ0 )2
+            u∈U ,ρ∈R4 2                    i=1
+                                                                                                                     TABLE I
+                                                                                                           PARAMETERS IN THE EXPERIMENTS
+                                               ∂ ψ̄i
+                s.t. Lf˜ψ̄i + Lg̃ ψ̄i u +            ≥ −ρi αi (ψ̄i )
+                                                ∂t
+                      (i = 1, . . . , 4)                                  (52)
+
+where U denotes the actuator constraints and ρ0 is the nominal
+decay rate.
+   Remark 4: Pointwise feasibility is guaranteed by formulation
+(52). The strict convexity of the objective function, combined
+with a nonempty feasible region (provided ψ̄i > 0), ensures the                     algorithms implemented in SciPy at 100 Hz and sends the control
+existence and uniqueness of the global optimal solution.                            commands back to the robot.
+   The optimal solution u∗f yields the desired power flow satis-                       To validate the proposed approach, four experimental sce-
+fying all constraints, with scaling factor                                          narios are designed. First, the experiment implements through
+                                                                                    curved surface cutting with dynamic power constraint adjust-
+                                   u∗f   u∗f                                        ment, which validates the ability of the proposed approach to
+                         βf =          =     .                            (53)
+                                  unom   Pt                                         adapt to time-varying safety requirements. Following this, the
+                                                                                    second experiment verifies the ability of the proposed approach
+                         V. EXPERIMENTS                                             to enforce both kinetic energy constraints and the resulting
+                                                                                    time-varying power bounds. The third scenario evaluates ro-
+A. Experimental Setup                                                               bustness under unmatched disturbances, specifically examining
+   As shown in Fig. 3, the experimental platform integrates a                       how the proposed approach maintains safety guarantees through
+ROKAE xMate3 Pro robot manipulator with a Robotiq 2F-85                             adaptive safety margins. Lastly, a feasibility analysis experiment
+gripper that holds a knife tool. To enable precise force sensing                    is conducted.
+during tool-environment interaction, the gripper is equipped                           Table I presents the parameters used in the experimental setup.
+with two XELA 16-taxel uSkin tactile sensors. Each sensor                           The impedance control gain Kc is tuned to provide appro-
+contains a m × m (m = 4) array of taxels mounted on the                             priate compliance during tissue interaction while maintaining
+gripper fingertips, providing real-time external force feedback                     position accuracy. Force control gains (Kp , Ki ) are selected to
+Fe at 100 Hz through a serial connection to a personal com-                         achieve stable force tracking with minimal steady-state error
+puter (PC). The system operates with the robot communicat-                          and overshoot during transitions between cutting phases. The
+ing state information, including joint positions, velocities, and                   CBF dynamics control gain kf determines the convergence rate
+torques (q, q̇, τ ) along with Cartesian position/velocity (x, ẋ),                 of the energy tank dynamics toward the desired power flow,
+to the computing platform. The PC executes QP optimization                          with a theoretical lower bound kf > Pmax   λ ensuring passivity.
+
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                     This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+8                                                                                                                    IEEE/ASME TRANSACTIONS ON MECHATRONICS
+
+
+
+                                                                                                                    TABLE II
+                                                                                                   PERFORMANCE COMPARISON OF DIFFERENT METHODS
+
+
+
+
+                                                                                                     min / max
+                                                                                        where j Pi            is the minimum/maximum power boundary
+                                                                                        for segment i in iteration j, κf , and κl are forgetting and learning
+                                                                                        coefficients, respectively, and j β̄i represents power utilization
+                                                                                        metrics from previous iterations. The phase indicator φ ∈ [0, 1]
+                                                                                        tracks progress through the cutting task, P (φ) is the power
+                                                                                        boundary function that adapts according to the current phase,
+                                                                                        and Γ(φ) is a smooth transition function, typically implemented
+                                                                                        as a sigmoid function, that ensures continuous boundary changes
+                                                                                        between phases.
+                                                                                           The comparative results in Fig. 4(b) and Table II demonstrate
+                                                                                        performance differences between the three control strategies,
+                                                                                        namely, the CBF-Tank approach with constant bounds, time-
+                                                                                        invariant CBF-Tank approach, and the proposed approach. For
+                                                                                        the performance evaluation, three key metrics are utilized, in-
+                                                                                        cluding force RMSE quantifying force control precision, contact
+                                                                                        reaching time to measure efficiency during contact transition,
+                                                                                        and power violations, which evaluates safety constraint enforce-
+                                                                                        ment. Each control strategy has been tested in ten trials on the
+                                                                                        curved-surface cutting setup under identical conditions to ensure
+                                                                                        statistical validity of the results.
+                                                                                           During variable force tracking scenarios, the proposed method
+Fig. 4. Curved surface cutting experiment with time-varying power                       achieves force RMSE of 0.599 N, reducing tracking error by
+bounds. (a) Experimental snapshots showing four cutting phases: ap-                     15.3% compared to the constant bounds approach at 0.707 N
+proach, contact establishment, cutting, and leaving. (b) Power response                 and a 20.0% improvement over the time-invariant CBF ap-
+comparison under proposed approach, constant bounds approach, and
+time-invariant CBF approach, with safety margin h2 (t) comparison be-                   proach at 0.749 N. In terms of power boundaries, both the time-
+tween proposed approach and time-invariant CBF.                                         invariant CBF and the proposed approach use the time-varying
+                                                                                        segment-specific power constraints after learning process. The
+The HoTvCBF parameters (p1,j , p2,j ) define the class-K func-                          approaches with time-varying bounds complete the contact
+tions that shape the convergence behavior toward the safe set                           reaching phase in approximately 1.01–1.05 s, nearly 48% faster
+boundaries for power and energy constraints, respectively.                              than the constant bounds method with 1.95 s. This efficiency
+                                                                                        improvement demonstrates the advantage of segment-specific
+B. Curved Surface Cutting with Time-Varying Power                                       boundaries over traditional fixed constraints, which is either
+Bounds                                                                                  overly conservative to ensure safety across all conditions or risk
+                                                                                        safety violations. Furthermore, the time-invariant CBF approach
+   The experiment investigates on a multistage cutting task with                        violates the power constraints during 4.11% of execution time,
+a curved surface geometry as illustrated in Fig. 4(a). The task                         particularly during transient phases as highlighted in the red-
+consists of four distinct phases: approach, contact establishment,                      boxed region in Fig. 4(b). These violations occur because the
+sustained cutting on a curved surface, and leaving. To capture                          fixed barriers cannot adapt to rapidly changing task require-
+local variations in tissue properties and geometry, each phase                          ments. The proposed approach maintains complete safety with
+can be further subdivided into multiple segments.                                       0% power violations through incorporating boundary derivatives
+   The segmentation enables the implementation of segment-                              into constraint formulation.
+specific power constraints that adapt to the requirements of
+each portion of the cutting task. The power boundary learning
+mechanism updates these constraints through                                             C. Kinetic Energy Limitation
+             min / max         min / max                                                   The second experiment evaluates the ability to maintain safety
+      j+1
+            Pi           = j Pi             − κf + j β̄i (κf + κl )           (54)
+                                                                                        through dynamic kinetic energy and power constraints. During
+with dynamic boundary evolution characterized by                                        high-speed robotic operations, such as the approach phase in
+                                                                                       the cutting task, excessive kinetic energy risks safety to both
+                    Γ(φ),        between phases                                         the robotic system and nearby humans. To ensure safety during
+          P (φ) =    min / max                                                (55)
+                    Pi         , φ ∈ phase i                                            cutting operations, the kinetic energy of the manipulator is
+    Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                   This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+ZHU et al.: SAFETY-CRITICAL PASSIVE CONTROL FOR ROBOTIC SOFT TISSUE INTERACTION VIA CONTROL BARRIER FUNCTIONS                                                         9
+
+
+
+                                                                                                                    TABLE III
+                                                                                                      KINETIC ENERGY LIMITATION PERFORMANCE
+
+
+
+
+                                                                                    accumulation, directly leading to kinetic energy exceeding the
+                                                                                    0.04 J safety threshold. In contrast, the proposed method exhibits
+                                                                                    controlled power progression below the decreasing boundary
+                                                                                    limit, with 4.099 W maximum power. This results in kinetic
+                                                                                    energy approaching but never exceeding the safety threshold,
+                                                                                    maintaining 0.039 J maximum. Compared to the time-invariant
+                                                                                    CBF approach with a 4.13% violation rate of both power and
+                                                                                    kinetic energy constraints, the proposed approach maintains zero
+                                                                                    violations throughout the entire operation. Rather than reacting
+                                                                                    after the constraints are violated, the proposed approach adjusts
+Fig. 5. Experimental results for the kinetic energy limitation experi-
+                                                                                    before reaching safety constraints through, including boundary
+ment. Comparison of the time-invariant CBF and the proposed approach                rate-of-change in the constraint calculations.
+for maintaining time-varying power constraints and kinetic energy con-
+straints during robotic motion.
+                                                                                    D. Safety Performance Under Disturbances
+governed by                                                                            To validate the robustness of the proposed approach, two
+                           1                                                        representative disturbance scenarios are designed, including a
+                      Eke = ẋT Mc ẋ                                     (56)      contact-transition test and an external-disturbance test. The con-
+                           2
+                                                                                    tact transition test examines the system response during the tran-
+which evolves according to
+                                                                                    sition from noncontact to contact state, where sudden changes
+             Ėke = −Pt − x̃˙ T (Dc x̃˙ + Kc x̃ + Fe ).                   (57)      in system dynamics and unknown contact forces introduce sig-
+                                                                                    nificant disturbances. This scenario specifically validates the
+Using first-order approximation, the maximum kinetic energy
+                                                                                    effectiveness of the ISS differentiator in tracking rapid dynamic
+constraint Eke,k+1 ≤ Eke,max introduces an additional time-
+                                                                                    variations, as the higher order derivatives required by HoTvCBF
+varying power bound
+                                                                                    become particularly difficult to estimate during such transitions.
+               Eke,max − Eke,k
+ Pkmax (t) =                     − x̃˙ T (Dc x̃˙ + Kc x̃ + Fe ). (58)               The external disturbance test evaluates the system’s ability to
+                      Δt                                                            maintain safety under sudden perturbations during steady-state
+   Based on this derivation, a time-varying power constraint is                     operation.
+formulated that depends on the current kinetic energy state of                         Two baseline methods are selected for comparison. The nom-
+the system, the maximum allowable kinetic energy, and other                         inal controller, designed without explicit safety considerations,
+dynamic factors. If the kinetic energy of the manipulator is close                  demonstrates the necessity of safety-critical control by showing
+to the safety limit, then the power budget reduces to prevent                       the consequences of ignoring disturbance effects. The PSSf with
+threshold violations.                                                               fixed bound method employs a constant worst-case disturbance
+   The experiment evaluates the proposed approach and the                           bound δ̄ ≥ supt≥0 |δ(t)| to guarantee safety, representing the
+time-invariant CBF approach using four metrics. Max power                           conventional robust CBF approach. The comparison between
+indicates the peak energy transfer rate during task execution,                      this fixed-bound method and the proposed approach highlights
+with lower values suggesting more conservative control. Power                       the advantage of adaptive disturbance bound estimation over
+violations percentage indicates constraint enforcement relia-                       conservative static bounds.
+bility throughout the operation. Max kinetic energy quantifies                         Fig. 6 illustrates the dynamic response of the safety function
+the peak energy state of the system, directly correlating with                      h2 (t) under both scenarios. In the contact transition test, when
+potential collision severity. Kinetic energy violations percentage                  contact occurs at approximately t = 1 s, the nominal controller
+shows the effectiveness of preventing dangerous energy states                       responds slowly and allows h2 (t) to drop deeply into the unsafe
+during rapid movements.                                                             region before eventually recovering. The PSSf with fixed bound
+   As illustrated in Fig. 5 and Table III, the two approaches                       maintains a consistently large safety margin throughout the
+demonstrate different behaviors in managing power and kinetic                       process, reflecting its conservative nature. The proposed method
+energy constraints. The time-invariant CBF approach shows a                         demonstrates adaptive behavior. During the disturbance, h2 (t)
+steady increase in power consumption that eventually exceeds                        decreases toward the boundary but remains positive, then recov-
+the boundary at approximately t=0.3 s, reaching a maximum of                        ers as the ISS differentiator tracks the changing dynamics. In the
+4.366 W. This power boundary violation causes excessive energy                      external disturbance test, a similar pattern emerges at t = 4.8 s,
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                  This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+10                                                                                                                IEEE/ASME TRANSACTIONS ON MECHATRONICS
+
+
+
+                                                                                                               TABLE V
+                                                                                      COMPARISON OF CONTROL PERFORMANCE WITH AND WITHOUT DYNAMIC
+                                                                                                             CONVERGENCE
+
+
+
+
+Fig. 6. Experimental validation of the robustness of the proposed                    primarily occurring in the power upper bound with 97.28%
+tPSSf-DA-HoTvCBF method. (Left) Contact transition test: system
+response during transition from noncontact to contact state. (Right)                 satisfaction and β upper bound with 97.96% satisfaction. In
+External disturbance test: safety performance under sudden external                  contrast, the dynamic-convergence on implementation achieves
+perturbation. The proposed method maintains safety constraints but the               100% satisfaction across all constraints. Under identical initial
+nominal controller violates the safety boundary. The fixed-bound PSSf
+remains safe but exhibits conservative behavior.                                     conditions, the proposed approach implements constraint relax-
+                                                                                     ation, allowing the controller to maintain feasibility throughout
+                                                                                     the experiment.
+                           TABLE IV
+ QUANTITATIVE SAFETY PERFORMANCE COMPARISON UNDER DIFFERENT
+         DISTURBANCE SCENARIOS (MEAN OVER 10 TRIALS)                                                               VI. CONCLUSION
+                                                                                        This article presents an energy tank management approach
+                                                                                     with tPSSf-DA–HoTvCBF for robust safe robotic cutting. For
+                                                                                     cutting tasks, the proposed approach conducts smooth regulation
+                                                                                     of phase-specific time-varying energy and power constraints
+                                                                                     throughout different cutting phases, preventing rapid energy
+                                                                                     release during unexpected motion. To address unknown higher
+where the proposed method shows rapid response and recovery                          order derivatives in HoTvCBF, an ISS differentiator is employed
+while the fixed-bound approach maintains an unnecessarily large                      to estimate time-varying parameters and tPSSf is utilized to
+margin even when disturbances are minimal.                                           adaptively bound estimation errors. Compared to fixed-bound
+   The quantitative results in Table IV summarize the safety                         robust CBF methods, this approach achieves safety guarantees
+performance over ten repeated trials. The nominal controller                         with reduced conservatism, which is validated through contact
+violates safety in both scenarios, with a more severe violation                      transition and external disturbance experiments. In addition, the
+during contact transition at min h2 (t) = −0.9732 compared to                        dynamic-convergence HoTvCBF-QP solver resolves conflicts
+−0.5578 under external disturbance, indicating that transient                        between passivity requirements and input constraints, maintain-
+dynamic changes pose greater challenges. Both safety-critical                        ing feasibility of the optimization problem. In future work, the
+methods guarantee h2 (t) ≥ 0, but exhibit different levels of con-                   proposed approach can be extended to human–robot interaction
+servatism. The fixed-bound PSSf maintains min h2 (t) = 0.1500                        and multirobot collaborative systems.
+in both scenarios due to its constant worst-case bound assump-
+tion, while the proposed approach achieves min h2 (t) = 0.0833,                                                      REFERENCES
+representing approximately 44% reduction in safety margin.                            [1] S. S. M. Salehian and A. Billard, “A dynamical-system-based approach for
+This reduction translates to improved task performance, as the                            controlling robotic manipulators during noncontact/contact transitions,”
+                                                                                          IEEE Robot. Autom. Lett., vol. 3, no. 4, pp. 2738–2745, Oct. 2018.
+system operates closer to its physical limits without compromis-                      [2] S. Sidhik, M. Sridharan, and D. Ruiken, “An adaptive framework for
+ing safety guarantees.                                                                    trajectory following in changing-contact robot manipulation tasks,” Robot.
+                                                                                          Auton. Syst., vol. 181, 2024, Art. no. 104785.
+                                                                                      [3] A. Van der Schaft, L2-Gain and Passivity Techniques in Nonlinear Control.
+E. Feasibility Analysis                                                                   Berlin, Germany: Springer, 2000.
+                                                                                      [4] Z. Jin, A. Liu, W.-A. Zhang, L. Yu, and C. Yang, “Learning stable
+   This experiment is designed to analyze QP solving feasibil-                            state-dependent variable impedance control for compliant manipulation,”
+ity, particularly in cases where the phase-specific time-varying                          IEEE/ASME Trans. Mechatron., vol. 30, no. 5, pp. 3362–3373, Oct. 2025.
+power boundaries might conflict with the input constraints. The                       [5] D. Lee, D. Ko, W. K. Chung, and K. Kim, “Quadratic programming-based
+                                                                                          task scaling for safe and passive robot arm teleoperation,” IEEE/ASME
+experimental setup focuses on the power boundary contraction                              Trans. Mechatron., vol. 27, no. 4, pp. 1937–1945, Aug. 2022.
+during the transition from approach to contact establishment.                         [6] H. Huang et al., “Robust passivity-based dynamical systems for compli-
+The study compares the QP solver failure rate and the satisfaction                        ant motion adaptation,” IEEE/ASME Trans. Mechatron., vol. 27, no. 6,
+                                                                                          pp. 4819–4828, Dec. 2022.
+rate of each constraint across the total solution time under two                      [7] Y. Michel, R. Rahal, C. Pacchierotti, P. R. Giordano, and D. Lee, “Bilateral
+distinct methods: with dynamic convergence enabled versus                                 teleoperation with adaptive impedance control for contact tasks,” IEEE
+disabled.                                                                                 Robot. Automat. Lett., vol. 6, no. 3, pp. 5429–5436, Jul. 2021.
+                                                                                      [8] R. Wu and A. Billard, “Learning from demonstration and interactive
+   As shown in Table V, without dynamic convergence, the QP                               control of variable-impedance to cut soft tissues,” IEEE/ASME Trans.
+solver exhibits a 2.72% failure rate, with constraint violations                          Mechatron., vol. 27, no. 5, pp. 2740–2751, Oct. 2022.
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+                      This article has been accepted for inclusion in a future issue of this journal. Content is final as presented, with the exception of pagination.
+
+
+ZHU et al.: SAFETY-CRITICAL PASSIVE CONTROL FOR ROBOTIC SOFT TISSUE INTERACTION VIA CONTROL BARRIER FUNCTIONS                                                            11
+
+
+
+ [9] Y. Li, G. Ganesh, N. Jarrassé, S. Haddadin, A. Albu-Schaeffer, and E.             [34] F. Califano, R. Rashad, C. Secchi, and S. Stramigioli, “On the use of energy
+     Burdet, “Force, impedance, and trajectory learning for contact tooling and             tanks for robotic systems,” in Proc. Int. Workshop Hum.-Friendly Robot.,
+     haptic identification,” IEEE Trans. Robot., vol. 34, no. 5, pp. 1170–1182,             2022, pp. 174–188.
+     Oct. 2018.                                                                        [35] D. Astolfi, L. Marconi, L. Praly, and A. R. Teel, “Low-power peaking-free
+[10] S. Haddadin and E. Shahriari, “Unified force-impedance control,” Int. J.               high-gain observers,” Automatica, vol. 98, pp. 169–179, 2018.
+     Robot. Res., vol. 43, no. 13, pp. 2112–2141, 2024.
+[11] S. Stramigioli, “Energy-aware robotics,” in Mathematical Control Theory
+     I: Nonlinear and Hybrid Control Systems. Berlin, Germany: Springer,                                           Wenxin Zhu (Student Member, IEEE) received
+     2015, pp. 37–50.                                                                                              the B.Eng. degree in automation from Zhejiang
+[12] N. Piccinelli and R. Muradore, “Linearized virtual energy tank for                                            University, Hangzhou, China, in 2021, where
+     passivity-based bilateral teleoperation using linear MPC,” IEEE Trans.                                        she is currently working toward the Ph.D. degree
+     Robot., vol. 41, pp. 2589–2604, 2025.                                                                         in control science and engineering.
+[13] F. Califano, D. van Dijk, and W. Roozing, “A task-based post-impact safety                                       Her research interests include safety control,
+     protocol based on energy tanks,” IEEE Robot. Automat. Lett., vol. 7, no. 4,                                   human−robot interaction, and soft robots.
+     pp. 8791–8798, Oct. 2022.
+[14] Y. Lin, Z. Chen, and B. Yao, “Unified motion/force/impedance con-
+     trol for manipulators in unknown contact environments based on robust
+     model-reaching approach,” IEEE/ASME Trans. Mechatron., vol. 26, no. 4,
+     pp. 1905–1913, Aug. 2021.
+[15] C. Schindlbeck and S. Haddadin, “Unified passivity-based cartesian
+                                                                                                               Qinyuan Ren (Senior Member, IEEE) re-
+     force/impedance control for rigid and flexible joint robots via task-energy
+                                                                                                               ceived the Ph.D. degree in control science
+     tanks,” in Proc. IEEE Int. Conf. Robot. Autom., 2015, pp. 440–447.
+                                                                                                               and engineering from Zhejiang University (ZJU),
+[16] S. Hjorth, E. Lamon, D. Chrysostomou, and A. Ajoudani, “Design of an
+                                                                                                               Hangzhou, China, in 2008.
+     energy-aware cartesian impedance controller for collaborative disassem-
+                                                                                                                  He was with the Department of Electrical and
+     bly,” in Proc. IEEE Int. Conf. Robot. Autom., 2023, pp. 7483–7489.
+                                                                                                               Computer Engineering, National University of
+[17] A. D. Ames, S. Coogan, M. Egerstedt, G. Notomista, K. Sreenath, and P.
+                                                                                                               Singapore, Singapore. In 2015, he was a Sci-
+     Tabuada, “Control barrier functions: Theory and applications,” in Proc.
+                                                                                                               entist with the Institute for Infocomm Research
+     18th Eur. Control Conf., 2019, pp. 3420–3431.
+                                                                                                               (I2R), Agency for Science, Technology and Re-
+[18] M. Sharifi and S. Heshmati-Alamdari, “Safe force/position tracking con-
+                                                                                                               search (A∗ STAR), Singapore. He is currently a
+     trol via control barrier functions for floating base mobile manipulator
+                                                                                                               Professor with the College of Control Science
+     systems,” in Proc. Eur. Control Conf., 2024, pp. 3650–3655.
+                                                                                       and Engineering, ZJU. His research interests include nonlinear systems,
+[19] B. Capelli, C. Secchi, and L. Sabattini, “Passivity and control barrier
+                                                                                       bionic engineering, and motion control.
+     functions: Optimizing the use of energy,” IEEE Robot. Autom. Lett., vol. 7,
+     no. 2, pp. 1356–1363, Apr. 2022.
+[20] M. Jankovic, M. Santillo, and Y. Wang, “Multiagent systems with CBF-
+     based controllers: Collision avoidance and liveness from instability,” IEEE                                   Shenyuan Li (Student Member, IEEE) received
+     Trans. Control Syst. Technol., vol. 32, no. 2, pp. 705–712, Mar. 2024.                                        the B.Eng. degree in automation from Zhejiang
+[21] W. Xiao and C. Belta, “High-order control barrier functions,” IEEE Trans.                                     University, Hangzhou, China, in 2025, where he
+     Autom. Control, vol. 67, no. 7, pp. 3655–3662, Jul. 2022.                                                     is currently working toward the M.S. degree in
+[22] Y. Michel, M. Saveriano, and D. Lee, “A novel safety-aware energy tank                                        control science and engineering.
+     formulation based on control barrier functions,” IEEE Robot. Autom. Lett.,                                       His research interests include robotic percep-
+     vol. 9, no. 6, pp. 5206–5213, Jun. 2024.                                                                      tion and decision-making algorithms.
+[23] E. Shahriari, L. Johannsmeier, E. Jensen, and S. Haddadin, “Power
+     flow regulation, adaptation, and learning for intrinsically robust virtual
+     energy tanks,” IEEE Robot. Autom. Lett., vol. 5, no. 1, pp. 211–218,
+     Jan. 2020.
+[24] X. Tan, W. S. Cortez, and D. V. Dimarogonas, “High-order barrier func-
+     tions: Robustness, safety, and performance-critical control,” IEEE Trans.                                     Yilin Lang (Graduate Student Member, IEEE)
+     Autom. Control, vol. 67, no. 6, pp. 3021–3028, Jun. 2022.                                                     received the B.Eng. degree in automation
+[25] S. Kolathaya and A. D. Ames, “Input-to-state safety with control barrier                                      from Zhejiang University, Hangzhou, China,
+     functions,” IEEE Control Syst. Lett., vol. 3, no. 1, pp. 108–113, Jan. 2019.                                  in 2022, where he is currently working to-
+[26] A. J. Taylor, A. Singletary, Y. Yue, and A. D. Ames, “A control barrier                                       ward the Ph.D. degree in control science and
+     perspective on episodic learning via projection-to-state safety,” IEEE                                        engineering.
+     Control Syst. Lett., vol. 5, no. 3, pp. 1019–1024, Jul. 2021.                                                    His research interests include human−robot
+[27] E. Daş, A. D. Ames, and J. W. Burdick, “Rollover prevention for mobile                                       interaction and optimal control.
+     robots with control barrier functions: Differentiator-based adaptation and
+     projection-to-state safety,” IEEE Control Syst. Lett., vol. 8, pp. 1727–1732,
+     2024.
+[28] D. Ko and W. K. Chung, “A backup control barrier function approach for
+     safety-critical control of mechanical systems under multiple constraints,”
+     IEEE/ASME Trans. Mechatron., vol. 30, no. 6, pp. 4460–4471, Dec. 2025.                                     Yan Wu (Senior Member, IEEE) received the
+[29] W. Zhu, W. Liang, Q. Ren, and Y. Wu, “Gaussian process model predictive                                    B.A. degree in engineering from the University
+     admittance control for compliant tool-environment interaction,” in Proc.                                   of Cambridge, Cambridge, U.K., in 2007, and
+     IEEE 19th Conf. Ind. Electron. Appl., 2024, pp. 1–7.                                                       the Ph.D. degree in electrical engineering from
+[30] T. Hatanaka, N. Chopra, M. Fujita, and M. W. Spong, Passivity-Based Con-                                   Imperial College London, London, U.K., in 2013.
+     trol and Estimation in Networked Robotics. Berlin, Germany: Springer,                                        He is the Deputy Head of the Embodied AI
+     2015.                                                                                                      and Robotics Chapter with A*STAR Institute Ad-
+[31] A. D. Ames, X. Xu, J. W. Grizzle, and P. Tabuada, “Control barrier function                                vanced Intelligence and Computing (A*STAR
+     based quadratic programs for safety critical systems,” IEEE Trans. Autom.                                  IAIC). He is also the Director of Graduate Affairs
+     Control, vol. 62, no. 8, pp. 3861–3876, Aug. 2017.                                                         with A*STAR Graduate Academy. From 2012 to
+[32] H. K. Khalil and J. W. Grizzle, Nonlinear Systems, vol. 3. Upper Saddle                                    2013, he was an Honorary Research Associate
+     River, NJ, USA: Prentice Hall, 2002.                                              with the Institute of Child Health, University College London, London,
+[33] F. Ferraguti, C. Secchi, and C. Fantuzzi, “A tank-based approach to               and a Research Fellow with NHS Great Ormond Street Hospital for
+     impedance control with variable stiffness,” in Proc. IEEE Int. Conf. Robot.       Children, London. His research interests include embodied intelligence,
+     Autom., 2013, pp. 4948–4953.                                                      robot learning and human−robot interaction.
+
+
+
+   Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:35 UTC from IEEE Xplore. Restrictions apply.
+

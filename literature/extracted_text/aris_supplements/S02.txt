@@ -1,0 +1,765 @@
+5972                                                   IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 71, NO. 6, JUNE 2024
+
+
+
+
+       Observer-Based Variable Impedance Control
+        Using Moving Horizon Estimation for Robot
+            Machining Thin-Walled Workpieces
+           Yuhao Zhang , Member, IEEE, Xingwei Zhao , Yiming Chen, Bo Tao , Member, IEEE,
+                                and Han Ding , Senior Member, IEEE
+
+
+   Abstract—Adaptability is one of the most important
+survival and living abilities in nature and human society,
+which needs to perceive the environment and regulate
+self-behaviors. To empower robots in manufacturing with
+this ability, an observer-based variable impedance control
+scheme is proposed in this article. It senses changes in
+environmental properties during contact and utilizes the
+observations to guide the decisions of the robot controller.
+Specifically, we developed a real-time moving horizon
+based robot-environment observer, which uses historical
+information to predict the current impedance parameters
+of the external contact environment and robot internal joint
+disturbances simultaneously. Then, a variable impedance
+control law is designed to eliminate state tracking errors
+                                                                            Fig. 1. Robotic machining of thin-walled workpieces. Robot distur-
+and decrease machining vibration. The stability of the                      bances and workpiece deformation appeared in the machining due to
+closed-loop system is theoretically proven. Experiments on                  the low rigidity of the robot and workpiece, resulting in an undesirable
+machining thin-walled workpieces validate the efficacy of                   rough surface of the product.
+the proposed method, where the robot exhibits compliant
+force behavior resulting in superior workpiece surface
+roughness among various comparison methods.
+  Index Terms—Intelligent and flexible manufacturing,
+                                                                            of robots lie in their flexible operation, feasible motion accu-
+moving horizon estimation, robot-environment interaction,                   racy, and convenient sensor integration, which are beneficial
+robotic machining, variable impedance control.                              for yielding high machining quality. However, the rigidity of
+                                                                            the robot is relatively low compared to the machine tools, and
+                                                                            the material removal processes commonly encounter dramatic
+                         I. INTRODUCTION                                    interacting forces between the robot and the environment re-
+      HIN-WALLED workpieces [1] are widely used flexible                    sulting in workpiece deformation, vibrations, and even unstable
+T     elements for mechanical structures, such as aircraft skin
+[2], siding of hulls [3], and connection plates of trains [4]. As
+                                                                            chatters [7]. The intrinsic instability during machining involves
+                                                                            unknown environmental properties, e.g., workpiece impedance,
+depicted in Fig. 1, such workpieces commonly have a long                    robot motor disturbances, and so on. There are many factors
+size but slim profile, leading to low stiffness, and inadequate             that cannot be directly seen and measured that will worsen the
+clamping. Robotic machining [5] of thin-walled workpieces can               robotic machining performance.
+reduce the burden of human labor in industry [6]. The advantages               Offline and online control methods have been studied to
+                                                                            improve the machining quality of those kinds of workpieces.
+                                                                            Klimchik et al. [8] proposed a classical offline scheme, which
+   Manuscript received 23 October 2022; revised 16 February 2023 and
+10 May 2023; accepted 27 June 2023. Date of publication 19 July 2023;       utilized an offline prediction model to estimate the machining
+date of current version 19 January 2024. This work was supported by the     force through the desired tool trajectory and then applied a
+National Natural Science Foundation of China under Grant 91948301,          compliance model to modify the nominal tool trajectory in the
+Grant 52275020, and Grant 62293514. (Corresponding authors: Xing-
+wei Zhao; Bo Tao.)                                                          presence of the machining forces [9]. In addition, force-induced
+   The authors are with the State Key Laboratory of Intelligent Man-        deformations can also be predicted using finite element analy-
+ufacturing Equipment and Technology, School of Mechanical Science           sis technology before machining [10]. Offline methods require
+and Engineering, Huazhong University of Science and Technology,
+Wuhan 430074, China (e-mail: yuhao_zhang@hust.edu.cn; zhaoxing-             accurate knowledge of workpiece material and surface location
+wei@hust.edu.cn; yimingchen@hust.edu.cn; taobo@mail.hust.edu.cn;            for calculation of the possible workpiece deformation. Stochas-
+dinghan@hust.edu.cn).                                                       tic factors, such as machining disturbance or uneven material
+   Color versions of one or more figures in this article are available at
+https://doi.org/10.1109/TIE.2023.3292856.                                   properties, are hardly considered in offline strategies. Then,
+   Digital Object Identifier 10.1109/TIE.2023.3292856                       online control strategies are introduced for compensating the
+                  0278-0046 © 2023 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+ZHANG et al.: OBSERVER-BASED VARIABLE IMPEDANCE CONTROL USING MOVING HORIZON ESTIMATION                                                          5973
+
+
+
+deformation-caused errors in real-time with stochastic factors.             to estimate traction and slipping parameters for an autonomous
+Based on the directly measured information, Yuan et al. [1]                 vehicle. Liu et al. [38] proposed a multirate MHE for mobile
+introduced a data-driven method for workpiece deformation                   robots to upgrade the estimation performance when some sensor
+prediction. Bi et al. [11] developed a fuzzy support vector                 measurements are missing. By combining MHE and dynamic
+machine-based method to decompose the machining errors.                     mode decomposition methods, the flow-regime transitions can
+However, robotic machining systems are different from machine               be detected [39]. Julian et al. [40] introduced the property of sub-
+tool systems. They have lower control response and rigidity. It             optimal solution in model predictive control (MPC) to ensure the
+is more inclined to use force feedback technology to ensure                 stability of the MHE. Constraints always exist for real robots due
+the machining accuracy of the robot. Impedance control [12]                 to physical limitations and safety concerns. The motivation for
+is then considered and widely used in robot machining tasks                 choosing MHE in this article lies in its multiobjective properties
+[13]. It adjusts the relationship between the force response                and convenience in setting constraints. Hence, both the external
+and environment deformation through the principle of a mass-                environment impedance parameters and internal disturbances
+spring-damper model. Nevertheless, robot controllers with fixed             for the robot machining process can be acquired simultaneously
+impedance parameters are conservative. The instability may                  in one constrained optimization problem.
+occur when the environmental impedance changes. Therefore,                     In this article, an observer-based variable impedance control
+the robot’s adaptability for machining thin-walled workpieces               method for thin-walled workpiece machining tasks is proposed.
+is still limited.                                                           The variable impedance of the external environment, as well as
+   Based on the abovementioned analysis, a more environment-                the internal model disturbances, are simultaneously estimated
+adaptable controller is desirable for the thin-walled workpiece             by a customized MHE algorithm. Then, the observations are
+machining task. Recently, Li et al. [14] investigated that hu-              utilized to establish a robot variable impedance control law with
+mans could skillfully interact with the environment for different           model disturbances compensation. The robot’s impedance varies
+purposes by adapting their impedance, which inspired us to                  with the change in environmental impedance, which improves
+consider variable impedance control (VIC). Ikeura and Inooka                the adaptability of the robot for interacting with the impedance-
+[15] first introduced a variable damping scheme for a robot to              changing environment. The specific contributions offered by this
+work with a human in cooperative lifting tasks, which was later             article are presented as follows.
+improved by Rahman et al. [16] to include variable stiffness.                   1) The scheme of moving horizon estimation-based variable
+In manipulation tasks, VIC strategies are commonly designed                         impedance control (MHE-VIC) is proposed to improve
+based on trajectory tracking errors [17]. Recently, learning meth-                  robot adaptability in force interaction tasks, especially
+ods such as imitation learning [18], [19] iterative learning [20],                  for improving the machining quality of the thin-walled
+and reinforcement learning [21], [22] have been investigated,                       workpiece, where the robot impedance can be regulated in
+accounting for adaptive impedance for tasks, especially with                        accordance with the estimated environmental impedance.
+humans in the loop [23]. The stability of VIC has been studied                  2) A novel robot-environment observer is developed by
+from the passivity concept [24] and extended in [25]. The                           using MHE, which can simultaneously estimate the
+state-independent stability conditions for VIC are studied in                       impedance of the external contact environment and the
+[26]. The variable impedance profiles are generally restricted                      internal robot joint disturbances. Multiunknown parame-
+by the stability of the closed-loop system [27]. In contrast,                       ters estimation and explicit physical constraints are the
+Papastavridis and Dai [28], [29], and Papastavridis et al. [30]                     advantages of the observer. It utilizes robot historical
+presented stable VIC frameworks that enable unconstrained                           information to estimate the current unknown parameter
+impedance gains for flexible-joint robots. The aspect of robot                      accurately.
+redundancy is often neglected in VIC, but it was taken into                     3) The variable impedance controller is designed based on
+account in [31] to design a passive controller. Considering VIC                     the observations to adapt to changes in the impedance
+in robot machining can improve robot environmental adaptabil-                       of the contact environment and avoid joint disturbances
+ity, resulting in better surface roughness [1] and minor force                      during interaction. It ensures the convergence of the state
+fluctuations [32] than fixed impedance strategies. In fact, the                     tracking errors and decreases the vibration in the machin-
+performance of the force-induced interaction depends on the                         ing tasks. The stability analysis of the closed-loop system
+impedance relationship between the robot and the environment.                       using the Lyapunov theory is given.
+Thus, we aim to study a variable impedance strategy in which                    4) The practical implementation of the whole control
+robot impedance varies with the workpiece impedance during                          scheme is constructed on a seven-DOF robot within a 1 ms
+interaction to improve the machining quality. A prerequisite                        control cycle. Comprehensive and comparative results of
+of this goal is to obtain the actual environment impedance in                       thin-walled workpiece machining experiments for differ-
+real-time, which motivates us to consider estimation methods.                       ent controllers demonstrate that both the control accuracy
+   Among a number of estimation methods [33], moving horizon                        and machining quality are improved.
+estimation (MHE) is an optimization-based method [34], which                   The rest of this article is organized as follows. Section II
+utilizes a window of historical measurements to predict the cur-            illustrates the idea of the proposed MHE-VIC strategy for mak-
+rent unmeasurable states and model parameters [35]. A real-time             ing the robot more adaptable to the environment. Section III
+MHE algorithm for simultaneously estimating states and param-               comprises the formulation of the robot-environment observer
+eters was studied in [36]. Kraus et al. [37] used constrained MHE           and variable impedance controller with analysis and stability
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+5974                                                                   IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 71, NO. 6, JUNE 2024
+
+
+
+
+Fig. 2. (a) Description of the robot-environment interaction with impedance strategy. (b) Schematic and timing diagram of the proposed MHE-VIC
+strategy.
+
+
+
+
+proof. Section IV validates and discusses the practical effect of           where K e and D e ∈ Rm×m denote the stiffness and damping
+the proposed method in grinding tasks compared with different               matrices of the environment, respectively. The vector P e ∈ Rm
+controllers. Finally, Section V concludes this article.                     specifies the surface location of the contact environment in the
+                                                                            normal direction, as well as the desired time-varying trajectory
+II. INTERPRETATION OF ROBOT-ENVIRONMENT INTERACTION                         of the robot in other directions.
+                      STRATEGY                                                 By analyzing (2), the actual position of the robot end-effector
+                                                                            P should converge to the desired value P d to make the robot’s
+   The representative scenario of robotic machining of the thin-            external force F converge to the desired value F d . To produce
+walled workpiece is shown in Fig. 2(a). As industry demands                 a constant contact force at a specific position in the workpiece
+have evolved, workpieces have become large and thinner, lead-               nominal direction, the stabilized desired position of the robot
+ing to incomplete clamping and low rigidity. The state matrix               end-effector is specified to deform the environment by a constant
+of the robot is established as x = [P , V , F ]T , where P , V ,            amount. Thus, we assume that the components in P̈ d and Ṗ d
+and F ∈ Rm denote the actual position, velocity, and external               corresponding to the force direction are equal to zero. Substitut-
+force of the robot end-effector in Cartesian space, respectively.           ing F = F d in (3) and making use of constant P e in the force
+m is the dimension of the Cartesian space. The objectives for               direction, P d is derived as
+machining, such as grinding, those components can be described
+as maintaining the desired position, tangential feed velocity, and                                  P d = P e − F d /K e .                        (4)
+normal grinding force. Thus, the state tracking error at the time
+tk in the robot machining task can be defined as                               Remark 1: In the grinding task, the robot end-effector exerts
+                                                                            a force on the environment and moves perpendicular to the
+                     e(tk ) = x(tk ) − xd (tk ).                     (1)
+                                                                            force direction. By making use of constant P e in the force
+                                                                            direction, the component in Ṗ e corresponding to the force
+   From a general perspective, impedance control can provide                direction is equal to zero. In other directions without force target,
+the robot with compliant force behavior for consistent machining            the components in F d are set to zero, the components in P e are
+quality. However, the classical impedance model of using robot              determined to be equal to those of P d according to (4). The
+position to regulate contact force is not suitable for accurate             motion objectives, such as position and velocity targets, can be
+tracking tasks. In order to eliminate the tracking errors in (1), the       set in those directions. It can be concluded that under grinding
+force tracking Cartesian impedance model [41], [42] is selected             task, Ṗ e = Ṗ d holds true in any direction.
+in this article, which is described as                                         Hence, the desired trajectory profile is decided by the envi-
+                                                                            ronment surface location P e , environment stiffness K e , and
+ M r (P̈ − P̈ d ) + D r (Ṗ − Ṗ d ) + K r (P − P d ) = F − F d             the desired external force F d to eliminate the state tracking
+                                                               (2)          errors. The workpiece measurement process is indispensable
+where M r , D r , and K r ∈ Rm×m are the mass, damping, and                 before machining. We assume that the environmental surface
+stiffness matrices of the robot in Cartesian space, respectively,           location is known beforehand. Then, we focus on the real-time
+also named impedance parameters. P d and F d ∈ Rm denote                    estimation of the environment stiffness to calculate the precise
+the desired position and external force of the robot end-effector.          new commanded desired trajectory.
+   As for the contact environment, the impedance model is                      Remark 2: The robot contact environment, clamped thin-
+generally established as a spring and damper. The reaction                  walled workpiece, is characterized by low and variable stiffness,
+force caused by the deformation of the environment, which is                thus, vulnerable to deformation and vibration. Changes in en-
+equivalent to the external force of the robot, can be expressed as          vironmental impedance can hinder the expected performance
+                                                                            of the robot controller with fixed impedance. An appropriate
+              F = K e (P e − P ) + D e (Ṗ e − Ṗ )                  (3)    adjustment of the impedance parameters of the robot can result
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+ZHANG et al.: OBSERVER-BASED VARIABLE IMPEDANCE CONTROL USING MOVING HORIZON ESTIMATION                                                              5975
+
+
+
+
+Fig. 3.   Control block diagram of the proposed MHE-VIC scheme.
+
+
+in an enhanced response to the impedance variations of the                    q ∈ Rn denotes the robot joint position. n is the number of the
+environment, leading to a more compliant contact behavior.                   robot joints. u ∈ Rm denotes the control input. J ∈ Rm×n is
+   Thus, we proposed a moving horizon estimation-based vari-                 the Jacobian matrix of the robot. M I (q) ∈ Rn×n is the inertial
+able impedance controller named MHE-VIC, the strategy of                     matrix, C I (q, q̇) ∈ Rn×n is the matrix accounting for Coriolis,
+which is shown in Fig. 2(b). Define y = [P , V , F , η]T as the              and centrifugal forces, GI (q) ∈ Rn is the gravitational force.
+output variable, where η ∈ Rm is the internal disturbance of the                Assuming the environment parameters P e , K e , and D e
+robot. At each control cycle tk , the N historical measurements              vary slowly in a short neighboring control period (1 ms), we
+y(tk−N +1 ), . . . , y(tk−1 ), y(tk ) are utilized to calculate the cur-     have P e (tk ) = P e (tk−1 ), K e (tk ) = K e (tk−1 ), and D e (tk ) =
+rent unmeasurable useful parameters z(tk ) = [K e , D e , η]T in             D e (tk−1 ). Subtracting the force value at time tk−1 from the force
+the MHE scheme. z(tk ) contains the impedances of the ex-                    value at time tk according to (3) and simplifying K e (tk ) to K e ,
+ternal environment and the internal disturbance of the robot.                it can be derived that
+Then, we designed a variable impedance controller using the
+online observations to improve robot’s adaptability to the contact                    F (tk ) − F (tk−1 ) = K e (P (tk−1 ) − P (tk ))
+environment. The MHE-VIC method not only eliminates the                                                          + D e (Ṗ (tk−1 ) − Ṗ (tk )).      (7)
+state tracking errors in (1) but also perceives the environment
+impedance and regulates robot impedance to be more adaptable                    Let x = [x1 , x2 , x3 ]T be the system state variable, where
+to the environment for accomplishing force-interacting tasks.                x1 = P , x2 = V , and x3 = F . Define v = ẋ2 as an auxil-
+                                                                             iary variable. Based on (5)–(7), the state-space model of the
+   III. OBSERVER-BASED VARIABLE IMPEDANCE CONTROL                            robot-environment interaction system ẋ = f (x, u, v, z), can be
+                                                                             established as
+   An observer-based variable impedance control approach,                      ⎛ ⎞
+which unifies the MHE observer and the VIC controller, is                        ẋ1
+developed in this section. The block diagram representing the                  ⎝ẋ2 ⎠
+transmission of internal data for the MHE-VIC scheme is de-                      ẋ3
+picted in Fig. 3. The MHE part estimates the environment                             ⎛                                               ⎞
+impedance and robot disturbances, while the VIC part utilizes                                                 x2
+the observations to regulate robot impedance for improving the                    = ⎝M −1 (q)(u − C(q, q̇)x2 − G(q) − x3 − η)⎠ . (8)
+interaction performance. Specific discussions of MHE and VIC                                            K e x2 + D e v
+parts are, respectively, presented in the following sections.                   The impedance parameters of the thin-walled workpiece are
+                                                                             hard to obtain. It is not accurate to calculate the impedance
+A. Moving Horizon Based Robot-Environment Observer                           parameters of the workpiece by offline methods due to stochastic
+  The dynamics of the robot’s physical interaction with the                  factors. It is preferable to estimate the impedance parameters in
+environment in Cartesian space are described as follows:                     real time based on the observable force and position information.
+                                                                             Based on (8), the moving horizon based robot-environment
+          M (q)P̈ + C(q, q̇)Ṗ + G(q) + η = u + F                     (5)    observer is designed as follows:
+                                                                                                                    2
+where                                                                                        x(tk−N +1 ) − x̄
+                                                                                  min
+⎧             −T             −1
+                                                                                 x,u,v,z         z − z̄       Q̄
+⎨M (q) = J (q)M I (q)J (q)
+  C(q, q̇) = J (q)(C I (q, q̇)−M I (q)J −1 (q)J˙(q))J −1 (q)
+              −T                                                                         k
+⎩                                                                                +              (y r (ti ) − h(x̂(ti ), û(ti ), v̂(ti ), ẑ)2Ri
+  G(q) = J −T (q)GI (q).                                                                                                                             (9)
+                                                          (6)                        i=k−N +1
+
+
+
+   Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+5976                                                                   IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 71, NO. 6, JUNE 2024
+
+
+
+subjected to                                                                B. Variable Impedance Controller Design
+                                               ⎫
+  ˙ s ) = f (x̂(ts ), û(ts ), v̂(ts ), ẑ)
+ x̂(t                                          ⎬                              In this section, we aim to develop a variable impedance strat-
+ ŷ(ts ) = h(x̂(ts ), û(ts ), v̂(ts ), ẑ)    t ∈ [ti , ti+1 ] (10)        egy to enhance the robot’s adaptability to its contact environment
+                                              ⎭ s                           by regulating its impedance in accordance with the estimated
+ x̂(ts ) ∈ χ, û(ts ) ∈ μ, v̂(ts ) ∈ υ, ẑ ∈ ρ
+                                                                            environment impedance, and to eliminate state tracking errors.
+where (x̄, z̄, Q̄) is the initial regulation data of state, estimation      Combining (2) and (5), the robot control input is designed as
+vector, and coefficients at tk−N +1 , the values are obtained by the                  u = M (q)v + C(q, q̇)x2 + G(q) + η − x3                    (17)
+estimated results using the extended Kalman filter (EKF) update
+[43] in the last optimization procedure. For a vector a and matrix          where
+A, a2A = aT Aa, and â represents the estimated value of a.                             v = P̈ d + M −1
+                                                                                                       r (−D r (tk )(Ṗ − Ṗ d )
+The total time of N control periods is defined as the time horizon
+TE = tk − tk−N +1 . Ri ∈ R4m×4m is a diagonal matrix with                                       − K r (tk )(P − P d ) + F − F d ).               (18)
+positive entries, which is set to the inverse of the covariance                M r is set to a constant diagonal matrix. K r and D r are
+matrix for measurement noise. y r is the measured historical                designed as variable diagonal matrices, which are represented
+                                                                    T
+reference of the estimated output variable ŷ = [P̂ , V̂ , F̂ , η̂] .       as K r (tk ) and D r (tk ) in the remaining parts. For simplicity,
+η̂ is the estimated disturbance term of the robot in the Cartesian          the time variable is omitted when describing other variables. u
+space, the measurement value of which can be constructed from               is defined in the Cartesian space and should be converted to joint
+robot joint torque                                                          torque τ ∈ Rn to control the real robot
+   η r = J −T τ η = J −T τ d − u                                    (11)       τ = J Tu
+
+   τ d = J T (M (P d )P̈ d + C(P d , Ṗ d )Ṗ d + G(P d ) − F )                   = J T (M (q)(P̈ d + M −1
+                                                                                                        r (−D r (tk )(x2 − Ṗ d )
+                                                             (12)                     − K r (tk )(x1 − P d )
+where τ η ∈ R denotes the disturbance term in the joint
+                 n
+                                                                                      + F − F d )) + C(q, q̇)x2 + G(q) + η − x3 ).               (19)
+space. τ d ∈ Rn is the desired torque when the robot executes
+the desired trajectory suffering the current interaction force.                 Theorem 1: Considering robot dynamics (5), the robot force
+The precise form of τ d is given in (12). It is worth not-                  tracking impedance model (2), and the impedance model of the
+ing that the robot torque controller needs precise torque val-              contact environment (3), the variable impedance control law
+ues for accurate movement. A little torque deviation will                   (19) will eliminate the state tracking errors in (1) and ensure the
+lead to completely different action responses at the robot                  asymptotic stability of the robot-environment interaction system
+end-effector. The torque input u without compensating dis-                  if the robot stiffness K r (tk ) and damping D r (tk ) are treated as
+turbance η will decrease the controller performance. The                    continuously varying matrices and selected as
+                                                                                         ⎧
+constraints of the optimization problem (9) in (10) are set                              ⎪
+                                                                                         ⎪  K r (tk ) = K̂ e (tk )                          (20)
+as follows:                                                                              ⎪
+                                                                                         ⎨ ˙
+⎧                                                                                           K̂ e (tk ) < K̂ e (tk )                         (21)
+⎪
+⎪ χ = {x̂ ∈ R3m | x̂ ≤ xr + Δxmax , x̂˙ ≤ Δẋmax } (13)                                ⎪
+                                                                                         ⎪  D    (t   ) = D ∗
+                                                                                                              −  D̂   (t   )                (22)
+⎪
+⎪                                                                                        ⎪
+                                                                                         ⎩ ∗
+                                                                                               r    k               e    k
+⎨                                                                                           D > M r /2                                      (23)
+  μ = {û ∈ Rm | û ≤ ur + J −T Δτ max }                 (14)
+⎪
+⎪ υ = {v̂ ∈ R | v̂ ≤ v max }
+               m
+                                                          (15)              where D ∗ ∈ Rm×m is a customized damping matrix. Robot
+⎪
+⎪
+⎩ρ = {ẑ ∈ R(2m+1)×m | ẑ ≤ z }                         (16)              impedance varies with the estimated environmental impedance
+                                   max
+                                                                            to improve the interaction performance resulting in reduced
+where xr and ur denote the measured values of x and u,                      vibration in the machining task. Assuming that the estimated
+symbol Δ(·) denotes the increment of the variable in brackets,              environmental stiffness is continuous, the rate of change of es-
+and the subscript (·)max represents the maximum value of the                timated environmental stiffness can be controlled by the robot’s
+variable in brackets. Compared with other estimation strategies,            velocity.
+the physical constraints of MHE can improve the accuracy of es-                Proof: According to (4), we have F d = K e (P e − P d ).
+timation results. It should be mentioned that the proposed robot-           Using eF = F − F d to denote the force tracking error and
+environment observer was designed using the MHE scheme                      removing the term F d in (4) using F d = F − eF , we have
+outlined in [36], and a detailed stability analysis of the observer
+                                                                                                 eF = F − K e (P e − P d ).                      (24)
+within this scheme was presented in [37]. In our case, we are
+able to simplify the system model to be linear using feedback                 Substituting F = K e (P e − P ) + D e (Ṗ e − Ṗ ) in (24), we
+linearization technology, resulting in a stable estimator of (9)            have
+through the EKF update. Based on (9)–(16), the customized
+                                                                                           eF = K e (P d − P ) + D e (Ṗ e − Ṗ ).               (25)
+MHE of the robot-environment observer is formulated. The
+observations will, then, be used to regulate the robot’s control              Using eP = P − P d to denote the position tracking error. If
+inputs for better force interaction performance.                            ep → 0, we will have P → P d . According to remark 1, we have
+
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+ZHANG et al.: OBSERVER-BASED VARIABLE IMPEDANCE CONTROL USING MOVING HORIZON ESTIMATION                                                          5977
+
+
+
+
+Ṗ e = Ṗ d . If ėp → 0, we will have Ṗ → Ṗ d , thus, Ṗ → Ṗ e .
+Based on the abovementioned analysis, the force tacking error
+eF in (25) will converge to zero if ep and ėp converge to zero.
+   Substituting (3) into (2), removing F d in (2) based on (4),
+and replacing the real impedance variables with the estimated
+impedance variables, the combined impedance model of the
+robot-environment interaction system can be derived as
+ M r (P̈ − P̈ d ) + D r (tk )(Ṗ − Ṗ d ) + K r (tk )(P − P d )
+    = K̂ e (P e − P ) + D̂ e (Ṗ e − Ṗ ) − K̂ e (P e − P d ). (26)
+
+  Removing Ṗ d in (26) as Ṗ e , we have
+ M r ëp +(D r (tk )+ D̂ e (tk ))ėp +(K r (tk )+ K̂ e (tk ))ep = 0.
+                                                                 (27)
+  If ep → 0 and ėp → 0, then ëp will also tend to zero. Let K ∗           Fig. 4.   Experimental scene of robot grinding thin-walled workpiece.
+and D ∗ ∈ Rm×m be defined as the aggregate stiffness matrix
+and aggregate damping matrix, respectively, as specified in
+          K ∗ = K r (tk ) + K̂ e (tk )                             (28)     on a panda robot. Fig. 4 displays the hardware of the robot,
+               ∗
+          D = D r (tk ) + D̂ e (tk ).                               (29)    machining tools, and sensors for machining experiments. The
+                                                                            robot and workpiece data, including position, velocity, force, and
+  The subsequent stability analysis is predominantly based on               vibration, are collected. The thin-walled workpiece is fixed by
+[26]. The Lyapunov function of (27) is constructed as follows:              four steel pillars at the four corners. We use contact environment
+                                                                            to describe the thin-walled workpiece clamped in the above
+                   (2ėp + ep )T M r (2ėp + ep ) eT
+                                                   p βep
+         VL =                                    +                  (30)    way. The contact stiffness value is different in the different
+                                 2                   2                      positions of the workpiece. In the experiment, the Panda robot
+where β = K ∗ + D ∗ /2 − M r /4. Function VL ≥ 0, and VL =                  is commanded in a pure joint torque mode within a 1 ms control
+0 only when ep and ėp are equal to zero. The derivative of (30)            cycle. The software framework is built in the Ubuntu system
+is continuous and can be derived as                                         under the robot operating system (ROS). The ACADO toolkit
+                                 ∗                                          [44] is used to generate a real-time MHE profile, which is
+            V̇L = ėT                     T
+                    p (M r /2 − D )ėp + ep (M r /4
+                                                                            integrated into the ROS-control interface for coding the rest VIC
+                     + β − K ∗ − D ∗ /2)ėp                                 part.
+                                          
+                                   ∗
+                     + eT
+                        p (2β̇ − K   )e p   4.                      (31)    A. Performance Verification of MHE-VIC Method
+   Since M r is set to a constant diagonal matrix, we have β̇ =                The thickness of the thin-walled workpiece in the experiment
+   ∗       ∗                                                                is merely 0.68 mm. The machining robot maintained a uniform
+K̇ + Ḋ /2. Removing β and β̇ in (31), we have
+                                        ∗     ∗
+                                                                           linear motion of 20 mm/s in the Y-direction for 16 s and exerted
+                        ∗                              ∗
+V̇L = ėT                       T
+         p (M r /2 − D )ėp + ep ((2K̇ + Ḋ ) − 2K )ep 4.
+                                                                            a constant external force of 8 N in the Z-direction to grind
+                                                           (32)             the workpiece. Impedance parameters in the Z-direction of the
+   In order to make V̇L ≤ 0, the following equations should be              workpiece were observed in real-time during the experiment.
+satisfied:                                                                  Unbolded symbols represent data in one dimension. The robot’s
+                                                                            posture, velocity, and force states can be fetched in the feedback
+      M r < 2D ∗                                                   (33)     procedure for each 1 ms. The control instant is set to 1 ms,
+           ∗         ∗        ∗
+      (2K̇ + Ḋ ) < 2K .                                           (34)     and the moving horizon is set to 20 ms. The Gauss–Newton
+                                                                            Hessian matrix approximation method is used to solve the
+   The impedance selection conditions of (20)–(23) satisfy (33)             second-order partial derivatives of the Lagrange function of the
+and (34). Thus, the derivative of the Lyapunov function will be             nonlinear optimization problem. The multiple-shooting method
+negative when ep = 0 and ėp = 0. According to Lyapunov’s                 is adopted for nonlinear equation discretization. The Levenberg–
+second theorem, the robot-environment interaction system is                 Marquardt algorithm is adopted for searching solutions. The
+stable, and the state tracking errors in (1) converge to zero. The          absolute tolerance of the integrator used to solve integral terms
+analysis of the Lyapunov function and the derivation details of             in (9) is set to 10-10 . The specific parameter settings of the robotic
+(31) are given in Appendix A.                                               machine system are given in Table I.
+                                                                               The robot initial state variable x(t0 ) = [P (t0 ), V (t0 ),
+                    IV. EXPERIMENTAL RESULTS
+                                                                            F (t0 )]T , where position P (t0 ) = [0.611m, 0.184m,0.135m]T ,
+   In order to validate the efficacy of the MHE-VIC method,                 velocity V (t0 ) = 0, and force F (t0 ) = 0. The corresponding
+thin-walled workpiece grinding experiments are carried out                  joint position of the robot is q(t0 ) = [0.178, -0.056, 0, -2.262,
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+5978                                                                   IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 71, NO. 6, JUNE 2024
+
+
+
+                           TABLE I
+PARAMETER SETTING OF THE MACHINE SYSTEM AND ROBOT CONTROLLER
+
+
+
+
+                                                                            Fig. 6.   Estimated robot internal disturbance in the Z-direction.
+
+
+
+
+                                                                            Fig. 7. (a) Joint disturbance torques in joint 2, joint 4, and joint 6,
+                                                                            respectively. (b) Joint torque input values in joint 2, joint 4, and joint 6
+                                                                            with disturbances (purple) and with disturbances compensation (green).
+
+
+
+
+Fig. 5. Estimated stiffness (blue) and damping (orange) parameters of
+the external contact environment in the Z direction.
+
+
+
+
+0.001, 2.322, 0.191]T . The unit of joint angles is radians. The
+real-time dynamic model parameters of the robot are taken from
+the internal model library of the Franka Panda robot. When the
+robot executes the grinding trajectory, the MHE part observes
+the environment impedance and the robot joint disturbances.                 Fig. 8. Theoretical workpiece stiffness, Kalman estimation stiffness,
+The main force interaction occurred in the Z-direction, and we              and the proposed MHE stiffness.
+processed the data in this direction for simplicity. The estimated
+stiffness and damping parameters of the contact environment are
+depicted by blue and orange lines in Fig. 5, respectively. It can be        compensation in purple and green lines, respectively. It is obvi-
+seen that the estimated stiffness varies from 1200 N/m to 10 000            ous that the disturbances affect the value of joint torque inputs.
+N/m. The lowest stiffness is in the middle of the workpiece.                It should be noted that a little difference in the joint torque of
+The change in the damping parameter is opposite to the stiffness            the robot will lead to a completely different response. Thus,
+parameter. The maximum damping parameter appears in the                     the compensation for the disturbances is indispensable, and the
+middle of the workpiece. The robot impedance varies with                    specific impact can be reflected in the control results. As nominal
+the environmental impedance according to (20) and (22) for                  values for damping and robot disturbance are unavailable, we
+interacting with the environment adaptively. The observation of             only compare the estimated stiffness value with its theoretical
+the robot’s internal disturbance in the Z-direction, ηz , is shown          value [45] and Kalman estimation value [46]. As shown in Fig. 8,
+in Fig. 6. According to (11), disturbances in Cartesian space               the blue line is closer to the black dotted line than the orange
+can be transformed into joint space, which is shown in Fig. 7.              line, which means the accuracy of the proposed MHE is better
+The robot end-effector is perpendicular to the horizontal plane.            than that of the Kalman method. The average stiffness error
+Its trajectory determines that only joint 2, joint 4, and joint 6           of the Kalman method is 570 N/m, while the average stiffness
+affect the Z-direction motion accuracy. Fig. 7(a) shows joint               error of the proposed MHE is only 190 N/m. The red boxes
+disturbance torques in joint 2, joint 4, and joint 6. Fig. 7(b)             in Fig. 8 correspond to areas of high workpiece stiffness. The
+depicts the joint torques with disturbance and with disturbance             machining vibrations caused by force interaction are stronger in
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+ZHANG et al.: OBSERVER-BASED VARIABLE IMPEDANCE CONTROL USING MOVING HORIZON ESTIMATION                                                              5979
+
+
+
+
+                                                                               Fig. 10. Moving states for robot grinding the central region of the thin-
+                                                                               walled workpiece through the zigzag trajectory.
+
+
+
+
+Fig. 9. (a) Desired and actual position of the robot end-effector in the
+Z-direction. (b) Desired and actual velocity of the robot end- effector in
+the Y-direction. (c) Black dotted line depicts the desired external force of
+the robot in the Z-direction. The actual external force of the robot without
+disturbances compensation and with disturbances compensation are
+represented in the red and blue lines, respectively.
+
+                                                                               Fig. 11.   Zigzag trajectory tracking performance in the X-Y plane.
+
+these regions, while the constraint properties of MHE make it
+still maintain accurate estimation performance.
+   According to the proposed VIC (19), the state tracking perfor-
+mance of (1) is shown in Fig. 9. The blue lines depict the actual
+values of the state variables, while the dotted black lines are
+the desired values of the corresponding variable. The results in
+Fig. 9(a) show that the desired position of the robot end-effector
+is changing according to (4), and the position tracking error
+is less than 0.5 mm in the Z-direction. Fig. 9(b) demonstrates
+that the velocity tracking error is less than 0.005 m/s in the
+Y-direction. Fig. 9(c) describes the force tracking results of
+the VIC method with disturbance compensation and without
+disturbance compensation. The comparison between the blue
+and red lines shows that there will be an obvious force error
+without disturbance compensation in the Z-direction. The pro-                  Fig. 12.   Image of the thin-walled workpiece before and after grinding.
+posed method with disturbance compensation can ensure the
+convergence of the force tracking error, and the force tracking
+accuracy is less than 1 N.
+                                                                               for 1 s. In the X-direction, the robot accelerated at 0.01 m/s2 for
+                                                                               1 s, then decelerated at -0.01 m/s2 for 1 s. This was repeated
+B. Machining Quality Analysis for Different Methods                            continuously to cover the entire grinding area. In the Z-direction,
+   In order to verify the machining quality of the proposed                    the desired position was set to 0.135 − 8/Ke (tk ). The whole
+method, the robot is coded to grind the central region on the                  process consumed 124 s. The desired grinding trajectory and
+workpiece by using a zigzag trajectory. The zigzag trajectory                  the tracking performance in the X-Y plane are enlarged and
+is widely used in machining tasks to cover the entire surface                  displayed in Fig. 11. The position accuracy of the whole process
+of the workpiece effectively. As shown in Fig. 10, the grinding                is better than 0.5 mm. The machining quality is shown in Fig. 12.
+region is 22 cm in length with 8 cm in width. The robot started                It can be found that the grinding area with the proposed controller
+from P (t0 ) = [0.611m, 0.110m,0.135m]T , and moved in the                     is almost mirror-like. The reflection of the robot and end-effector
+Y-direction by accelerating at -0.02 m/s2 for 1 s, then maintained             can be easily seen in the control-ON region but can hardly be seen
+a speed of -0.02 m/s for 10 s, and finally decelerated at 0.02 m/s2            in the control-OFF region.
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+5980                                                                   IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 71, NO. 6, JUNE 2024
+
+
+
+
+Fig. 13. Force tracking results of the robot motion controller, constant
+impedance controller, and the proposed MHE-VIC controller.
+
+
+
+                                                                            Fig. 15. Surface roughness of the workpiece. (a) Region before grind-
+                                                                            ing. (b) Region after grinding by the robot motion controller. (c) Region
+                                                                            after grinding by constant impedance controller. (d) Region after grinding
+                                                                            by the proposed MHE-VIC controller.
+
+
+
+                                                                                                       TABLE II
+                                                                                SURFACE ROUGHNESS RESULTS OF DIFFERENT GRINDING METHODS
+
+
+
+
+Fig. 14. Workpiece vibration results with different robot stiffnesses
+during machining thin-walled workpieces.
+
+
+                                                                            changes in the environment, leading to improved state tracking
+   To further demonstrate the superiority of the proposed                   performance and reduced vibration behavior.
+method, the Panda robot-self motion controller [47] and                        The surface roughness of the machined regions is measured by
+impedance controller (2) with constant impedance parameters                 Mitutoyo Sj-210. The sampling length is 6.4 mm. Fig. 15(a)–(d)
+are adopted for conducting the same zigzag grinding task. The               represents the surface roughness of the unmachined part, the
+force tracking comparison results of three different methods                machined part by the motion controller, the machined part by
+are shown in Fig. 13. The orange line represents the robot                  the constant impedance controller, and the machined part by the
+motion controller result. It can maintain a high-level position             proposed method, respectively. It is obvious that the consistency
+accuracy by tracking the prescribed trajectory but performs                 of the surface roughness is getting better from Fig. 15(a)–(d).
+worse in force tracking performance due to the low stiffness                The results of average height deviations from the mean line and
+of the workpiece. The red line depicts the results of the constant          the maximum peak-to-valley height of the profile, Ra and Rz,
+impedance controller, which has a kind of ability to deal with              are given in Table II. The Ra of the unmachined workpiece is
+the force error but still has some jitters because of the vari-             0.15 μm. The Ra of the machined workpiece of the constant
+able stiffness attributes of the contact environment. The force             impedance controller, 0.076 μm, is better than that of the mo-
+accuracy of the constant impedance controller is about 2 N.                 tion controller, 0.09 μm. The Ra of the workpiece machined
+The proposed MHE-VIC method corresponds to the blue line.                   by the proposed method is 0.042 μm. The value of the Ra
+The force accuracy is less than 1 N, which is better than the               of the proposed variable impedance controller is increased by
+previous two methods. The results of workpiece vibration are                72% more than the unmachined workpiece and 45% more than
+presented in Fig. 14. Vibration data was collected at different             the constant impedance controller. The Rz results also show
+positions of the workpiece, where the workpiece impedance                   the superiority of the proposed controller. It can be seen that
+varied from 2000 N/m to 6000 N/m. The results demonstrate that              the motion controller even makes the Rz value worse than the
+reduced vibration is achieved when the robot impedance is set               unmachined workpiece. That demonstrates how important to
+in proximity to the workpiece impedance. Conversely, when the               apply compliant machining ways. Moreover, while the constant
+robot impedance deviates from the workpiece impedance, the vi-              impedance method has compliant force behavior, the impedance
+bration increases. The minimal vibration amplitude occurs when              changing of the environment will weaken this ability. The pro-
+the robot and workpiece impedance are equal, which demon-                   posed MHE-VIC method can perceive the current environment
+strates the effectiveness of the proposed variable impedance                impedance and regulate robot impedance to make the robot flex-
+law (20). The abovementioned results show that the proposed                 ible enough to fit the changing environment for better machining
+variable impedance strategy effectively responds to impedance               quality.
+
+
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+ZHANG et al.: OBSERVER-BASED VARIABLE IMPEDANCE CONTROL USING MOVING HORIZON ESTIMATION                                                                  5981
+
+
+
+                          V. CONCLUSION                                                                    REFERENCES
+   In this article, an observer-based variable impedance control             [1] Y. Yuan, H.-T. Zhang, Y. Wu, T. Zhu, and H. Ding, “Bayesian learning-
+approach was proposed to improve the robot adaptability of                       based model-predictive vibration control for thin-walled workpiece ma-
+                                                                                 chining processes,” IEEE/ASME Trans. Mechatron., vol. 22, no. 1,
+machining thin-walled workpieces. To obtain the unmeasurable                     pp. 509–520, Feb. 2017.
+parameters in the robot-environment system, a moving horizon                 [2] G. Wang, W.-I. Li, C. Jiang, and H. Ding, “Machining allowance calcula-
+                                                                                 tion for robotic edge milling an aircraft skin considering the deformation
+based observer was developed to simultaneously perceive the                      of assembly process,” IEEE/ASME Trans. Mechatron., vol. 27, no. 5,
+impedance of the external environment and the disturbances of                    pp. 3350–3361, Oct. 2022.
+the robot’s internal torque. To enhance the adaptability of the              [3] W. J. Seong, Y. C. Jeon, and S. J. Na, “Ship-hull plate forming of saddle
+                                                                                 shape by geometrical approach,” J. Mater. Process. Technol., vol. 213,
+robot to the environment, a variable impedance controller was                    no. 11, pp. 1885–1893, Nov. 2013.
+designed using observation results. The robot impedance varies               [4] L. Jiang, “Research on application of key technologies of error compen-
+with the environment impedance to eliminate the state tracking                   sation for CNC machine tools based on computer,” J. Phys., Conf. Ser.,
+                                                                                 vol. 1721, Oct. 2020, Art. no. 012035.
+errors and reduce the machining vibration. The disturbance                   [5] A. Verl, A. Valente, S. Melkote, C. Brecher, E. Ozturk, and L. T. Tunc,
+compensation procedure improves the controller’s accuracy.                       “Robots in machining,” CIRP Ann., vol. 68, no. 2, pp. 799–822, Jun. 2019.
+To verify the efficacy of the proposed method, thin-walled                   [6] Y. Dai, Y. Xue, and J. Zhang, “Milling state identification based on
+                                                                                 vibration sense of a robotic surgical system,” IEEE Trans. Ind. Electron.,
+workpiece grinding experiments were conducted. The results                       vol. 63, no. 10, pp. 6184–6193, Oct. 2016.
+manifest that the accuracy of position, velocity, and force is               [7] X. Zhao, S. Han, B. Tao, Z. Yin, and H. Ding, “Model-based actor-critic
+higher than 0.5 mm, 0.005 m/s, and 1 N, respectively. The                        learning of robotic impedance control in complex interactive environ-
+                                                                                 ment,” IEEE Trans. Ind. Electron., vol. 69, no. 12, pp. 13225–13235,
+workpiece surface roughness further indicates the superiority of                 Dec. 2022.
+the proposed method to the robot motion controller and constant              [8] A. Klimchik, Y. Wu, S. Caro, B. Furet, and A. Pashkevich, “Accuracy im-
+impedance controller.                                                            provement of robot-based milling using an enhanced manipulator model,”
+                                                                                 Adv. Theory Pract. Robots Manipulators Mechanisms Mach. Sci., vol. 22,
+                                                                                 pp. 73–81, Jan. 2014.
+                     APPENDIX A                                              [9] L. Wang and H. Si, “Machining deformation prediction of thin-walled
+ANALYSIS OF THE LYAPUNOV FUNCTION AND ITS DERIVATIVE                             workpieces in five-axis flank milling,” Int. J. Adv. Manuf. Technol., vol. 97,
+                                                                                 no. 9, pp. 4179–4193, Jun. 2018.
+   The Lyapunov function is constructed as (30). The term ep                [10] Z. Li, O. Tuysuz, L. Zhu, and Y. Altintas, “Surface form error predic-
+                                                                                 tion in five-axis flank milling of thin-walled parts,” Int. J. Mach. Tools
+and ėp are column vectors. M r is the mass matrix of the                        Manufacture, vol. 128, pp. 21–32, Feb. 2018.
+impedance model (2), which is defined as a diagonal matrix with             [11] Q. Bi, X. Wang, Q. Wu, L. Zhu, and H. Ding, “Fv-SVM-based
+positive entries. β = K ∗ + D ∗ /2 − M r /4, where K ∗ and D ∗                   wall-thickness error decomposition for adaptive machining of large
+                                                                                 skin parts,” IEEE Trans. Ind. Inform., vol. 15, no. 4, pp. 2426–2434,
+are also diagonal matrix with positive entries. The condition                    Apr. 2019.
+(33) is M r < 2D ∗ , which indicates D ∗ /2 > M r /4. Thus, β is            [12] N. Hogan, “Impedance control: An approach to manipulation. I: Theory,”
+a diagonal matrix with positive entries. In summary, for any ep                  in Proc. Amer. Control Conf., Jun. 1984, vol. 107, pp. 304–313.
+                                                                            [13] H. Ochoa and R. Cortesão, “Impedance control architecture for robotic-
+and ėp , Lyapunov function VL ≥ 0, and VL = 0 only when ep                      assisted mold polishing based on human demonstration,” IEEE Trans. Ind.
+and ėp are equal to zero.                                                       Electron., vol. 69, no. 4, pp. 3822–3830, Apr. 2022.
+   According to (27), it can be derived that                                [14] Y. Li, N. Jarrassé, and E. Burdet, “Versatile interaction control and haptic
+                                                                                 identification in humans and robots,” Geometric Numer. Foundations
+          1                                                                      Movements, vol. 117, pp. 187–206, 2017.
+ëp =          (D r (tk ) + D̂ e (tk ))ėp + (K r (tk ) + K̂ e (tk ))ep .   [15] R. Ikeura and H. Inooka, “Variable impedance control of a robot for
+       −M r                                                                      cooperation with a human,” in Proc. IEEE Int. Conf. Robot. Automat.,
+                                                                    (35)         1995, vol. 3, pp. 3097–3102.
+   The derivative of the Lyapunov function can be obtained in               [16] M. M. Rahman, R. Ikeura, and K. Mizutani, “Investigating the impedance
+the following derivation by removing ëp using (35):                             characteristic of human arm for development of robots to co-operate with
+                                                                                 human operators,” in Proc. IEEE Int. Conf. Syst., Man, Cybern., 1999,
+                                                                                vol. 2, pp. 676–681.
+ V̇L = (ėp + ep /2)T M r (ëp + ėp /2) + eT               T
+                                                 p β ėp + ep β̇ep 2        [17] S. Kozlovsky, E. Newman, and M. Zacksenhouse, “Reinforcement learn-
+                                                                                ing of impedance policies for peg-in-hole tasks: Role of asymmetric
+     = ėTp M r ëp + ėTp M r ėp /2 + eT p M r ëp 2
+                                                                                 matrices,” IEEE Robot. Automat. Lett., vol. 7, no. 4, pp. 10898–10905,
+                                                                                Oct. 2022.
+        + eT                            T
+             p (M r /4 + β)ėp + ep β̇ep 2
+                                                                            [18] F. J. Abu-Dakka, L. Rozo, and D. G. Caldwell, “Force-based vari-
+                                                                                 able impedance learning for robotic manipulation,” Robot. Auton. Syst.,
+                                                                                vol. 109, 2018, Art. no. 156.
+     = [ėTp + eTp 2][−(D r (tk ) + D̂ e (tk ))ėp                          [19] R. Wu and A. Billard, “Learning from demonstration and interactive
+                                                                                 control of variable-impedance to cut soft tissues,” IEEE/ASME Trans.
+        − (K r (tk ) + K̂ e (tk ))ep ]                                           Mechatron., vol. 27, no. 5, pp. 2740–2751, Oct. 2022.
+                                                                          [20] Y. Li, G. Ganesh, N. Jarrass, S. Haddadin, A. Albu-Schaeffer, and E.
+       + ėTp M r ėp /2 + eTp M  ė
+                                 r p   4 + e T
+                                             p β ė p + eT
+                                                         p β̇ep 2                Burdet, “Force impedance and trajectory learning for contact tooling and
+                                                                                 haptic identification,” IEEE Trans. Robot., vol. 34, no. 5, pp. 1170–1182,
+                           ∗        ∗
+     = − [ėTp + eTp 2][D ėp + K ep ] + ėp M r ėp /2
+                                               T                                 Oct. 2018.
+                                                                           [21] J. Buchli, F. Stulp, E. Theodorou, and S. Schaal, “Learning variable
+                                                                                 impedance control,” Int. J. Robot. Res., vol. 30, no. 7, pp. 820–833,
+       + eT                        T
+            p (M r /4 + β)ėp + ep β̇ep 2                                        2011.
+                                                                            [22] X. Zhao, B. Tao, L. Qian, and H. Ding, “Model-based actor-critic learning
+                      ∗                  ∗   ∗
+     = ėT                  T
+         p (M r /2−D )ėp +ep (M r /4+β−K − D /2)ėp                             for optimal tracking control of robots with input saturation,” IEEE Trans.
+                                                                                Ind. Electron., vol. 68, no. 6, pp. 5046–5056, Jun. 2021.
+                      ∗
+        + eTp (2β̇ − K )ep 2.                   (36)                        [23] F. J. Abu-Dakka and M. Saveriano, “Variable impedance control and
+                                                                                 learning—A review,” Front. Robot. AI, vol. 7, 2020, Art. no. 590681.
+
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+5982                                                                         IEEE TRANSACTIONS ON INDUSTRIAL ELECTRONICS, VOL. 71, NO. 6, JUNE 2024
+
+
+
+[24] J. Colgate and H. Hogan, “Robust control of dynamically interacting                                  Yuhao Zhang (Member, IEEE) received the
+     systems,” Int. J. Control, vol. 48, no. 1, pp. 65–88, 1988.                                          B.S. degree in 2017 from the Huazhong Univer-
+[25] F. Ferraguti et al., “An energy tank-based interactive control architecture                          sity of Science and Technology (HUST), Wuhan,
+     for autonomous and teleoperated robotic surgery,” IEEE Trans. Robot.,                                China, where he is currently working toward the
+     vol. 31, no. 5, pp. 1073–1088, Oct. 2015.                                                            Ph.D. degree with the State Key Laboratory of
+[26] K. Kronander and A. Billard, “Stability considerations for variable                                  Intelligent Manufacturing Equipment and Tech-
+     impedance control,” IEEE Trans. Robot., vol. 32, no. 5, pp. 1298–1305,                               nology, both in mechanical engineering.
+     Oct. 2016.                                                                                              His research interests include nonlinear
+[27] Z. Jin, A. Liu, W.-A. Zhang, and L. Yu, “An optimal variable impedance                               model predictive control, impedance control,
+     control with consideration of the stability,” IEEE Robot. Automat. Lett.,                            robotic manufacture, and intelligent robot tech-
+     vol. 7, no. 2, pp. 1737–1744, Apr. 2022.                                                             nologies.
+[28] E. S. Papastavridis and J. S. Dai, “Minimally model-based tra-
+     jectory tracking and variable impedance control of flexible-joint
+                                                                                                          Xingwei Zhao received the B.S. and M.S. de-
+     robots,” IEEE Trans. Ind. Electron., vol. 68, no. 7, pp. 6031–6041,
+                                                                                                          grees from the University of Duisburg-Essen,
+     Jul. 2021.                                                                                           Duisburg, Germany, in 2012 and 2013, respec-
+[29] E. S. Papastavridis and J. S. Dai, “Stable flexible-joint floating-
+                                                                                                          tively, and the Ph.D. degree from the Technical
+     base robot balancing and locomotion via variable impedance con-
+                                                                                                          University of Berlin, Berlin, Germany, in 2017,
+     trol,” IEEE Trans. Ind. Electron., vol. 70, no. 3, pp. 2748–2758,
+                                                                                                          all in mechanical engineering.
+     Mar. 2023.
+                                                                                                             He is currently an Associate Research Fel-
+[30] E. S. Papastavridis, Z. Fu, and J. S. Dai, “Power-shaping model-
+                                                                                                          low with the State Key Laboratory of Intel-
+     based control with feedback deactivation for flexible-joint robot in-
+                                                                                                          ligent Manufacturing Equipment and Technol-
+     teraction,” IEEE Robot. Automat. Lett., vol. 7, no. 2, pp. 4566–4573,                                ogy, Huazhong University of Science and Tech-
+     Apr. 2022.
+                                                                                                          nology, Wuhan, China. His research interests
+[31] Y. Michel, C. Ott, and D. Lee, “Safety-aware hierarchical passivity-based
+                                                                                   mainly include nonlinear dynamics, nonlinear control, and robotic man-
+     variable compliance control for redundant manipulators,” IEEE Trans.
+                                                                                   ufacture.
+     Robot., vol. 38, no. 6, pp. 3899–3916, Dec. 2022.
+[32] J. Duan, Y. Gan, M. Chen, and X. Dai, “Adaptive variable impedance
+     control for dynamic contact force tracking in uncertain environment,”                                Yiming Chen received the B.S. degree
+     Robot. Auton. Syst., vol. 102, pp. 54–65, Apr. 2018.                                                 in mechanical engineering in 2021 from
+[33] T. D. Barfoot, State Estimation for Robotics. Cambridge, U.K.: Cambridge                             the Huazhong University of Science and
+     Univ. Press, 2017.                                                                                   Technology, Wuhan, China, where he is
+[34] C. V. Rao, J. B. Rawlings, and D. Q. Mayne, “Constrained state esti-                                 currently working toward the M.S. degree
+     mation for nonlinear discrete-time systems: Stability and moving horizon                             in mechanical engineering with the State
+     approximations,” IEEE Trans. Autom. Control, vol. 48, no. 2, pp. 246–258,                            Key Laboratory of Intelligent Manufacturing
+     Feb. 2003.                                                                                           Equipment and Technology.
+[35] O. Adiyatov, B. Rakhim, A. Zhakatayev, and H. A. Varol, “Sensor reduc-                                  His research interests mainly include
+     tion of variable stiffness actuated robots using moving horizon estima-                              impedance control, robot assembly, and
+     tion,” IEEE Trans. Control Syst. Technol., vol. 28, no. 5, pp. 1757–1769,                            virtual fixture technologies.
+     Sep. 2020.
+[36] P. Kühl, M. Diehl, T. Kraus, J. P. Schlöder, and H. G. Bock, “A real-time
+     algorithm for moving horizon state and parameter estimation,” Comput.                                  Bo Tao (Member, IEEE) received the B.S. and
+     Chem. Eng., vol. 35, no. 1, pp. 71–83, Jan. 2011.                                                      Ph.D. degrees in mechanical engineering from
+[37] T. Kraus et al., “Moving horizon estimation and nonlinear model pre-                                   the Huazhong University of Science and Tech-
+     dictive control for autonomous agricultural vehicles,” Comput. Electron.                               nology (HUST), Wuhan, China, in 1999 and
+     Agriculture, vol. 98, pp. 25–33, Oct. 2013.                                                            2007, respectively.
+[38] A. Liu, W.-A. Zhang, M. Z. Q. Chen, and L. Yu, “Moving horizon                                           After being a Postdoctor from 2007 to 2009,
+     estimation for mobile robots with multirate sampling,” IEEE Trans. Ind.                                he was an Associate Professor in 2009 and a
+     Electron., vol. 64, no. 2, pp. 1457–1467, Feb. 2017.                                                   Professor in 2013 with the School of Mechanical
+[39] A. Alessandri, P. Bagnerini, M. Gaggero, D. Lengani, and D. Simoni,                                    Science and Engineering, HUST. From 2013 to
+     “Detection of flow-regime transitions using dynamic mode decomposition                                 2014, he was a visiting scholar with the Me-
+     and moving horizon estimation,” IEEE Trans. Control Syst. Technol.,                                    chanical Engineering Department, UC Berkeley,
+     vol. 29, no. 3, pp. 1324–1331, May 2021,.                                     USA. He is currently a Changjiang Scholar Chair Professor with HUST.
+[40] J. D. Schiller and M. A. Müller, “Suboptimal nonlinear moving horizon         He has authored and coauthored one monograph, more than 80 papers
+     estimation,” IEEE Trans. Autom. Control, vol. 68, no. 4, pp. 2199–2214,       in international journals and conference. His research interests mainly
+     Apr. 2023.                                                                    include intelligent manufacturing and robotics technologies.
+[41] H. Seraji and R. Colbaugh, “Force tracking in impedance control,” Int. J.
+     Robot. Res., vol. 16, no. 1, pp. 97–117, 1997.
+[42] S. Jung, T. C. Hsia, and R. G. Bonitz, “Force tracking impedance control                             Han Ding (Senior Member, IEEE) received the
+     of robot manipulators under unknown environment,” IEEE Trans. Control                                Ph.D. degree in mechanical engineering from
+     Syst. Technol., vol. 12, no. 3, pp. 474–483, May 2004.                                               the Huazhong University of Science and Tech-
+[43] D. Robertson, J. Lee, and J. Rawlings, “A moving horizon-based approach                              nology (HUST), Wuhan, China, in 1989.
+     for least-squares estimation,” AIChE J., vol. 42, no. 8, pp. 2209–2224,                                Supported by the Alexander von Humboldt
+     1996.                                                                                                Foundation, he was with the University of
+[44] R. Quirynen, M. Vukov, M. Zanon, and M. Diehl, “Autogenerating                                       Stuttgart, Stuttgart, Germany, from 1993 to
+     microsecond solvers for non-Standard nonlinear MPC: A tutorial using                                 1994. He was with the School of Electrical and
+     ACADO integrators,” Optim. Control Appl. Methods, vol. 36, no. 5,                                    Electronic Engineering, Nanyang Technological
+     pp. 685–704, Nov. 2014.                                                                              University, Singapore, from 1994 to 1996. He
+[45] J. P. Den Hartog, Strength of Materials. New York, NY, USA: Dover, 2012.                             has been a Professor with HUST since 1997. He
+[46] M. S. Grewal and A. P. Andrews, Kalman Filtering: Theory and Practice         is a “Cheung Kong” Chair Professor with Shanghai Jiao Tong University,
+     With MATLAB. Hoboken, NJ, USA: Wiley, 2015.                                   Shanghai, China. His research interests include robotics, multiaxis ma-
+[47] S. Gabl and F. Walch, “Franka control interface,” Github.com. Ac-             chining, and equipment automation.
+     cessed: Oct. 13, 2021. [Online]. Available: https://frankaemika.github.io/       Dr. Ding was elected as a Member of the Chinese Academy of Sci-
+     libfranka/motion_with_control_8cpp-example.html                               ences in 2013.
+
+
+
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:52:21 UTC from IEEE Xplore. Restrictions apply.
+

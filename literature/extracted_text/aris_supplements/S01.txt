@@ -1,0 +1,965 @@
+                                                                   Control Engineering Practice 169 (2026) 106764
+
+
+                                                                      Contents lists available at ScienceDirect
+
+
+                                                                Control Engineering Practice
+                                                         journal homepage: www.elsevier.com/locate/conengprac
+
+
+
+
+Observer-based sliding mode admittance control for ultrasound robot
+force-tracking in complex interaction environments
+Sen Li           a , Qi Chen           a , Weihua Li            b , Mingfeng Wang                  c , Sungsung Pang d , Kai Wu             a,∗
+
+a
+    Shien-Ming Wu School of Intelligent Engineering, South China University of Technology, Guangzhou, 511400, Guangdong, China
+b School of Mechanical and Automotive Engineering, South China University of Technology, Guangzhou, 510630, Guangdong, China
+c
+    Department of Mechanical and Aerospace Engineering, Brunel University of London, London, UB8 3PH, UK
+d Guangzhou Dingsing Medical Technology Co., Ltd., Guangzhou, 510663, Guangdong, China
+
+
+
+
+a r t i c l e             i n f o                            a b s t r a c t
+
+Keywords:                                                    Robotic ultrasound systems can improve imaging consistency and reduce operator workload by maintaining
+Force control                                                stable probe–tissue contact forces. However, variations in tissue stiﬀness and surface position often degrade
+Admittance control                                           force-tracking performance. This paper presents a disturbance observer–based sliding mode admittance control
+Dynamic reference trajectory
+                                                             (DOSMAC) framework to address these challenges. Stiﬀness and position variations are uniformly modeled as
+Ultrasound robot
+                                                             lumped external disturbances, estimated online by a disturbance observer and compensated through sliding mode
+                                                             control. The resulting signal is introduced as a virtual input to the admittance model, enhancing robustness
+                                                             without requiring online stiﬀness identiﬁcation or extensive parameter tuning. The stability of the closed-loop
+                                                             system is established through Lyapunov analysis. Simulations and experiments with stiﬀness ranging from 500
+                                                             to 3500 N/m verify the eﬀectiveness of the proposed approach. In experiments with simultaneous stiﬀness and
+                                                             position variations, DOSMAC reduces overshoot by 29.1% and 55.4%, peak force error by 4.36 N and 0.46 N, and
+                                                             root mean square error by 1.79 N and 0.4 N, respectively, compared with conventional admittance control and
+                                                             adaptive variable admittance control. These results demonstrate that the proposed method enables stable and
+                                                             reliable force tracking under complex time-varying conditions, supporting the clinical translation forceof robotic
+                                                             ultrasound.
+
+
+
+
+1. Introduction                                                                                   force tracking in robotic ultrasound systems (Bao et al., 2023; Mathi-
+                                                                                                  assen et al., 2016). However, maintaining a stable contact force in prac-
+    Robotic ultrasound inspection has attracted increasing attention in                           tice remains a nontrivial problem, particularly in complex environments
+recent years due to its potential to standardize imaging quality and re-                          such as human tissues with varying and uncertain mechanical prop-
+duce operator workload in clinical examinations (Li et al., 2021; Wu                              erties (Fu et al., 2025). Human tissue stiﬀness can vary signiﬁcantly
+et al., 2025). A key aspect of robotic assistance lies in its ability to                          across anatomical regions and change dynamically during scanning due
+maintain a stable and controlled contact force between the ultrasound                             to physiological movements such as breathing (Duan et al., 2025) or
+probe and human tissue, which is crucial for ensuring reliable acous-                             involuntary muscle activation (Cheng & Tavakoli, 2018). These vari-
+tic coupling and consistent image resolution (Ihnatsenka & Boezaart,                              ations introduce substantial uncertainty into the interaction dynamics,
+2010). Unlike manual operation, where variations in applied force can                             posing challenges for traditional control approaches. Eﬀective force con-
+degrade image quality and depend heavily on the operator’s skill and                              trol under these conditions calls for robust strategies that can accommo-
+endurance, robotic systems oﬀer the promise of automation and repeata-                            date rapid stiﬀness ﬂuctuations without compromising performance or
+bility (Huang et al., 2018), which are critical for long-duration or high-                        safety.
+precision diagnostic tasks.                                                                           To tackle these challenges, numerous methods have been ex-
+    Active compliance strategies, such as impedance control (Hogan,                               plored. Variable impedance control has been shown to enhance
+1984) and admittance control, also referred to as position-based                                  adaptability in uncertain environments, with adaptive (Duan et al.,
+impedance control (Seraji, 1994), have shown eﬀectiveness in contact                              2018), optimization-based (Jin et al., 2022; Wang et al., 2022), and
+
+
+    ∗ Corresponding author.
+
+  E-mail addresses: 202320159814@mail.scut.edu.cn (S. Li), chenqi3532@163.com (Q. Chen), whlee@scut.edu.cn (W. Li), mingfeng.wang@brunel.ac.uk (M.
+Wang), silverypang@gmail.com (S. Pang), whphwk@scut.edu.cn (K. Wu).
+
+https://doi.org/10.1016/j.conengprac.2026.106764
+Received 22 September 2025; Received in revised form 4 January 2026; Accepted 4 January 2026
+Available online 13 January 2026
+0967-0661/© 2026 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies.
+ S. Li et al.                                                                                                         Control Engineering Practice 169 (2026) 106764
+
+
+ learning-based approaches (Hamedani et al., 2021; Yoon et al., 2024)                 vergence of the force-tracking error in the presence of unknown,
+ proposed to adjust impedance parameters online. While eﬀective, these                time-varying stiﬀness and contact-position uncertainties.
+ strategies often require extensive tuning, computationally intensive op-
+ timization, or large datasets, which may reduce practicality in highly                Comprehensive simulations and experiments further demonstrate
+ dynamic clinical conditions. Energy tank–based frameworks (Ferraguti              the eﬀectiveness and robustness of the proposed method across a wide
+ et al., 2015) have been introduced to preserve passivity during parame-           range of stiﬀness and surface-motion conditions
+ ter adaptation and have been applied to robotic ultrasound (Beber et al.,             The remainder of this paper is organized as follows. Section 2
+ 2024; Fu et al., 2025), but typically impose additional architectural and         formally deﬁnes the force control problem. Section 3 describes the
+ computational overhead.                                                           proposed disturbance observer–based sliding mode admittance control
+     Robust control approaches based on sliding-mode admittance con-               (DOSMAC) strategy, along with its implementation details, followed by
+ trol have also been investigated (Solanes et al., 2018; Torabi et al.,            a Lyapunov stability analysis. Simulation results are provided in Sec-
+ 2018). For instance, sliding-mode regulation embedded in admittance               tion 4, followed by experimental validations in Section 5. Section 6
+ control enables fast response and robustness to disturbances (Zhou et al.,        presents results and discussions of this paper. Conclusions with future
+ 2025). However, accurate knowledge of the environment stiﬀness is                 research directions are presented in Section 7.
+ usually required, limiting their suitability for tissue interactions with
+ rapidly time-varying mechanical properties.                                            Symbol        Deﬁnition
+     Disturbance-observer based control methods, including those in-                    𝑥, 𝑥𝑑 , 𝑥𝑐    Actual, reference and commanded position in the
+ tegrated with sliding-mode control (DOB–SMC), oﬀer an alternative                                    controlled direction
+ means of handling model uncertainties (Dao & Ahn, 2022; Wu et al.,                     𝑓𝑒𝑥𝑡 , 𝑓𝑑     Measured and desired contact force
+ 2019; Zhang et al., 2025a,b). These methods estimate unknown or                        𝑀, 𝐵, 𝐾       Virtual mass, damping, and stiﬀness matrices
+ time-varying dynamics as lumped disturbances and compensate them                       𝑚, 𝑏, 𝑘       One-dimensional virtual mass, damping, stiﬀness
+ through sliding-mode regulation.                                                       𝑘𝑒            Environment stiﬀness
+     For instance, Huo et al. (2025) proposed an observer-based adap-                   𝑘𝑒0           Nominal stiﬀness used for gain normalization
+ tive robust force controller in which the low-level motion-tracking er-                𝑥𝑒            Environment equilibrium position
+ ror is treated as an input disturbance of the high-level force loop. Their             𝑥̂ 𝑒          Estimated environment position (ﬁrst-contact
+ method integrates an extended state observer with adaptive parameter                                 estimate)
+ estimation and achieves improved force-tracking performance in uncer-                  𝛿𝑥𝑒           Environment position error
+ tain conditions. Though, some environment uncertainties are implicitly                 𝑒 = 𝑥 − 𝑥𝑒    Penetration depth
+ compensated, they focuses mainly on compensating motion-tracking er-                   𝑒̂            Estimated penetration depth, 𝑒̂ = 𝑥 − 𝑥̂ 𝑒
+ rors, without explicitly addressing strongly time-varying environment                  𝑦             Force-tracking error, 𝑦 = 𝐹𝑒𝑥𝑡 − 𝐹𝑑
+ stiﬀness or shifting equilibrium positions.                                            𝑠             Sliding variable, 𝑠 = 𝐶𝑦 + 𝑦̇
+     Nonetheless, existing DOB–SMC approaches exhibit three main lim-                   𝑠̂            Estimated sliding variable in DOB
+ itations with respect to robotic ultrasound:                                           𝑠̃            Sliding-variable estimation error
+                                                                                        𝐶             Sliding gain (convergence rate)
+  (i) Existing DOB–SMC methods mainly estimate robot-side dynamic dis-                  𝑘𝑠            Sliding-mode gain for reaching condition
+      turbances (e.g., inertia mismatch, friction) and do not explicitly ad-            𝜂             Boundary-layer gain for chattering mitigation
+      dress dual time-varying soft-tissue behavior, where both stiﬀness and             𝜙             Boundary-layer thickness for the saturation
+      equilibrium position change concurrently.                                                       function
+ (ii) Most DOB–SMC schemes are developed for rigid or weakly time-                      sat(⋅)        Saturation function
+      varying environments (industrial contact, polishing, rehabilitation)              𝑢             Virtual control input (generated by DOSMAC)
+      and have not been designed or validated for ultrasound imaging,                   𝐺0            Nominal virtual input gain
+      where tissue deformation and surface motion dominate.                                                                          𝑘 −𝑘
+                                                                                        Δ𝐺            Input-gain mismatch, Δ𝐺 = − 𝑒 𝑚 𝑒0
+(iii) Conventional DOB–SMC controllers are typically implemented in
+                                                                                        𝑑(𝑡)          Lumped disturbance (uncertainties from
+      joint-space or impedance frameworks, and are not integrated into ad-
+                                                                                                      stiﬀness/position)
+      mittance control, limiting applicability to position-controlled robots             ̂
+                                                                                        𝑑(𝑡)          Disturbance estimated by DOB
+      commonly used in clinical ultrasound.                                              ̃                                                        ̂
+                                                                                                                                      ̃ = 𝑑(𝑡) − 𝑑(𝑡)
+                                                                                        𝑑(𝑡)          Disturbance estimation error, 𝑑(𝑡)
+                                                                                        𝐿1 , 𝐿 2      Observer gains of the DOB
+     To overcome these limitations, a disturbance-observer based sliding-
+                                                                                        ℎ𝑛𝑜𝑚          Nominal measurable term in sliding dynamics
+ mode admittance control (DOSMAC) framework is developed for robotic
+                                                                                        𝑉 , 𝑉1 , 𝑉2   Lyapunov functions for stability analysis
+ ultrasound applications. The proposed approach reconstructs lumped
+                                                                                        𝑇𝑠            Sampling period (controller update interval)
+ environmental uncertainties—including stiﬀness variations, equilib-
+                                                                                        𝜏             Robot control cycle (UR5e: 2 ms)
+ rium position drift, and modeling discrepancies—through a disturbance
+                                                                                        𝑡𝑐 , 𝑡 𝑠      Contact time, stabilization time
+ observer, while a sliding-mode regulation ensures robust force track-
+ ing under rapidly changing interaction conditions. This design achieves
+ a favorable balance between robustness, computational eﬃciency, and               2. Problem statement
+ practical implementability, enabling real-time deployment on clinical
+ robotic platforms.                                                                2.1. Robot-human body interaction model during robotic ultrasound
+     The main contributions of this paper are as follows:
+                                                                                       Fig. 1 illustrates the interaction between a robotic ultrasound probe
+ 1. A robust and computationally eﬃcient admittance control frame-                 and human body during a typical ultrasound examination. The probe is
+    work (DOSMAC) is developed, in which environmental stiﬀness vari-              rigidly mounted on the robot’s end-eﬀector ﬂange and establishes con-
+    ations and equilibrium-position deviations are reformulated as a               tact with the body surface as the robot follows the scanning trajectory.
+    lumped disturbance, eliminating the need for real-time stiﬀness es-            The interaction force generated at the probe–tissue interface is regulated
+    timation or extensive parameter tuning.                                        by a force control algorithm, most commonly an admittance controller.
+ 2. A rigorous Lyapunov-based stability analysis is established, demon-                To analyze this interaction, Fig. 1(b) presents a simpliﬁed one-
+    strating boundedness of all closed-loop signals and asymptotic con-            dimensional model along the z-axis. In this representation, the human
+
+                                                                               2
+S. Li et al.                                                                                                                         Control Engineering Practice 169 (2026) 106764
+
+
+
+
+Fig. 1. (a) Illustration of the robot-environment interaction during robotic ul-
+trasound (b) the interaction model of admittance control and human body en-
+vironment (c) contact description of admittance model.
+
+
+body is modeled as a linear spring characterized by a time-varying equi-               Fig. 2. Control scheme of the proposed DOSMAC method. 𝑥̂ 𝑒 is the position
+librium position and stiﬀness. When the probe touches the body sur-                    where contact ﬁrst starts.
+face, as shown in Fig. 1(c), the controller measures the interaction force
+and receives the desired trajectory. Based on these inputs and the cho-
+                                                                                       admittance control, including known contact direction, stable probe–
+sen impedance parameters, it generates a commanded trajectory, which
+                                                                                       tissue engagement, and low-frequency interaction dynamics. However,
+is subsequently executed by the robot’s internal position controller to
+                                                                                       since environment stiﬀness 𝑘𝑒 is generally unknown and may vary with
+achieve compliant behavior.
+                                                                                       time or tissue properties, this trajectory is not directly available. A com-
+    As depicted in Fig. 1(c), the admittance controller introduces a vir-
+                                                                                       mon workaround is to approximate 𝑥𝑑 using the estimated equilibrium
+tual second-order mass–spring–damper system between the reference
+                                                                                       position 𝑥̂ 𝑒 , obtained from force sensing when contact is ﬁrst detected.
+trajectory 𝑥𝑑 and the commanded trajectory 𝑥𝑐 . By converting the mea-
+                                                                                       This approximation reﬂects the practical limitation that the true equi-
+sured contact force into a compliant motion command, admittance con-
+                                                                                       librium position is not directly measurable in real robotic ultrasound
+trol enables force regulation even on robots that lack native force-
+                                                                                       interactions.
+control modes (Duan et al., 2018).
+                                                                                            As shown in Jung et al. (2004), setting the virtual stiﬀness to zero,
+    The classical admittance model describes how the robot motion re-
+                                                                                       i.e., 𝑘 = 0, allows the admittance controller to track the desired force for
+sponds to external forces through a virtual dynamic system. This for-
+                                                                                       constant 𝑘𝑒 . The resulting model becomes:
+mulation provides the foundation for converting force deviations into
+corrective position commands.                                                          𝑚𝑒̈ + 𝑏𝑒̇ = Δ𝑓                                                                          (5)
+    For a manipulator operating in an 𝑛-dimensional Cartesian space, the
+classical admittance law is expressed as:                                              where 𝑒 = 𝑥 − 𝑥𝑒 denotes the penetration depth. Substituting Eqs. (3)
+                                                                                       and (4) into Eq. (5), yields:
+𝑀(𝑋̈ 𝑐 − 𝑋̈ 𝑑 ) + 𝐵(𝑋̇ 𝑐 − 𝑋̇ 𝑑 ) + 𝐾(𝑋𝑐 − 𝑋𝑑 ) = 𝐹𝑒𝑥𝑡                      (1)
+                                                                                       𝑚𝑒̈ + 𝑏𝑒̇ + 𝑘𝑒 𝑒 = −𝑓𝑑                                                                  (6)
+where      𝑀 ∈ ℝ𝑛×𝑛 ,   𝐵 ∈ ℝ𝑛×𝑛
+                               and          𝐾 ∈ ℝ𝑛×𝑛
+                                               are symmetric, positive-
+deﬁnite virtual mass, damping, and stiﬀness metrics, respectively. The                      Under constant 𝑘𝑒 , properly chosen 𝑚 and 𝑏 may ensure stability.
+vectors 𝑋𝑑 , 𝑋𝑐 ∈ ℝ𝑛 are the reference and command trajectories. The                   However, for time-varying stiﬀness (common in soft-tissue contact), the
+vector 𝐹ext ∈ ℝ𝑛 is the external force measured by the force/torque sen-               performance of the zero-stiﬀness admittance deteriorates signiﬁcantly.
+sor mounted at the tool ﬂange.                                                              When the environment equilibrium position is time-varying, one has
+    Because each Cartesian axis can be treated independently for typical               𝑥̇ 𝑒 ≠ 0 and 𝑥̈ 𝑒 ≠ 0. Let the estimated position be:
+soft-tissue contact, the subsequent analysis considers a one-dimensional
+case without loss of generality.                                                       𝑥̂ 𝑒 = 𝑥𝑒 − 𝛿𝑥𝑒                                                                         (7)
+    For one-dimensional motion, the admittance model reduces to:
+                                                                                       where 𝛿𝑥𝑒 represents the deviation between the assumed and actual
+𝑚(𝑥̈ 𝑐 − 𝑥̈ 𝑑 ) + 𝑏(𝑥̇ 𝑐 − 𝑥̇ 𝑑 ) + 𝑘(𝑥𝑐 − 𝑥𝑑 ) = Δ𝑓                        (2)        equilibrium position and captures uncertainties caused by tissue defor-
+where                                                                                  mation, probe tilt, or minor surface motion during scanning. This term
+                                                                                       is not explicitly estimated. Instead, its eﬀect is incorporated into the
+Δ𝑓 = 𝑓𝑒𝑥𝑡 − 𝑓𝑑                                                              (3)        lumped disturbance and compensated through the disturbance observer.
+    Here, 𝑚, 𝑏, and 𝑘 are the one-dimensional virtual mass, damping and                Then:
+stiﬀness coeﬃcients, respectively. And 𝑓𝑑 denotes the desired contact
+                                                                                       𝑒 = 𝑥 − 𝑥𝑒 = (𝑥 − 𝑥̂ 𝑒 ) − 𝛿𝑥𝑒 = 𝑒̂ − 𝛿𝑥𝑒                                               (8)
+force.
+    The environment is modeled as a linear spring:                                        In practice, only 𝑒̂ is available. Replacing 𝑒 with 𝑒̂ in (6) yields the
+𝑓𝑒𝑥𝑡 = −𝑘𝑒 (𝑥 − 𝑥𝑒 )                                                        (4)        implemented dynamics:
+
+with 𝑘𝑒 representing the environment stiﬀness and 𝑥𝑒 its equilibrium                   𝑚𝑒̂̈ + 𝑏𝑒̂̇ = 𝑚(𝑒̈ + 𝛿 𝑥̈ 𝑒 ) + 𝑏(𝑒̇ + 𝛿 𝑥̇ 𝑒 ) = 𝑓𝑒𝑥𝑡 − 𝑓𝑑                             (9)
+position. Because industrial and collaborative robots typically exhibit
+                                                                                           This expression shows that estimation errors 𝛿𝑥𝑒 introduce additional
+high-precision position tracking, it is assumed that there is no error be-
+                                                                                       disturbance terms that degrade force-tracking performance, especially
+tween the actual robot position 𝑥 and the command position 𝑥𝑐 , mean-
+                                                                                       when both 𝑘𝑒 and 𝑥𝑒 vary with time. These disturbance-like terms di-
+ing 𝑥 ≈ 𝑥𝑐 . In the admittance architecture, the commanded motion 𝑥𝑐 is
+                                                                                       rectly aﬀect force-tracking performance, motivating the use of robust
+directly executed by the robot’s internal position controller, so no dif-
+                                                                                       compensation mechanisms in the following sections.
+ferentiation of 𝑥𝑐 is required. Any tracking error is absorbed into the
+lumped disturbance and compensated within the DOSMAC framework.
+    The relationship between the desired trajectory and the achieved                   3. Proposed method
+contact force can be derived by rearranging the admittance dynamics to
+reveal the motion needed to generate the desired force.                                    This section presents the proposed Disturbance-Observer based
+    From Eq. (4), achieving the desired force requires: 𝑥𝑑 = −𝑓𝑑 ∕𝑘𝑒 + 𝑥𝑒 .            Sliding-Mode Admittance Control (DOSMAC) framework, followed by
+This force–motion mapping is valid under the standard assumptions of                   the controller formulation and stability analysis.
+
+                                                                                   3
+S. Li et al.                                                                                                                         Control Engineering Practice 169 (2026) 106764
+
+
+3.1. System description                                                                                     𝑘
+                                                                                         where 𝐺0 = − 𝑚𝑒0 is the nominal input gain, ℎ𝑛𝑜𝑚 = 𝐶 𝑦̇ is a measurable
+                                                                                         nominal term, 𝑑 includes stiﬀness variation, position-estimation errors,
+   Section 2 established that traditional admittance control ex-                         and input-gain mismatch:
+hibits degraded force-tracking performance in complex interaction
+                                                                                                                      𝑘𝑒    𝑘
+environments—such as those encountered in robotic ultrasound—where                       𝑑(𝑡) = −𝑘̈ 𝑒 𝑒 − 2𝑘̇ 𝑒 𝑒 −      𝑦 + 𝑒 𝑏(𝑒̇ + 𝛿 𝑥̇ 𝑒 ) + 𝑚𝛿 𝑥̈ 𝑒 + Δ𝐺𝑢               (19)
+                                                                                                                      𝑚      𝑚
+both environmental stiﬀness and equilibrium position vary with time.
+                                                                                                            𝑘 −𝑘 0
+To enhance force-tracking robustness, a virtual control input 𝑢 is intro-                where Δ𝐺 = − 𝑒 𝑚 𝑒 quantiﬁes the virtual input gain mismatch aris-
+duced into the admittance dynamics:                                                      ing from variations in the environment stiﬀness relative to the nominal
+                                                                                         value 𝑘𝑒0 . This mismatch is treated as part of the lumped disturbance
+𝑚𝑒̂̈ + 𝑏𝑒̂̇ = Δ𝑓 + 𝑢                                                          (10)
+                                                                                         and compensated by the DOSMAC framework.
+    The virtual input 𝑢 may include any measurable information, such                        Grouping these unknown and time-varying quantities into a single
+as position or force-error-related terms (e.g., 𝑢 = Δ𝑏𝑒̂̇ yields a variable-             lumped disturbance allows the controller to estimate and compensate
+parameter admittance controller). This virtual input provides additional                 their combined eﬀect without requiring explicit modeling of each un-
+ﬂexibility to modify the admittance response and serves as an interface                  certainty source.
+for incorporating robustness through sliding-mode control and distur-                       Sliding-Mode Control Law
+bance estimation.                                                                           Now, the virtual input 𝑢 can be obtained by combining Eq. (13) and
+    In the proposed framework, 𝑢 is generated by a sliding-mode con-                     (18):
+troller (SMC), while an extended-state-observer-like disturbance ob-                          1
+                                                                                         𝑢=      (−𝑘𝑠 𝑠 − 𝜂𝑠𝑎𝑡(𝑠) − 𝑑̂ − ℎ𝑛𝑜𝑚 )                                              (20)
+server (DOB) compensates unknown environmental dynamics. The over-                            𝐺0
+all structure is illustrated in Fig. 2.
+                                                                                         where 𝑑̂ is the disturbance estimate generated by the DOB.
+                                                                                            Disturbance Observer
+3.2. Controller design                                                                      An ESO (Extended State Observer)-like observer is used to estimate
+                                                                                         and the lumped disturbance:
+    Sliding manifold
+    To regulate the force-tracking error with a prescribed convergence                   𝑠̂̇ = 𝐺0 𝑢 + ℎ𝑛𝑜𝑚 + 𝑑̂ + 𝐿1 (𝑠 − 𝑠)
+                                                                                                                          ̂                                                  (21)
+behavior, a sliding manifold is deﬁned. Deﬁne the force-tracking error
+as:
+                                                                                         𝑑̂̇ = 𝐿2 (𝑠 − 𝑠)
+                                                                                                       ̂                                                                     (22)
+𝑦 = 𝑓𝑒𝑥𝑡 − 𝑓𝑑                                                                 (11)
+                                                                                         where 𝐿1 and 𝐿2 are the observer gains. This observer adopts an
+       A ﬁrst-order sliding manifold is deﬁned as:                                       extended-state-observer structure, which enables online reconstruction
+𝑠 = 𝐶𝑦 + 𝑦̇                                                                   (12)       of the lumped disturbance and the sliding variable dynamics using only
+                                                                                         measurable signals.
+where 𝐶 > 0 shapes the desired convergence rate. On the sliding mani-
+fold 𝑠 = 0, the force error satisﬁes 𝑦̇ = −𝐶𝑦, ensuring asymptotic conver-               3.3. Stability analysis
+gence. This structure imposes ﬁrst-order convergence on the force error
+once the system reaches the sliding manifold.                                               This subsection establishes the closed-loop stability of the proposed
+    Desired sliding dynamics                                                             DOSMAC framework. The analysis ﬁrst examines the disturbance ob-
+    To enforce sliding-surface reaching, the following target dynamics                   server and sliding-mode subsystems individually and then employs a
+are imposed:                                                                             composite Lyapunov function to demonstrate overall boundedness and
+                                                                                         asymptotic convergence of the force-tracking error.
+𝑠̂ = −𝑘𝑠 𝑠 − 𝜂𝑠𝑎𝑡(𝑠)                                                          (13)
+                                                                                            Theorem 1 (Stability of the DOSMAC Closed-Loop System).
+where 𝑘 > 0 deﬁnes the linear convergence speed, and 𝜂 > 0 ensures                          Consider the admittance-controlled robot interacting with a time-
+robustness to disturbances.                                                              varying environment described by the dynamics in (10)–(22).
+   Sliding variable dynamics                                                                Assume that:
+   Diﬀerentiating (12) gives:
+                                                                                         1. the lumped disturbance 𝑑 and its derivative 𝑑̇ are bounded,
+𝑠̇ = 𝐶 𝑦̇ + 𝑦̈ = 𝐶 𝑦̇ + (𝑓̈𝑒𝑥𝑡 − 𝑓̈𝑑 )                                        (14)       2. the observer gains 𝐿1 , 𝐿2 > 0, and 𝐿2 is large enough that 𝐿𝑑 could
+                                                                                                                                                                         ̂
+                                                                                                                                                                         2
+   In robotic ultrasound applications, the desired force is typically con-                  be omitted,
+stant, implying 𝑓̈𝑑 = 0. Using 𝑓𝑒𝑥𝑡 = −𝑘𝑒 𝑒, the expression becomes:                     3. the sliding-mode gain 𝜂 satisﬁes 𝜂 ≥ |𝑑|,
+                                                                                                                                   ̃ where 𝑑̃ = 𝑑 − 𝑑̂ is the dis-
+                                                                                            turbance estimation error.
+𝑠̇ = 𝐶 𝑦̇ + (−𝑘̈ 𝑒 𝑒 − 2𝑘̇ 𝑒 − 𝑘𝑒 𝑒)
+                                  ̈                                           (15)
+                                                                                             Then the closed-loop signals are bounded, the sliding variable 𝑠
+       From equation (10), the admittance model yields:
+                                                                                         converges to zero, and the force-tracking error 𝑦 = 𝑓𝑒𝑥𝑡 − 𝑓𝑑 converges
+       1                                                                                 asymptotically to zero.
+𝑒̈ =     (𝑦 + 𝑢 − 𝑏𝑒̇ − (𝑚𝛿 𝑥̈ 𝑒 + 𝑏𝛿 𝑥̇ 𝑒 ))                                 (16)
+       𝑚                                                                                     Thus, the proposed DOSMAC admittance controller guarantees sta-
+       Substituting this into equation (15) gives:                                       ble force-tracking performance.
+
+                                    𝑘𝑒                                                   Proof.
+𝑠̇ = 𝐶 𝑦̇ + (−𝑘̈ 𝑒 𝑒 − 2𝑘̇ 𝑒 𝑒̇ −      (𝑦 + 𝑢 − 𝑏𝑒̇ − (𝑚𝛿 𝑥̈ 𝑒 + 𝑏𝛿 𝑥̇ 𝑒 ))   (17)
+                                    𝑚
+                                                                                         1. Disturbance Observer (DOB) Stability
+    Because 𝑘𝑒 and 𝛿𝑥𝑒 are unknown and time-varying, this form is not                          The ﬁrst step shows that the observer ensures bounded estimation
+directly suitable for solving 𝑢.                                                            errors under the given gain conditions.
+    Therefore, all unknown terms are grouped into a lumped disturbance                         Deﬁne the Lyapunov function for the DOB subsystem as:
+𝑑, leading to:
+                                                                                                      1 ̃2 1 2
+                                                                                              𝑉1 =       𝑑 + 𝑠̃                                                              (23)
+𝑠̇ = 𝐺0 𝑢 + ℎ𝑛𝑜𝑚 + 𝑑(𝑡)                                                       (18)                   2𝐿2    2
+
+                                                                                     4
+S. Li et al.                                                                                                                 Control Engineering Practice 169 (2026) 106764
+
+
+     where 𝑑̃ = 𝑑 − 𝑑̂ and 𝑠̃ = 𝑠 − 𝑠̂ are the estimation errors of the lumped           Although the formulation is presented in a single translational DOF,
+     disturbance and sliding variable respectively.                                  this does not limit the applicability of the proposed framework. In stan-
+         Diﬀerentiating (23) gives:                                                  dard Cartesian-space admittance control, the virtual inertia, damping,
+                                                                                     and stiﬀness are typically chosen diagonal, resulting in decoupled dy-
+            1 ̃̇ ̃ ̇
+     𝑉̇ 1 =    𝑑 𝑑 + 𝑠̃𝑠̃                                                (24)        namics along each Cartesian axis. Under this common assumption, the
+            𝐿2
+                                                                                     DOSMAC controller can be directly extended to multi-DOF settings by
+          For the ﬁrst term in 𝑉1 , one has:                                         applying the same control law independently to each axis, with the same
+     1    1 ̇                 ̇   ̂̇                                                 structure and stability properties.
+        =          ̂̇ 𝑑̃ = ( 𝑑 − 𝑑 )𝑑̃
+             (𝑑 − 𝑑)                                                     (25)            In robotic ultrasound applications, the variations of 𝑘𝑒 (𝑡) and 𝑥𝑒 (𝑡) are
+     𝐿2   𝐿2                𝐿2 𝐿2
+                                                                                     typically low-frequency, and the virtual control input is smoothed by the
+          Substituting Assumption 2 yields:                                          boundary-layer saturation function. As a result, the lumped disturbance
+     1 ̃̂ ̃    1                                                                     and its derivative remain bounded and do not invalidate the assumption
+        𝑑 𝑑 = − 𝑑̂̇ 𝑑̃                                                   (26)         ̇ 2 used in the high-gain disturbance observer analysis.
+     𝐿2        𝐿2                                                                    𝑑∕𝐿
+          Substituting Eq. (22) leads to:
+                                                                                     Algorithm 1 DOSMAC Algorithm.
+     1 ̃̂ ̃    1          1
+        𝑑 𝑑 = − 𝑑̂̇ 𝑑̃ = − (𝐿2 (𝑠 − 𝑠))
+                                    ̂ 𝑑̃ = −𝑠̃𝑑̃                         (27)        1: Initialization:
+     𝐿2        𝐿2         𝐿2
+                                                                                     2: Set controller and observer parameters (𝑚, 𝑏, 𝐶, 𝑘𝑠 , 𝜂, 𝜙, 𝐿1 , 𝐿2 ) and
+          Substituting this result back into 𝑉1 , one obtains:                          the sampling period 𝑇𝑠 .
+                                                                                                                    ̂ 0 ), 𝑠(𝑡
+                                                                                     3: Initialize observer states 𝑑(𝑡     ̂ 0 ), and nominal gain 𝐺0 .
+     𝑉̇ 1 = −𝑠̃𝑑̃ + 𝑠̃̇ 𝑠̃                                               (28)
+                                                                                     4: while the control loop is active do
+         Taking the diﬀerence between Eqs. (18) and (21) one has: 𝑠̃̇ =              5:   Read force sensor 𝑓𝑒𝑥𝑡 (𝑡) and compute force error 𝑦(𝑡) = 𝑓𝑒𝑥𝑡 (𝑡) −
+     𝑑̃ − 𝐿1 𝑠.
+             ̃ Substituting into the above expression yield:                              𝑓𝑑 (𝑡) and 𝑦(𝑡).
+                                                                                                      ̇
+                                                                                     6:   Compute sliding variable 𝑠(𝑡) = 𝐶 𝑦(𝑡) + 𝑦(𝑡)̇ according to Eq. (12).
+     𝑉̇ 1 = −𝑠̃𝑑̃ + (𝑑̃ − 𝐿1 𝑠)
+                             ̃ 𝑠̃ = −𝐿1 𝑠̃ ≤ 0                           (29)
+
+       Thus, the estimation errors 𝑠̃ and 𝑑̃ remain bounded, and the DOB             7:    Compute nominal term ℎ𝑛𝑜𝑚 (𝑡) = 𝐶 𝑦(𝑡).
+                                                                                                                               ̇
+   subsystem is stable.                                                              8:                                                  ̂ − 1).
+                                                                                           Compute virtual input 𝑢(𝑡) via Eq. (20) with 𝑑(𝑡
+2. Sliding-Mode Control Stability                                                    9:    Update commanded motion 𝑥𝑐 (𝑡) by integrating the admittance
+       The second step demonstrates that the sliding variable converges                    dynamics in Eq. (10).
+   to zero under the proposed control law.                                                                                         ̂ and 𝑠(𝑡)
+                                                                                     10: Update the disturbance observer states 𝑑(𝑡)       ̂ using Eqs. (21)
+       Consider the Lyapunov function:                                                     and (22).
+               1 2                                                                   11: end while
+     𝑉2 =        𝑠                                                       (30)
+               2
+          Taking the derivative:
+                                                                                     4. Simulation validation
+     𝑉̇ 2 = 𝑠𝑠̇ = 𝑠(𝐺0 𝑢 + ℎ𝑛𝑜𝑚 + 𝑑)                                     (31)
+
+     Substituting the control law (20):                                              4.1. Simulation model and settings
+                             2
+             ̃ − 𝜂|𝑠| − 𝑘𝑠 𝑠
+     𝑉̇ 2 = 𝑑𝑠                                                           (32)             To verify the eﬀectiveness and advances of the proposed DOS-
+     the condition 𝜂 ≥ |𝑑|
+                         ̃ in assumption 3 yields:                                   MAC method, simulation experiments are conducted based on a one-
+                                                                                     dimensional robot-environment interaction. The environment interac-
+     𝑉̇ 2 ≤ −𝑘𝑠 𝑠2 ≤ 0                                                   (33)        tion is modeled according to Eq. (4), and the robot position tracking er-
+   indicating that the sliding variable 𝑠 converges to zero.                         ror of the controller is omitted. The output of the admittance controller,
+3. Convergence of Force Error                                                        𝑥𝑐 , is directly considered as the actual robot position 𝑥.
+      The sliding variable is deﬁned as:                                                  In simulation, the true environment position 𝑥𝑒 is directly used as
+                                                                                     the nominal value 𝑥̂ 𝑒 to isolate the evaluation of controller perfor-
+     𝑠 = 𝑐𝑦 + 𝑦̇                                                         (34)        mance from position-estimation errors. The eﬀect of any potential mis-
+                                                                                     match 𝛿𝑥𝑒 = 𝑥𝑒 − 𝑥̂ 𝑒 is therefore not simulated and is implicitly handled
+     once 𝑠 → 0, the reduced-order dynamics satisfy:
+                                                                                     through the lumped disturbance term in the theoretical formulation.
+     𝑦̇ = −𝑐𝑦                                                            (35)             To comprehensively evaluate the performance of the proposed
+                                                                                     method, three admittance control methods are compared through sim-
+   which guarantees: 𝑦(𝑡) → 0 as 𝑡 → ∞. Thus, the force-tracking error
+                                                                                     ulation.
+   converges asymptotically.
+                                                                                          AC: Traditional admittance controller with constant parameters, as
+4. Overall Stability
+                                                                                     described in Eq. (5).
+       Combining∎ both subsystems using a composite Lyapunov func-
+                                                                                          AVAC: Adaptive variable admittance controller which adaptively ad-
+   tion yields the closed-loop stability result.
+                                                                                     justs damping parameters online according to force error information
+       The composite Lyapunov function:
+                                                                                     (Duan et al., 2018). The damping parameter is deﬁned as:
+     𝑉 = 𝑉1 + 𝑉2                                                         (36)                      1
+                                                                                     𝑏𝑡𝑟𝑢𝑒 = 𝑏 +      𝑏Φ(𝑡)                                                          (38)
+     satisﬁes:                                                                                     𝑒̇
+
+     𝑉̇ = 𝑉̇ 1 + 𝑉̇ 2 ≤ 0                                                (37)                                 𝜎
+                                                                                     Φ(𝑡) = Φ(𝑡 − 1) −          Δ𝑓 (𝑡 − 1)                                           (39)
+                                                                                                              𝑏
+                                                                                        DOSMAC: The proposed DOSMAC controller.
+    Therefore, all closed-loop signals remain bounded, and the DOSMAC                   All three admittance controllers share the same admittance param-
+system achieves stable and robust force tracking despite unknown time-               eters: 𝑚 = 1, 𝑏 = 200, 𝑘 = 0. For AVAC, the 𝜎 = 0.1 is chosen for bal-
+varying environmental stiﬀness and position uncertainties.                           anced performance. For the proposed DOSMAC controller, the nom-
+
+                                                                                 5
+S. Li et al.                                                                                                          Control Engineering Practice 169 (2026) 106764
+
+
+inal environment stiﬀness 𝑘0 = 1000 N/m is given, which is not ﬁne-
+tuned. The rest of the parameters of the sliding mode controller are
+given as: 𝐶 = 25, 𝑘𝑠 = 50, 𝜂 = 10, 𝜑 = 0.1. The DOB parameters 𝐿1 = 60
+and 𝐿2 = 1200 are given for fast disturbance estimation. The control cy-
+cle 𝜏 = 0.002 s is set according to the real UR5e robot used in the exper-
+iment. The simulation lasts for 10 s for each test. All control strategies
+are implemented within MATLAB 2023b environment.
+    The following scenarios are considered to evaluate the adaptability
+of the controllers:
+    Scenario 1 (Varying Stiﬀness): Environment stiﬀness varies as 𝑘𝑒 =
+3000 × (1.5 + 𝑠𝑖𝑛(0.2𝜋𝑡))𝑁∕𝑚.
+    Scenario 2 (Varying Position): Environment position changes as 𝑥𝑒 =          Fig. 3. Scenario 1 – Sinusoidal stiﬀness: contact force response. (a) transient
+0.02 × sin(0.2𝜋𝑡) m.                                                             response within 0–1 s; (b) steady state within 1–10 s.
+    Scenario 3 (Simultaneous Stiﬀness and Position Variation): Simul-
+taneous variations in environment stiﬀness and position are given by                        Table 1
+                                                                                            Performance metrics in simulation.
+𝑘𝑒 = 3000 (1 + sin(0.2𝜋𝑡)) N/m and 𝑥𝑒 = 0.02 sin(0.2𝜋𝑡) m.
+    These scenarios emulate practical conditions in tasks such as robotic                    Scenario    Method      OS (%)      PFE (N)   RMSE (N)
+ultrasound scanning or palpation, where soft tissue stiﬀness and con-                                    AC          2.1         2.14      0.99
+tact location may change due to physiological motion or surface irregu-                      Scen. 1     AVAC        54.7        0.49      0.60
+larities. Scenario 1 evaluates robustness to stiﬀness variation, Scenario                                DOSMAC      15.1        0.49      0.42
+2 tests adaptability to moving contact points, and Scenario 3 repre-                                     AC          24.3        2.51      1.81
+                                                                                             Scen. 2     AVAC        59.4        0.50      0.65
+sents the coupled, most challenging condition requiring comprehensive                                    DOSMAC      19.2        0.49      0.44
+adaptability.                                                                                            AC          27.4        3.54      2.36
+    In this section, the simulation framework, including the robot and                       Scen. 3     AVAC        59.6        0.47      0.61
+environment models, as well as three control methods with their respec-                                  DOSMAC      18.9        0.49      0.43
+tive parameter settings, has been introduced. Furthermore, three diﬀer-
+ent scenarios are designed to evaluate the force tracking performance of
+the controllers under complex environments. These conditions enable a                Simulation results:
+fair and comprehensive comparison of the proposed DOSMAC method                      In this subsection, the simulation results of the three compared meth-
+against the traditional AC and the adaptive AVAC controllers.                    ods under diﬀerent scenarios are presented. Furthermore, quantitative
+                                                                                 evaluation metrics are computed to compare the force-tracking perfor-
+4.2. Performance metrics                                                         mance of the three approaches in complex environments.
+                                                                                     Fig. 3 illustrates the contact force tracking curves of the three control
+   Several performance metrics are employed to quantitatively evalu-             methods under scenario 1, where the red line denotes the desired force
+ate and compare the force tracking performance of the three control              𝐹𝑑 . Fig. 3(a) shows the transient response within 0–1 s, while Fig. 3(b)
+methods under complex environments.                                              presents the steady-state behavior over 1–10 s. For performance com-
+   To quantitatively evaluate the transient and steady-state force track-        parison, the evaluation metric of all three scenarios are summarized in
+ing performance of diﬀerent controllers, three commonly used perfor-             Table 1.
+mance indices were employed: Overshoot (OS) Peak Force Error (PFE),                  As shown in Fig. 3, the three control methods exhibit distinct dif-
+and Root Mean Square Error (RMSE). These metrics are computed based              ferences in force tracking under varying stiﬀness. In the transient phase
+on the measured contact force trajectory 𝐹 (𝑡), the desired force 𝐹𝑑 , and       (Fig. 3(a)), the AC method exhibits almost no signiﬁcant overshoot dur-
+the key time instants of contact (𝑡𝑐 ) and stabilization (𝑡𝑠 ).                  ing initial contact, but converges relatively slowly. In contrast, the AVAC
+                                                                                 method generates a large overshoot at the moment of contact, with the
+1) Contact time (𝑡𝑐 ) and stabilization time (𝑡𝑠 ):
+                                                                                 peak force considerably exceeding the desired value. The proposed DOS-
+       The contact time is deﬁned as the instant when the measured
+                                                                                 MAC method also presents a certain level of overshoot, but with smaller
+   force ﬁrst exceeds a pre-deﬁned threshold: 𝑡𝑐 = 𝑚𝑖𝑛{𝑡|𝐹 (𝑡) ≥ 0.5𝑁}
+                                                                                 oscillations and faster convergence toward the steady state. During the
+   The stabilization time 𝑡𝑠 is determined as the earliest time after when
+                                                                                 subsequent steady-state phase (Fig. 3(b)), the AC method exhibits pe-
+   the force enters and remains within a tolerance band ±0.05𝐹𝑑 for a
+                                                                                 riodic ﬂuctuations in force tracking, which are strongly inﬂuenced by
+   continuous dwell time 𝑇𝑑𝑤𝑒𝑙𝑙 = 0.4 s.
+                                                                                 stiﬀness variations. Both AVAC and DOSMAC can maintain the force
+2) Overshoot (OS):
+                                                                                 close to the desired value; however, AVAC still exhibits noticeable os-
+       Overshoot quantiﬁes the largest positive deviation from the de-
+                                                                                 cillations, while DOSMAC achieves a more stable response.
+   sired force during the transient phase [𝑡𝑐 ∶ 𝑡𝑠 ]:
+                                                                                     The quantitative results in Table 1 further conﬁrm these observa-
+                             𝐹 (𝑡 − 𝐹𝑑 )                                         tions. The AC method has the smallest overshoot (2.1%) but suﬀers
+     𝑂𝑆 = max (                          × 100%), 𝑂𝑆 ≥ 0             (40)
+               𝑡∈[𝑡𝑐 ∶𝑡𝑠 ]       𝐹𝑑                                              from a large peak force error (2.14 N) and a high RMSE (0.99 N), in-
+3) Peak force error (PFE):                                                       dicating poor steady-state performance. AVAC signiﬁcantly improves
+       PFE measures the maximum absolute force deviation in the                  steady-state accuracy with a PFE of 0.49 N and an RMSE of 0.60 N.
+   steady-state phase [𝑡𝑠 ∶ 𝑡𝑒𝑛𝑑 ]:                                              However, its aggressive parameter adjustment results in a very large
+                                                                                 overshoot (54.7%), which compromises contact safety during the ini-
+     𝑃𝐹𝐸 =           max (𝐹 (𝑡) − 𝐹𝑑 )                               (41)
+                  𝑡∈[𝑡𝑠 ∶𝑡𝑒𝑛𝑑 ]                                                  tial phase. By comparison, DOSMAC achieves a balanced performance
+4) Mean root square error (RMSE):                                                with a moderate overshoot (15.1%) and superior steady-state accuracy
+            √                                                                    (PFE = 0.49 N, RMSE = 0.42 N), outperforming the other two methods
+            √
+            √1 ∑  𝑁                                                              overall.
+   𝑅𝑀𝑆𝐸 = √          [𝐹 (𝑡𝑖 ) − 𝐹𝑑 ]2                                (42)            The diﬀerences can be attributed to the inherent mechanisms of
+               𝑁 𝑖=1
+                                                                                 each controller. For AC, although previous work (Jung et al., 2004) has
+   For a comprehensive evaluation, the global RMSE over the entire               demonstrated that setting the stiﬀness parameter 𝑘 = 0 enables adap-
+simulation is reported, which reﬂects the overall tracking performance.          tation to environments with diﬀerent stiﬀness, its ﬁxed admittance
+
+                                                                             6
+S. Li et al.                                                                                                                Control Engineering Practice 169 (2026) 106764
+
+
+
+
+Fig. 4. Scenario 2 – Sinusoidal position: contact force response. (a) transient       Fig. 5. Scenario 3 – Simultaneous Stiﬀness and Position Variation : contact force
+response within 0–1 s; (b) steady state within 1–10 s.                                response. (a) Transient response within 0–1 s; (b) Steady state within 1–10 s.
+
+                                                                                                       Table 2
+                                                                                                       Parameters of the force/torque sensor.
+parameters lack adaptability to time-varying stiﬀness, leading to poor
+steady-state accuracy. AVAC improves accuracy through adaptive                                          Parameter     Force (x–y–z)   Torque (x–y–z)
+
+damping adjustment, but its parameter update mechanism, which re-                                       Range         ±50.0 N         ±10.0 N⋅m
+sembles integral action on the force error, causes strong overshoot at the                              Precision     ±3.5 N          ±0.2 N⋅m
+                                                                                                        Accuracy      ±4.0 N          ±0.3 N⋅m
+initial stage. In contrast, DOSMAC leverages sliding mode control and
+disturbance compensation to eﬀectively suppress uncertainties caused
+by varying stiﬀness while avoiding excessive parameter adjustment,
+thereby achieving a better trade-oﬀ between transient and steady-state                signiﬁcant ﬂuctuations, with the contact force varying between 7 and
+performance.                                                                          14 N. Both AVAC and the proposed DOSMAC maintain stability around
+    Fig. 4 illustrates the contact force tracking curves of the three control         the desired force.
+methods under the condition of a time-varying environment position.                       The quantitative metrics of Scenario 3 are summarized in Table 1.
+The transient responses are shown in Fig. 4(a). Unlike Scenario 1, AC                 AC shows the poorest overall performance, with an RMSE of 2.36 N and
+exhibits poorer adaptability when facing a time-varying environment                   a PFE of 3.54 N, both worse than those of the two advanced methods. Its
+position, with a larger overshoot in the initial stage compared to Sce-               initial overshoot is 27.4%, which ranks in the middle among the three
+nario 1. Both AVAC and DOSMAC show behaviors similar to Scenario 1                    controllers. AVAC exhibits the largest overshoot of 59.6%, comparable
+in the initial phase, though with slightly higher overshoot. In the steady-           to Scenario 2; however, its steady-state performance is superior, with
+state stage shown in Fig. 4(b), AC performs worse than in the varying                 an RMSE of 0.61 N and a PFE of 0.47 N, which is signiﬁcantly better
+stiﬀness scenario, failing to maintain the desired force and exhibiting               than AC. The proposed DOSMAC achieves the best overall performance,
+large ﬂuctuations. In contrast, AVAC and DOSMAC remain stable and                     with the smallest overshoot of 18.9% and the lowest RMSE, indicating
+maintain the desired force.                                                           its superior balance between transient and steady-state behavior.
+    As shown by the performance indices in Table 1, AC has an overshoot                   In summary, the evaluations across Scenarios 1–3 demonstrate that
+of 24.3%, which is 22.2% higher than in Scenario 1. Its PFE reaches                   among the three methods, AC consistently delivers the weakest perfor-
+2.51 N, and RMSE increases to 1.81 N. AVAC shows the largest overshoot                mance, primarily due to its ﬁxed admittance parameters, which limit
+at 59.4%, which is 5% higher than in Scenario 1. However, its steady-                 adaptability to environmental variations. AVAC beneﬁts from its adap-
+state performance remains stable, with a PFE of 0.5 N, nearly identical to            tive parameter update mechanism, leading to improved steady-state
+the varying stiﬀness case, and an RMSE of 0.65 N, slightly higher than                force tracking in time-varying environments; however, its reliance on
+in Scenario 1 due to the increased overshoot. The proposed DOSMAC                     accumulated force error for parameter tuning results in substantial over-
+method achieves the smallest overshoot at 19.2%, the lowest among                     shoot during the initial phase, which is undesirable in applications such
+the three methods. Its RMSE is 0.44 N, slightly higher than in Scenario 1             as robotic ultrasound scanning, where excessive contact force may risk
+but still the best among the three, demonstrating that DOSMAC provides                patient safety. By contrast, the proposed DOSMAC leverages disturbance
+the most favorable performance in the presence of environment position                observer and sliding mode control enhancements, achieving the best
+variations.                                                                           overall performance when facing simultaneous stiﬀness and position
+    The results of Scenarios 1 and 2 indicate that under the designed                 variations.
+simulation conditions, variations in environment position led to more
+pronounced performance degradation for AC compared to variations in                   5. Experiment validation
+environment stiﬀness. This suggests that the ﬁxed admittance param-
+eters of AC may make it more sensitive to position changes, whereas                       To verify the performance of the proposed method in a real robot
+AVAC and DOSMAC maintained relatively stable performance.                             system, a series of contact force tracking experiments was conducted
+    To evaluate the force tracking performance of the three methods un-               involving varying environmental stiﬀness or position.
+der more practical and complex conditions, Scenario 3 is designed, in
+which both environment stiﬀness and environment position vary simul-                  5.1. Experiment setup
+taneously.
+    Fig. 5 presents the force tracking results of the three methods in Sce-               The experiment platform is illustrated in Fig. 6. All experiments in
+nario 3. As shown, the results are generally similar to those of Scenario             this study were performed using a UR5e collaborative robotic manipu-
+2. In the transient phase (Fig. 5(a)), the AC method exhibits a large                 lator (Universal Robots, Denmark), which features 6 degrees of freedom
+overshoot followed by a slow decrease in the contact force. The AVAC                  and a rated payload capacity of 5 kg. The UR5e is equipped with an in-
+method demonstrates the largest overshoot, accompanied by oscilla-                    tegrated six-axis force/torque (F/T) sensor located at the robot’s wrist
+tions for about 0.5 s before stabilizing around the desired force. In con-            (ﬂange), enabling direct measurement of interaction forces and torques
+trast, the proposed DOSMAC method shows the smallest overshoot and                    at the end-eﬀector. The robot is rigidly mounted on a laboratory work-
+rapidly converges to the target force after the initial transient. Fig. 5(b)          bench under controlled ambient conditions. An ultrasound probe (DAX,
+shows the steady-state response from 1 to 10 s. The AC method exhibits                Siemens Healthineers) is mounted on the end of the robot.
+
+                                                                                  7
+S. Li et al.                                                                                                          Control Engineering Practice 169 (2026) 106764
+
+
+
+
+      Fig. 6. Experiment platform and control framework for contact tasks.
+
+
+
+                                                                                             Fig. 8. Experiment I: Soft-rigid switching environment.
+
+
+                                                                                  with AC are used, and is adopted for balance between large force oscil-
+                                                                                  lation and force tracking accuracy.
+                                                                                      DOSMA: The proposed disturbance observer-based sliding mode ad-
+                                                                                  mittance controller. The nominal environment stiﬀness 𝑘𝑒0 = 1000 N/m
+                                                                                  is given. The rest of the parameters of the sliding mode controller are
+   Fig. 7. Two types of testing material deformation under the same weight.       given as: 𝐶 = 5, 𝑘𝑠 = 18, 𝜂 = 5, 𝜑 = 0.1. The DOB parameters 𝐿1 = 50 and
+                                                                                  𝐿2 = 750 are given for fast and robust disturbance estimation.
+
+    Robot control and data acquisition were executed on an external PC,           5.4. Experiment results
+which communicated with the robot controller via an Ethernet connec-
+tion. The open-source ur_rtde Python interface was utilized to achieve                In this section, the experiment results with ﬁgures and tables are
+real-time, low-level access to joint position, velocity, and force/torque         presented. To reduce the eﬀect of chance, each experiment was repeated
+data streams. The control loop and data acquisition were both executed            ﬁve times under identical conditions. The plotted curves correspond to
+with a cycle time of 2 ms (500 Hz), ensuring suﬃcient temporal res-               the mean values across the ﬁve trials, and the discrete points represent
+olution for dynamic force control tasks. The PC used in this experi-              the individual measurements, illustrating the variability across runs.
+ment is equipped with an Intel(R) Core(TM) i5-10500T CPU running                      Experiment I: Soft-rigid switching environment
+at 2.30 GHz.                                                                          To realistically simulate the abrupt changes in tissue stiﬀness en-
+    The F/T sensor provides synchronous six-dimensional force and                 countered during clinical ultrasound examinations, a soft-rigid switch-
+torque measurements during all experiments. The detailed speciﬁcations            ing environment experiment was performed. This experiment is in-
+of the UR5e integrated force/torque sensor are listed in Table 2.                 tended to evaluate the adaptability and robustness of the proposed force
+                                                                                  control algorithms when the robot interacts with environments exhibit-
+5.2. Experiment design                                                            ing sharp stiﬀness transitions, which are common in medical scenarios
+                                                                                  such as robotic palpation and ultrasound scanning.
+    To evaluate the eﬀectiveness and robustness of the proposed force                 At the start of each trial, the robot end-eﬀector was positioned just in
+control strategy, three experimental scenarios were designed under dif-           contact with the contact surface. Then, the robot moves with a constant
+ferent interaction conditions, corresponding to the simulation studies.           velocity of 15 mm/s in y-axis according to a predeﬁned trajectory. As
+    Experiment I (Stiﬀness variation only): Two materials with diﬀerent           illustrated in Fig. 8, there are two predeﬁned trajectories (Soft-to-Rigid
+stiﬀness values were used to examine the controller’s ability to main-            and Rigid-to-Soft) in this experiment. The movement of the robot in z-
+tain accurate force tracking under abrupt stiﬀness changes (Fig. 8). The          axis is totally driven by force control methods. This experiment provides
+two diﬀerent materials are exhibited in Fig. 7; the stiﬀness of the two           a direct and practical assessment of the controller’s ability to maintain
+materials is around 900 N/m and 3500 N/m, respectively.                           stable contact force and adapt to sudden environmental changes, reﬂect-
+    Experiment II (Constant Stiﬀness Curved Surface): A human abdom-              ing key challenges in real-world robotic medical interventions.
+inal phantom was used to evaluate the force tracking performance of                   Figs. 9 and 10 present the force control results of Experiment I un-
+the controller when interacting with a curved surface of approximately            der the Rigid-to-Soft and Soft-to-Rigid scenarios, respectively. Table 3
+constant stiﬀness, approximately 500 N/m (Fig. 11).                               presents the performance metrics of the three comparison methods in
+    Experiment III (Combined Stiﬀness and Position Variation): To as-             Experiment I.
+sess the comprehensive performance of the controller in complex envi-                 For the Rigid-to-Soft case (Fig. 9), the AC method exhibits good tran-
+ronments, materials with diﬀerent stiﬀness values were attached to a              sient performance in the initial stage, quickly converging to with only
+curved surface (Fig. 13). This setting introduced both stiﬀness variation         a small overshoot. However, during the stiﬀness transition, the maxi-
+and position variation, thereby creating a more challenging interaction           mum contact force deviation of AC reaches 2.36 N, after which it slowly
+scenario.                                                                         returns to the vicinity of 𝐹𝑑 . This observation conﬁrms the theoretical
+                                                                                  derivation that setting in AC allows it to adapt to diﬀerent ﬁxed envi-
+5.3. Comparison methods and parameters                                            ronment stiﬀness values; however, during transitions between environ-
+                                                                                  ments of diﬀerent stiﬀness, noticeable force deviations occur. The pa-
+    Three admittance control methods are conducted for comparison to              rameter adaptation rule of AVAC is based on the accumulation of force
+address the advantages of the proposed DOSMAC. The parameters of                  error. Consequently, in the initial stage, the accumulated force error
+each method is set as follows:                                                    during the force rise from 0 to leads to a larger overshoot. As shown in
+    AC: Traditional admittance controller described in Eq. (5), and 𝑚 =           Table 2, AVAC’s overshoot reaches 62.0% in the Rigid-to-Soft case, the
+6, 𝑏 = 900 are used in the following experiments.                                 largest among the three methods. Nonetheless, AVAC can stably con-
+    AVAC: Admittance controller with adaptive damping parameter de-               verge to after the overshoot and shows a signiﬁcant improvement over
+scribed in Eqs. (38) and (39), the same admittance parameters 𝑚 and 𝑏             AC during stiﬀness transitions, with a post-initial PFE of 0.69 N, smaller
+
+                                                                              8
+S. Li et al.                                                                                                                   Control Engineering Practice 169 (2026) 106764
+
+
+
+
+                Fig. 9. Force control results of Experiment I (Rigid-to-Soft). Mean force trajectory (solid) and ﬁve individual trial measurements (markers).
+
+
+
+
+                Fig. 10. Force control results of Experiment I (Soft-to-Rigid). Mean force trajectory (solid) and ﬁve individual trial measurements (markers).
+
+
+               Table 3
+               Comparison of three control methods in Experiment I.
+                Exp.          Method      OS (%)    PFE (N)    RMSE (N)
+
+                              AC          8.3       2.36       1.51
+                Exp I (R2S)   AVAC        62.0      0.69       1.35
+                              DOSMAC      6.4       0.64       0.86
+                              AC          0.6       2.41       1.74
+                Exp I (S2R)   AVAC        63.1      0.79       1.43
+                              DOSMAC      11.1      0.49       1.05
+
+
+                                                                                           Fig. 11. Experiment II: Force control task on a human abdomen phantom.
+
+
+than that of AC. For DOSMAC, the overshoot in the initial contact stage                               Table 4
+is 6.4%. In the subsequent steady contact stage, DOSMAC achieves a PFE                                Comparison of three control methods in Experiment II.
+of 0.64 N, the lowest among all three methods. Table 2 also reports the
+                                                                                                        Exp.     Method      OS (%)    PFE (N)     RMSE (N)
+RMSE: AC, AVAC, and DOSMAC achieve RMSE values of 1.51 N, 1.35 N,
+and 0.86 N, respectively.                                                                                        AC          54.4      3.91        2.83
+                                                                                                        Exp II   AVAC        124.3     0.57        1.98
+    For the Soft-to-Rigid case (Fig. 10), due to the ﬁxed admittance pa-                                         DOSMAC      25.1      0.61        1.17
+rameters, AC exhibits a longer rising time in the soft environment com-
+pared to the rigid one, but achieves the smallest overshoot (0.6%) in the
+transient period. During the subsequent stiﬀness transition, AC shows a
+trend where the contact force ﬁrst increases and then returns to , with                   three methods, demonstrating its eﬀectiveness in varying stiﬀness sce-
+a PFE of 2.41 N in the process. AVAC’s results indicate that in the ini-                  narios.
+tial stage, the reduced material stiﬀness leads to a longer rise phase                        Experiment II: Constant stiﬀness curved surface
+and greater accumulated force error, resulting in a larger overshoot                          The second experiment was conducted using a human abdomen
+of 63.1%. The steady contact stage is similar to the Rigid-to-Soft case,                  phantom as the test object, as illustrated in Fig. 11. During the experi-
+with a smaller force error than the AC case. The proposed DOSMAC                          ment, the robot was programmed to move the probe at a constant speed
+also presents a slightly larger overshoot (11.1%) than in the Rigid-to-                   of 10 mm/s along a straight-line trajectory parallel to the y-axis, start-
+Soft case. Nevertheless, DOSMAC achieves the smallest PFE and RMSE                        ing from one edge of the phantom and ending at the opposite edge.
+among the three methods during steady contact.                                            Throughout this motion, force control was activated exclusively on the
+    In summary, in Experiment I, where only the environment stiﬀness                      z-axis, enabling the system to regulate the contact force between the
+changes, the ﬁxed-parameter AC exhibits large force errors during stiﬀ-                   probe and the phantom while accommodating anatomical surface un-
+ness transitions. However, it can eventually return to the desired con-                   dulations and material heterogeneity. This experiment is designed to
+tact force. The parameter adaptation mechanism of AVAC enables better                     simulate the typical procedure of robotic-assisted ultrasound scanning,
+force error performance during stiﬀness changes; nevertheless, its error-                 where maintaining a stable contact force and adapting to complex tissue
+accumulation-based adaptation results in a signiﬁcant initial overshoot.                  properties are crucial for achieving high-quality imaging and ensuring
+The proposed DOSMAC, which integrates a disturbance observer and                          patient safety.
+sliding mode control, eﬀectively suppresses the force error induced by                        Fig. 12 and Table 4 present the force control results and performance
+stiﬀness variations and achieves the smallest PFE and RMSE among the                      metrics of the three control methods in Experiment II.
+
+                                                                                      9
+S. Li et al.                                                                                                            Control Engineering Practice 169 (2026) 106764
+
+
+
+
+     Fig. 12. Force control results of Experiment II (human abdomen phantom). Mean force trajectory (solid) and ﬁve individual trial measurements (markers).
+
+
+                                                                                            Table 5
+                                                                                            Comparison of three control methods in Experiment III.
+                                                                                              Exp.            Method     OS (%)     PFE (N)    RMSE (N)
+
+                                                                                                              AC         35.5       4.62       2.44
+                                                                                              Exp III (R2S)   AVAC       61.8       0.90       1.25
+                                                                                                              DOSMAC     6.4        0.63       0.86
+                                                                                                              AC         43.4       4.90       2.85
+                                                                                              Exp III (S2R)   AVAC       64.7       1.00       1.46
+                                                                                                              DOSMAC     14.4       0.54       1.06
+
+
+
+
+                                                                                    spectively) and shows contact force variations during stiﬀness transi-
+                                                                                    tions similar to those in Experiment I—an increase in contact force for
+        Fig. 13. Experiment III: Combined stiﬀness and position variation.
+                                                                                    Soft-to-Rigid and a decrease for Rigid-to-Soft. However, after the stiﬀness
+                                                                                    transition is completed, due to the continuous downward movement of
+                                                                                    the environment, AC can no longer maintain the contact force near , re-
+    The results of Experiment II demonstrate that variation in environ-
+                                                                                    sulting in a sustained decrease in force. The PFE after the initial contact
+ment position can cause the traditional ﬁxed-parameter AC to lose sta-
+                                                                                    reaches 4.62 N and 4.90 N, respectively, with the maximum deviation
+ble force-tracking capability. Due to the upward movement of the en-
+                                                                                    occurring at the very end of the contact. The corresponding RMSE val-
+vironment position, AC exhibits a signiﬁcant overshoot in the initial
+                                                                                    ues are 2.44 N and 2.85 N.
+stage, followed by a slow tendency to recover toward 𝐹𝑑 . After pass-
+                                                                                        For AVAC, similar to Experiment I, a signiﬁcant overshoot is ob-
+ing the middle section, the environment position begins to descend,
+                                                                                    served in the initial contact stage, followed by convergence to a force
+and the contact force of AC starts to decrease. AVAC again shows
+                                                                                    near the desired value. Moreover, when facing simultaneous changes in
+a signiﬁcant initial overshoot, reaching 124.3%, but, beneﬁting from
+                                                                                    environment stiﬀness and position, AVAC shows a signiﬁcant improve-
+its parameter adaptation mechanism, subsequently stabilizes near 𝐹𝑑 .
+                                                                                    ment over AC, with PFE values of 0.90 N and 1.00 N, and RMSE values
+The corresponding PFE and RMSE are 0.57 N and 1.98 N, respectively.
+                                                                                    of 1.25 N and 1.46 N for the Rigid-to-Soft and Soft-to-Rigid transitions, re-
+DOSMAC achieves the smallest overshoot of 25.1%, with a PFE of
+                                                                                    spectively.
+0.61 N and an RMSE of 1.17 N, which is also the lowest among the
+                                                                                        Beneﬁting from the disturbance observer’s ability to capture varia-
+three.
+                                                                                    tions in both environment stiﬀness and position, combined with sliding
+    Experiment III: Complex environment with varying stiﬀness and
+                                                                                    mode control, the proposed DOSMAC method achieves the best perfor-
+position
+                                                                                    mance in both R2S and S2R scenarios, with the smallest overshoot (6.4%
+    To further evaluate the adaptability of the proposed force control al-
+                                                                                    and 14.4%), PFE (0.63 N and 0.54 N), and RMSE (0.86 N and 1.06 N)
+gorithms in complex and realistic environments, experiment III was de-
+                                                                                    among the three methods, as summarized in Table 5.
+signed using a composite testbed. As shown in Fig. 13, two foam blocks
+                                                                                        The results of Experiment III demonstrate that variation in environ-
+with distinct stiﬀness values (black: softer, red: stiﬀer) were placed ad-
+                                                                                    ment position can cause the traditional ﬁxed-parameter AC to lose sta-
+jacent to each other on top of a curved base plate shaped as a sinusoidal
+                                                                                    ble force-tracking capability. Except for the larger overshoot observed in
+surface. The entire setup was secured using a layer of plastic ﬁlm to
+                                                                                    the initial contact phase, AVAC’s parameter adaptation function enables
+prevent displacement during the experiment.
+                                                                                    improved adaptability to changes in both environment stiﬀness and po-
+    The robot end-eﬀector was commanded to follow a straight-line tra-
+                                                                                    sition after the initial contact is established. The proposed DOSMAC,
+jectory along the y-axis at a constant velocity of 15 mm/s. Only the z-axis
+                                                                                    through the combined use of a disturbance observer and sliding mode
+motion of the end-eﬀector was regulated by the force control algorithm,
+                                                                                    control, is able to compensate for and suppress disturbances induced by
+allowing the system to automatically adapt to both the varying surface
+                                                                                    variations in environment stiﬀness and position, thereby achieving the
+height and the spatially varying contact stiﬀness. The primary objective
+                                                                                    best force-tracking performance among the three methods.
+is to assess the controller’s ability to maintain consistent force tracking
+                                                                                        The results demonstrate consistent behavior across repeated trials,
+and adapt to simultaneous variations in both contact geometry and local
+                                                                                    with limited variability in force-tracking accuracy, conﬁrming the re-
+stiﬀness.
+                                                                                    peatability of the proposed control scheme under the tested phantom
+    Figs. 14 and 15 present the force control results of Experiment III
+                                                                                    conditions.
+under the Rigid-to-Soft and Soft-to-Rigid scenarios with environment
+position, respectively. Table 5 presents the performance metrics of the
+three comparison methods in Experiment II. Diﬀerent from Experiment                 6. Discussion
+I and Experiment II, this experiment combines variations in the envi-
+ronment position and environment stiﬀness. For both Rigid-to-Soft and                   The results of this study consistently demonstrate that the proposed
+Soft-to-Rigid cases, AC exhibits large overshoots (35.5% and 43.4%, re-             disturbance-observer based sliding mode admittance control (DOSMAC)
+
+                                                                               10
+S. Li et al.                                                                                                                   Control Engineering Practice 169 (2026) 106764
+
+
+
+
+               Fig. 14. Force control results of Experiment III (Rigid-to-Soft). Mean force trajectory (solid) and ﬁve individual trial measurements (markers).
+
+
+
+
+               Fig. 15. Force control results of Experiment III (Soft-to-Rigid). Mean force trajectory (solid) and ﬁve individual trial measurements (markers).
+
+
+achieves superior force-tracking performance compared with conven-                        sliding-mode convergence in DOSMAC, in both cases driving the sys-
+tional admittance control (AC) and adaptive variable admittance con-                      tem to respond more aggressively. Consequently, overshoot becomes
+trol (AVAC). From a theoretical perspective, AC with zero virtual stiﬀ-                   larger in softer environments. This highlights a fundamental diﬀerence
+ness guarantees stability only under a constant environment stiﬀness;                     between passive and active control strategies: passive schemes, such
+however, its inability to compensate for time-varying stiﬀness and po-                    as AC, tend to overshoot more in hard environments, whereas active
+sition errors results in signiﬁcant tracking degradation, as conﬁrmed                     schemes, such as AVAC and DOSMAC, are more prone to overshoot in
+by both simulations and experiments. AVAC improves steady-state ac-                       soft environments.
+curacy by adjusting damping parameters based on force error, yet its                          In the context of robotic ultrasound, these ﬁndings have important
+adaptation mechanism eﬀectively introduces an integral action that am-                    implications. Excessive overshoot, as observed with AVAC, results in
+pliﬁes error accumulation during initial contact, leading to large over-                  transiently large probe–tissue contact forces that may cause discom-
+shoot. In contrast, DOSMAC reformulates the dynamics by lumping all                       fort or harm, while steady-state errors impact probe stability and image
+unknown eﬀects of varying stiﬀness and position estimation errors into                    quality. The ability of DOSMAC to combine small overshoot with high
+a disturbance term, which is then estimated and compensated through a                     steady-state accuracy, therefore, represents a critical advantage for en-
+disturbance observer. Together with the sliding mode control law, this                    suring both patient safety and reliable imaging outcomes.
+ensures that the sliding variable converges to zero even in the presence                      The proposed approach is also consistent with broader trends in ro-
+of uncertainties.                                                                         bust force control, in which disturbance-rejection structures and nons-
+    For the proposed DOSMAC, the sliding mode framework enables fast                      mooth regulation are increasingly used to handle uncertainties in robot–
+convergence of the force error, while the disturbance observer reduces                    environment interaction. The integration of observer-based disturbance
+the impact of unmodeled dynamics, thereby reducing reliance on large                      estimation with a sliding-mode mechanism also resonates with model-
+switching gains and mitigating chattering. Moreover, steady-state ac-                     free or minimally modeled adaptive control strategies designed for time-
+curacy is improved by compensating for the time-varying stiﬀness and                      varying interaction conditions.
+position-related terms that degrade the performance of AC and AVAC,                           Several practical considerations should be noted. First, although
+which explains the lower RMSE observed across complex interaction                         the probe orientation is ﬁxed in this study, improper orientation may
+scenarios. These results indicate that the theoretical stability guaran-                  aﬀect imaging quality. In clinical scenarios, real-time surface-normal
+tees established through Lyapunov analysis are eﬀectively realized in                     following will be essential, and integrating DOSMAC with orientation
+practice.                                                                                 control will be addressed in future extensions. Second, potential time
+    It is worth noting that the experimental results show that both                       delays arising from sensing and low-level servo loops are not explic-
+AVAC and DOSMAC exhibit larger overshoot in the initial contact phase                     itly modeled, following the standard assumption that such delays are
+when interacting with softer environments. This phenomenon can be                         small relative to the controller bandwidth. Delay-aware analysis or
+explained by examining the underlying control mechanisms. For AC,                         compensation could be incorporated in future extensions, drawing on
+which essentially relies on the stiﬀness-dependent force–displacement                     recent advances in time-varying delay systems. Third, phantom-based
+relationship, harder environments produce sharper force changes for                       validation provides repeatable conditions but does not fully capture the
+the same displacement, making the system more prone to transient over-                    variability of in vivo tissues; further evaluation in human–robot inter-
+shoot; in softer environments, the same displacement induces only small                   action scenarios will be needed to assess clinical applicability. Finally,
+force variations, resulting in smaller overshoot. In contrast, AVAC and                   a single set of controller parameters was used across all experiments,
+DOSMAC are active compensation controllers. In soft environments, the                     demonstrating robustness to parameter variation and suggesting suit-
+slower rise of the contact force is interpreted as a large tracking er-                   ability for clinical deployment, where patient and tissue dependent re-
+ror, which activates stronger parameter adaptation in AVAC or a faster                    tuning is undesirable (Algorithm 1).
+
+
+                                                                                     11
+S. Li et al.                                                                                                                    Control Engineering Practice 169 (2026) 106764
+
+
+    Consistent force regulation is essential for maintaining reliable              Universities (Grant No. 2024ZYGXZR107); and the National Key Re-
+acoustic coupling and image quality in clinical ultrasound procedures,             search and Development Program of China – “Intelligent Robots” Key
+and the robustness of the proposed framework suggests potential ben-               Special Project (Grant No. 2024YFB4709200).
+eﬁts for safe and repeatable scanning. The controller can be integrated
+with ultrasound imaging pipelines to enable image-guided or quality-               Supplementary material
+aware motion adaptation in future systems. Although validation was
+performed on phantom models, further studies in more realistic human–                 Supplementary material associated with this article can be found, in
+robot interaction scenarios will be explored to assess clinical applicabil-        the online version, at 10.1016/j.conengprac.2026.106764
+ity
+    Overall, the combination of small overshoot, low steady state er-              References
+ror, and strong robustness to stiﬀness and surface-motion variations
+highlights the potential of the proposed DOSMAC framework for safe,                Bao, X., Wang, S., Zheng, L., Housden, R.J., Hajnal, J.V., & Rhode, K. (2023). A novel
+repeatable, and high-quality robotic ultrasound force regulation.                      ultrasound robot with force/torque measurement and control for safe and eﬃcient
+                                                                                       scanning. IEEE transactions on instrumentation and measurement, 72, 1–12.
+                                                                                   Beber, L., Lamon, E., Nardi, D., Fontanelli, D., Saveriano, M., & Palopoli, L. (2024). A
+7. Conclusion                                                                          passive variable impedance control strategy with viscoelastic parameters estimation of
+                                                                                       soft tissues for safe ultrasonography. In 2024 IEEE International conference on robotics
+    This work has addressed the challenge of robust force-tracking con-                and automation (ICRA) (pp. 1298–1304). IEEE.
+                                                                                   Cheng, L., & Tavakoli, M. (2018). Ultrasound image guidance and robot impedance control
+trol in environments with unknown, time-varying stiﬀness and position,                 for beating-heart surgery. Control Engineering Practice, 81, 9–17.
+conditions under which conventional admittance-based methods often                 Dao, H.V., & Ahn, K.K. (2022). Extended sliding mode observer-based admittance control
+experience signiﬁcant performance degradation. To overcome these lim-                  for hydraulic robots. IEEE Robotics and Automation Letters, 7(2), 3992–3999.
+                                                                                   Duan, J., Gan, Y., Chen, M., & Dai, X. (2018). Adaptive variable impedance control for
+itations, a disturbance-observer based sliding mode admittance control                 dynamic contact force tracking in uncertain environment. Robotics and Autonomous
+(DOSMAC) framework was developed, where uncertainties caused by                        Systems, 102, 54–65.
+variations in environmental stiﬀness and estimation errors of the equi-            Duan, X., He, R., Zhao, Q., Chen, X., & Li, C. (2025). Uniﬁed admittance control for accu-
+                                                                                       rate puncture and respiration following based on disturbance observation and model
+librium position were reformulated as a lumped disturbance. Assuming                   predictive control. IEEE Robotics and Automation Letters, 10(4), 3526–3533.
+this disturbance varies slowly with a negligible derivative, it can be ef-         Ferraguti, F., Preda, N., Manurung, A., Bonfe, M., Lambercy, O., Gassert, R., Muradore, R.,
+fectively estimated and compensated through a disturbance observer,                    Fiorini, P., & Secchi, C. (2015). An energy tank-based interactive control architecture
+                                                                                       for autonomous and teleoperated robotic surgery. IEEE Transactions on Robotics, 31(5),
+while the sliding mode component guarantees convergence of the force
+                                                                                       1073–1088.
+error.                                                                             Fu, J., Maimone, G., Iovene, E., Zhao, J., Redaelli, A., Ferrigno, G., & De Momi, E.
+    The proposed approach was validated through both simulation and                    (2025). Human-inspired active compliant and passive shared control framework for
+physical experiments conducted on phantom models with environmen-                      robotic contact-rich tasks in medical applications. IEEE Transactions on Robotics, 41,
+                                                                                       2549–2568.
+tal stiﬀness in the range of approximately 500–3500 N/m. Across all                Hamedani, M.H., Sadeghian, H., Zekri, M., Sheikholeslam, F., & Keshmiri, M. (2021).
+tested scenarios, DOSMAC consistently achieved more accurate force                     Intelligent impedance control using wavelet neural network for dynamic contact force
+tracking than conventional admittance control (AC) and adaptive vari-                  tracking in unknown varying environments. Control Engineering Practice, 113, 104840.
+                                                                                   Hogan, N. (1984). Impedance control: An approach to manipulation. In 1984 American
+able admittance control (AVAC), combining low steady-state error with                  control conference (pp. 304–313). IEEE.
+limited overshoot, even under complex interaction conditions. These                Huang, Q., Lan, J., & Li, X. (2018). Robotic arm based automatic ultrasound scan-
+ﬁndings conﬁrm that the stability properties predicted by the Lyapunov                 ning for three-dimensional imaging. IEEE Transactions on Industrial Informatics, 15(2),
+                                                                                       1173–1182.
+analysis are realized in practice and demonstrate the eﬀectiveness of the          Huo, Z., Yuan, M., Zhang, S., & Zhang, X. (2025). Observer-based adaptive robust force
+slowly varying disturbance assumption in modeling uncertainties during                 control of a robotic manipulator integrated with external force/torque sensor. In Ac-
+robotic ultrasound interactions.                                                       tuators (p. 116). MDPI (vol. 14).
+                                                                                   Ihnatsenka, B., & Boezaart, A.P. (2010). Ultrasound: Basic understanding and learning the
+    While the present validation was restricted to phantom experiments                 language. International Journal of Shoulder Surgery, 4(3), 55.
+with empirically tuned parameters, and the slow-disturbance assump-                Jin, Z., Qin, D., Liu, A., Zhang, W.A., & Yu, L. (2022). Constrained variable impedance
+tion may be challenged in more dynamic environments, the results in-                   control using quadratic programming. In 2022 International conference on robotics and
+                                                                                       automation (ICRA) (pp. 8319–8324). IEEE.
+dicate that DOSMAC provides a reliable and practical framework for ro-
+                                                                                   Jung, S., Hsia, T.C., & Bonitz, R.G. (2004). Force tracking impedance control of robot
+bust force control. By enabling accurate tracking across a wide range                  manipulators under unknown environment. IEEE Transactions on Control Systems Tech-
+of stiﬀness, the method oﬀers a promising foundation for advancing                     nology, 12(3), 474–483.
+robotic ultrasound toward safe and consistent operation in clinical set-           Li, K., Xu, Y., & Meng, M.Q.H. (2021). An overview of systems and techniques for au-
+                                                                                       tonomous robotic ultrasound acquisitions. IEEE Transactions on Medical Robotics and
+tings.                                                                                 Bionics, 3(2), 510–524.
+                                                                                   Mathiassen, K., Fjellin, J.E., Glette, K., Hol, P.K., & Elle, O.J. (2016). An ultrasound robotic
+CRediT authorship contribution statement                                               system using the commercial robot UR5. Frontiers in Robotics and AI, 3, 1.
+                                                                                   Seraji, H. (1994). Adaptive admittance control: An approach to explicit force control in
+                                                                                       compliant motion. In Proceedings of the 1994 IEEE international conference on robotics
+    Sen Li: Writing – original draft, Validation, Software, Methodology,               and automation (pp. 2705–2712). IEEE.
+Investigation, Data curation; Qi Chen: Validation, Software, Resources;            Solanes, J.E., Gracia, L., Munoz-Benavent, P., Esparza, A., Miro, J.V., & Tornero, J. (2018).
+Weihua Li: Funding acquisition, Formal analysis; Mingfeng Wang: Val-                   Adaptive robust control and admittance control for contact-driven robotic surface con-
+                                                                                       ditioning. Robotics and Computer-Integrated Manufacturing, 54, 115–132.
+idation, Conceptualization; Sungsung Pang: Resources, Project admin-               Torabi, M., Shariﬁ, M., & Vossoughi, G. (2018). Robust adaptive sliding mode admittance
+istration; Kai Wu: Writing – review & editing, Supervision, Resources,                 control of exoskeleton rehabilitation robots. Scientia Iranica, 25(5), 2628–2642.
+Funding acquisition.                                                               Wang, C., Zhang, X., Kuang, Z., & Tomizuka, M. (2022). Safe online gain optimization for
+                                                                                       cartesian space variable impedance control. In 2022 IEEE 18Th international conference
+                                                                                       on automation science and engineering (CASE) (pp. 751–757). IEEE.
+Declaration of competing interest                                                  Wu, K., Feng, S., An, H., Carbone, G., & Li, W. (2025). Evaluation of robot kinematic
+                                                                                       performance under motion constraints in a teleoperated robotic ultrasound system.
+    The authors declare that they have no known competing ﬁnancial                     Mechanism and Machine Theory, 207, 105952.
+                                                                                   Wu, Q., Chen, B., & Wu, H. (2019). Adaptive admittance control of an upper extremity
+interests or personal relationships that could have appeared to inﬂuence
+                                                                                       rehabilitation robot with neural-network-based disturbance observer. IEEE Access, 7,
+the work reported in this paper.                                                       123807–123819.
+                                                                                   Yoon, I., Na, M., & Song, J.B. (2024). Assembly of low-stiﬀness parts through admit-
+Acknowledgements                                                                       tance control with adaptive stiﬀness. Robotics and Computer-Integrated Manufacturing,
+                                                                                       86, 102678.
+                                                                                   Zhang, S., Chen, Z., & Zhang, X. (2025a). Robust adaptive nonlinear admittance control
+   This work was supported by the GJYC Program of Guangzhou (Grant                     of robotic manipulators with extra-intra uncertainties and disturbances. International
+No. 2024D03J0005); the Fundamental Research Funds for the Central                      Journal of Robust and Nonlinear Control, 35(11), 4841–4856.
+
+                                                                              12
+S. Li et al.                                                                                                                                   Control Engineering Practice 169 (2026) 106764
+
+
+Zhang, Y., Xie, W., & Ma, R. (2025b). Disturbance observer-based terminal sliding mode               Zhou, Y., Chen, C.Y., Yang, G., & Zhang, C. (2025). Finite-time SMC-based admittance con-
+   control for the training safety improvement in robot-assisted rehabilitation. Intelligence           troller design of macro-micro robotic system for complex surface polishing operations.
+   & Robotics, 5(2), 333–354.                                                                           Robotics and Computer-Integrated Manufacturing, 92, 102881.
+
+
+
+
+                                                                                                13
+

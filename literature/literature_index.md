@@ -5,15 +5,15 @@ This directory retains original papers, extracted texts, sources and actual read
 ## Usage and sources
 
 - Scientific entries: [field state](../research/field_state.md), [candidate methods](../research/optimal_impedance_question_and_methods.md), [transferable mechanisms](../research/transferable_mechanisms.md).
-- ARIS bounded search: [initial query plan](aris_query_plan.json), [gap query plan](aris_gap_query_plan.json), [metadata/screening](aris_literature_search.json), and [scope assessment](../research/related_work_scope_and_coverage.md). As of 2026-10-29: 20 attempts, 130 candidate/local/alias records, seven accepted partial-text cards; no new PDFs or coverage acceptance. These counts are not core-reference counts.
-- Accepted ARIS reading cards: [E32 review](aris_evidence/E32.json), [G22 review](aris_evidence/G22.json), [Lin E57](aris_evidence/E57.json), [Fu H01](aris_evidence/H01.json), [Wang G02](aris_evidence/G02.json), [Cao G13](aris_evidence/G13.json), [CARE G21](aris_evidence/G21.json). Each preserves selected-passage scope and original-source bindings.
-- Pending originals: [one manual-acquisition checklist](manual_fulltext_requests.md), [Controller eight-paper request](aris_human_fulltext_request.json), [batch manifest template](aris_fulltext_manifest_template.json). Raw files go to the ignored local `literature/manual_inbox/`; they are verified and registered before scientific inclusion.
+- ARIS bounded supplementation: [query/screening data](aris_literature_search.json), [independent review](aris_coverage_review.json), [scope](../research/related_work_scope_and_coverage.md). As of 2026-10-29: 25 query attempts, 158 candidate/local/alias records, 20 accepted partial-text cards. Ten valid user originals were archived; one HTML was rejected. None of these counts measures core references or complete coverage.
+- Source-bound reading cards are in `aris_evidence/`: E32/G22 reviews; E57/H01/G02/G13/G21; C01–C08/S01–S02; reused E27/G23/E41. Every card preserves actual selected-passage scope and read/hash binding. [Originals and roles](local_materials_manifest.json) remain authoritative.
+- Current manual issues: [one consolidated checklist](manual_fulltext_requests.md), [Controller one-paper ACT-US request](aris_human_fulltext_request.json), [future registration template](aris_fulltext_manifest_template.json). S03 DOB-MPC needs a valid original replacing the supplied security-verification HTML. Stop for user acceptance; no automatic method/experiment work.
 - Local files/SHA256: [materials manifest](local_materials_manifest.json). Each record identifies PDF/text paths, purpose, source URL, known version and reading scope. Deduplicated files are shared rather than copied.
 - Requested repository 1: [academic-writing-skill literature](https://github.com/yzhongjobs-dotcom/academic-writing-skill/tree/c88d48eb08a876eb9b81a30d37b62d70fa028581/文献资料). Screened 22 identities/abstracts and examined key passages in ten papers; those ten are local. Metadata for twelve others remains in [sample sources](top_venue_sample_sources_and_reading_scope.json), without implying full-text reading.
 - Requested repository 2: [e2e/User Batch V2](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/source-materials/user-batch-v2) and [idea-stage](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/idea-stage). Of the original 61 screened papers, local material includes 25 directly relevant, six partly relevant and five background papers; 25 currently irrelevant papers retain exclusion reasons only. Ten originals added from existing leads are also local.
 - Complete screening, original pages and neighbors without obtained full text appear in [sources/screening](impedance_literature_sources_and_screening.json). Do not copy all 2653 discovery records, 105 old evidence cards or 3822 search events, or treat them as confirmed conclusions.
 
-There are **91** deduplicated local PDFs with corresponding texts. The 94 usage records include field sources, background/method transfer, and independent reverse-analysis samples; this is not the number of core related-work references. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
+There are **101** deduplicated local PDFs with corresponding texts. The 104 usage records include field sources, background/method transfer, and independent reverse-analysis samples; this is not the number of core related-work references. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
 
 ## Original methods and direct evidence
 
@@ -154,6 +154,23 @@ Samples were not selected by relevance to this idea. The ten below had relevant 
 
 VICES (arXiv:1906.08880) is now local as G24. SRL-VIC (arXiv:2406.13744) and Zanella et al. (arXiv:2301.12759) have prior records of relevant original-passage access, but no local PDF was obtained in the earlier consolidation. Their roles/limits are in transferable mechanisms/field state. Yang et al., IFAC2025 (DOI10.1016/j.ifacol.2025.10.191) was checked at abstract level only. Recover earlier online-reading details from the old candidate-2 report at `db28365`; do not register them as local full texts.
 
-Wang TIE2026 is now local as G02, and the Roveda2022 journal original as G08. Wu TIE2026, Zhang TIE2024 MHE-VIC, DOSMAC and some joint-estimation neighbors still have full-text access gaps; see field state/review sources. Missing full text does not imply that a relevant difficulty remains unsolved.
+Wang TIE2026 is local as G02 and Roveda2022 as G08. The former MHE-VIC and DOSMAC gaps are now closed at the recorded original-passage level as S02/S01; remaining access/date issues are in the current manual checklist. Missing full text does not imply that a relevant difficulty remains unsolved.
 
 The unchanged [sample mathematical-boundary results](top_venue_sample_math_checks.json) and [historical verification script](verify_top_venue_samples.py) examine generic constructions only and cannot refute entire papers. Those scientific checks were not run in the consolidation.
+
+## User-supplied originals retained on 2026-10-29
+
+| ID | Scientific role | Original |
+|---|---|---|
+| C01 | Review cross-check | [Bi2024](papers/aris_supplements/C01.pdf) |
+| C02 | Environment estimate to impedance rules | [Roveda/Piga2021](papers/aris_supplements/C02.pdf) |
+| C03 | Hybrid hardware ultrasound force control | [Wu2026](papers/aris_supplements/C03.pdf) |
+| C04 | Adaptive robust interaction-force control | [Huang2025](papers/aris_supplements/C04.pdf) |
+| C05 | Force-admittance execution foundation | [Zeng2026](papers/aris_supplements/C05.pdf) |
+| C06 | Learned ultrasound target-force policy | [Duan2025](papers/aris_supplements/C06.pdf) |
+| C07 | Quasi-static joint geometry/stiffness estimation | [Chalasani2016](papers/aris_supplements/C07.pdf) |
+| C08 | Cutting/passive-CBF resource; earliest-publication eligibility unresolved | [Zhu2026 metadata](papers/aris_supplements/C08.pdf) |
+| S01 | DOSMAC task/observer original | [Li2026](papers/aris_supplements/S01.pdf) |
+| S02 | MHE-VIC original | [Zhang2024](papers/aris_supplements/S02.pdf) |
+
+Selected passages and text paths follow the materials manifest. Library retention does not automatically add a source to the research-status argument. The publisher security page named as S03 was kept only in the ignored inbox, with no PDF admission or paper-evidence claim.

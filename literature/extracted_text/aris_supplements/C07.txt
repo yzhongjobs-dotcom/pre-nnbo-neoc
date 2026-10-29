@@ -1,0 +1,519 @@
+2016 IEEE International Conference on Robotics and Automation (ICRA)
+Stockholm, Sweden, May 16-21, 2016
+
+
+
+
+ Concurrent Nonparametric Estimation of Organ Geometry and Tissue
+            Stiffness Using Continuous Adaptive Palpation
+                                      Preetham Chalasani1 , Long Wang2 , Rajarshi Roy2
+                                    Nabil Simaan2 , Russell H. Taylor1 and Marin Kobilarov1
+
+   Abstract— Surgeons often manually palpate tissue or organs              exploration of flexible anatomy in a manner that benefits
+in order to find tumors or other anatomical structures. In-                from the palpation methods presented in this paper.
+formation about organ geometry and tissue stiffness gained                    Generally, the surface geometry of organs being manip-
+from palpation can also be extremely useful in robotic surgery
+for diagnosis, surgical guidance, and registration to other                ulated is also important to support registration of preoper-
+preoperative information. However, it is not always easy to                ative image data, “augmented reality” information support
+obtain, even if the robot is equipped with force sensors.                  to the surgeon, and improved robot control. Many authors
+This paper reports our approach for concurrent estimation                  (e.g., [13]–[15]) have reported computer vision methods for
+of stiffness and surface geometry, using a continuous motion               estimating surface geometry. Additional information may be
+similar to a sweeping palpation motion used by surgeons. Our
+method relies on force data captured by a tactile sensor rigidly           obtained simply from the robot’s end-effector position at the
+attached to an end-effector probe. We use Gaussian processes               time tissue is contacted, and this information may be used to
+to simultaneously estimate geometry and stiffness. The method              correct for camera-to-robot misalignment. By probing tissue
+is not tied to any specific robotic platform and is consistent with        at a large number of discrete points, it is also possible to build
+a variety of palpation strategies. For simplicity, we discuss the          up a model of tissue stiffness across an organ. However, this
+results based on two different palpation primitives. This is our
+first step towards developing an adaptive high fidelity model              can be extremely time consuming and wasteful.
+reconstruction and path optimization technique.                               Gaussian Processes (GPs) are a standard statistical learn-
+                                                                           ing technique for probabilistic modeling where the model
+                      I. INTRODUCTION                                      parameters can be inferred directly from the data [16]. GP
+   Estimating the stiffness of tissues is extremely useful                 models have proven effective for nonparametric regression,
+for surgeons wishing to identify tumors or other anatomic                  classification, and other complex statistical learning tasks.
+structures. In traditional open surgery, surgeons palpate tissue           A key advantage of the GP approach lies in the ability to
+with their fingers, typically with a sweeping or circular                  provide informative confidence intervals on predicted values
+motion [1]. In minimally invasive or robotic surgery, this                 thus quantifying the quality of reported estimates. In this
+direct access to tissue and haptic feedback is lost, making it             work we employ GPs in two alternative ways, termed direct
+much harder to characterize tissue properties [2]. A number                and latent: 1) by directly learning a force function over the
+of authors (e.g. [3]–[7]) have developed finger-like tactile               3D tissue domain using force measurements collected along
+and force sensors to provide information about tool-to-tissue              palpation paths, and then inferring geometry and stiffness
+interaction forces. Tissue stiffness at a point is determined              from the resulting force model, and 2) by constructing two
+by measuring the change in force as the probe is pressed                   latent GP models over the unknown geometry and stiffness
+into the tissue. Mavash et al. [8] developed a control system              and using a force-stiffness physical relationship to optimally
+for da Vinci surgical system [9], which provides force                     and concurrently estimate the hidden GP parameters using
+feedback with a position-position controller with friction                 force measurements. We then propose an adaptive tissue
+and inertia compensation. Using this system they provided                  sampling strategy by performing path optimization guiding
+some results on stiffness estimation of a tissue model, based              the palpation to the most informative regions.
+on discrete palpation. More recently Xu and Simaan have                       In complementary work to that reported here, our collab-
+developed methods for estimating the force/moment acting at                orators at Carnegie Mellon University are exploring the use
+the tip of continuum robots by using measurements of joint-                of GP in a Bayesian optimization framework to identify stiff
+level actuation forces and extrinsic information regarding the             regions by probing the organ at a smaller number of discrete
+type of interaction with the environment [10], [11]. These                 locations while simultaneously registering the end effector to
+methods have been in used [12] to enable force-controlled                  an a-priori geometric model of the organ [17]. One advantage
+                                                                           of discrete probing is that it permits accurate assessment of
+   *This work was supported in part by NRI grant IIS-1327566, in part by   tissue stiffness and surface location at the point probed. The
+NSF NRI 1208540, and in part by Johns Hopkins University and Vanderbilt    drawback is that it can be inefficient, compared to continuous
+University internal funds
+   1 Preetham Chalasani, Marin Kobilarov and Russell H. Taylor are with    palpation.
+the Department of Computer Science, Johns Hopkins University, Baltimore,      Although continuous palpation can easily yield dense force
+MD 21218. marin@jhu.edu                                                    information along the palpation path, concurrent estimation
+   2 Long Wang, Rajarashi Roy and Nabil Simaan are with the Department
+of Mechanical Engineering, Vanderbilt University, Nashville, TN 37212.     of tissue stiffness and surface geometry becomes more diffi-
+nabil.simaan@vanderbilt.edu                                                cult, since each measured force corresponds to a different
+
+978-1-4673-8026-3/16/$31.00 ©2016 IEEE                                 4164
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+surface position, and estimation away from the path also
+needs to be considered. In this paper, we report the use
+of GPs to provide a concurrent probabilistic estimate of
+surface geometry and tissue stiffness, based on continuous
+palpation with a force measurement probe. The palpation
+motion causes the probe to move laterally across the tissue
+while varying the depth of surface indentation, which can be
+done by varying the force exerted by the probe on the tissue
+or by a variety of position control strategies. Tissue stiffness
+and geometry, together with corresponding uncertainties, are
+                                                                                          ATI Mini 40
+readily computed from the force field estimate.                                           F/T Sensor
+
+
+                    II. METHODOLOGY
+  In this section we list the proposed model assumptions,
+describe the robot setup, and provide details for the two pal-
+pation primitives used to collect data for validation purposes.                                         Fig. 1.   Robot Setup
+
+A. Model Assumptions
+   Our goal is to construct predictive probabilistic models                in the force sensor, so that the motion remains quasi-
+of surface geometry and stiffness, by estimating the force                 static. Two different palpation primitives were employed:
+field, through palpation. For our experiments we used a                    1) Superimposed motion on position and 2) Superimposed
+phantom(Fig 1) made of silicon elastomer (M-F Manufac-                     motion on force.
+turing, Fort Worth, Texas). In this initial development we                    1) Motion Primitive I: This motion is achieved by having
+made the following simplifying assumptions: 1) stiffness                   the desired force follow a sinusoidal profile, in the direction
+can be computed only using the magnitude of the force                      normal to the surface. A constant bias force in the normal
+along a normal direction and depth of contact point, and                   direction will always be active to make sure the probe tip
+2) the relationship between force and stiffness can be well                remains in contact with the surface at all times. The hybrid
+approximated by a linear model of the form                                 position-admittance control of the robot is given by,
+                     f2 − f1 = κ(d2 − d1 ),                        (1)                                        ˙ + M.δvf
+                                                                                                δv = (I − M )δx                                (3)
+where f1 and f2 are the forces at a depth d1 and d2 from                   where, δv is the incremental velocity commanded to the
+the tissue surface, respectively and κ is the stiffness value at           robot, δx is a constant incremental step along the surface
+a surface point s.                                                         of the model and δvf is the incremental velocity calculated
+                                                                           based on contact force Fc and some desired bias force Fd . M
+B. Setup                                                                   is a projection matrix decomposing the forces in the normal
+   This work is intended to be applied to any robotic plat-                direction and (I − M ) projects velocities along the surface.
+form, either by attaching a force sensor probe to the end-                 If the desired force Fd has a constant value, then the motion
+effector or by using other methods (eg [12]) to estimate                   will be the same as (2). The desired force follows a sinusoidal
+tool-tissue interaction force. Our implementation employs                  profile which is defined through
+a simple cartesian robot, with 3 linear stages, as shown in
+                                                                                                 Fd = Fl + Fa Sin(2πωt)                        (4)
+Fig 1. An ATI Mini-40 Force Torque sensor is attached at
+the end-effector for sensory information. The 3 joints of the              and hence
+robot are actuated using Galil Motion Controller and the end-                                           δvf = G(Fc − Fd )                      (5)
+effector probe is driven using admittance control. A simple
+form of admittance control is given by                                     where, Fl is the limiting force, Fa , ω, t are the parameters of
+                                                                           a sin curve with Fa being the amplitude. Fig 2(a) properly
+                        δvf = G(Fc − f ),                          (2)     depicts the motion generated by (3) and (4).
+                                                                              2) Motion Primitive II: This motion is achieved by mak-
+a where δvf is the incremental velocity calculated based on
+                                                                           ing the position follow a sinusoidal profile, in the direction
+contact force Fc detected by the force sensor and and some
+                                                                           normal to the surface. In this case motion due to positional
+constant desired/limiting force f . G is the gain matrix which
+                                                                           increment is allowed in the direction normal to the surface.
+can be manipulated to change the velocity of the robot.
+                                                                           Thus, the velocity profile becomes
+C. Palpation
+                                                                                        δv    = δx˙ ∗ + M δvf ,
+   Palpation is achieved using motion primitives correspond-
+                                                                                              = δx + n̂za Sin(2πωt) + M δvf
+ing to sweeping motions at variable depths, e.g. following a
+sinusoidal depth profile. Optimum frequency and amplitude                  where δx∗ represents the new incremental step calculated
+were empirically calculated for minimal harmonic excitation                based on actual incremental step δx along the surface and de-
+
+                                                                      4165
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+sired incremental step n̂za Sin(2πωt) in the normal direction                                  point x corresponds to a palpation point p = (px , py , pz ) ∈
+n̂. Figure 2 depicts the motion generated by this primitive.                                   R3 along the palpation trajectory described in Section II-C.
+
+       a)                                                                                      A. Stiffness Estimation
+                                                           Surface of the Model
+
+                                                                                                  To estimate stiffness, κ we need predicted forces at two
+                                                                                               different level. For simplicity, we are calculating the stiffness
+      z                                 Stiff feature
+                                                                                               along the z-direction. We predict the forces on a point pc
+                              Motion of the
+                y             probe tip                                                        close to the surface, which can be acquired while palpation.
+                                       x
+                                                                                               Forces are also estimated at a second point set pcd which is
+       b)                                                                                      d units vertically below pc , thus resulting in the following
+                                                                Surface of the
+                                                                Model                          mean and variance of stiffness
+
+      z                                    Stiff feature                                                                         µτ (pcd ) − µτ (pc )
+                                                                                                                  µκ (pc )   =                                          (10)
+                y
+                                    Motion of
+                                    the probe                                                                                              d
+                                    tip                                                                                          r
+                                           x
+                                                                                                                                      2
+                                                                                                                                   Vτ (pc ) + Vτ2 (pcd )
+                                                                                                                  Vκ (pc )   =                           .              (11)
+                                                                                                                                             d2
+            Fig. 2.     a) Motion Primitive I b) Motion Primitive II
+                                                                                               B. Surface Geometry
+                                                                                                 Once we have the estimation of the stiffness, we can
+  III. DIRECT GAUSSIAN PROCESS MODELLING                                                       calculate the mean and variance of the surface geometry
+ A Gaussian Process [18], [19] defines a probabilistic                                         according to
+model over functions, it is commonly defined according to                                                                           µτ (pcd )
+                                                                                                                     µs (pcd )   = pcd +      .
+                            f ∼ GP(µ(x), k(x, x0 )),                                   (6)                                               κ
+                                                                                               Due to the non-linear relationship between stiffness and
+and is completely described by its mean µ(x) and a co-
+                                                                                               surface, the resulting covariance can be approximated [20]
+variance function k(x, x0 ). Given n observations, ȳ =
+                                                                                               according to
+{y1 , . . . , yn }, each observation from data set ȳ can be as-
+                                                                                                                     Vs (pcd ) = JΣJ T ,
+sumed to be sampled from n−variate Gaussian distribution.
+For simplicity, prior mean of a GP is usually assumed to be                                    where
+zero. In our model, the covariance function used is a squared                                                 
+                                                                                                                  1   µτ (pcd )
+                                                                                                                                                           
+                                                                                                                                         Vτ (pcd )
+exponential kernel, because it is flexible and physically                                          J     =          −             ,Σ =                         .
+                                                                                                                  κ      κ2                        Vκ (pcd )
+intuitive:
+                               −kx − x0 k2
+                                          
+         k(x, x0 ) = σf exp                  + σn2 δ(x, x0 ), (7)                              Algorithm 1 GP Batch Process
+                                   2l2
+where σf is the maximum allowable covariance and l is                                                                                     pi , τi }
+                                                                                               Input: Palpated positions and forces, I = {~
+length scale. Gaussian white noise with variance σn is                                         Output: N (µκ , Vκ ), N (µs , Vs )
+added to the covariance through the Kronecker delta function                                      Is (ps , τ ) = SubSample(I)
+δ(x, x0 ).                                                                                        X = ps , Y = τ
+   Since the observations are assumed to be sampled from                                          GP T rain(X, Y )
+a multivariate gaussian distribution, the predictive mean and                                     µτ (pc ), Vτ (pc ) = GP Estimate(pc )
+variance at a query point x∗ are expressed as                                                                                      q cd )
+                                                                                                  µτ (pcd ), Vτ (pcd ) = GP Estimate(p
+                                                                                                                                                 Vτ2 (pc )+Vτ2 (pcd )
+                                                                                                       N (µκ , Vκ ) = N ( µτ (pcd )−µτ (pc )
+                                                                                                                                             ,
+            y∗ |ȳ      ∼     N (k∗ K −1 ȳ, k∗∗ − k∗ K −1 k∗T ),                                                                  d                      d2
+                                                                                                       N (µs , Vs ) = pcd + µτ (p
+                                                                                                                                κ
+                                                                                                                                  cd )
+                                                                                                                                       , JΣJ T
+or, equivalently, the mean and variance of f (x∗ ) are
+                      µf (x∗ |ȳ)       = k∗ K −1 ȳ,                                  (8)
+                                                                                                         IV. L ATENT G AUSSIAN P ROCESS E STIMATION
+                      Vf (x∗ |ȳ)       =         k∗∗ − k∗ K −1 k∗T                    (9)
+                                                                                                  Instead of imposing a model directly on the force field
+using the terms                                                                                measurements, we also consider the construction of models
+                                                                                             on the underlying physical properties of the palpated object.
+         k(x1 , x1 )    ...                k(x1 , xn )
+             ..                                ..                                              In our case these include the physical geometry and the
+ K=
+                        ..                            ,
+                                                       
+                                                                       k∗∗ = k(x∗ , x∗ ),
+              .             .                   .                                              surface stiffness. A key advantage of such an alternative
+            k(xn , x1 ) . . .              k(xn , xn )                                         approach is that prior information about these properties
+                                                                                               and about their relationship to force measurements could be
+                       k∗ = [k(x∗ , x1 ) . . . k(x∗ , xn )].
+                                                                                               incorporated as part of the estimation process. This is in
+  Now, using the above formulation, we define a GP model                                       contrast to first estimating an unconstrained force field and
+over force field τ (x) ∼ GP(µτ (x), kτ (x, x0 )) where each                                    then deriving the surface and stiffness from the force model.
+
+                                                                                            4166
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+                                                           Fig. 3.   True Surface and geometry
+
+
+
+
+Fig. 4. Direct GP estimation a) Contour plot of True stiffness; b) Contour plot of estimated mean of stiffness; c) Contour Plot of estimated error in
+stiffness; d) Contour plot of True surface height; e) Contour Plot of estimated mean of the surface geometry; f) Contour plot of estimated error in surface
+geometry
+
+
+
+   Our approach is therefore to place a GP model over the                      measurements of the forces obtained at 3-D locations p. We
+surface s(x) ∼ GP (µs (x), ks (x, x0 )) and over the stiffness                 first introduce a general approach to latent GP estimation and
+κ(x) ∼ GP (µκ (x), kκ (x, x0 )). Existing knowledge about the                  then demonstrate its application to the palpation scenario.
+stiffness spatial correlation (e.g. size of abnormal tissue) and
+                                                                               A. Nonlinear Regression using Latent GP estimation
+about the variability and roughness of the surface can be
+captured through proper choice of GP covariance parameters.                       Consider the problem of estimating a vector-valued func-
+For simplicity, we will again assume that the object geometry                  tion f : Rnx → Rny , defined according to
+can be represented as a graph of the height pz over the 2-D                                                  
+                                                                                                               f1 (x)
+                                                                                                                       
+(px , py ) domain. Similarly, we will be concerned with esti-                                                     ..
+                                                                                                 y = f (x) ≡ 
+                                                                                                                      
+mating the stiffness near the object surface which motivates                                                       .   
+representing stiffness using a graph over the (px , py ) domain.                                                         fn (x)
+                                                                               with inputs x ∈ Rnx and outputs y ∈ Rny .
+  The key challenge is that there are no direct measurements
+                                                                                 Assume that y cannot be directly observed and instead we
+of stiffness κ(x) or surface s(x) at locations x = (px , py ).
+                                                                               have access to noisy observations z ∈ Rnz such that
+We propose to treat the output data of these GPs as hidden
+variables that will be optimally estimated using the induced                                        z(x) = h(x, f (x)) + (x),
+
+                                                                          4167
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+Fig. 5. Latent GP estimation a) Contour plot of True stiffness; b) Contour plot of estimated mean of stiffness; c) Contour Plot of estimated error in
+stiffness; d) Contour plot of True surface height; e) Contour Plot of estimated mean of the surface geometry; f) Contour plot of estimated error in surface
+geometry
+
+
+
+where h(x, y) is a known nonlinear function with additive                      using a maximum-likelihood approach by optimizing
+Gaussian noise (x) ∼ N (0, Σ (x)). The goal is to optimally
+                                                                                    min − log p(f |Dz , Dy )
+estimate f using a set of Mz collected observation pairs                              θ
+                     Mz
+Dz = {(xj , zj )}j=1      .                                                      = min − log p(z̄|f, x̄, ȳ) − log p(f |x̄, ȳ)
+                                                                                      θ
+   Although f (x) is unknown, we assume that we have                                                                                                    (12)
+                                                                                          Mz
+some knowledge about the spatial correlation between its                         = min
+                                                                                          X
+                                                                                                    kh(xj ,f (xj ; θ))−zj k2Σ−1 (x )+kθ−θ0 k2P −1 ,
+inputs and outputs which motivates its representation as a                            θ
+                                                                                              j=1
+                                                                                                                                 j           0
+
+Gaussian Process, i.e. f (x) ∼ GP (µ(x), k(x, x0 )). Note that
+we can assume that all outputs fi and fj for all i 6= j are                    where the GP form of f is given by
+uncorrelated in which case k(x, x0 ) ∈ Rny ×ny is diagonal or                                            f (xj ; θ) = k̄(xj )T K −1 ȳ,
+that they are coupled [21] in which case k(x, x0 ) will have
+off-diagonal elements. Normally the posterior of such a GP                     where
+                                                               My
+would be constructed given data pairs Dy = {xj , yj }j=1
+                                                                                                                                         
+                                                                                          k(x, x1 )          k(x1 , x1 ) · · · k(x1 , xMy )
+which in our case are unavailable, or latent. Our approach is                                 ..                 ..      ..          ..
+                                                                               k̄(x) =             , K =                                 .
+                                                                                                                                         
+to select the points xj in Dy using some rule (e.g. they                                       .                  .          .        .
+could be a subset of those in Dz or otherwise could be                                   k(x, xMy )          k(xN , x1 )       k(xN , xN )
+placed on a uniform grid over the domain of interest) and                      The formulation (12) corresponds to a nonlinear least-squares
+to regard the outputs yj in Dy as unknown variables to                         problem in view of the residual vector r = (r1 , · · · , rMz )
+be optimally estimated. In addition, the GP hyperparameters                    where each residual is defined by
+θhyper (e.g. the maximum covariance and length-scale using
+in standard kernels) could also be treated as unknowns. We                             rj (x; θ) = h(x, f (x; θ)) − zj ,          j = 1, . . . , Mz .
+thus form the vector of latent variables θ = (ȳ, θhyper ) where               The gradient of each residual can be readily computed as
+ȳ = (y1 , . . . , yMy ) and assume that a prior is available as
+                                                                                               ∇θ rj (x, θ) = K −1 k̄(x)∇y h(x, f (x)).
+                           θ ∼ N (·|θ0 , P0 ),
+                                                                               A desirable property of the gradient ∇r(θ) is that
+with a known mean θ0 and covariance matrix P0 .                                ∇r(θ)∇r(θ)T is full rank, which requires that Mz ≥ My ny .
+  The most likely GP model of f can now be estimated                           Note that all quantities K −1 k̄(xj ) are precomputed and
+
+                                                                          4168
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+cached before a least-squares solver such as Levenberg-                    for each i = 1, . . . , ns with t0 = 0 and tns provided as a
+Marquardt is applied.                                                      fixed parameter.
+  The resulting error covariance of the estimate θ∗ can be                    Under this parametrization at time t ∈ [ti , ti+1 ] the
+approximated as                                                            position of the tip p(t) and its heading angle θ(t) are
+                  1                                                                      px (ti )+ ωvi+1
+                                                                                       
+        P ≈               kr(θ)k2 (∇r(θ)∇r(θ)T )−1 .                                                     (sin θi+∆ −sin θi ), if ωi+1 6= 0
+              Mz − My n y                                                     px (t) =               i+1
+                                                                                         px (ti )+vi+1 ∆ti cos θi ,              otherwise
+in case of uninformative priors (with P0 = ∞). This                                      py (ti )+ ωvi+1
+                                                                                       
+                                                                                                         (cos θ i −cos θ i+∆ ), if ωi+1 6= 0
+expression can be easily extended to the case when a prior                    py (t) =               i+1
+                                                                                         py (ti )+vi+1 ∆ti cos θi ,              otherwise
+is employed.
+                                                                             pz (t) = pz (ti ) + ∆ti di+1
+B. Application to palpation-based model construction                         θ(t) = θ(ti )+∆ti ωi+1 ,
+   We next apply the proposed latent GP approach to the
+                                                                           where ∆ti = t − ti , θi = θ(ti ), and θi+∆ = θi + ∆ti ωi+1 .
+palpation problem. The measurements z ∈ R≥0 denote the
+                                                                             We consider two different cost functions defined for given
+norm of a force recorded by the robot at a commanded
+                                                                           candidate paths p(t): one minimizing the variance of stiff-
+end-effector point p = (px , py , pz ) ∈ R3 . Our model has
+                                                                           ness, and thus seeking to improve the overall model quality,
+two hidden outputs y = (κ, s) where κ denotes the surface
+                                                                           and the other seeking maximum stiffness. The costs are
+stiffness and s denotes the surface height over a given point
+                                                                           defined, respectively, by
+x = (px , py ). The function h then defines the physical                             ( Rt
+                                                                                            f
+relationship between force, depth, and stiffness according to                                 −Vκ (p(t))dt,               : variance,
+                                                                            J(ξ) =      Rtt0f               p
+                     h(x, y) = κ(s − pz (x)),                                            t0
+                                                                                              −µκ (p(t)) − β Vκ (p(t))dt : UCB,
+
+where the function pz (x) simply looks up the recorded height              where β is a user-defined constant determining the upper
+at given recorded location x = (px , py ). We assume that the              confidence bound (UCB) on stiffness estimate and is used to
+force measurements have variance Σ = σf2 with σf = 0.01                   balance between visiting known stiff regions and exploring
+N.                                                                         uncertain but potentially stiffer regions. We set β = 1.96
+   We model the two outputs as independent GPs in which                    corresponding to 95% confidence in the stiffness estimate.
+case we have a diagonal kernel covariance                                  Both costs are computed by approximating the integrals
+                                                                           using a finite number of points pi along p(t) and predicting
+                          kκ (x, x0 )
+                                                 
+            k(x, x0 ) =                             ,                      the mean µκ (pi ) and variance Vκ (pi ) from the current GP
+                                      ks (x, x0 )                          models.
+where kκ defines the GP covariance for the stiffness and                      The actual optimization of J(ξ) is performed using the
+ks the one for the surface. We employ a standard squared                   cross-entropy method [22], [23] which is a global opti-
+exponential kernel for both with different parameters.                     mization method that places a Gaussian density over ξ
+   The gradient of the force required for the solution of (12)             and iteratively updates this density until it has concentrated
+is simply                                                                around the optimal ξ ∗ minimizing the cost function. This
+                                s − pz (x)                                 method was chosen since it can handle non-smooth and
+               ∇y h(x, y) =                   .
+                                    κ                                      highly irregular cost landscapes such as those that occur
+                                                                           during non-parametric estimation.
+                V. ADAPTIVE SAMPLING
+   The key advantage of using GPs to estimate object proper-                            VI. RESULTS AND DISCUSSION
+ties, including stiffness and geometry, lies in the availability              We applied the approach discussed in Section III to a
+of uncertainty confidence intervals. By predicting both the                palpation set which consists of 77000 palpation points and
+mean and the variance one can adaptively guide palpation                   force pairs. For verification purposes, we initially estimated
+towards informative regions of interest. This is accomplished              the true stiffness and geometry using all the palpation
+through local continuous tool-tip path optimization aiming                 points. However, a subset of n = 2500 points were used
+to: 1) reduce the overall model uncertainty, or 2) locate                  for training and a different set of m = 1000 points were
+abnormally stiff features as quickly as possible.                          used for prediction. For display purposes we interpolated
+   The optimized adaptive sampling is formulated as a                      the estimated stiffness and geometry over a regular grid with
+stochastic optimization over trajectories parametrized using               1mm cell size. For this experiment, we used a length scale
+a finite dimensional vector ξ. The parameter encodes a                     of 5mm and optimized just the variance parameter,σf , by
+sequence of ns arcs in 3-D space and is defined as                         maximizing the negative log-likelihood, as described in [18].
+                                                                           The resultant value of σf was 0.86, which complies with
+              ξ = (v1 , ω1 , d1 , . . . , vns , ωns , dns ),
+                                                                           the observations, because the maximum force applied on the
+where vi denotes the horizontal forward velocity, ωi the                   object was around 1.6N and it lies in the 95% confidence
+horizontal angular velocity, di the rate of change of depth.               level of the maximum variance.We approximately modeled
+The motion is generated by assuming that the tip moved with                the noise parameter, σn = 0.01N , by analyzing the noise
+constant velocity (vi , ωi , di ) during time inverval [ti−1 , ti ],       observed in force measurements measured when various
+
+                                                                      4169
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+Fig. 6. Adaptive sampling: a) GP Model over Stiffness; b) True Stiffness; c) Contour Plot of the true stiffness; d) Executed trajectory path; e) Estimated
+stiffness f) Estimated upper confidence level of stiffness
+
+
+
+static loads were applied on the sensor. Fig 4 compares                           Adaptive sampling was tested by initializing at a random
+the resulting estimation to the ground truth estimates from                    location. It was interesting to observe, in the executed path
+77000 samples, in Fig 3. Stiffness error for this particular set               shown in Fig 6d, that the simulated trajectory constantly
+of samples was 120.4 mN/mm and the root mean squared                           follows a spiral motion at stiff regions or unexplored regions,
+error of the surface geometry was 2.6161mm. This accuracy                      which is identical to what a person would intuitively do,
+in stiffness/surface estimation is sufficient for a surgeon to                 to characterize the surface properties. This shows that the
+detect stiff features or abnormal growth of tissue.                            trajectory, simulating the motion of the probe, adaptively
+                                                                               changes the trajectory parameters to minimize the uncertainty
+   We also tested our approach against varying sizes of input
+                                                                               at unexplored and stiff regions. Fig 6e reveals the underlying
+samples. The variance in the force field decreases as the
+                                                                               stiff feature based on the executed trajectory in Fig 6d. How-
+number of training samples were increased. This makes
+                                                                               ever, a significant noise is observed in the estimated stiffness
+sense because, it is expected to see a low uncertainty in the
+                                                                               field, and it is likely due to incorrect force interpolation at
+prediction of an unknown observation, when the prediction is
+                                                                               the current location p(t). We did multiple restarts
+based on large number of neighboring known observations.
+RMS error in surface geometry however decreases very
+slowly as the number of training samples are increased.
+The reason for this behavior is because of the way we                             We have also applied the approach, described in IV, to the
+are calculating the surface geometry. The error in surface                     palpation problem using Mz = 2000 data points by selecting
+estimation is not only propagated from the force uncertainty,                  the locations xj in the latent GP dataset Dy to be on a regular
+but also from stiffness uncertainty. An alternative way of                     grid with 5mm cell size resulting in My = 256 points. For
+calculating the surface geometry, using the force field, is to                 this experiment we employed very wide priors specifying
+do a linear search in vertical direction, at each grid point, and              that surface mean is at 15 mm with standard deviation of
+look for the distribution where the mean is zero and has the                   20 mm and a stiffness at 500 N/m with standard deviation
+minimum variance. This will give an estimate of the surface,                   of 1000 N/m were used. Figure 5 compares the resulting
+with a much higher confidence than the one computed using                      estimated function to the ground truth estimates from 77000
+the predictive distribution of stiffness.                                      points.
+
+                                                                          4170
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+      VII. CONCLUSIONS AND FUTURE WORK                                            [7] H. Liu, D. P. Noonan, B. J. Challacombe, P. Dasgupta, L. D. Senevi-
+                                                                                      ratne, and K. Althoefer, “Rolling mechanical imaging for tissue ab-
+   This paper explored different ways to employ Gaussian                              normality localization during minimally invasive surgery,” Biomedical
+Processes for concurrent estimation of surface geometry                               Engineering, IEEE Transactions on, vol. 57, no. 2, pp. 404–414, 2010.
+and stiffness, based on continuous palpation primitives. One                      [8] M. Mahvash, J. Gwilliam, R. Agarwal, B. Vagvolgyi, L.-M. Su,
+                                                                                      D. D. Yuh, and A. Okamura, “Force-feedback surgical teleoperator:
+is specification of GP model over force field. Estimated                              Controller design and palpation experiments,” in Haptic interfaces
+distribution of force is then used to predict the probabilistic                       for virtual environment and teleoperator systems, 2008. haptics 2008.
+mean of stiffness and geometry, along with variance which                             symposium on, March 2008, pp. 465–471.
+                                                                                  [9] G. Guthart and J. Salisbury, J., “The IN T U IT IV E T M telesurgery
+is estimated by error propagation. For the second approach,                           system: overview and application,” in Robotics and Automation, 2000.
+individual GP models were specified over geometry and                                 Proceedings. ICRA ’00. IEEE International Conference on, vol. 1,
+stiffness. This approach treats the output as hidden variables,                       2000, pp. 618–621 vol.1.
+                                                                                 [10] K. Xu and N. Simaan, “Intrinsic wrench estimation and its perfor-
+which are optimally measured using induced force measure-                             mance index for multisegment continuum robots,” IEEE Transactions
+ments. Correlation between geometry and stiffness is cap-                             on Robotics, vol. 26, no. 3, pp. 555–561, 2010.
+tured by having proper choice of GP covariance parameters.                       [11] ——, “An investigation of the intrinsic force sensing capabilities of
+                                                                                      continuum robots,” IEEE Transactions on Robotics, vol. 24, no. 3, pp.
+   These approaches were validated on data collected by                               576–587, 2008.
+continuous motion primitives, based on some model assump-                        [12] A. Bajo and N. Simaan, “Hybrid Motion/Force Control of Multi-
+tions. We also provided a means to adaptively sample the                              Backbone Continuum Robots,” The International journal of robotics
+                                                                                      research, no. 9, pp. 1–13.
+robot trajectory, using stochastic optimization on a bayesian                    [13] J. Totz, S. Thompson, D. Stoyanov, K. Gurusamy, B. Davidson,
+cost, for collecting optimal number of samples, to have                               D. Hawkes, and M. Clarkson, “Fast semi-dense surface reconstruction
+maximum information gain. This helps reduce the palpation                             from stereoscopic video in laparoscopic surgery,” in Information
+                                                                                      Processing in Computer-Assisted Interventions, ser. Lecture Notes in
+time, as the velocity changes adaptively based on uncertainty                         Computer Science, D. Stoyanov, D. Collins, I. Sakuma, P. Abolmae-
+at the feature of interest.                                                           sumi, and P. Jannin, Eds. Springer International Publishing, 2014,
+   In the future, we plan to repeat our experiments on ex-                            vol. 8498, pp. 206–215.
+                                                                                 [14] A. Schoob, D. Kundrat, L. Kahrs, and T. Ortmaier, “Comparative
+vivo organs and will extend our results to account for gross                          study on surface reconstruction accuracy of stereo imaging
+motions of the tissue. We will also explore path optimization                         devices for microsurgery,” International Journal of Computer Assisted
+techniques for faster task execution, which will include hy-                          Radiology and Surgery, pp. 1–12, 2015. [Online]. Available:
+                                                                                      http://dx.doi.org/10.1007/s11548-015-1240-z
+brid strategies of combining coarse fast palpation to identify                   [15] M. Parchami, J. Cadeddu, and G.-L. Mariottini, “Endoscopic stereo
+regions with slow accurate palpations to get better values                            reconstruction: A comparative study,” in Engineering in Medicine and
+or delineate edges. We will also investigate Multi-output                             Biology Society (EMBC), 2014 36th Annual International Conference
+                                                                                      of the IEEE, Aug 2014, pp. 2440–2443.
+Gaussian Processes as an alternative for concurrent surface                      [16] C. K. Williams and C. E. Rasmussen, “Gaussian processes for regres-
+and stiffness estimation.                                                             sion,” 1996.
+                                                                                 [17] E. Ayvali, R. A. Srivatsan, L. Wang, R. Roy, N. Simaan, and
+                      ACKNOWLEDGMENT                                                  H. Choset, “Using Bayesian optimization to guide probing of a flexible
+                                                                                      environment for simultaneous registration and stiffness mapping,” The
+  We thank our colleagues at Carnegie Mellon University,                              International Conference on Robotics and Automation (ICRA), 2016.
+Howie Choset, Elif Ayvali and Arun Srivatsan, for their                          [18] C. E. Rasmussen, “Gaussian processes for machine learning,” 2006.
+helpful insight while developing the ideas presented here.                       [19] M. Ebden, “Gaussian processes for regression: A quick introduction,”
+                                                                                      The Website of Robotics Research Group in Department on Engineer-
+We are also grateful to Peter Kazanzides, for his technical                           ing Science, University of Oxford, 2008.
+assistance and valuable advice.                                                  [20] K. O. Arras, “An introduction to error propagation: Derivation, mean-
+                                                                                      ing and examples of cy= fx cx fx,” Tech. Rep., 1998.
+                             R EFERENCES                                         [21] P. Boyle and M. Frean, “Dependent gaussian processes,” in In Ad-
+                                                                                      vances in Neural Information Processing Systems 17. MIT Press,
+ [1] T. Coles, D. Meglan, and N. John, “The role of haptics in medical                2005, pp. 217–224.
+     training simulators: A survey of the state of the art,” Haptics, IEEE       [22] R. Y. Rubinstein and D. P. Kroese, The cross-entropy method: a unified
+     Transactions on, vol. 4, no. 1, pp. 51–66, Jan 2011.                             approach to combinatorial optimization. Springer, 2004.
+ [2] J. Gwilliam, Z. Pezzementi, E. Jantho, A. Okamura, and S. Hsiao,            [23] M. Kobilarov, “Cross-entropy motion planning,” International Journal
+     “Human vs. robotic tactile sensing: Detecting lumps in soft tissue,” in          of Robotics Research, vol. 31, no. 7, pp. 855–871, 2012.
+     Haptics Symposium, 2010 IEEE, March 2010, pp. 21–28.
+ [3] I. Wanninayake, L. Seneviratne, and K. Althoefer, “Estimation of
+     tissue stiffness using a prototype of air-float stiffness probe,” in
+     Robotics and Automation (ICRA), 2014 IEEE International Conference
+     on, May 2014, pp. 1426–1431.
+ [4] D. Uribe, R. Stroop, T. Hemsel, and J. Wallaschek, “Development of a
+     biomedical tissue differentiation system using piezoelectric actuators,”
+     in Frequency Control Symposium, 2008 IEEE International, May
+     2008, pp. 91–94.
+ [5] A. Sabatini, P. Dario, and M. Bergamasco, “Interpretation of
+     mechanical properties of soft tissues from tactile measurements,”
+     in Experimental Robotics I, ser. Lecture Notes in Control and
+     Information Sciences, V. Hayward and O. Khatib, Eds. Springer
+     Berlin Heidelberg, 1990, vol. 139, pp. 452–462. [Online]. Available:
+     http://dx.doi.org/10.1007/BFb0042534
+ [6] J. Dargahi, S. Najarian, V. Mirjalili, and B. Liu, “Modelling and testing
+     of a sensor capable of determining the stiffness of biological tissues,”
+     Electrical and Computer Engineering, Canadian Journal of, vol. 32,
+     no. 1, pp. 45–51, Winter 2007.
+
+
+                                                                             4171
+Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 14:54:19 UTC from IEEE Xplore. Restrictions apply.
+
