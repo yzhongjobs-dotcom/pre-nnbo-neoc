@@ -14,7 +14,7 @@ Updated 2026-10-29. This file records the current state and what the project doe
   - Real-robot experiments come later.
   - New long-term constraints are written only after the user confirms them.
 
-**Latest user scope and stop (2026-10-29):** Continue ARIS supplementation, self-correct drift, admit only scientifically relevant research status, then stop for acceptance. Available-material delivery is ready: ten valid new originals, three reused primary representatives, 20 accepted partial-text cards; main prose updated. Do not automatically resume experiments, ideas or further searches. Two original/timing issues remain (invalid DOB-MPC HTML and missing ACT-US), with explicit coverage limits; see the manual checklist.
+**Latest user scope and stop (2026-10-29):** User supplied the previous two missing papers and required first studying `D:/桌面/科研经验总结` seriously. Read its README, literature workflow/stage standard, anti-patterns and relevant Li/Xue/TUM/Jin original analyses, then applied its information→decision→task-benefit→condition/cost standard in the existing scope/account. ACT-US and valid DO-MPAC are now processed; reused R11/E45 deepen historical mechanisms. New direct neighbors found through actual backward-citation checks need two originals plus one citation identity; one consolidated manual request is ready. Stop at this evidence-acquisition boundary, not a completion/novelty verdict. No automatic methods, training or experiments.
 
 ## 2. Question and current method
 
@@ -65,7 +65,7 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 1. **Fair closest-prior comparison** (main set in methods §2.8):
    - Xue (full adaptation);
    - Wang TIE2026 G02;
-   - DOSMAC (lumped DOB plus sliding-mode admittance; use the standard form if the full text is unavailable, and say so);
+   - DOSMAC and DO-MPAC (original observer/sliding or analytical predictive control equations now available; use the originals);
    - Cao-style vision compensation, using noisy, delayed true surface motion.
 
    Fixed high/low impedance only shows the classical tradeoff. Give every method the same tuning data.
@@ -82,11 +82,11 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 
    Platform availability is unconfirmed; ask the user.
 7. **Literature gaps:**
-   - DOSMAC and Zhang MHE-VIC now have the recorded original-passage evidence; remaining access and coverage issues are in section6;
-   - the DOB plus model-predictive admittance ultrasound lead (January2027 issue; earliest online date pending);
-   - joint-estimation citation chains.
+   - DOSMAC, MHE-VIC, DO-MPAC and ACT-US now have original-passage evidence;
+   - new IJRR explicit force control and RA-L force-strain/image target regulation require originals; Li2026b trajectory-aware feedforward remains a citation identity lead;
+   - only material remaining citation/coverage questions are continued after the current batch; see section6.
 
-   Available-material supplementation is delivered with20 selected-passage Evidence Cards; current remaining originals and coverage limits are in section6. Wait for user acceptance; no comparison or simulation is started.
+   Available-material supplementation is delivered with24 selected-passage Evidence Cards; the current two-paper formal batch and one additional citation lead are in section6. Wait for user files/acceptance; no comparison or simulation is started.
 8. **Update** the paper overview and the simulation section after items 1–5.
 
 **Open user decisions:**
@@ -107,22 +107,26 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 | Field state and related-work scope | [field_state.md](../research/field_state.md), [related_work_scope_and_coverage.md](../research/related_work_scope_and_coverage.md) |
 | Methods, C1/C2 specification, closest-prior comparison | [optimal_impedance_question_and_methods.md](../research/optimal_impedance_question_and_methods.md) |
 | How top papers form methods and run experiments | [reverse analysis](../research/independent_reverse_analysis_of_top_journal_methods.md), [simulation setup analysis](../research/simulation_setup_reverse_analysis.md), [transferable mechanisms](../research/transferable_mechanisms.md) |
-| Literature | [literature index](../literature/literature_index.md): 101 unique PDFs, 104 usage records |
+| Literature | [literature index](../literature/literature_index.md): 103 unique PDFs, 106 usage records |
 | Experiments | [experiment index](../experiments/experiment_index.md), [cobot benchmark](../experiments/cobot_scan_benchmark/README.md) |
 
 ## 6. Rules and recovery
 
 - Preserve `00_基线快照_2026-10-14/` byte for byte. File check: `python -X utf8 literature/verify_materials.py`.
 - Early B0 and 2D experiment directories, plus superseded drafts, were removed from the working tree on 2026-10-26. Recover them from Git `b7a3f91`. Their lessons are in the experiment index and the failure review.
-- **ARIS delivery for user acceptance (2026-10-29):**
-  - run `c1-related-work-20261026`, root `D:/pip_env/temp/scan_impedance_literature_20261026/aris_run`; approved policy/cutoff unchanged, canonical SHA256 `b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`.
-  - current stage **HUMAN_SEARCH_REQUIRED / human_fulltext_batch**. Original eight-paper batch completed. Current formal request is ACT-US only; the [consolidated checklist](../literature/manual_fulltext_requests.md) also identifies the invalid DOB-MPC file. Do not claim completion without these direct-neighbor/timing gaps.
-  - 11 user files: ten valid PDFs retained, one Elsevier security-verification HTML not admitted as paper Evidence. Library is 101 unique PDFs /104 usage records. Existing PDF/text bytes and B0 snapshot unchanged.
-  - 25 query attempts (20 completed, five preserved historical adapter failures), 158 candidate/local/alias records; 103 OUT_OF_SCOPE, two DUPLICATE, two HOLD_IDENTITY, 51 IN_SCOPE. Do not use these as core-paper counts. Latest backbone refinement returned two below-threshold diagnostic abstracts; it does not certify high-citation coverage.
-  - 20 accepted selected-passage cards: earlier E32/G22/E57/H01/G02/G13/G21; new C01–C08/S01–S02; reused E27/G23/E41. [Field state](../research/field_state.md) incorporates task/control capabilities and conditions; reviews/resources do not automatically enter the main comparison.
-  - DOSMAC S01 now has original equations: lumped stiffness/position compensation in zero-K admittance; hardware combined variation comes from fixed curved surfaces, simulation uses true nominal position. MHE-VIC S02 assumes a premeasured/static normal surface; MHE estimates Ke/De/robot disturbance and rules update gains. E27/G23 learning interfaces and E41 OS/MS optimization are source-grounded, not algorithm-name overlap judgments.
-  - independent fresh-context [review](../literature/aris_coverage_review.json) returned **CONTINUE**, accepted via the actual native-child transcript. Registry omissions for learned/predictive representatives were corrected afterward; no second sufficient-coverage review claimed. The [formal map](../literature/aris_active_field_map.md) remains the last17-card PARTIAL version, while3 newer cards await allowed map revision after the pending batch. Historical search and unavailable decisive evidence remain explicit limits.
-  - [Search/decisions](../literature/aris_literature_search.json), [scope and self-corrections](../research/related_work_scope_and_coverage.md), [current request](../literature/aris_human_fulltext_request.json), [manifest template](../literature/aris_fulltext_manifest_template.json). Do not replay old download requests or start from scratch.
-  - **Stop for user acceptance now.** If the user supplies the remaining originals and asks to resume: verify originals/date, register and read the current ACT-US batch, inspect DOB-MPC, then revise the same map/account and review the remaining material coverage gaps. No automatic C2 work, tuning, simulations or method selection.
+- **ARIS current delivery (2026-10-29):**
+  - run `c1-related-work-20261026`, root `D:/pip_env/temp/scan_impedance_literature_20261026/aris_run`; approved2026-10-26 cutoff/policy unchanged, canonical SHA256 `b7d45f09459c9ed5d5d9b36278fe1cce280d8a76da068e148e25fc00814f91c7`.
+  - stage **HUMAN_SEARCH_REQUIRED / human_fulltext_batch**. Previous ACT-US and invalid-HTML DO-MPAC issues are resolved: both valid originals retained. S03 PDF1 confirms available online2026-09-04 despite2027 issue. ACT-US exact online day remains unspecified; no priority claim depends on it.
+  - **31 queries**:26 complete, five historical failures.220 candidate/local/alias records:118 OUT_OF_SCOPE,95 IN_SCOPE,3 DUPLICATE,4 HOLD_IDENTITY. Counts are not unique works, core papers or coverage certificates.
+  - **24 accepted partial-text cards**. New C09/S03 plus reused R11/E45 join previous20. **103 unique PDFs /106 usage records**. Preexisting PDF/text bytes and frozen snapshot unchanged.
+  - DO-MPAC keepsm/b fixed,k=0, ESO-compensates force-error dynamics and chooses analytical predictive virtual action; online gain optimization is not its mechanism. Physical tests are fixed curved heterogeneous surfaces, moving surface is simulation. Mean43.17µs and rare5ms overruns do not certify worst-case real time; no explicit MPC hard constraints.
+  - ACT-US learns nominal pose and modulates target force using image scores, with respiratory-compensated admittance. Original visual/force-prediction interface and metric ambiguities are preserved, not filled by inference.
+  - R11 supplies periodic force/K/D coadaptation. E45 explicitly uses offline OPFB-ADP training then history feedback, unknown constant material dynamics, linear position subsystem and reference endpoints; do not call it per-cycle material identification.
+  - Last accepted [formal map](../literature/aris_active_field_map.md) now includes24 cards and four bounded development traces, remainsPARTIAL. Historical mechanism queries without venue/era exclusion completed. [Independent review](../literature/aris_coverage_review.json) remains exact prior17-cardCONTINUE; no invented final review or saturation verdict.
+  - **Current formal batch (two):** C10 Piedra/Jeffrey/Khatib IJRR2026 *Explicit force-based control strategies for compliant robot-assisted ultrasound imaging*, DOI10.1177/02783649261441635; C11 Zhang RA-L2025 *Smooth Path Planning and Dynamic Contact Force Regulation for Robotic Ultrasound Scanning*, DOI10.1109/LRA.2025.3604746. Actual abstracts verified and selected because they can change closest-task control/target-force comparison.
+  - **Additional unregistered citation lead:** S04 Li2026b *Trajectory-aware feedforward admittance control for contact force tracking with time-varying reference trajectory in a teleoperated robotic ultrasound system*, CEP168106674, cited in S03PDF16. Exact-title query0; no candidate/DOI fabricated. User may supply original/frontpage alongside batch; register normally after current formal reading resumes, not in the wrong manifest.
+  - [Manual checklist](../literature/manual_fulltext_requests.md) consolidates allthree. Files go to `literature/manual_inbox/`; user need not editJSON. [Request](../literature/aris_human_fulltext_request.json) and [template](../literature/aris_fulltext_manifest_template.json) now matchC10/C11, not oldACT-US.
+  - **Resume:** verify C10/C11 originals/version/dates, submit exact pending batch, read viaController/native reader, inspect/registerS04 in legal next metadata cycle if supplied; revise same account/map, handle only material gaps, obtain fresh coverage review before completion claim. No repeated whole-history reading or blanket source accumulation.
+  - **Stop for user files/acceptance.** No automatic idea, C2, controller, tuning or simulation work. Do not describe the literature as fully done while a decisive direct-task original remains missing.
 
 - After each completed checkpoint, run `python -X utf8 scripts/research_sync.py --message "research: ..."`. Never force-push.

@@ -1,0 +1,443 @@
+                                                                                                                                                    ACT-US: End-to-End Visuomotor Policy Learning
+                                                                                                                                                     for Respiratory-Adaptive Robotic Ultrasound
+                                                                                                                                                           Xingyu Zhang∗ , Ke Lu∗† , Hongjuan Pei∗ , Qingyuan Liu∗ , Yihua Shao‡ , Xiang Luo∗ , and Jian Xue∗
+                                                                                                                                                                ∗ School of Engineering Science, University of Chinese Academy of Sciences, Beijing 100049, China
+2026 International Joint Conference on Neural Networks (IJCNN) | 979-8-3195-3135-3/26/$31.00 ©2026 IEEE | DOI: 10.1109/IJCNN69854.2026.11728409
+
+
+
+
+                                                                                                                                                                                              † Peng Cheng Laboratory, Shenzhen 518055, China
+                                                                                                                                                                             ‡ Institute of Automation, Chinese Academy of Sciences, Beijing 100190, China
+
+                                                                                                                                                                                     {zhangxingyu231, liuqingyuan23, luoxiang221}@mails.ucas.ac.cn;
+                                                                                                                                                                                      {luk, peihongjuan, xuejian}@ucas.ac.cn; yihuajerry@gmail.com
+
+
+                                                                                                                                                     Abstract—Autonomous robotic ultrasound (RUS) aims to stan-
+                                                                                                                                                  dardize diagnostic image acquisition, yet control-based methods
+                                                                                                                                                  often assume a pre-positioned probe and leave the visual-guided
+                                                                                                                                                  approach unresolved. Pure end-to-end learning can plan global
+                                                                                                                                                  trajectories but may not guarantee safety and comfort under
+                                                                                                                                                  physiological motion. We propose ACT-US, a hierarchical frame-
+                                                                                                                                                  work combining generative imitation learning with respiratory-
+                                                                                                                                                  adaptive control for full-cycle autonomous scanning. ACT-US
+                                                                                                                                                  uses a Conditional Variational Autoencoder (CVAE) with Action
+                                                                                                                                                  Chunking to model multi-modal expert behaviors and generate
+                                                                                                                                                  nominal trajectories across free-space navigation and soft-tissue
+                                                                                                                                                  manipulation. A weakly-supervised quality estimator learns a
+                                                                                                                                                  “comfort-aware” force policy, while a respiratory-adaptive admit-            Fig. 1. Comparison between traditional manual sonography and the proposed
+                                                                                                                                                  tance controller uses feedforward visual tracking to compensate              ACT-US framework. The top panel illustrates a sonographer performing
+                                                                                                                                                  for thoracic motion. Experiments on human subjects show                      manual scanning, while the bottom panel demonstrates the ACT-US system
+                                                                                                                                                  that ACT-US achieves expert-level dexterity in unstructured                  utilizing a robotic manipulator for autonomous ultrasound acquisition.
+                                                                                                                                                  environments and outperforms baselines without physiological
+                                                                                                                                                  adaptation.
+                                                                                                                                                     Index Terms—Deep Imitation Learning, Medical Robotics,                    dynamics (switching from free motion to contact-constrained
+                                                                                                                                                  Transformer, Conditional VAE, Multi-modal Fusion.                            manipulation), often resulting in rigid behaviors that lack the
+                                                                                                                                                                                                                               adaptability of human sonographers.
+                                                                                                                                                                           I. I NTRODUCTION                                       To address these hybrid dynamics within a unified frame-
+                                                                                                                                                     Although robotic ultrasound (RUS) systems have achieved                   work, we propose ACT-US (Action Chunking with Transform-
+                                                                                                                                                  significant progress in force control and path planning, the                 ers for Ultrasound), adopting a hierarchical control strategy
+                                                                                                                                                  vast majority operate under a restrictive “Initialization As-                instead of directly outputting motor torques. At the high level,
+                                                                                                                                                  sumption,” presuming the probe is already pre-positioned on                  we leverage Imitation Learning (IL) augmented by Action
+                                                                                                                                                  the patient’s skin. A clinically viable autonomous ultrasound                Chunking and a Conditional Variational Autoencoder (CVAE).
+                                                                                                                                                  agent must demonstrate end-to-end capabilities: starting from a              This allows the system to model the multi-modal distribution
+                                                                                                                                                  home position, autonomously localizing the patient, planning a               of expert behaviors, effectively predicting long-horizon nom-
+                                                                                                                                                  safe trajectory to transition from free space to physical contact,           inal trajectories that bridge the perceptual gap between visual
+                                                                                                                                                  and finally executing a high-quality diagnostic scan.                        navigation and tissue manipulation, while mitigating the error
+                                                                                                                                                     Achieving this full-cycle autonomy presents substantial                   accumulation typical in sequential decision-making.
+                                                                                                                                                  challenges, primarily due to the heterogeneous nature of                        Furthermore, to ensure safety and image quality under
+                                                                                                                                                  the task phases. The process demands a seamless transition                   physiological uncertainties (e.g., respiration), we integrate a
+                                                                                                                                                  between two distinct dynamic regimes: the Approach Phase,                    Respiratory-Adaptive Admittance Controller at the low level.
+                                                                                                                                                  which is vision-dominant and requires avoiding perceptual                    Unlike standard IL approaches that implicitly learn force
+                                                                                                                                                  blind spots as the camera nears the body; and the Contact                    profiles, our system explicitly decouples trajectory genera-
+                                                                                                                                                  Phase, which is force-dominant and requires precise manage-                  tion from contact force regulation. We introduce a weakly-
+                                                                                                                                                  ment of soft-tissue deformation. Traditional rule-based state                supervised quality estimation module, trained on data with
+                                                                                                                                                  machines struggle to handle these dual discontinuities in                    deliberately varied contact forces, to learn a “comfort-aware”
+                                                                                                                                                  perception (switching from visual to haptic feedback) and                    policy. This module dynamically modulates the target ad-
+                                                                                                                                                                                                                               mittance force based on real-time image quality, while a
+                                                                                                                                                     This work was supported by the National Natural Science Founda-           feedforward compensation term synchronizes the end-effector
+                                                                                                                                                  tion of China (62027827), the National Key R&D Program of China
+                                                                                                                                                  (2023YFF0716504), and the R&D Program of Beijing Municipal Education         with the patient’s thoracic motion.
+                                                                                                                                                  Commission (2019022). (Corresponding author: Jian Xue)                          Our specific contributions are as follows:
+
+
+
+
+                                                                                                                                                    Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 15:47:36 UTC from IEEE Xplore. Restrictions apply.
+  • Full-Cycle Task Formulation: We redefine the au-                        semantic segmentation for musculoskeletal structures [20], and
+    tonomous ultrasound task to emphasize the continuous                    handling dynamic targets like the beating heart [22].
+    closed-loop process, explicitly addressing the transition                  Despite these advances, two challenges persist: (1) Error
+    from the visual-guided approach phase to the force-                     Accumulation: Long-horizon tasks in standard IL often suffer
+    guided scanning phase.                                                  from compounding drift; (2) Safety: End-to-end models that
+  • Hierarchical ACT-US Architecture: We propose a novel                    directly output torques pose safety risks. Our work addresses
+    framework that combines deep imitation learning (ACT)                   this by introducing Action Chunking with Transformers (ACT)
+    for global trajectory planning with a robust admittance                 to mitigate drift, while decoupling the high-level policy from
+    controller for local interaction. This hybrid approach                  low-level force safety.
+    utilizes a unified model to handle multi-modal observa-
+    tions (Vision/Ultrasound/Proprioception) while ensuring                 C. Force Control and Physiological Adaptation
+    operational safety.                                                        Stable acoustic coupling is essential for image quality.
+  • Physiologically-Adaptive Control: We introduce a                        Classic impedance and admittance controllers [7] and hybrid
+    comfort-aware control strategy driven by weak supervi-                  motion-force strategies [4] are widely used to regulate contact
+    sion. By modeling the correlation between contact force                 pressure. Some systems have incorporated optimization to
+    and image quality, and predicting respiratory motion via                maximize vessel visibility [23] or compensate for patient
+    depth sensing, our system dynamically optimizes contact                 movement [9].
+    pressure to balance diagnostic image clarity with patient                  However, physiological motion (e.g., respiration) remains
+    comfort.                                                                a disturbance that most systems passively reject rather than
+                                                                            actively compensate for. Rigid force thresholds can lead to
+                       II. R ELATED W ORK                                   loss of contact or patient discomfort during deep breathing. We
+                                                                            advance this by proposing a Respiratory-Adaptive Admittance
+   This section reviews the state-of-the-art across three key
+                                                                            Controller that uses feedforward visual compensation and
+dimensions of robotic ultrasound (RUS): visual navigation,
+                                                                            weakly-supervised image quality feedback to dynamically op-
+learning-based manipulation [28], and compliant physical in-
+                                                                            timize contact force, ensuring a “comfort-aware” examination.
+teraction.
+                                                                                                   III. M ETHODOLOGY
+A. From Teleoperation to Autonomous Navigation
+                                                                              We formulate the autonomous ultrasound scanning task as
+   Early research primarily focused on teleoperation to over-               a hierarchical control problem, structured into four intercon-
+come spatial limitations. Pioneers like De Cunha et al. [5]                 nected modules: Data Collection, High-Level Policy, Mid-
+and Salcudean et al. [18] established the feasibility of master-            Level Perception, and Low-Level Control.
+slave control, while recent works have enhanced transparency
+through haptic feedback [15].                                               A. Data Collection
+   Visual servoing algorithms typically rely on image intensity                To capture sonographer manipulation skills, we constructed
+[13], moments [14], or speckle tracking [11] to maintain scan               a multi-modal teleoperation dataset. An expert controlled the
+planes. These methods have been successfully applied to spe-                robot with a haptic device to scan healthy volunteers.
+cific anatomical tasks, such as automated breast screening [21],               We       recorded          N    demonstration   trajectories
+[24] and vascular reconstruction [12]. More recently, multi-                D = {τ1 , ..., τN }, each containing synchronized observations
+modal fusion (e.g., RGB-D and thermal) has been proposed                    and actions at 30Hz. The observation space includes:
+to improve coarse localization [17].                                           • Visual Data: RGB-D streams from a wrist-mounted
+   However, a prevalent limitation in these works is the “Ini-                    camera (local view) and a fixed external camera (global
+tialization Assumption”: most systems initiate control only                                 (i) (i)
+                                                                                  view) {Irgb , Idepth }2i=1 .
+after the probe is in contact. The critical Approach Phase, tran-              • Ultrasound Data: Ultrasound images acquired by the
+sitioning from free-space to contact, remains under-explored,                     transducer mounted on the robotic end-effector Ius .
+often requiring manual positioning or simplified assumptions                                                              6
+                                                                               • Proprioception: Joint positions q ∈ R and end-effector
+that do not hold in unstructured environments.                                    pose xee ∈ SE(3).
+                                                                                                                                         6
+                                                                               • Force Feedback: 6-DoF force/torque readings Fext ∈ R .
+B. Imitation Learning and Cognitive Intelligence
+                                                                               To support weak supervision, we deliberately varied contact
+   To enable higher-level decision-making, researchers are                  force in selected sub-sessions to capture the pressure-image-
+increasingly adopting data-driven approaches. Imitation Learn-              clarity correlation.
+ing (IL) and Reinforcement Learning (RL) have enabled robots
+to perform complex scans. For instance, Huang et al. [8]                    B. High-Level Policy: ACT-US
+achieved autonomous carotid scanning via IL, while Su et al.                 The high-level policy is the global trajectory generator.
+[19] utilized RL for thyroid nodule detection. Beyond mo-                   We adopt Action Chunking with Transformers (ACT) to map
+tion planning, recent efforts focus on “cognitive” capabilities,            multi-modal observations to future action sequences.
+such as understanding the “Language of Sonography” [10],                     1) Observation and Action Space:
+
+
+
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 15:47:36 UTC from IEEE Xplore. Restrictions apply.
+     Data Collection
+                                 Wrist RGBD Cam (𝑰𝐫𝐠𝐛/𝐝 )                  Fixed RGBD Cam (𝑰𝐫𝐠𝐛/𝐝 )        Robot Joints (𝒒𝒕 )                     Force Sensor (F𝐞𝐱𝐭 )     Ultrasound (𝑰𝐮𝐬 )
+
+
+
+
+                                                                                                                                                           F𝐞𝐱𝐭
+
+                                                                                  Action Sequence
+
+
+
+
+                                                                                                                    Mid-Level Perception
+                                                   𝑰𝐝
+      High-Level Policy
+
+
+
+
+                                𝑰𝑰𝐝𝐫𝐠𝐛    𝑰𝐫𝐠𝐛           𝑰𝐫𝐠𝐛   𝒒𝐭
+                                                                                                                                                                           Quality Scores
+                                                                                                                                                          CNN              (𝑸𝐢𝐦𝐠 ∈ 𝟎, 𝟏 )
+                                         Transformer                               Transformer
+                                           Encoder                                   Decoder
+
+
+                                         Action Chunk                                    Pos emb
+
+                                                                         𝒒𝒕                                Respiratory Force
+     Low-Level Control System
+
+
+
+
+                                                                                   Respiratory Motion
+                                                 Data Collection                                                                                 Admittance Control
+                                                                                       Prediction                𝑭𝐫𝐞𝐬𝐩
+                                                                                                                                                            Target Force    𝒙𝐫𝐞𝐟
+                                                                         𝑸𝐢𝐦𝐠                                     Sensor Force                                 𝑭𝐭𝐚𝐫𝐠𝐞𝐭
+                                                   Mid-Level                           Adaptive Force
+                                                   Perception                             Planner                                     𝑭𝐞𝐱𝐭                            𝒙𝒄
+
+                                                                         𝒙𝐧𝐨𝐦
+                                                  High-Level
+                                                    Policy
+                                                                                               Feedforward Respiratory Compensation
+                                                                                                         𝒙𝐫𝐞𝐟 = 𝒙𝐧𝐨𝐦 + 𝒙𝒄                                                      𝒙𝐫𝐞𝐟
+
+Fig. 2. Overview of ACT-US. Multimodal inputs (RGB-D, force, and ultrasound) are processed by: (1) a high-level Transformer policy generating the nominal
+trajectory xnom ; (2) mid-level perception estimating image quality (Qimg ) and respiratory motion (x̂resp ); and (3) low-level adaptive force planning and
+respiratory compensation for compliant scanning.
+
+
+
+          a) Observation Space (Ot ): We use multi-modal inputs:                                         C. Mid-Level Perception: Weakly-Supervised Quality Estima-
+                                                         (i)    (i)                                      tion
+                                  Ot = {Ius , {Irgb , Idepth }2i=1 , q t , Fext },                 (1)
+                                                                                                            To achieve closed-loop quality optimization without manual
+                                                                                 (i)                     labeling, we use weak supervision.
+where Ius is the grayscale ultrasound image, Irgb/depth are RGB-
+D inputs from wrist and fixed cameras, q t ∈ R6 is the joint                                                We leverage the correlation between contact force and
+configuration, and Fext ∈ R6 is the force sensor reading.                                                acoustic coupling by varying contact force from 0 N to 25 N
+     b) Action Space (At ): Instead of direct motor torques,                                             and automatically labeling frames:
+                                                                                                                          (
+the policy predicts the nominal reference trajectory for the                                                                1, if F ∈ [10 N, 20 N] (Positive)
+downstream admittance controller:                                                                                ylabel =                                          (3)
+                                                                                                                            0, otherwise (Negative)
+                                                                ref
+                                                    At = {pref
+                                                           t , ϕt },                               (2)   A lightweight CNN predicts a quality score Qimg ∈ [0, 1] with
+where pref
+       t     ∈ R                          3
+                                                 and ϕref
+                             ∈ R are the target end-effector
+                                                      t
+                                                                     3                                   Binary Cross-Entropy loss, enabling recognition of “optimal
+position and orientation. Contact force is not dictated by ACT,                                          imaging features” even at lower forces.
+but is modulated by the comfort-aware controller (Sec. III-C).                                           D. Low-Level Control: Respiratory-Adaptive Admittance
+   2) Action Chunking & CVAE: ACT predicts a future action
+                                                                                                            The nominal ACT trajectory is executed through variable
+sequence (a “chunk”) of length k. To model expert stochastic-
+                                                                                                         impedance control with respiratory compensation.
+ity, we train a Conditional Variational Autoencoder (CVAE):
+                                                                                                            1) Respiratory Motion Prediction: The measured force Fext
+   1) Encoder: Compresses the ground truth action sequence                                               contains physiological artifacts, so we isolate the respiratory
+       at:t+k and observation Ot into a latent style variable                                            component Fresp with a band-pass filter (0.1–0.5 Hz). The
+       z ∼ qϕ (z|a, Ot ).                                                                                respiration-induced surface motion is approximated as a quasi-
+   2) Decoder (Policy): Generates the action sequence con-                                               periodic signal and tracked online with a Fourier Series:
+       ditioned on z and Ot : at:t+k ∼ πθ (a|Ot , z).
+                                                                                                                                           Fresp (t) ≈ A sin(ωt + ϕ) + Fbias ,                 (4)
+   The loss function minimizes the ELBO: L = Lrecon +
+βLKL . During inference, Temporal Ensembling is applied to                                               where A is the amplitude, ω is the angular frequency (mea-
+smooth the trajectory.                                                                                   sured as 0.25 Hz ≈ 1.57 rad/s), and ϕ is the phase. These
+
+
+
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 15:47:36 UTC from IEEE Xplore. Restrictions apply.
+                                                                                                         IV. E XPERIMENTS
+                                                                             A. Experimental Setup
+                                                                                1) Hardware Architecture: As illustrated in Fig. 3, the hard-
+                                                                             ware architecture integrates the robotic manipulator, external
+                                                                             fixed camera, examination environment, and the end-effector
+                                                                             assembly with the wrist-mounted camera and ultrasound trans-
+                                                                             ducer.
+                                                                                2) Teleoperation and Control Interface: Expert demon-
+                                                                             strations were collected through a low-latency HID interface
+                                                                             running at 500 Hz. It supports Cartesian Impedance Con-
+                                                                             trol for compliant SE(3) scanning and Joint Space Control
+                                                                             (q1 , . . . , q6 ) for singularity avoidance, while logging synchro-
+                                                                             nized poses, RGB-D images, and force readings.
+Fig. 3. Overview of the ACT-US platform. Left: 6-DOF manipulator, fixed
+                                                                                                        Joint State Positions without Smoothing
+camera, and examination environment. Right: end-effector with 3D-printed
+holder, wrist camera, and ultrasound transducer.
+
+
+
+
+                                                                               Joint Pos
+                                                                                           Joint 1                           Joint 2              Joint 3
+
+                                                                                           Joint 4                           Joint 5              Joint 6
+parameters estimate F̂resp (t + ∆t) and generate feedforward
+velocity vff to synchronize the end-effector with thoracic uplift.
+   2) Image-Quality-Driven Adaptive Force Planning: An
+outer-loop force planner adjusts the target interaction force                                         (a) Without Smoothing Module
+Ftarget from real-time ultrasound image quality. Instead of a
+rigid threshold, it maps the normalized quality metric Qimg ∈
+[0, 1] to the desired contact force:
+
+   Ftarget (t) = Fmin + η · (Fmax − Fmin ) · (1 − Qimg (t)),          (5)
+
+where Fmin = 10 N is the baseline force for acoustic coupling,
+Fmax = 25 N is the safety limit, and η ∈ (0, 1] is the sensitivity                                   (b) With Smoothing Module (Ours)
+gain. Thus, high image quality drives the controller toward
+Fmin , while low quality increases force toward Fmax within                  Fig. 4. Impact of Smoothing on Joint Stability. Without smoothing, joint
+the safety bound.                                                            states exhibit high-frequency jitter; with smoothing, the trajectory remains
+   3) Respiratory-Compensated Admittance Control: The in-                    continuous.
+ner loop tracks Ftarget while compensating for respiratory
+disturbances. The relation between force error and corrective
+motion is:
+
+        Md ẍc + Dd ẋc + Kd xc = Fext − Ftarget + Fresp ,            (6)
+
+where xc ∈ R6 is the compliance deviation, Md , Dd , and Kd
+are desired inertia, damping, and stiffness matrices, and Fext
+is the measured external wrench.
+     a) Feedforward Respiratory Compensation: To mitigate
+feedback phase lag, we integrate a feedforward term from the
+estimated respiratory motion. The final reference trajectory is:
+
+                     xref (t) = xnom (t) + xc (t).                    (7)
+                                                                             Fig. 5. Illustration of the ACT-based trajectory prediction and ultrasound
+                                                                             scanning process.
+Here, xnom is the ACT-generated nominal scanning path, and
+feedforward compensation synchronizes the end-effector with                     3) Hardware Design: The core actuation unit is an Elite
+chest motion.                                                                EC66 collaborative robot with ±0.02 mm repeatability. A
+     b) Discrete-Time Implementation: For real-time execu-                   topology-optimized high-rigidity PLA end-effector integrates
+tion at 30 Hz, Eq. (6) is discretized with the Symplectic                    the ultrasound transducer, reduces inertia, and fixes the trans-
+Euler method, recursively updating ẋc and xc to compute the                 formation between the Tool Center Point (TCP) and sensor
+corrective offset.                                                           frame for geometric consistency.
+
+
+
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 15:47:36 UTC from IEEE Xplore. Restrictions apply.
+                     TABLE I                                                                       TABLE II
+     A BLATION S TUDY OF C ONTROL S TRATEGIES                                    Q UANTITATIVE E VALUATION OF F ORCE S TABILITY
+
+    Method                         Success Rate (↑)          Metric                            Uncompensated             Compensated        Improvement
+                                                                                             (Original Disturbance)     (Residual Error)        (%)
+    ACT-US (Ours)                        19/20
+    Visual Navigation Only                8/20               Mean Absolute Error (N)                  12.45                   2.09             83.2% ↓
+    ACT-US w/o Smoothing                  1/20               Root Mean Square (N)                     13.48                   2.94             78.2% ↓
+                                                             Standard Deviation (σ)                    5.15                   2.92             43.3% ↓
+                                                             Peak-to-Peak Amplitude (N)               31.96                  20.35*            36.3% ↓
+                                                             * Represents the smoothed prediction range.
+
+
+
+
+                         Inspiration               Expiration               Inspiration               Inspiration               Expiration
+
+
+
+
+                        Force: 1.74N             Force: 10.12N              Force: 4.88N             Force: 6.02N              Force: 13.86N
+
+
+
+
+                              approaching                                             examining                                       leaving
+
+Fig. 6. Scanning under respiratory motion. Ultrasound images, probe-tissue interaction, and force profiles show safe interaction across the physiological cycle.
+
+
+
+   4) Multi-modal Perception and Computation: We use an
+Intel RealSense L515 LiDAR for global localization and a
+D455 stereo camera for local depth on texture-less skin. A
+wrist-mounted 6-axis Force/Torque sensor captures contact
+dynamics at 1000 Hz, and all modalities are ROS-aligned and
+synchronized at 30 Hz on a Threadripper 3970X/RTX 3090
+workstation.
+
+B. Ablation Studies
+  We conducted ablations on trajectory smoothing, respiratory
+compensation, and multi-modal fusion. Removing smoothing
+caused severe velocity jitter and emergency stops, reducing
+success to 1/20 (Fig. 4, Table I). Respiratory compensation
+reduced force Mean Absolute Error (MAE) by 83.2% and
+RMS error by 78.2% (Table II). The “Visual Navigation Only”
+baseline reached only 8/20 success because it prioritized force                  Fig. 7. Comparison of Contact Force Metrics: Uncompensated vs. Compen-
+                                                                                 sated Scenarios.
+minimization over acoustic coupling.
+
+C. Simulation Validation
+  Before physical deployment, we validated the trajectory
+policy in high-fidelity simulation to assess path feasibility and                scans across diverse abdominal models, generating singularity-
+smoothness. As shown in Fig. 5, the manipulator completed                        free trajectories that respect anatomical constraints.
+
+
+
+
+  Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 15:47:36 UTC from IEEE Xplore. Restrictions apply.
+D. Real-World Experiments                                                          [7] R. Finocchi, F. Aalamifar, T. Y. Fang, R. H. Taylor, and E. M.
+                                                                                       Boctor, “Co-Robotic Ultrasound Imaging: A Cooperative Force Control
+   We evaluated navigation robustness and force-interaction                            Approach,” in SPIE Medical Imaging, 2017.
+stability on the physical robotic system.                                          [8] Y. Huang, W. Xiao, C. Wang, H. Liu, R. Huang, and Z. Sun, “Towards
+   1) Navigation Robustness: Across 20 consecutive human-                              Fully Autonomous Ultrasound Scanning Robot With Imitation Learning
+                                                                                       Based on Clinical Protocols,” IEEE Robot. Autom. Lett., vol. 6, no. 2,
+subject trials, the vision-based policy achieved a 95% success                         pp. 3671–3678, 2021.
+rate in reaching the abdominal ROI despite subject-position                        [9] Z. Jiang, N. Danis, Y. Bi, M. Zhou, M. Kroenke, T. Wendler, and
+variations.                                                                            N. Navab, “Precise Repositioning of Robotic Ultrasound: Improving
+                                                                                       Registration-based Motion Compensation Using Ultrasound Confidence
+   2) Force Control under Physiological Motion: Contact-                               Optimization,” IEEE Trans. Instrum. Meas., vol. 71, 2022.
+force stability was evaluated during active breathing. Fig. 6                     [10] Z. Jiang, S. E. Salcudean, and N. Navab, “Robotic Ultrasound Imaging:
+shows the relationship among respiratory phase, probe-tissue                           State-of-the-Art and Future Perspectives,” arXiv:2307.05545, 2023.
+                                                                                  [11] A. Krupa, G. Fichtinger, and G. D. Hager, “Real-Time Tissue Tracking
+interaction, and force profile. Quantitative results in Fig. 7                         with B-Mode Ultrasound Using Speckle and Visual Servoing,” in Med-
+show that the Respiratory Compensation Module suppresses                               ical Image Computing and Computer-Assisted Intervention – MICCAI
+thoracic-motion disturbance; despite minor latency-induced                             2007, Berlin, Heidelberg, 2007, pp. 1–8.
+                                                                                  [12] S. Merouche, L. Allard, E. Montagnon, G. Soulez, P. Bigras, and
+fluctuations, contact force remained within the safety range                           G. Cloutier, “A Robotic Ultrasound Scanner for Automatic Vessel
+and image quality stayed consistent across subjects with                               Tracking and Three-Dimensional Reconstruction of B-Mode Images,”
+varying Body Mass Indices (BMI).                                                       IEEE Trans. Ultrason., Ferroelectr., Freq. Control, vol. 63, no. 1, pp.
+                                                                                       35–46, 2016.
+                                                                                  [13] C. Nadeau and A. Krupa, “Intensity-Based Direct Visual Servoing of an
+E. Analysis of Real-Time Inference Performance                                         Ultrasound Probe,” in 2011 IEEE Int. Conf. Robot. Autom., 2011, pp.
+   The ACT-US framework achieved an average inference                                  5677–5682.
+                                                                                  [14] C. Nadeau, A. Krupa, J. Petr, and C. Barillot, “Moments-Based Ultra-
+latency of 12.9 ms and throughput of 77.32 FPS, exceeding the                          sound Visual Servoing: From a Mono- to Multiplane Approach,” IEEE
+30 Hz sensor rate and enabling real-time closed-loop control.                          Trans. Robot., vol. 32, no. 6, pp. 1558–1564, 2016.
+                                                                                  [15] Z. Najdovski et al., “HaptiScan: A Haptically-Enabled Robotic Ultra-
+                         V. CONCLUSION                                                 sound System for Remote Medical Diagnostics,” Robotics, vol. 13, no.
+                                                                                       11, 2024.
+   We presented ACT-US, a hierarchical autonomy framework                         [16] F. Pierrot et al., “Hippocrate: A Safe Robot Arm for Medical Appli-
+that bridges the visual-guided approach phase and force-                               cations with Force Feedback,” Med. Image Anal., vol. 3, no. 3, pp.
+                                                                                       285–300, 1999.
+guided contact phase in robotic ultrasound. Unlike methods                        [17] M. C. Roshan, M. Isaksson, A. Pranata, and E. M. Hidalgo, “A Sensor
+that rely on the “Initialization Assumption,” ACT-US inte-                             Fusion Approach to Autonomous Ultrasound Imaging of the Lumbar
+grates high-level generative imitation learning with low-level                         Region,” Biomed. Signal Process. Control, vol. 108, 2025.
+                                                                                  [18] S. E. Salcudean et al., “Robot-Assisted Diagnostic Ultrasound – De-
+physiological adaptation for full-cycle autonomy.                                      sign and Feasibility Experiments,” in Medical Image Computing and
+   ACT and a Conditional VAE model multi-modal expert                                  Computer-Assisted Intervention – MICCAI’99, Berlin, Heidelberg, 1999,
+behavior to generate smooth, singularity-free nominal trajec-                          pp. 1062–1071.
+                                                                                  [19] K. Su et al., “A Fully Autonomous Robotic Ultrasound System for
+tories, while a weakly-supervised respiratory-adaptive admit-                          Thyroid Scanning,” Nature Communications, vol. 15, no. 1, 2024.
+tance controller compensates for thoracic uplift and modulates                    [20] D. Sun, A. Cappellari, B. Lan, M. Abayazid, S. Stramigioli, and K. Niu,
+pressure from real-time acoustic coupling.                                             “Automatic Robotic Ultrasound for 3D Musculoskeletal Reconstruction:
+                                                                                       A Comprehensive Framework,” Technologies, vol. 13, no. 2, 2025.
+   Real-world experiments showed that ACT-US outperforms                          [21] J. Tan et al., “A Flexible and Fully Autonomous Breast Ultrasound
+visual-only and uncompensated baselines, achieving a 95%                               Scanning System,” IEEE Trans. Autom. Sci. Eng., vol. 20, no. 3, pp.
+navigation success rate and reducing force variance by over                            1920–1933, 2023.
+                                                                                  [22] X. Tang et al., “Autonomous Ultrasound Scanning Robotic System
+78% during active respiration.                                                         Based on Human Posture Recognition and Image Servo Control,” Front.
+                                                                                       Robot. AI, vol. 11, 2024.
+                             R EFERENCES                                          [23] S. Virga et al., “Automatic Force-Compliant Robotic Ultrasound Screen-
+[1] P. Abolmaesumi, S. E. Salcudean, and W. H. Zhu, “Visual Servoing for               ing of Abdominal Aortic Aneurysms,” in 2016 IEEE/RSJ Int. Conf.
+    Robot-Assisted Diagnostic Ultrasound,” in Proc. 22nd Annu. Int. Conf.              Intell. Robots Syst. (IROS), 2016, pp. 508–513.
+    IEEE Eng. Med. Biol. Soc., Chicago, IL, USA, 2000, vol. 4, pp. 2532–          [24] Z. Wang et al., “Full-Coverage Path Planning and Stable Interaction
+    2535.                                                                              Control for Automated Robotic Breast Ultrasound Scanning,” IEEE
+[2] A. Antolin, N. Roson, M. Planes, M. Castillo, A. Alberti, and M. Esco-             Trans. Ind. Electron., vol. 70, no. 7, pp. 7051–7061, 2023.
+    bar, “Validation of a Tele-Robotic Ultrasound System for Abdomen and          [25] G.-Z. Yang et al., “Medical Robotics—Regulatory, Ethical, and Legal
+    Thyroid Gland Explorations: A Comparison with Standard Ultrasound,”                Considerations for Increasing Levels of Autonomy,” Sci. Robot., vol. 2,
+    The Ultrasound Journal, vol. 17, no. 1, 2025.                                      no. 4, 2017.
+[3] S. Avgousti, A. S. Panayides, A. P. Jossif, E. G. Christoforou, P. Vieyres,   [26] R. Ye et al., “Feasibility of a 5G-Based Robot-Assisted Remote Ul-
+    C. Novales, S. Voskarides, and C. S. Pattichis, “Cardiac Ultrasonography           trasound System for Cardiopulmonary Assessment of Patients With
+    over 4G Wireless Networks Using a Tele-operated Robot,” Healthcare                 Coronavirus Disease 2019,” Chest, vol. 159, no. 1, pp. 270–281, 2021.
+    Technology Letters, vol. 3, no. 3, pp. 212–217, 2016.                         [27] Y.-Q. Zhang et al., “A 5G-based Telerobotic Ultrasound System Provides
+[4] P. Chatelain, A. Krupa, and N. Navab, “Confidence-Driven Control of an             Qualified Abdominal Ultrasound Services for Patients on a Rural Island,”
+    Ultrasound Probe,” IEEE Trans. Robot., vol. 33, no. 6, pp. 1410–1424,              Abdom. Radiol., vol. 49, no. 3, pp. 942–957, 2023.
+    2017.                                                                         [28] T. Z. Zhao, V. Kumar, S. Levine, and C. Finn, “Learning fine-
+[5] D. De Cunha et al., “The MIDSTEP System for Ultrasound Guided                      grained bimanual manipulation with low-cost hardware,” arXiv preprint
+    Remote Telesurgery,” in Proc. 20th Annu. Int. Conf. IEEE Eng. Med.                 arXiv:2304.13705, 2023.
+    Biol. Soc., 1998, vol. 3, pp. 1266–1269.
+[6] E. Degoulange et al., “HIPPOCRATE: An Intrinsically Safe Robot for
+    Medical Applications,” in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst.,
+    1998, vol. 2, pp. 959–964.
+
+
+
+
+ Authorized licensed use limited to: UNIVERSITY OF SOUTHAMPTON. Downloaded on October 29,2026 at 15:47:36 UTC from IEEE Xplore. Restrictions apply.
+

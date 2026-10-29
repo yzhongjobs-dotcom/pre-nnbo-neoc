@@ -1,0 +1,1163 @@
+                                                                   Control Engineering Practice 178 (2027) 107240
+
+
+                                                                       Contents lists available at ScienceDirect
+
+
+                                                                Control Engineering Practice
+                                                          journal homepage: www.elsevier.com/locate/conengprac
+
+
+
+
+Autonomous robotic ultrasound scanning on complex surfaces: Automatic
+trajectory generation and disturbance observer-based model predictive
+admittance control
+Jiaen Shen a , Yongfei Feng b , Qiqi Pan a , Yuhui Cui                                     a , Jingcong Zhang a , Hongbo Wang a,∗
+
+a
+    School of Intelligent Robotics and Advanced Manufacturing, Fudan University, Shanghai, 200433, China
+b
+    Faculty of Mechanical Engineering and Mechanics, Ningbo University, Ningbo, 315211, China
+
+
+
+
+a r t i c l e             i n f o                            a b s t r a c t
+
+Keywords:                                                    Robotic ultrasound scanning facilitates clinical diagnosis by reducing operator burden and enhancing imaging re-
+Trajectory planning                                          producibility. To achieve stable human-robot interaction on complex anatomical surfaces, this paper proposes an
+Admittance control                                           autonomous compliant ultrasound scanning framework. First, an equidistant trajectory planning method based
+Disturbance observer
+                                                             on 3D point clouds is presented to satisfy probe pose constraints. By establishing an anisotropic geodesic distance
+Model predictive control
+Robotic ultrasound scanning
+                                                             ﬁeld to characterize the surface topology of the human body, this approach achieves uniform global coverage
+                                                             and avoids abrupt orientation shifts. Second, a disturbance observer-based model predictive admittance control
+                                                             (DO-MPAC) scheme is developed to maintain a stable and compliant interaction force. Within this scheme, envi-
+                                                             ronmental uncertainties are estimated and compensated for through an extended state observer (ESO), and the
+                                                             dependency of the force error dynamics on the admittance parameters is mitigated through the design of a vir-
+                                                             tual control law. Furthermore, a predictive optimization framework is utilized to guarantee optimal force track-
+                                                             ing. Finally, simulations and physical experiments evaluate the proposed system against conventional, adaptive,
+                                                             and sliding mode admittance controllers. Results demonstrate that in complex curved environments, DO-MPAC
+                                                             achieves a faster transient response and higher steady-state precision, reducing the maximum force deviation
+                                                             (MFD), integral of absolute error (IAE), and integral of time-weighted absolute error (ITAE) by at least 88.1%,
+                                                             45.6%, and 43.0%, respectively.
+
+
+
+1. Introduction                                                                                   tain stable, clear, and reproducible images, it is crucial to maintain the
+                                                                                                  probe perpendicular to the tissue surface while simultaneously regulat-
+    Beneﬁting from its radiation-free, cost-eﬀective, and real-time imag-                         ing a safe, compliant, and constant contact force (Ihnatsenka & Boezaart,
+ing capabilities, ultrasound has become an essential and widely used                              2010).
+imaging technique in clinical diagnosis (Moore & Copel, 2011; Priester                                To guarantee a perpendicular posture and a steady contact force be-
+et al., 2013). However, conventional manual ultrasound examinations                               tween the probe and the tissue, numerous studies have focused on scan-
+rely heavily on the sonographer’s expertise, which often leads to fa-                             ning trajectory planning and constant force control (Fu et al., 2022; Su
+tigue during long-term operations. Additionally, the subjective nature                            et al., 2024). In practice, the human body surface presents a complex
+of manual scanning frequently results in high inter-operator variability                          and dynamic physical environment. Its spatial and stiﬀness features vary
+and poor image reproducibility (Evans et al., 2009; Harrison & Har-                               continuously depending on anatomical regions, individual diﬀerences,
+ris, 2015). To overcome these practical limitations, extensive research                           and physiological activities, which complicates the execution of precise
+eﬀorts have been devoted to the development of robot-assisted ultra-                              and robust force control during interaction (Cao et al., 2025). In addi-
+sound systems (Jiang et al., 2023; Ning et al., 2021). It is worth noting                         tion, the quality of compliant force control is directly determined by the
+that during continuous ultrasound scanning, the probe-tissue interface                            pre-planned generated scanning trajectory, namely, the pose sequence
+is not a simple rigid contact, but rather a complex interactive process                           of the ultrasound probe. If the planned trajectory is suboptimal, par-
+characterized by soft tissue deformation, surface stiﬀness variations, and                        ticularly in areas with high curvature or abrupt transitions, the probe
+external disturbances (Sigrist et al., 2017). For robotic ultrasound to ob-                       will experience sharp pose shifts and discontinuous motions. During
+
+
+    ∗ Corresponding author.
+
+   E-mail addresses: 24210860114@m.fudan.edu.cn (J. Shen), yongfei_feng@fudan.edu.cn (Y. Feng), 24110860014@m.fudan.edu.cn (Q. Pan),
+24210860038@m.fudan.edu.cn (Y. Cui), 25213070155@m.fudan.edu.cn (J. Zhang), wanghongbo@fudan.edu.cn (H. Wang).
+
+https://doi.org/10.1016/j.conengprac.2026.107240
+Received 12 June 2026; Received in revised form 3 August 2026; Accepted 29 August 2026
+Available online 4 September 2026
+0967-0661/© 2026 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies.
+J. Shen et al.                                                                                                        Control Engineering Practice 178 (2027) 107240
+
+
+physical contact, these movement errors directly translate into force              To handle nonlinear interaction dynamics, controllers based on neural
+ﬂuctuations, local instability, or even imaging artifacts (Von Haxthausen          networks have been developed to approximate these dynamics online
+et al., 2021). Therefore, achieving an ideal probe-tissue interaction re-          and enable adaptive tuning of admittance parameters (Hamedani et al.,
+quires not only eﬃcient global trajectory generation but also robust               2021; Yoon et al., 2024). Unfortunately, these online learning models
+compliant force control.                                                           impose an immense computational burden. Notably, all the aforemen-
+    Trajectory planning aims to determine the optimal probe pose, and              tioned force control schemes often induce a certain degree of overshoot
+automatic trajectory generation has become a vital development trend               when pursuing rapid response, which poses critical safety hazards dur-
+in the ﬁeld of medical robotics. Early ultrasound robots involved fre-             ing robotic ultrasound scanning. Therefore, an unresolved challenge is
+quent manual intervention, where trajectory points were speciﬁed on a              to rapidly track the desired force in dynamic environments while sup-
+2D reference plane followed by linear interpolation (Şen et al., 2016; Su         pressing unsafe transient overshoots and maintaining steady-state force
+et al., 2021). However, these predeﬁned 2D paths fail to adapt to the 3D           stability.
+curvature variations of the human body, often resulting in normal pose                 Based on the preceding analysis, an autonomous and compliant
+deviations of the probe and loss of acoustic coupling. To address this,            robotic ultrasound scanning system is developed in this paper. The main
+several approaches (Welleweerd et al., 2020; Zhan et al., 2020) mapped             contributions of this work are summarized as follows:
+predeﬁned 2D base routes onto 3D surfaces. Although this strategy im-
+proves surface adherence to some extent, it struggles to ensure complete           1) An autonomous compliant ultrasound scanning framework tailored
+3D scanning coverage. Advancing further, the methods proposed in Hen-                 for complex environments is proposed. Compared with existing
+nersperger et al. (2016), Jiang et al. (2022), Virga et al. (2016) planned            robotic ultrasound systems (Li et al., 2026a; Tan et al., 2022; Welle-
+3D paths using preoperative medical images and registered them to the                 weerd et al., 2020), the proposed framework integrates an auto-
+patient’s body surface point cloud. Nevertheless, these semi-automatic                matic trajectory generation algorithm with a compliant force con-
+techniques rely on oﬄine data and human involvement. To eliminate the                 trol strategy within a uniﬁed closed-loop architecture. Consequently,
+need for prior data and realize autonomous scanning, recent research                  it facilitates compliant probe-tissue interaction in dynamic environ-
+has focused on direct trajectory planning based on 3D point clouds (Tan               ments and improves the standardization and reproducibility of clin-
+et al., 2023, 2022; Wang et al., 2022; Zhang et al., 2025). Speciﬁcally, an           ical scans.
+equidistant 3D point cloud search algorithm was designed in Wang et al.            2) To satisfy probe pose constraints during scanning, this paper in-
+(2022) to produce a fully covered circular scanning trajectory, but its               tegrates multi-scale mapping and an anisotropic geodesic distance
+massive computational cost and unidirectional progression strategy of-                ﬁeld into robotic ultrasound trajectory planning. Unlike previous
+ten result in local discontinuities. Through parallel slicing of large-scale          approaches (Jiang et al., 2022; Su et al., 2021; Welleweerd et al.,
+point clouds and curve ﬁtting, the method in Tan et al. (2022) auto-                  2020), this mechanism eliminates the need for preoperative med-
+matically generated smooth skeleton paths that cover the global region.               ical images or manually designed paths. In comparison with con-
+Based on this, the work in Zhang et al. (2025) proposed a bi-objective                ventional methods (Tan et al., 2022; Wang et al., 2022; Zhang
+optimization algorithm that balances acceleration continuity and posi-                et al., 2025), the proposed method suppresses abrupt probe ori-
+tion deviation to correct local geometric anomalies and improve pose                  entation shifts, ensures uniform global coverage, and captures the
+continuity. Despite these advancements, these slicing methods face an                 topological features of complex surfaces with lower computational
+inherent trade-oﬀ between topological feature extraction accuracy and                 costs.
+computational burden. Sparse slicing tends to neglect local details, while         3) A disturbance observer-based model predictive admittance control
+dense slicing incurs signiﬁcant computational overhead due to intersec-               (DO-MPAC) strategy is proposed to ensure stable and compliant con-
+tion calculations among massive point clouds. Therefore, it remains a                 tact. Compared with existing probe-tissue force controllers (Jiang
+critical bottleneck to automatically and eﬃciently generate a scanning                et al., 2024; Li et al., 2026a; Tan et al., 2022), this strategy lever-
+trajectory that adapts to complex surfaces with smooth poses and uni-                 ages model predictive control (MPC) to proactively mitigate un-
+form coverage.                                                                        safe transient ﬂuctuations. Furthermore, a virtual control law is
+    The primary objective of force control strategies is to improve safe              designed to connect the extended state observer (ESO) and MPC.
+and stable constant force regulation at the probe-tissue interface. For               This formulation suppresses the coupling eﬀect between the track-
+most position-controlled medical robotic systems, admittance control                  ing error dynamics and the admittance parameters, which allevi-
+(AC) achieves the desired force tracking by adjusting position commands               ates the inherent trade-oﬀ between physical compliance and tracking
+(He et al., 2020; Jiang et al., 2020; Keemink et al., 2018). Classical AC             agility.
+laws have been widely applied across various robotic platforms (Li et al.,
+2018; Tan et al., 2022). For instance, the method in Tan et al. (2022) uti-            The remainder of this paper is organized as follows. Section 2
+lized a standard admittance controller in an ultrasound robotic system             presents the 3D point cloud-driven ultrasound trajectory generation al-
+to maintain basic compliant surface contact. However, traditional ﬁxed-            gorithm, and the design process of the proposed DO-MPAC scheme is
+parameter admittance schemes struggle to adapt to the dynamic posi-                detailed in Section 3. Numerical simulations under diverse environmen-
+tion and stiﬀness of complex human surfaces, which inevitably causes               tal conditions and physical experiments are presented in Sections 4 and
+signiﬁcant force ﬂuctuations. To enhance force tracking performance in             5, respectively. Finally, Section 6 summarizes the conclusions and out-
+dynamic environments, various improved schemes have been proposed                  lines potential avenues for future research.
+(Duan et al., 2018; Hamedani et al., 2021; Jiang et al., 2024; Li et al.,
+2026a,b; Yoon et al., 2024). Speciﬁcally, adaptive schemes perform pa-
+rameter tuning based on tracking errors to attain compliant tracking               2. Automatic generation of anisotropic equidistant scanning
+(Duan et al., 2018; Jiang et al., 2024). Nevertheless, these adaptation            trajectories based on 3D point clouds
+mechanisms are driven by error accumulation and suﬀer from phase
+lag. To overcome this delay, active observation and feedforward-based                  Fig. 1 illustrates the generation process for ultrasound scanning tra-
+AC methods (Li et al., 2026a,b) yield rapid responses through online               jectories derived from 3D point clouds. The proposed autonomous tra-
+estimation and active compensation of unknown disturbances. Even so,               jectory generation framework facilitates standardized scanning proce-
+these approaches are limited to instantaneous compensation of current              dures and improves the reproducibility of ultrasound imaging.
+states and lack the ability to predict future dynamic trends. Addition-                Taking lumbar ultrasound scanning as a representative clinical ap-
+ally, the traditional linear sliding surface employed in Li et al. (2026a)         plication, this section details the step-by-step trajectory generation pro-
+introduces the inherent chattering defect of sliding mode control (SMC).           cedure.
+
+                                                                               2
+J. Shen et al.                                                                                                             Control Engineering Practice 178 (2027) 107240
+
+
+
+
+                                                                                    Fig. 3. Feature extraction and surface characterization. (a) Computation of sur-
+                                                                                    face normals; (b) Demonstration of anisotropic weights for smooth and steep
+                                                                                    regions.
+
+
+  Fig. 1. Automatic trajectory generation workﬂow based on 3D point cloud.          each point 𝐩𝑖 in 𝑉 . Subsequently, the 𝑘 nearest neighbors in Euclidean
+                                                                                    space are identiﬁed for each vertex to establish the connecting edges
+                                                                                    𝑒𝑖,𝑗 ∈ 𝐸. The calculation of local point normals is illustrated in Fig. 3(a).
+                                                                                         To quantify local spatial curvature, the anisotropic geodesic distance
+                                                                                    weight 𝑤𝑖,𝑗 between neighboring points 𝐩𝑖 and 𝐩𝑗 is deﬁned as follows:
+                                                                                                        [     (               )]
+                                                                                    𝑤𝑖,𝑗 = ‖𝐩𝑖 − 𝐩𝑗 ‖2 ⋅ 1 + 𝛼 1 − |𝐧𝑖 ⋅ 𝐧𝑗 |                                        (2)
+
+                                                                                    where ‖𝐩𝑖 − 𝐩𝑗 ‖2 represents the base Euclidean distance between the
+                                                                                    two points. The term 𝐧𝑖 ⋅ 𝐧𝑗 is the dot product of their respective nor-
+                                                                                    mal vectors, whose absolute value characterizes local surface ﬂatness.
+                                                                                    𝛼 denotes the curvature penalty factor, which heavily penalizes abrupt
+                                                                                    geometric variations by increasing the traversal cost. Fig. 3(b) demon-
+                                                                                    strates the anisotropic weights for regions with diﬀerent curvatures. Evi-
+Fig. 2. Preprocessing workﬂow of point clouds. (a) Raw, ﬁne, and coarse point       dently, the cost in smooth regions approximates the Euclidean distance,
+clouds; (b) Multi-scale point cloud mapping.                                        whereas it is penalized and ampliﬁed in high-curvature areas due to
+                                                                                    larger normal deviations.
+
+2.1. Point cloud acquisition and preprocessing
+                                                                                    2.3. Geodesic distance ﬁeld generation
+    In clinical scanning environments, the raw 3D point cloud 𝑃𝑟 ac-
+quired by the RGB-D camera typically suﬀers from noise and high data                    To generate scanning trajectories that completely cover the human
+density, which stems from hardware precision limitations and human                  surface, this method utilizes the spatial centerline of the point cloud
+respiratory disturbances. To reduce the time complexity of the algorithm            as the initial reference boundary (i.e., the source line) to compute the
+while ensuring trajectory accuracy, this subsection employs a multi-                geodesic cost ﬁeld across the entire surface.
+scale spatial discretization strategy.                                                  Assuming the center coordinate along the transverse axis is 𝑋center ,
+    As shown in Fig. 2(a), voxel ﬁltering and statistical outlier removal           the set of points closest to this central axis is selected as the source
+are applied to the raw point cloud to obtain the denoised ﬁne-level point           point set 𝑆. By employing the Dijkstra shortest path algorithm, wave-
+cloud 𝑃𝑓 (Rusu & Cousins, 2011). Then a secondary downsampling is                   front propagation expands outward along the anisotropic graph 𝐺 to
+performed on 𝑃𝑓 using a larger voxel size 𝑣coarse , thereby extracting the          determine the minimum accumulated cost from the source set 𝑆 to all
+coarse-level landmark point cloud 𝑃𝑐 for global distance ﬁeld computa-              nodes 𝐩𝑖 :
+tion:
+                                                                                    𝐶𝑐 (𝐩𝑖 ) = min Cost(𝐬, 𝐩𝑖 )                                                      (3)
+𝑃𝑐 = {𝐩1 , 𝐩2 , … , 𝐩𝑁 } ⊂ ℝ3                                            (1)                   𝐬∈𝑆
+
+where 𝑁 denotes the total number of downsampled points.                             Consequently, the geodesic distance value 𝐶𝑐 for each point within the
+    Fig. 2(b) illustrates the multi-scale mapping relationship between              coarse layer is determined. The detailed execution procedure of this cost
+the ﬁne and coarse point clouds. This multi-scale architecture retains              ﬁeld propagation is summarized in Algorithm 1.
+the detailed surface topology in 𝑃𝑓 while conﬁning the heavy computa-                   The coarse point cloud 𝑃𝑐 lacks the suﬃcient density required to
+tional burden of the shortest path search to 𝑃𝑐 . Therefore, this approach          provide a smooth basis for path sampling. Therefore, the computed
+signiﬁcantly enhances the computational eﬃciency of the algorithm.                  cost values 𝐶𝑐 are mapped back to the dense ﬁne point cloud 𝑃𝑓 us-
+                                                                                    ing the inverse distance weighting (IDW) interpolation algorithm. The
+2.2. Construction of the anisotropic geodesic weight graph                          IDW mapping process is shown in Fig. 4(a). As illustrated, a thicker con-
+                                                                                    nection line between the target point and its neighboring point indicates
+    To facilitate uniform trajectory distribution across ﬂat regions and            a shorter spatial distance, which correspondingly translates to a larger
+prevent abrupt orientation changes of the ultrasound probe in high-                 interpolation weight.
+curvature areas, an undirected weighted graph 𝐺 = (𝑉 , 𝐸) is constructed                Speciﬁcally, for any target point 𝐪 ∈ 𝑃𝑓 in the ﬁne layer, a k-d tree
+on the coarse point cloud 𝑃𝑐 .                                                      is utilized to identify its 𝑘 nearest neighbors 𝑞 within the coarse layer.
+    Speciﬁcally, the vertex set 𝑉 is identical to the coarse point cloud            The smoothed cost value 𝐶𝑓 (𝐪) for the target point is calculated as:
+(i.e., 𝑉 = 𝑃𝑐 ), and the edge set 𝐸 encodes the local topological connec-                      ∑
+tivity. By integrating local principal component analysis (PCA) with a              𝐶𝑓 (𝐪) =          𝜔̂ 𝑗 𝐶𝑐 (𝐩𝑗 )                                                  (4)
+                                                                                               𝑗∈𝑞
+k-d tree search, the algorithm ﬁrst estimates the unit normal vector 𝐧𝑖 for
+
+                                                                                3
+J. Shen et al.                                                                                                                    Control Engineering Practice 178 (2027) 107240
+
+
+Algorithm 1 Dijkstra-based Geodesic cost ﬁeld generation.
+Input: Anisotropic weighted graph 𝐺 = (𝑉 , 𝐸), source point set 𝑆, edge
+weights 𝑤𝐮,𝐯
+Output: Geodesic distance cost ﬁeld 𝐶𝑐 for all 𝐩𝑖 ∈ 𝑉
+ 1: Initialization:
+ 2: for each node 𝐩𝑖 ∈ 𝑉 do
+ 3:    𝐶𝑐 (𝐩𝑖 ) ← ∞
+ 4: end for
+ 5: Create an empty priority queue 𝑄
+ 6: for each source node 𝐬 ∈ 𝑆 do
+ 7:    𝐶𝑐 (𝐬) ← 0
+ 8:    Insert 𝐬 into 𝑄 with priority 𝐶𝑐 (𝐬) ⊳ Only push sources initially
+ 9: end for
+     Wavefront Propagation:                          ⊳ Expand from sources
+10: while 𝑄 is not empty do
+11:    𝐮 ← Extract node with minimum cost from 𝑄
+12:    for each neighbor 𝐯 of 𝐮 where (𝐮, 𝐯) ∈ 𝐸 do
+13:       𝑎𝑙𝑡 ← 𝐶𝑐 (𝐮) + 𝑤𝐮,𝐯
+14:       if 𝑎𝑙𝑡 < 𝐶𝑐 (𝐯) then                                                        Fig. 5. Isoline extraction and smooth ﬁtting. (a) Maximum curvature constraint;
+15:           𝐶𝑐 (𝐯) ← 𝑎𝑙𝑡                                                            (b) Extracted isolines; (c) Smoothed trajectory via NURBS ﬁtting.
+16:           Insert or Update 𝐯 in 𝑄 with new priority 𝐶𝑐 (𝐯)
+17:       end if
+18:    end for
+19: end while
+20: return 𝐶𝑐
+
+
+
+
+Fig. 4. Spatial mapping and cost ﬁeld evaluation. (a) Interpolation mapping us-                                   Fig. 6. Final generated trajectories.
+ing Inverse Distance Weighting (IDW); (b) Heatmap distribution of the geodesic
+distance cost ﬁeld.
+                                                                                      where 𝛿 denotes the extraction tolerance band.
+                                                                                          To mitigate noise within the point set and satisfy the kinematic
+where the normalized weight 𝜔̂ 𝑗 is inversely proportional to the square
+                                                                                      smoothness requirements of the robotic admittance control system, a
+of the spatial distance:
+                 1
+                                                                                      cubic non-uniform rational B-spline (NURBS) incorporating a maximum
+             ‖𝐪−𝐩𝑗 ‖22 +𝜖                                                             curvature constraint is utilized to parametrically ﬁt 𝑀𝑚 (Tan et al.,
+𝜔̂ 𝑗 = ∑                                                                   (5)        2022). Let 𝐫(𝑢) denote the parameterized curve, whose curvature 𝜅(𝑢)
+                    1
+           𝑖∈𝑞 ‖𝐪−𝐩 ‖2 +𝜖
+                       𝑖 2                                                            is mathematically deﬁned as:
+where 𝜖 is an inﬁnitesimal constant introduced to prevent division                             ‖𝐫 ′ (𝑢) × 𝐫 ′′ (𝑢)‖2
+                                                                                      𝜅(𝑢) =                                                                                (7)
+by zero. Ultimately, this dense mapping procedure achieves eﬃcient                                  ‖𝐫 ′ (𝑢)‖32
+smoothing and noise reduction for the discrete distance ﬁeld. Fig. 4(b)
+illustrates the ﬁnal geodesic distance-based cost ﬁeld heatmap.                           To handle potential kinematic limitations, the algorithm incorpo-
+                                                                                      rates an iterative repair strategy. Whenever the local maximum curva-
+2.4. Final trajectory extraction and reﬁnement                                        ture exceeds the threshold (i.e., max(𝜅) > 1∕𝑅min , where 𝑅min represents
+                                                                                      the minimum safe turning radius of the robot), the spline smoothing
+    Based on the continuous cost values 𝐶𝑓 within the ﬁne layer, 3D                   parameter 𝑠 is automatically increased, and local mean ﬁltering is ap-
+scanning trajectories with equidistant spacing can be generated directly              plied to the anomalous points. This procedure is iteratively repeated
+through the extraction of isolines. By deﬁning the eﬀective width of the              until the robot’s kinematic constraints are strictly satisﬁed, which ulti-
+ultrasound probe as 𝑊probe and the desired overlap as 𝑊overlap , the the-             mately yields the ﬁnal smooth 3D trajectory. The maximum curvature
+oretical geodesic spacing Δ𝑑 between adjacent trajectories is calculated              constraint process is illustrated in Fig. 5(a). Fig. 5(b) shows the result of
+as Δ𝑑 = 𝑊probe − 𝑊overlap . Consequently, the data point set 𝑀𝑚 corre-                isoline extraction and path ﬁtting, while the Fig. 5(c) demonstrates the
+sponding to the 𝑚th trajectory is formulated as:                                      NURBS ﬁtting process for the points within the tolerance band.
+       {                              }
+                |                                                                         To establish a continuous scanning pattern, the individual equidis-
+𝑀𝑚 = 𝐪 ∈ 𝑃𝑓 | |𝐶𝑓 (𝐪) − 𝑚 ⋅ Δ𝑑| < 𝛿                                   (6)
+                |                                                                     tant trajectories are sequentially linked via a boustrophedon (zig-zag)
+
+                                                                                  4
+J. Shen et al.                                                                                                                   Control Engineering Practice 178 (2027) 107240
+
+
+
+
+ Fig. 7. Ultrasound images of the same tissue under diﬀerent contact forces.
+
+
+
+strategy. Speciﬁcally, all trajectories are sorted along the principal
+spread axis, with the directional order of alternating trajectories re-
+versed. To bridge adjacent endpoints while adhering to human geo-
+metric constraints, a surface-adherent U-turn generation method is pro-
+posed. An outward-extending semi-circular arc is constructed based on
+local surface normals, snapped to the dense point cloud via a k-d tree
+search, and smoothed using spline interpolation. This strategy eﬀec-
+tively mitigates kinematic discontinuities, ensuring global 𝐶 2 continuity
+across the entire path.
+    Upon acquiring the global continuous smooth curve 𝐫(𝑢), discrete
+waypoints are subsequently sampled along the trajectory using a ﬁxed                Fig. 8. Interaction model between the ultrasound probe and the human body.
+step size. To execute the robotic scanning task, a local coordinate frame
+is established at each discrete waypoint to deﬁne the spatial pose of
+                                                                                    where 𝑀, 𝐵, 𝐾 ∈ ℝ𝑛×𝑛 are the symmetric positive-deﬁnite virtual mass,
+the ultrasound probe. Speciﬁcally, the outward surface normal vector
+                                                                                    damping, and stiﬀness matrices, respectively. Vectors 𝑋𝑟 , 𝑋𝑐 ∈ ℝ𝑛 de-
+at the current point is designated as the Z-axis, which aligns with the
+                                                                                    note the reference and commanded trajectories, while 𝐹 , 𝐹𝑡 ∈ ℝ𝑛 repre-
+longitudinal axis of the probe. Furthermore, the forward direction point-
+                                                                                    sent the actual and desired interaction forces.
+ing toward the subsequent waypoint deﬁnes the initial X-axis vector. To
+                                                                                       Given that the probe-tissue interaction can be decoupled across
+ensure strict spatial orthogonality, this raw forward vector is projected
+                                                                                    Cartesian axes, the admittance model is simpliﬁed to a one-dimensional
+onto the plane perpendicular to the Z-axis to form the true X-axis, and
+                                                                                    form:
+the Y-axis is derived via the cross product of the Z- and X- axes. Ulti-
+mately, the local coordinate system constructed at each discrete point              𝑚(𝑥̈ 𝑐 − 𝑥̈ 𝑟 ) + 𝑏(𝑥̇ 𝑐 − 𝑥̇ 𝑟 ) + 𝑘(𝑥𝑐 − 𝑥𝑟 ) = 𝑒𝑓                                 (10)
+completely determines the desired spatial pose of the ultrasound probe              where 𝑒𝑓 = 𝑓 − 𝑓𝑡 , and 𝑚, 𝑏, 𝑘 represent the virtual mass, damping, and
+during the scanning process. The ﬁnal generated trajectories are shown              stiﬀness coeﬃcients. Here, 𝑓 and 𝑓𝑡 correspond to the measured and
+in Fig. 6.                                                                          desired interaction forces along the surface normal.
+                                                                                        Assuming the robot provides high-precision position tracking, we
+3. Disturbance observer-based model predictive admittance                           consider the tracking error 𝑥 − 𝑥𝑐 to be negligible. Any unmodeled dy-
+control                                                                             namics and residual errors are encapsulated into a lumped disturbance,
+                                                                                    which is subsequently compensated for within the DO-MPAC frame-
+3.1. Interaction modeling between probe and human tissue                            work.
+                                                                                    Remark 1. Based on the analysis in Section 2, ultrasound scanning is
+    In robotic ultrasound scanning, the probe is typically mounted on               a process that considers probe pose constraints. Section 1 notes that
+the end-eﬀector of a robotic manipulator. As discussed previously, main-            ultrasound image quality primarily depends on normal contact, while
+taining the probe axis perpendicular to the body surface is critical for            tangential motion provides spatial coverage. Therefore, this paper mod-
+image quality. Fig. 7 compares ultrasound images of the same tissue un-             els admittance control only in the normal direction. Additionally, im-
+der diﬀerent contact forces, which reveal that tissue deformation varies            proved imaging reproducibility is a key advantage of robotic ultrasound
+signiﬁcantly with the applied force. To ensure optimal image quality,               scanning. Simplifying the system to a 1D normal admittance control al-
+the probe axis must remain aligned with the surface normal while reg-               lows it to reproduce images at the same location quickly and reliably.
+ulating a constant contact force. Fig. 8 illustrates the interaction model          This requires only normal adjustments and avoids complex tuning in
+between the ultrasound probe and the human body. To facilitate dy-                  other directions. Similar 6-DOF to 1D simpliﬁcations appear in recent
+namic analysis, the tissue is modeled as a linear spring:                           robotic ultrasound research (Jiang et al., 2024; Li et al., 2026a,b; Tan
+                                                                                    et al., 2022). During continuous scanning on curved surfaces, tangential
+      {                                                                             friction, orientation errors, and multi-axis coupling cause cross-axis dis-
+          −𝑘ℎ (𝑥 − 𝑥ℎ ), 𝑥 < 𝑥ℎ
+𝑓=                                                                        (8)       turbances to the normal force. Instead of computing a complex 6-DOF
+          0,            otherwise                                                   dynamic model, the proposed framework groups these unmodeled ef-
+where 𝑘ℎ denotes the tissue stiﬀness, 𝑥 represents the actual interac-              fects into the lumped disturbance term 𝐷(𝑡) in Eq. (19). The designed
+tion position, 𝑥ℎ denotes the position of the body surface, and 𝑓 is the            ESO in Eq. (20) then estimates and compensates for these multi-axis im-
+theoretical interaction force.                                                      pacts. This approach keeps the model mathematically concise and pre-
+    For force control, the tissue position and stiﬀness are treated as time-        serves scanning reproducibility. Note that this simpliﬁcation assumes
+varying environmental parameters, and the probe-tissue interaction is               the robot provides ideal tangential and orientation tracking, and that
+modeled as a second-order mass-spring-damper system. Classical ad-                  the cross-axis disturbances remain bounded.
+mittance control (AC) achieves compliant force regulation by adjusting
+position commands in response to interaction forces. For an 𝑛-degree-               3.2. System formulation
+of-freedom manipulator operating in Cartesian space, the standard ad-
+mittance law is deﬁned as:                                                             Following the analysis of the admittance model, desired force track-
+                                                                                    ing can be achieved by setting 𝑘 = 0. It is crucial to clarify that 𝑘 repre-
+𝑀(𝑋̈ 𝑐 − 𝑋̈ 𝑟 ) + 𝐵(𝑋̇ 𝑐 − 𝑋̇ 𝑟 ) + 𝐾(𝑋𝑐 − 𝑋𝑟 ) = 𝐹 − 𝐹𝑡                  (9)       sents the software-deﬁned virtual stiﬀness in the admittance controller,
+
+                                                                                5
+J. Shen et al.                                                                                                                             Control Engineering Practice 178 (2027) 107240
+
+
+
+
+                                                                    Fig. 9. Schematic of the proposed DO-MPAC strategy.
+
+
+rather than the physical stiﬀness of the robotic joints or the human tis-                                Notably, while Eq. (18) formulates 𝐷(𝑡) from environmental dynam-
+sue (𝑘ℎ ). During steady-state contact where velocity and acceleration                               ics, it practically encapsulates low-frequency unmodeled dynamics like
+approach zero (𝑥̈ 𝑐 = 𝑥̇ 𝑐 = 0), the original admittance model (Eq. (10))                            friction and modeling errors for ESO compensation. Meanwhile, high-
+degenerates to 𝑒𝑓 = 𝑘(𝑥𝑐 − 𝑥𝑟 ). To compress the tissue and apply a con-                             frequency uncertainties like sensor noise are eﬀectively mitigated by the
+stant force, the probe must physically deviate from its reference tra-                               virtual mass 𝑚 and the low-pass ﬁltering of the ESO bandwidth 𝜔𝑜 .
+jectory (𝑥𝑐 ≠ 𝑥𝑟 ). Consequently, a non-zero virtual stiﬀness (𝑘 > 0) in-
+duces a virtual restoring force that pulls the end-eﬀector toward 𝑥𝑟 , in-                           3.3. DO-MPAC design
+herently causing a steady-state tracking error. Setting 𝑘 = 0 mathemat-
+ically eliminates this virtual spring eﬀect, allowing the manipulator to                                For the second-order system (17), a third-order extended state ob-
+exhibit force-guided compliance and achieve nearly zero steady-state er-                             server (ESO) is introduced to monitor the unknown disturbance 𝐷(𝑡) in
+ror. This conﬁguration is eﬀective for force tracking tasks and has been                             real time. The state space is deﬁned as 𝑙1 = 𝑒𝑓 , 𝑙2 = 𝑒̇ 𝑓 , and 𝑙3 = 𝐷(𝑡).
+validated in Jung et al. (2004). Beyond the elimination of steady-state                              The continuous-time state-space equations for the true force tracking
+errors, setting 𝑘 = 0 is structurally imperative for the downstream DO-                              error are given by:
+MPAC formulation, as clariﬁed in Remark 2. Therefore, the admittance
+model simpliﬁes to:                                                                                  ⎧𝑙̇ 1 = 𝑙2
+                                                                                                     ⎪
+𝑚(𝑥̈ 𝑐 − 𝑥̈ 𝑟 ) + 𝑏(𝑥̇ 𝑐 − 𝑥̇ 𝑟 ) = 𝑒𝑓                                                    (11)       ⎨𝑙̇ 2 = 𝑙3 + 𝑀0 𝑢 + 𝐻𝑛                                                        (19)
+                                                                                                     ⎪̇       ̇
+                                                                                                     ⎩𝑙3 = 𝐷(𝑡)
+   To integrate model predictive control (MPC) into the AC framework,
+we introduce a virtual input 𝑢, which acts as an auxiliary control vari-                                To observe these states in real time, a third-order ESO is designed.
+able. Let Δ𝑥 = 𝑥𝑐 − 𝑥𝑟 . The admittance model is reformulated as:                                    Let the observer state variables be 𝑧1 , 𝑧2 , 𝑧3 , and deﬁne the observation
+                                                                                                     error as 𝑒𝑜 = 𝑧1 − 𝑙1 . The ESO dynamics are then constructed as:
+𝑚Δ𝑥̈ + 𝑏Δ𝑥̇ = 𝑒𝑓 + 𝑢                                                                      (12)
+                                                                                                     ⎧𝑧̇ 1 = 𝑧2 − 𝛽1 𝑒𝑜
+By rearranging the terms, the commanded acceleration can be derived                                  ⎪
+as:                                                                                                  ⎨𝑧̇ 2 = 𝑧3 − 𝛽2 𝑒𝑜 + 𝑀0 𝑢 + 𝐻𝑛                                                (20)
+                                                                                                     ⎪
+             1                                                                                       ⎩𝑧̇ 3 = −𝛽3 𝑒𝑜
+𝑥̈ 𝑐 = 𝑥̈ 𝑟 + (𝑒𝑓 + 𝑢 − 𝑏(𝑥̇ 𝑐 − 𝑥̇ 𝑟 ))                       (13)
+             𝑚
+                                                                                                     where the observer gains are selected as 𝛽1 = 3𝜔𝑜 , 𝛽2 = 3𝜔2𝑜 , and 𝛽3 =
+Given the force error 𝑒𝑓 = 𝑓 − 𝑓𝑡 = −𝑘ℎ (𝑥𝑐 − 𝑥ℎ ) − 𝑓𝑡 , its ﬁrst and
+                                                                                                     𝜔3𝑜 . Deﬁne the state estimation error vector as 𝒆 = [𝑒1 , 𝑒2 , 𝑒3 ]𝑇 , where
+second-order derivatives with respect to time are expressed as:
+                                                                                                     the components are 𝑒1 = 𝑧1 − 𝑙1 (i.e., 𝑒𝑜 ), 𝑒2 = 𝑧2 − 𝑙2 , and 𝑒3 = 𝑧3 − 𝑙3 .
+𝑒̇ 𝑓 = −𝑘̇ ℎ (𝑥𝑐 − 𝑥ℎ ) − 𝑘ℎ (𝑥̇ 𝑐 − 𝑥̇ ℎ )                                               (14)       Subtracting the actual system equations from the observer equations
+𝑒̈𝑓 = −𝑘ℎ 𝑥̈ 𝑐 + 𝑘ℎ 𝑥̈ ℎ − 2𝑘̇ ℎ (𝑥̇ 𝑐 − 𝑥̇ ℎ ) − 𝑘̈ ℎ (𝑥𝑐 − 𝑥ℎ )                         (15)       yields the ESO error dynamics:
+
+Substituting Eq. (13) into Eq. (15), the dynamics of the force error are                             ⎧𝑒̇ 1 = 𝑧̇ 1 − 𝑙̇ 1 = 𝑒2 − 𝛽1 𝑒1
+                                                                                                     ⎪
+obtained as:                                                                                         ⎨𝑒̇ 2 = 𝑧̇ 2 − 𝑙̇ 2 = 𝑒3 − 𝛽2 𝑒1                                              (21)
+           [                                        ]                                                ⎪
+                   1
+𝑒̈𝑓 = − 𝑘ℎ 𝑥̈ 𝑟 + (𝑒𝑓 + 𝑢 − 𝑏(𝑥̇ 𝑐 − 𝑥̇ 𝑟 ))
+                                                                                                                                      ̇
+                                                                                                     ⎩𝑒̇ 3 = 𝑧̇ 3 − 𝑙̇ 3 = −𝛽3 𝑒1 − 𝐷(𝑡)
+                   𝑚                                                (16)
+      + 𝑘ℎ 𝑥̈ ℎ − 2𝑘̇ ℎ (𝑥̇ 𝑐 − 𝑥̇ ℎ ) − 𝑘̈ ℎ (𝑥𝑐 − 𝑥ℎ )                                                  The actual control input 𝑢 is designed as:
+                                                                                                          𝑢0 − 𝐻𝑛 − 𝑧3
+To account for the time-varying environment stiﬀness and separate the                                𝑢=                                                                            (22)
+                                                                                                               𝑀0
+nominal model from uncertainties, we represent 𝑘ℎ as 𝑘ℎ = 𝑘ℎ0 + Δ𝑘ℎ ,
+where 𝑘ℎ0 is the nominal stiﬀness and Δ𝑘ℎ denotes the stiﬀness ﬂuctu-                                where 𝑢0 represents the virtual control law to be designed. Substituting
+ation. Substituting this into Eq. (13) yields:                                                       𝑢 back into the error dynamics (17) yields:
+𝑒̈𝑓 = 𝑀0 𝑢 + 𝐻𝑛 + 𝐷(𝑡)                                                                    (17)       𝑒̈𝑓 = 𝑢0 − 𝑧3 + 𝑙3 ≈ 𝑢0                                                       (23)
+                                               𝑘        𝑘 𝑏
+where 𝑀0 = −𝑘ℎ0 ∕𝑚 and                   𝐻𝑛 = − 𝑚ℎ0 𝑒𝑓 + ℎ0
+                                                         𝑚
+                                                            (𝑥̇ 𝑐 − 𝑥̇ 𝑟 ) − 𝑘ℎ0 𝑥̈ 𝑟 .   The            To systematically design the virtual control law 𝑢0 , an MPC scheme
+lumped disturbance term 𝐷(𝑡) is deﬁned as:                                                           is introduced. Let the state vector be 𝐗 = [𝑒𝑓 , 𝑒̇ 𝑓 ]𝑇 . Applying forward
+           Δ𝑘ℎ                                                                                       Euler discretization with a sampling time 𝑇𝑠 to the system 𝑒̈𝑓 = 𝑢0 , we
+𝐷(𝑡) = −        (𝑢 + 𝑒𝑓 − 𝑏(𝑥̇ 𝑐 − 𝑥̇ 𝑟 ))                                                           obtain:
+            𝑚                                                                             (18)
+         − Δ𝑘ℎ 𝑥̈ 𝑟 + 𝑘ℎ 𝑥̈ ℎ − 2𝑘̇ ℎ (𝑥̇ 𝑐 − 𝑥̇ ℎ ) − 𝑘̈ ℎ (𝑥𝑐 − 𝑥ℎ )                               𝐗(𝑘 + 1) = 𝐴𝐗(𝑘) + 𝐵𝑢0 (𝑘)                                                    (24)
+
+                                                                                                 6
+J. Shen et al.                                                                                                           Control Engineering Practice 178 (2027) 107240
+
+                 [  ]          [ 2 ]
+              1 𝑇𝑠               𝑇 ∕2                                               Part B. Stability Analysis of the MPC
+where 𝐴 =             and 𝐵 = 𝑠        . The system output is the desired
+              0   1                𝑇𝑠                                                   While the DO-MPAC formulation (e.g., Eq. (24)) relies on a nominal,
+force error, deﬁned as 𝐸𝑓 (𝑘) = 𝐶𝐗(𝑘) = 𝑒𝑓 (𝑘), with 𝐶 = [1, 0]. Over a             disturbance-free model for optimization, evaluating the physical closed-
+prediction horizon 𝑁𝑝 , the control objective is to drive the future force          loop stability requires accounting for the uncompensated ESO residual,
+error 𝑒𝑓 toward zero while preventing abrupt variations in the control               ̃ = 𝑧3 (𝑡) − 𝑙3 (𝑡). Substituting the actual control law (22) into the phys-
+                                                                                    𝐷(𝑡)
+action 𝑢0 . Accordingly, the cost function 𝐽 is formulated as:                      ical force error dynamics yields:
+
+          ∑𝑝𝑁
+                            ∑
+                            𝑝     𝑁 −1                                                         ̃
+                                                                                    𝑒̈𝑓 = 𝑢0 − 𝐷(𝑡)                                                              (32)
+             ‖          ‖2    ‖          ‖2
+𝐽 = min      ‖𝑒𝑓 (𝑘 + 𝑖)‖ +   ‖𝑢0 (𝑘 + 𝑖)‖                              (25)
+       𝐔0    ‖          ‖𝑄    ‖          ‖𝑅                                            Discretizing this equation produces the perturbed state-space model:
+           𝑖=1                     𝑖=0
+
+The predicted outputs over the future 𝑁𝑝 steps are aggregated into a                𝐗(𝑘 + 1) = 𝐴𝐗(𝑘) + 𝐵𝑢0 (𝑘) + 𝑊 (𝑘)                                           (33)
+vector:
+                                                                                    where matrices 𝐴 and 𝐵 match the nominal prediction model Eq. (24),
+𝐄𝑓 𝑝 = Ψ𝐗(𝑘) + Θ𝐔0                                                      (26)                       𝑇2
+                                                                                                      ̃
+                                                                                    and 𝑊 (𝑘) = [− 2𝑠 𝐷(𝑘),     ̃
+                                                                                                            −𝑇𝑠 𝐷(𝑘)]𝑇 is the discretized perturbation in-
+
+where Ψ and Θ represent the standard prediction matrices. The analyt-               duced by 𝐷(𝑡). Since lim sup𝑡→∞ |𝐷(𝑡)|
+                                                                                              ̃                        ̃    ≤ 𝜇 (Part A), 𝑊 (𝑘) is strictly
+ical solution for the optimal control sequence is derived by substituting           bounded by a positive constant 𝑤max (i.e., ‖𝑊 (𝑘)‖ ≤ 𝑤max ).
+this prediction model into the cost function and setting its derivative                 The unconstrained MPC law (27) operates as a nominal linear state
+with respect to 𝐔0 to zero:                                                         feedback 𝑢0 (𝑘) = −𝐾𝑚𝑝𝑐 𝐗(𝑘), where 𝐾𝑚𝑝𝑐 corresponds to the ﬁrst row
+                                                                                    of (Θ𝑇 𝑄Θ + 𝑅)−1 Θ𝑇 𝑄Ψ. For the adopted ﬁnite-horizon MPC, a suﬃ-
+𝐔∗0 = −(Θ𝑇 𝑄Θ + 𝑅)−1 Θ𝑇 𝑄Ψ𝐗(𝑘)                                          (27)        ciently long prediction horizon 𝑁𝑝 and positive-deﬁnite weighting ma-
+The ﬁrst element of this optimal sequence is extracted as the current con-          trices (𝑄 > 0, 𝑅 > 0) are selected to obtain a stabilizing feedback gain
+trol command, denoted as 𝑢0 (0). Substituting this into the input trans-            𝐾𝑚𝑝𝑐 for the nominal system (Mayne et al., 2000; Rawlings & Mayne,
+formation yields:                                                                   2009). Consequently, the nominal closed-loop matrix 𝐴𝐾 = 𝐴 − 𝐵𝐾𝑚𝑝𝑐
+      𝑢0 (0) − 𝐻𝑛 − 𝑧3                                                              is Schur-stable, which is veriﬁed by checking that all eigenvalues lie
+𝑢=                                                                      (28)        strictly inside the unit circle.
+             𝑀0
+                                                                                        Applying this nominal control law to the perturbed physical system
+By pre-computing the time-invariant gain matrix in Eq. (27) oﬄine, the              yields the actual closed-loop dynamics:
+online DO-MPAC only requires ﬁxed-size matrix-vector multiplications,
+achieving eﬀectively 𝑂(1) complexity with respect to the prediction hori-           𝐗(𝑘 + 1) = 𝐴𝐾 𝐗(𝑘) + 𝑊 (𝑘)                                                   (34)
+zon 𝑁𝑝 . Finally, the control command is obtained by substituting the                   This formulation reveals the inherent robustness of the controller.
+above expression (28) into the admittance model (13):                               Despite the continuous external perturbation 𝑊 (𝑘), the strictly Schur-
+                [     (                  )                  ]
+              1         𝑢0 (0) − 𝐻𝑛 − 𝑧3                                            stable matrix 𝐴𝐾 eﬀectively suppresses the disturbance. According
+𝑥̈ 𝑐 = 𝑥̈ 𝑟 +    𝑒𝑓 +                      − 𝑏(𝑥̇ 𝑐 − 𝑥̇ 𝑟 )        (29)            to discrete-time input-to-state stability (ISS) theory (Jiang & Wang,
+              𝑚                𝑀0
+                                                                                    2001; Khalil, 2002), applying a bounded input to an asymptoti-
+  Fig. 9 depicts the block diagram for the developed DO-MPAC frame-
+                                                                                    cally stable nominal system naturally preserves ISS. Consequently,
+work.
+                                                                                    lim sup𝑘→∞ ‖𝐗(𝑘)‖ ≤ 𝑐𝑤 𝑤max , where 𝑐𝑤 > 0 is a constant related to 𝐴𝐾 .
+                                                                                    This proves that the closed-loop DO-MPAC system is uniformly ulti-
+3.4. Stability and boundedness analysis of DO-MPAC
+                                                                                    mately bounded (UUB).
+Assumption 1. The unknown lumped disturbance 𝐷(𝑡) is continuously                   Remark 2. Setting the virtual stiﬀness to zero prevents coupling be-
+diﬀerentiable, and its rate of change is bounded by a ﬁnite positive con-           tween force and position errors in Eq. (16). This simpliﬁes the MPC de-
+stant 𝐿𝐷 , such that |𝐷(𝑡)|
+                       ̇    ≤ 𝐿𝐷 .                                                  sign by maintaining a compact 2D state vector 𝐗 = [𝑒𝑓 , 𝑒̇ 𝑓 ]𝑇 instead of a
+                                                                                    4D space, reducing computational load and avoiding a multi-objective
+Theorem 1. For the admittance system (11)-(29), if Assumption 1 holds
+                                                                                    cost function. In practice, obtaining the state derivative 𝑒̇ 𝑓 via direct
+and the ﬁnite-horizon MPC parameters (𝑁𝑝 , 𝑄, and 𝑅) are selected such
+                                                                                    numerical diﬀerentiation ampliﬁes sensor noise. Therefore, the physi-
+that the nominal closed-loop system is Schur-stable, the closed-loop tracking
+                                                                                    cal hardware measures only the raw force error 𝑒𝑓 (i.e., 𝑙1 ). The ESO
+states 𝐗(𝑘) = [𝑒𝑓 (𝑘), 𝑒̇ 𝑓 (𝑘)]𝑇 are uniformly ultimately bounded (UUB).
+                                                                                    then reconstructs the remaining dynamics: 𝑧2 provides 𝑒̇ 𝑓 , and 𝑧3 esti-
+Proof. Part A. Stability Analysis of the ESO                                        mates higher-order coupling eﬀects. This observer-based approach sup-
+   Rewriting Eq. (21) in a compact matrix form yields:                              plies stable states for the MPC scheme in Eq. (24) without numerical
+                ̇
+𝒆̇ = 𝐴𝑒 𝒆 + 𝐸𝑒 𝐷(𝑡)                                                     (30)        derivation.
+
+where the error system matrix 𝐴𝑒 and the disturbance input matrix 𝐸𝑒                Remark 3. As shown in Eq. (16), the dynamics of the force error, 𝑒𝑓 , in
+are deﬁned as:                                                                      traditional AC are coupled with the virtual mass 𝑚 and damping 𝑏. Con-
+                                                                                    sequently, tuning these parameters requires a trade-oﬀ between track-
+     ⎡−𝛽1            1   0⎤          ⎡0⎤                                            ing agility and physical compliance. The proposed DO-MPAC framework
+𝐴𝑒 = ⎢−𝛽2            0   1⎥,   𝐸 𝑒 = ⎢ 0 ⎥.                             (31)
+     ⎢                    ⎥          ⎢ ⎥                                            suppresses this coupling through feedback linearization. By integrating
+     ⎣−𝛽3            0   0⎦          ⎣−1⎦
+                                                                                    the nominal dynamics, 𝐻𝑛 , into the inverse dynamics control law, a
+    According to the analysis in active disturbance rejection control (Gao          feedforward control term is introduced to compensate for the dynamic
+et al., 2003), by applying the bandwidth parameterization method to                 eﬀects of 𝑚 and 𝑏. As established in (22), with accurate disturbance esti-
+conﬁgure the observer gains as 𝛽1 = 3𝜔𝑜 , 𝛽2 = 3𝜔2𝑜 , and 𝛽3 = 𝜔3𝑜 (𝜔𝑜 > 0),        mation (𝑧3 ≈ 𝐷(𝑡)), the closed-loop force error dynamics are nominally
+all eigenvalues of matrix 𝐴𝑒 are placed at −𝜔𝑜 in the complex plane. This           transformed into a standard double integrator (i.e., 𝑒̈𝑓 ≈ 𝑢0 ). Thus, the
+conﬁguration ensures that 𝐴𝑒 is a strictly Hurwitz matrix.                          system’s transient convergence rate is governed primarily by the MPC
+    By deﬁning ℎ = −𝐷(𝑡),   ̇   the error dynamics in Eq. (30) become               weighting matrices (𝑄, 𝑅). However, it is crucial to note that this sim-
+𝒆̇ = 𝐴𝑒 𝒆 − 𝐸𝑒 ℎ. Given that 𝐴𝑒 is strictly Hurwitz and ℎ is bounded                pliﬁcation depends on the ESO’s tracking bandwidth. Highly transient
+by 𝐿𝐷 (Assumption 1), the system achieves bounded-input bounded-                    events, such as sudden environmental stiﬀness jumps, can cause the ESO
+state (BIBS) stability (Gao et al., 2003). Therefore, the estimation error          to brieﬂy lag behind the actual disturbance (𝑧3 ≠ 𝐷(𝑡)). During these
+  ̃ = 𝑧3 (𝑡) − 𝑙3 (𝑡) is ultimately bounded by a positive constant 𝜇 (i.e.,
+𝐷(𝑡)                                                                                brief estimation delays, uncompensated residual forces act directly on
+lim sup𝑡→∞ |𝐷(𝑡)|
+              ̃     ≤ 𝜇).                                                           the physical admittance model. Therefore, rather than rendering 𝑚 and 𝑏
+
+                                                                                7
+J. Shen et al.                                                                                                                      Control Engineering Practice 178 (2027) 107240
+
+
+obsolete, DO-MPAC fundamentally separates their functional roles. The            and the sliding variable dynamics 𝑠̂ in real time, with 𝐿1 and 𝐿2 serving
+control law dictates the nominal tracking agility, while 𝑚 and 𝑏 are tuned       as the positive observer gains.
+to absorb high-frequency impacts. This mechanism suppresses the tradi-               Control eﬃcacy is quantitatively assessed using six standard indices.
+tional parameter coupling, simpliﬁes the tuning process, and enhances            First, the rise time (𝑇𝑟𝑖𝑠𝑒 ) evaluates transient agility, deﬁned as the du-
+robustness against complex environmental variations.                             ration from initial contact 𝑡𝑐 to ﬁrst reaching the target force 𝑓𝑡 :
+Remark 4. It is worth noting that the MPC formulation in Eq. (25)                𝑇𝑟𝑖𝑠𝑒 = inf{𝑡 > 𝑡𝑐 ∣ 𝑓 (𝑡) ≥ 𝑓𝑡 } − 𝑡𝑐                                                     (37)
+omits explicit state and input constraints primarily to preserve the an-         where 𝑡𝑎 = 𝑡𝑐 + 𝑇𝑟𝑖𝑠𝑒 denotes the arrival instant. Second, the settling time
+alytical solution shown in Eq. (27). While explicitly constrained MPC            (𝑇𝑠 ) measures convergence speed, representing the time required to con-
+strictly bounds system variables, online numerical quadratic program-            tinuously remain within a ±5% error band over the total duration 𝑡𝑟 :
+ming (QP) solving increases the computational burden and compromises
+the determinism of execution times in high-frequency robotic control.            𝑇𝑠 = inf{𝑡 > 𝑡𝑐 ∣ ∀𝜏 ∈ [𝑡, 𝑡𝑟 ], |𝑓 (𝜏) − 𝑓𝑡 | ≤ 0.05𝑓𝑡 } − 𝑡𝑐                             (38)
+Alternatively, this paper adopts a hierarchical safety strategy. At the          Third, the maximum force deviation (MFD) characterizes the maximum
+optimization level, the objective function provides a penalty-based soft         absolute transient deviation percentage from the target force after 𝑡𝑎 :
+constraint mechanism. The weighting matrices 𝑄 and 𝑅 penalize force
+                                                                                                  | 𝑓 (𝑡) − 𝑓𝑡 |
+tracking errors and control variations, respectively, thereby suppressing        MFD = sup ||                  | × 100%
+                                                                                                               |                                                            (39)
+                                                                                      𝑡∈[𝑡𝑎 ,𝑡𝑟 ] |     𝑓𝑡     |
+excessive force ﬂuctuations and aggressive control actions. At the ex-
+ecution level, hard saturation mechanisms are introduced to enhance              Fourth, steady-state tracking accuracy is evaluated by the integral of
+interaction safety. Speciﬁcally, strict boundaries are imposed on the            absolute error (IAE) and time-weighted absolute error (ITAE) (Yi & Zhai,
+control input 𝑢0 and the admittance-induced positional deviation Δ𝑥.             2019):
+According to Eqs. (23) and (29), these constraints physically limit the                       𝑡𝑟                               𝑡𝑟
+transient control behavior (𝑥̈ 𝑐 ) and probe motion, thereby reducing the        IAE =             |𝑒𝑓 (𝑡)|d𝑡,   ITAE =             𝑡 ⋅ |𝑒𝑓 (𝑡)|d𝑡                          (40)
+                                                                                         ∫0                               ∫0
+risk of excessive mechanical interaction under anomalous conditions.
+                                                                                 Finally, to quantify high-frequency chattering, the high-frequency en-
+The proposed framework does not preclude explicit MPC constraints.
+                                                                                 ergy (HFE) measures oscillation energy beyond a cutoﬀ frequency 𝑓𝑐 ,
+The explicit input or state constraints can be embedded directly into the
+                                                                                 where 𝑃 (𝑓 ) is the force amplitude spectrum and 𝑓max is the maximum
+MPC optimization problem. However, this will transform the analytical
+                                                                                 frequency. In this study, the frequency evaluation range is speciﬁcally
+optimization into a numerical constrained optimization problem.
+                                                                                 set from 𝑓𝑐 = 20 Hz to 𝑓max = 500 Hz:
+                                                                                               𝑓𝑚𝑎𝑥
+4. Simulation studies
+                                                                                 HFE =                |𝑃 (𝑓 )|2 d𝑓                                                          (41)
+                                                                                         ∫𝑓𝑐
+4.1. Simulation setup
+                                                                                    Within the simulation framework, the environmental parameters are
+                                                                                 modeled to reﬂect the realistic physiological characteristics of the hu-
+    In this section, several simulations are conducted in MATLAB
+                                                                                 man surfaces. The time-varying tissue stiﬀness 𝑘ℎ (𝑡) and respiratory-
+(2024b) to evaluate the performance of the proposed DO-MPAC method.
+                                                                                 induced surface motion 𝑥ℎ (𝑡) are conﬁgured as follows:
+To comprehensively assess the tracking accuracy and robustness of the            {
+proposed framework, several representative admittance controllers are              𝑘ℎ (𝑡) = 𝑘ℎ0 + Δ𝑘ℎ sin(2𝜋𝑓𝑘 𝑡)
+                                                                                                                                                     (42)
+selected for comparative analysis. These baselines include the conven-             𝑥ℎ (𝑡) = 𝐴𝑟 sin(2𝜋𝑓𝑟 𝑡)
+tional admittance controller (AC) in Tan et al. (2022), the adaptive ad-
+mittance controller (AAC) in Jiang et al. (2024), and the disturbance            where 𝑘ℎ0 = 2500 N/m denotes the nominal stiﬀness of the muscular
+observer-based sliding mode admittance controller (DOBSMAC) in Li                tissue. Δ𝑘ℎ and 𝑓𝑘 represent the amplitude and frequency of the spatial
+et al. (2026a).                                                                  stiﬀness variation as the probe scans across diﬀerent anatomical tissues.
+    As the foundational baseline, the conventional AC scheme adopted in          Furthermore, 𝐴𝑟 signiﬁes the amplitude of human respiration, and 𝑓𝑟
+Tan et al. (2022) is expressed as Eq. (11). Furthermore, the AAC method          denotes the respiratory frequency.
+proposed in Jiang et al. (2024) is formulated as follows:                            An evaluation of the controller performance is achieved by establish-
+                                                                                 ing two distinct sets of environmental parameters. The ﬁrst set, denoted
+                       𝑡
+⎧𝑘̂ ℎ = 𝑘̂ ℎ (0) + 𝛼 ∫0 𝑥𝑐 (𝑓̂ − 𝑓 )𝑑𝑡                                           as Case 1, simulates a relatively stable environment with minor physi-
+⎪                             (           )
+                       𝑡 𝑓̂−𝑓 𝛼                                                  ological perturbations, where Δ𝑘ℎ = 0.3 N/m, 𝑓𝑘 = 0.1 Hz, 𝐴𝑟 = 0.0002
+⎨𝑥̂ ℎ = 𝑥̂ ℎ (0) − 𝛽 ∫0 𝑘̂ ℎ 𝛽 𝑥𝑐 𝑥̂ ℎ + 1 𝑑𝑡                        (35)
+⎪̂                                                                               m, and 𝑓𝑟 = 0.1 Hz. Conversely, the second set, denoted as Case 2, rep-
+⎩𝑓 (𝑡) = 𝑘̂ ℎ (𝑥̂ ℎ − 𝑥𝑐 )
+                                                                                 resents a challenging scenario with signiﬁcant respiratory motion and
+where 𝑓̂ represents the estimated contact force, and 𝑘̂ ℎ and 𝑥̂ ℎ denote        severe stiﬀness ﬂuctuations, characterized by Δ𝑘ℎ = 1200 N/m, 𝑓𝑘 = 0.3
+the estimated environment stiﬀness and position, respectively. Finally,          Hz, 𝐴𝑟 = 0.005 m, and 𝑓𝑟 = 0.3 Hz.
+𝛼 and 𝛽 act as positive scalar constants to tune the adaptive laws.                  The admittance parameters are selected to satisfy physical hardware
+    To provide a benchmark for robust nonlinear control, the DOBSMAC             constraints and clinical safety requirements. First, considering the actual
+strategy in Li et al. (2026a) is conﬁgured as:                                   2.7 kg end-eﬀector payload (ultrasound probe, camera, force sensor, and
+                                                                                 connectors), the virtual mass is set to 𝑚 = 3.5 kg. This added mass acts as
+⎧𝑠 = 𝐶𝑒𝑓 + 𝑒̇ 𝑓                                                                  an inertia buﬀer to ﬁlter high-frequency sensor noise and compensate for
+⎪       1 (                          )
+⎪𝑢 = 𝐺 −𝑘𝑠 𝑠 − 𝜂sat(𝑠) − 𝑑̂ − ℎ𝑛𝑜𝑚                                               unmodeled trailing cable dynamics during motion. Second, to determine
+⎨        0                                                           (36)
+                                                                                 the optimal virtual damping 𝑏, a parameter sweep is conducted using
+⎪𝑠̂̇ = 𝐺0 𝑢 + ℎ𝑛𝑜𝑚 + 𝑑̂ + 𝐿1 (𝑠 − 𝑠)
+                                  ̂
+⎪ ̂̇                                                                             traditional AC under the relatively stable Case 1. As shown in Fig. 10,
+⎩𝑑 = 𝐿2 (𝑠 − 𝑠)̂
+                                                                                 the sweep results reveal a critical trade-oﬀ between tracking agility (𝑇𝑆 )
+where 𝑠 deﬁnes the ﬁrst-order sliding manifold, which is parameterized           and patient safety (maximum transient velocity). Lower damping values
+by a positive constant 𝐶. The virtual control input 𝑢 is synthesized to          accelerate the force response but induce hazardous transient velocities
+enforce the reaching condition of the sliding surface, incorporating 𝑘𝑠          that exceed the strict 0.03 m/s safety threshold during sudden contact.
+as the linear feedback gain and 𝜂 as the robust switching gain. In this          Therefore, a highly conservative damping of 𝑏 = 1000 N⋅s/m is selected.
+formulation, 𝐺0 and ℎ𝑛𝑜𝑚 represent the nominal mass and the nominal              This damping restricts the maximum speed to approximately 0.01 m/s
+intrinsic dynamics of the admittance model, respectively. Meanwhile, an          to guarantee clinical safety, and provides a stable 𝑇𝑠 of approximately
+extended state observer structure reconstructs the lumped disturbance 𝑑̂         1.2 s.
+
+                                                                             8
+J. Shen et al.                                                                                                           Control Engineering Practice 178 (2027) 107240
+
+
+
+
+       Fig. 10. Parameter sweep analysis of virtual damping 𝑏 in Case 1.
+
+
+
+
+                                                                                              Fig. 12. Parameter sweep analysis of 𝜔𝑜 in Case 1.
+
+                                                                                           Table 1
+                                                                                           Control parameter conﬁgurations for the four controllers
+                                                                                           in simulations.
+                                                                                             Controller      Parameter Settings
+
+                                                                                             AC              𝑚 = 3.5, 𝑏 = 1000, 𝑘 = 0
+                                                                                             AAC             𝛼 = 0.01, 𝛽 = 0.01
+                                                                                             DOBSMAC         𝐶 = 20, 𝑘𝑠 = 150, 𝜂 = 10, 𝐿1 = 60, 𝐿2 = 1200
+                                                                                             DO-MPAC         𝑘ℎ0 = 1500, 𝑁𝑝 = 15, 𝑄 = 0.5, 𝑅 = 10, 𝜔𝑜 = 90
+
+
+                                                                                        Table 2
+                                                                                        Quantitative simulation performance metrics of the evaluated
+                                                                                        controllers.
+                                                                                          Condition       Method       MFD (%)      IAE (N⋅s)    ITAE (N⋅s2 )
+                 Fig. 11. Parameter sweep analysis of 𝑄, 𝑅 in Case 1.                     Case 1          AC           1.1698       4.7891       5.1306
+                                                                                                          AAC          1.5448       6.5838       7.9286
+                                                                                                          DOBSMAC      6.9831       0.6490       0.5815
+                                                                                                          DO-MPAC      0.1066       0.2716       0.2038
+
+                                                                                          Case 2          AC           24.2631      7.5905       35.8323
+    To ensure a fair comparison, identical admittance parameters (𝑚 =                                     AAC          25.6664      14.6170      71.0296
+3.5, 𝑏 = 1000, and 𝑘 = 0) are applied to all four controllers. The sim-                                   DOBSMAC      10.3077      0.7345       2.4451
+ulation step size is uniformly set to 𝑇 = 0.002 s.                                                        DO-MPAC      0.1712       0.5694       0.5142
+    The parameter tuning procedure for the DO-MPAC is outlined as fol-
+lows. First, the stiﬀness parameter, 𝑘ℎ0 , is chosen as 1500 to approxi-
+mate the surface stiﬀness of the human body, and the prediction horizon,         4.2. Simulation results
+𝑁𝑝 , is chosen to be 15. As discussed in Remark 3, the ESO bandwidth pri-
+marily inﬂuences the controller’s performance during the initial tracking            In this subsection, the tracking performance of the proposed DO-
+phase, owing to the large initial estimation error of 𝐷(𝑡). Once the ESO         MPAC framework is compared with that of three representative admit-
+accurately tracks 𝐷(𝑡), the system performance is predominantly gov-             tance controllers. To ensure a fair comparison, all evaluated strategies
+erned by the MPC weighting parameters. Therefore, with 𝜔𝑜 initially set          are tested under identical initial conditions and algorithmic parameters.
+to 100, a parameter sweep is conducted for 𝑄 and 𝑅 in Case 1, and their          The quantitative performance metrics are summarized in Table 2, and
+optimal values are determined by the corresponding performance met-              the response trajectories are plotted in Figs. 13–15 to illustrate the tran-
+rics. The results of this parameter sweep are presented in Fig. 11. Based        sient and steady-state behaviors.
+on a comprehensive evaluation of the four metrics, the parameters are                The force tracking trajectories generated by the four control strate-
+set to 𝑄 = 0.5 and 𝑅 = 10.                                                       gies under Case 1 and 2 are depicted in Figs. 13 and 14, respectively. In
+    Finally, the bandwidth parameter, 𝜔𝑜 , remains to be optimized. The          Case 1, all evaluated controllers successfully achieve the target force.
+selection operates within a theoretical interval [𝜔min , 𝜔max ]. The lower       Notably, DOBSMAC exhibits the most rapid transient response, but it
+bound 𝜔min should exceed the dominant frequency of environmental dis-            incurs a noticeable overshoot along with minor force ﬂuctuations dur-
+turbances, and the upper bound 𝜔max is constrained by the sampling rate          ing the steady-state phase. Although the AC and AAC strategies yield
+and sensor noise limits to avoid resonance. As illustrated in Fig. 12, the       almost zero overshoot, they suﬀer from the slowest convergence, and
+parameter sweep conducted for 𝜔𝑜 in Case 1 demonstrates the impact               their steady-state oscillations are more pronounced than those of DOB-
+of bandwidth size on controller performance, providing guidance for ac-          SMAC. By contrast, the proposed DO-MPAC delivers a tracking speed
+tual deployment. Based on the evaluation metrics within this bounded             second only to DOBSMAC, yet it maintains a minimal overshoot and
+region, 𝜔𝑜 is set to 90 for the simulations.                                     achieves optimal steady-state performance. Under the extreme condi-
+    The speciﬁc parameter conﬁgurations for the remaining control vari-          tions of Case 2, the superiority of the steady-state behavior of DO-MPAC
+ables corresponding to each strategy are detailed in Table 1. To ensure          becomes more evident. Both AC and AAC generate substantial over-
+a fair comparison, the parameters of each controller are based on their          shoots and severe periodic oscillations. Speciﬁcally, AAC experiences
+respective literature and ﬁne-tuned for optimal performance in Case 1.           the largest ﬂuctuations, which is fundamentally attributed to its high
+
+                                                                             9
+J. Shen et al.                                                                                                       Control Engineering Practice 178 (2027) 107240
+
+
+
+
+                 Fig. 13. Comparison of force tracking results in Case 1.                Fig. 15. Disturbance estimation results of the designed ESO.
+
+
+
+
+                 Fig. 14. Comparison of force tracking results in Case 2.
+
+
+
+sensitivity to environmental parameter variations. Concurrently, while
+                                                                                      Fig. 16. Robustness of the DO-MPAC against variations in 𝑚 and 𝑏.
+DOBSMAC maintains the fastest response speed, it induces an overshoot
+signiﬁcantly larger than that of DO-MPAC. Even though the rise time of
+DO-MPAC is slightly longer than that of DOBSMAC, it eﬀectively sup-              ceptible to larger overshoots and periodic oscillations. Furthermore, by
+presses the large overshoot and continuously preserves stable steady-            utilizing the state estimation from the disturbance observer combined
+state tracking capability. Additionally, the disturbance estimation re-          with the enforced convergence properties of the sliding manifold, DOB-
+sults of the designed ESO in Cases 1 and 2 are illustrated in Fig. 15,           SMAC achieves a rapid force-tracking response. Nevertheless, its perfor-
+validating its eﬀectiveness.                                                     mance is constrained by the inherent limitations of conventional sliding
+    A quantitative analysis of the metrics in Table 2 further conﬁrms            mode methodologies. Speciﬁcally, the employment of a linear sliding
+these observations. Compared with the AC, AAC, and DOBSMAC strate-               surface restricts the dynamic ﬂexibility during the reaching phase, while
+gies, the proposed DO-MPAC yields absolute reductions in the MFD by              the discontinuous switching control law inevitably triggers the chat-
+24.09%, 25.50%, and 10.14% in Case 2, respectively. Concurrently, the            tering phenomenon, which degrades the actual interaction quality. In
+IAE is decreased by absolute margins of 7.02 N ⋅ s, 14.05 N ⋅ s, and 0.17        contrast, the proposed DO-MPAC not only eﬀectively suppresses the un-
+N ⋅ s, which collectively demonstrates the robust tracking performance           certainties arising from environmental ﬂuctuations via ESO-based dis-
+of the developed framework.                                                      turbance compensation, but also leverages the receding horizon opti-
+    To verify the reduced dependency of the DO-MPAC’s performance                mization mechanism of MPC. This forward-looking strategy predicts
+on the parameters 𝑚 and 𝑏, as analyzed in Remark 3, a parameter sweep            system states and optimizes future control actions during the receding
+for 𝑚 and 𝑏 is conducted in Case 2. As illustrated in Fig. 16, the four          horizon process, which yields optimal contact force transitions. Con-
+primary metrics exhibit minimal ﬂuctuations across the variations in 𝑚           sequently, it achieves an optimized trade-oﬀ between a fast transient
+and 𝑏. These results conﬁrm that the DO-MPAC eﬀectively reduces the              response and steady-state stability.
+performance dependency on these admittance parameters.
+    Fundamentally, the aforementioned performance disparities can be             5. Experimental validation
+attributed to the intrinsic regulatory mechanisms of the respective
+controllers. Although the conventional AC can accommodate speciﬁc                   In this section, physical experiments are conducted on a real robotic
+constant-stiﬀness environments, its ﬁxed admittance coeﬃcients limit             platform to evaluate the eﬀectiveness of the proposed ultrasound scan-
+its adaptability to time-varying environments, which ultimately leads            ning workﬂow.
+to reduced steady-state accuracy. To address this, the AAC strategy at-
+tempts to improve precision by adaptively tuning parameters based on             5.1. Experimental platform
+the environment. However, its update law is inherently reactive, rely-
+ing primarily on past error accumulation. Such a reactive mechanism                 The experimental platform utilized in this study is independently de-
+introduces a noticeable phase lag, which makes the system highly sus-            veloped and illustrated in Fig. 17. Table 3 lists the detailed speciﬁcations
+
+
+                                                                            10
+J. Shen et al.                                                                                                                 Control Engineering Practice 178 (2027) 107240
+
+
+
+
+                  Fig. 17. Robotic ultrasound experimental platform.                    Fig. 19. Trajectory generation results of diﬀerent algorithms. (a) 2D projection
+                                                                                        method; (b) Planar slicing method; (c) Proposed method.
+                 Table 3
+                 Detailed speciﬁcations of the hardware components.                          Table 4
+                                                                                             Performance comparison of diﬀerent trajectory planning algorithms.
+                  Component Category          Model / Speciﬁcation
+                                                                                               Method             COV (%)   𝐸s (mm)     𝜃̄ (◦ )    𝜃max (◦ )   𝑇ce (s)
+                  Collaborative Manipulator   Ti5 Robot Eblm-3 (6-DoF)
+                  Depth Camera                Zhiwei D132s                                     2D Projection      90.5226   1.0257      0.7102     2.5377      1.3921
+                  Six-Axis Force Sensor       Desenter 𝛾82                                     Planar Slicing     97.3521   0.8105      0.7533     3.2321      2.0769
+                  Ultrasound Probe            Wisonic Clover60                                 Proposed           99.1663   0.6119      0.5092     1.3585      1.5933
+                  Main Computing Hub          NVIDIA Jetson Nano-B01
+
+
+                                                                                            To demonstrate the superiority of the proposed trajectory planning
+                                                                                        method, two approaches are selected as baselines for comparison: the
+                                                                                        2D projection method (Welleweerd et al., 2020) and the planar slicing
+                                                                                        method (Tan et al., 2022). The following four metrics are employed for
+                                                                                        evaluation:
+                                                                                            Coverage completeness: A point is covered when its minimum Eu-
+                                                                                        clidean distance to the trajectory is less than or equal to Δ𝑑. The cover-
+                                                                                        age rate is:
+                                                                                                     𝑁𝑐
+                                                                                        COV(%) =        × 100%                                                           (43)
+                                                                                                     𝑁𝑡
+                                                                                        where 𝑁𝑐 and 𝑁𝑡 denote the numbers of covered and total points, re-
+                                                                                        spectively.
+                                                                                           Spacing uniformity: The trajectory spacing is evaluated by the
+                                                                                        RMSE:
+                                                                                             √
+                                                                                             √
+                                                                                             √1 ∑   𝐾
+                                                                                        𝐸𝑠 = √              ̄2
+                                                                                                      (𝑑 − 𝑑)                                         (44)
+                                                                                                𝐾 𝑖=1 𝑖
+
+                                                                                        where 𝑑𝑖 is the minimum distance to the adjacent trajectory and 𝑑̄ is its
+                                                                                        mean value.
+                                                                                           Pose smoothness: The normal angular deviation (NAD) between
+                                                                                        adjacent points is calculated as:
+
+                                                                                        𝜃𝑖 = arccos(𝐧𝑖 ⋅ 𝐧𝑖+1 )                                                          (45)
+Fig. 18. Trajectory generation results in diﬀerent regions. (a) Chest; (b) Back;
+(c) Neck; (d) Abdomen.
+                                                                                        where 𝐧𝑖 and 𝐧𝑖+1 are adjacent unit normal vectors. The mean and max-
+                                                                                        imum NAD are used for evaluation, and 𝜃𝑖 ≥ 2◦ indicates steep regions.
+                                                                                            Computational eﬃciency: The trajectory planning time 𝑇𝑐𝑒 is
+                                                                                        recorded.
+of the key hardware components used in the system. The overall control
+                                                                                            The comparative experiments of trajectory generation methods are
+architecture is implemented in the Robot Operating System 1 (ROS 1)
+                                                                                        conducted on the lumbar phantom. To facilitate performance compar-
+platform.
+                                                                                        ison, the trajectory connection strategy proposed in this paper is omit-
+                                                                                        ted, and the same preprocessing and trajectory smoothing strategies are
+5.2. Scanning trajectory planning                                                       adopted across all methods. Fig. 19 shows the trajectories generated by
+                                                                                        the three algorithms, and the detailed performance metrics are summa-
+    By setting 𝑊probe = 25 mm and 𝑊overlap = 5 mm, the scanning trajec-                 rized in Table 4.
+tories generated for various anatomical regions of the human body are                       First, the proposed method achieves a coverage rate of 99.17% and
+depicted in Fig. 18.                                                                    a spacing RMSE of 0.61 mm, outperforming both baseline methods. This
+
+                                                                                   11
+J. Shen et al.                                                                                                          Control Engineering Practice 178 (2027) 107240
+
+
+                 Table 5
+                 Control parameter conﬁgurations for the four controllers
+                 in experiments.
+                  Controller    Parameter Settings
+
+                  AC            𝑚 = 3.5, 𝑏 = 1000, 𝑘 = 0
+                  AAC           𝛼 = 0.01, 𝛽 = 1.2
+                  DOBSMAC       𝐶 = 3, 𝑘𝑠 = 11, 𝜂 = 5, 𝐿1 = 50, 𝐿2 = 150
+                  DO-MPAC       𝑘ℎ0 = 1500, 𝑁𝑝 = 15, 𝑄 = 0.5, 𝑅 = 10, 𝜔𝑜 = 8
+
+
+
+
+performance stems from constructing a geodesic distance ﬁeld directly
+on the 3D surface and extracting isolines, which preserves the topo-
+logical features of complex anatomies. In contrast, the 2D projection
+method (COV: 90.52%) suﬀers from coverage blind spots and 3D phys-                          Fig. 20. Robustness evaluation on a complex curved surface.
+ical spacing distortions during 2D-to-3D mapping, particularly in high-
+curvature regions. Meanwhile, the planar slicing method (COV: 97.35%)               Table 6
+faces an inherent trade-oﬀ: larger slicing intervals lose local details,            Quantitative experimental performance metrics of the evaluated controllers.
+whereas smaller intervals increase the computational burden of inter-
+                                                                                     Experiment      Method       MFD (%)     IAE (N⋅s)    ITAE (N⋅s2 )    HFE (N2 )
+section calculations. Second, the proposed method yields the lowest
+mean NAD (𝜃̄ = 0.51◦ ) and maximum NAD (𝜃max = 1.36◦ ). Notably, both                Experiment 1    AC           91.6932     29.8304      259.6152        0.0137
+                                                                                                     AAC          73.0132     32.9089      250.2553        0.0131
+baseline methods produce steep regions (𝜃max > 2◦ ), which can trigger                               DOBSMAC      107.1534    29.0152      223.5631        0.0138
+abrupt probe pose shifts and contact force instability. By introducing                               DO-MPAC      11.4342     19.9953      151.6846        0.0092
+anisotropic weights during the graph search to heavily penalize abrupt
+                                                                                     Experiment 2    AC           246.8730    102.7705     1860.3513       0.0667
+normal variations, the proposed method suppresses drastic pose tran-                                 AAC          254.4134    73.7892      1126.2031       0.0361
+sitions. Regarding computational eﬃciency (𝑇ce ), although the 2D pro-                               DOBSMAC      209.6732    55.2853      740.3774        0.0327
+jection method is the fastest (1.39 s) due to the omission of 3D topo-                               DO-MPAC      24.9383     30.0884      421.7086        0.0149
+logical calculations, it sacriﬁces overall trajectory quality. The proposed
+method (1.59 s) is computationally more eﬃcient than the planar slicing
+method (2.08 s). This eﬃciency is attributed to the multi-scale spatial
+discretization strategy, which reduces the computational burden while
+preserving high-precision 3D topological features.
+
+
+5.3. Comparative force tracking performance
+
+    The physical experiments are conducted in two distinct scenar-
+ios. Experiment 1 utilizes the chest phantom illustrated in Fig. 18(a),
+which features a spatially complex curved surface with varying stiﬀ-
+ness. Speciﬁcally, the synthetic muscle layer is thinner in the center
+and thicker at the lateral margins, yielding a heterogeneous stiﬀness
+proﬁle across the phantom. In this setup, the proposed trajectory plan-
+ning algorithm generates a predeﬁned path that satisﬁes the probe pose
+constraints, followed by the execution of the force control experiments.
+Furthermore, to verify the robustness of the proposed DO-MPAC, Exper-
+iment 2 is conducted on an unknown curved surface featuring abrupt                     Fig. 21. Comparison of contact force tracking results in Experiment 1.
+stiﬀness transitions, as depicted in Fig. 20. In this scenario, the probe
+pose constraints are relaxed, and the probe translates along a single di-
+rection while maintaining a vertical orientation. The surface comprises             dom errors, experiments for each parameter set are repeated ﬁve times
+two materials conﬁgured to exhibit lower stiﬀness on the two sides and              under identical conditions, with the results averaged.
+higher stiﬀness in the middle. During the scanning procedure, the probe                 The force tracking results obtained from the chest phantom are illus-
+relies entirely on the admittance control algorithm to adapt to geomet-             trated in Figs. 21–23, and the corresponding quantitative performance
+ric variations while traversing the low-high-low stiﬀness sequence. This            metrics of the four control methods are compared in Table 6.
+uncertain environment simulates unmodeled physiological disturbances                    Fig. 21 presents the force responses of the diﬀerent controllers. The
+to evaluate the robustness of the diﬀerent controllers.                             AC, AAC, and DOBSMAC strategies initially reach the target force at
+    Identical baseline admittance parameters, namely 𝑚 = 3.5, 𝑏 = 1000,             approximately 2 s. However, they exhibit MFD of 91.69%, 73.01%, and
+and 𝑘 = 0, are applied to all four evaluated controllers. The detailed pa-          107.15%, respectively, during the initial convergence phase. Although
+rameter conﬁgurations for the respective control strategies are provided            the proposed DO-MPAC requires approximately 4 s to reach the target
+in Table 5. For a fair comparison, the parameters of all controllers are de-        force, it nears the desired 10 N level around 2 s while maintaining an
+rived from the simulations and their original literature, then ﬁne-tuned            MFD of 11.43%. Regarding the overall tracking error, the IAE and ITAE
+to perform optimally in Experiment 1.                                               of DO-MPAC are 20.00 N ⋅ s and 151.68 N ⋅ s2 , respectively, which are
+    During the experiments, the ultrasound probe moves at a constant                the lowest among the four controllers. The box plots in Fig. 22 illustrate
+𝑣 = 3.5 mm/s while the admittance controllers maintain the target force             force ﬂuctuations across the ﬁve independent tests. This visual compar-
+despite environmental variations. To ensure safe interaction, the physi-            ison conﬁrms high repeatability, justifying the use of averaged results
+cal saturation constraints are set to |𝑢0 | ≤ 500 and |Δ𝑥| ≤ 20 mm, based           to mitigate random noise. Furthermore, Fig. 23 plots the evolution of
+on the analysis in Remark 4. At the hardware level, the control and data                                      ̂ estimated by the ESO and the cost function
+                                                                                    the lumped disturbance 𝐷(𝑡)
+sampling periods are 5 ms and 1 ms, respectively. Finally, to reduce ran-           𝐽 . As observed, the trends of these two variables align closely with the
+
+                                                                               12
+J. Shen et al.                                                                                                         Control Engineering Practice 178 (2027) 107240
+
+
+
+
+                                                                                       Fig. 24. Comparison of contact force tracking results in Experiment 2.
+
+Fig. 22. Force tracking ﬂuctuations of diﬀerent controllers in Experiment 1.
+
+
+
+
+                               ̂ and the cost function 𝐽 in Experiment 1.
+Fig. 23. Estimated disturbance 𝐷(𝑡)
+                                                                                    Fig. 25. Force tracking ﬂuctuations of diﬀerent controllers in Experiment 2.
+
+
+force data. On the chest phantom, the dynamic uncertainties are accu-
+rately tracked, which facilitates the steady-state stability of DO-MPAC.
+    Overall, while all four controllers successfully achieve the target
+force on the chest phantom, their transient behaviors diﬀer signiﬁcantly.
+Although AAC and DOBSMAC exhibit improved steady-state accuracy
+and faster response compared to the baseline AC, they still suﬀer from
+prominent initial overshoots. Such excessive contact forces pose poten-
+tial safety risks during human-robot interaction tasks like ultrasound
+scanning. Conversely, the proposed DO-MPAC eﬀectively suppresses
+these initial peaks, delivering a smooth and safe convergence. As re-
+ﬂected by its minimal MFD, IAE, and ITAE values, DO-MPAC provides
+the most balanced and reliable tracking performance in this scenario.
+    The experimental results for the ultrasound scanning on the un-
+known curved surface are presented in Figs. 24–26, with the correspond-
+ing performance metrics compared in Table 6.
+    Fig. 24 presents the force responses in Experiment 2. The AAC strat-                                           ̂ and the cost function 𝐽 in Experiment 2.
+                                                                                    Fig. 26. Estimated disturbance 𝐷(𝑡)
+egy exhibits the slowest transient response, reaching the target force at
+approximately 2.1 s, whereas AC and DOBSMAC initially reach this tar-
+get around 1.2 s. During the initial convergence phase, DO-MPAC yields              trollers. The force ﬂuctuations across the ﬁve independent tests, plot-
+an overshoot of approximately 9.89%. In contrast, the AC, AAC, and                  ted in Fig. 25, further demonstrate the improved tracking precision and
+DOBSMAC strategies exhibit signiﬁcant initial overshoots of 246.87%,                robustness of DO-MPAC. Additionally, the evolution of the estimated
+254.41%, and 209.67%, respectively. Notably, between 15 s and 30 s, the                           ̂
+                                                                                    disturbance 𝐷(𝑡)   and the cost function 𝐽 depicted in Fig. 26 conﬁrms
+probe traverses the stiﬀer region of the surface, which is characterized            the adaptive capability of the designed scheme. Speciﬁcally, owing to
+by higher stiﬀness. In this area, the AC method experiences pronounced              the surface undulations and spatially varying stiﬀness of the surface, the
+force oscillations, resulting in tracking degradation. Conversely, DO-              cost function 𝐽 exhibits corresponding dynamic adjustments during the
+MPAC maintains stable force variations throughout this phase. As in-                steady-state phase. Notably, DO-MPAC achieves the lowest HFE in both
+dicated in Table 6, the IAE and ITAE of DO-MPAC are 30.09 N ⋅ s and                 Experiment 1 and Experiment 2, which is attributed to the MPC cost
+421.71 N ⋅ s2 , respectively, which are the lowest among the four con-              function design that eﬀectively smooths the control inputs.
+
+                                                                               13
+J. Shen et al.                                                                                                      Control Engineering Practice 178 (2027) 107240
+
+
+                                                                                induces inherent chattering, which manifests as high-frequency force
+                                                                                vibrations during contact. To overcome these limitations, the proposed
+                                                                                DO-MPAC leverages receding horizon optimization to plan optimal force
+                                                                                trajectories predictively rather than relying solely on reactive error com-
+                                                                                pensation. By explicitly handling dynamic constraints and anticipating
+                                                                                environmental variations, it consistently maintains high-quality inter-
+                                                                                action. Ultimately, it outperforms the other evaluated controllers across
+                                                                                all tracking metrics, thereby validating its eﬀectiveness and adaptability
+                                                                                in complex interaction environments.
+
+
+
+                 Fig. 27. Parameter sensitivity to MPC weights (𝑄, 𝑅).          5.4. Parameter sensitivity and real-time feasibility
+
+                                                                                    Furthermore, parameter sensitivity tests in Experiment 2 evaluate
+                                                                                the impact of 𝑄, 𝑅, and 𝜔𝑜 . Figs. 27-28 display the results, and Table 7
+                                                                                summarizes the quantitative metrics.
+                                                                                    It can be observed that increasing the 𝑄∕𝑅 ratio to accelerate the
+                                                                                tracking response (e.g., 𝑄 = 100, 𝑅 = 0.1) leads to degraded steady-state
+                                                                                performance. Speciﬁcally, the system exhibits low-frequency ﬂuctua-
+                                                                                tions and deviates from the target force, which produces the highest
+                                                                                MFD, IAE, and ITAE values. This occurs because a high 𝑄 makes the
+                                                                                controller overly sensitive to force errors, and a low 𝑅 inadequately
+                                                                                penalizes the control input. Consequently, the system overreacts to sen-
+                                                                                sor noise and tissue micro-deformations. These aggressive control com-
+                                                                                mands excite unmodeled robot dynamics, which causes continuous over-
+                 Fig. 28. Parameter sensitivity to ESO bandwidth (𝜔𝑜 ).
+                                                                                compensation instead of convergence. Conversely, the conﬁguration
+                                                                                with 𝑄 = 0.1 and 𝑅 = 100 delivers superior steady-state performance
+                                                                                and the lowest ITAE value. A large 𝑅 penalizes input variations, which
+                                                                                generates smoother and more conservative motion commands. Thus, the
+                                                                                probe maintains stable tissue compliance and minimizes steady-state er-
+                                                                                rors.
+                                                                                    The experimental data for the ESO bandwidth 𝜔𝑜 highlights a trade-
+                                                                                oﬀ between theoretical expectations and practical constraints. Theoret-
+                                                                                ically, a higher 𝜔𝑜 speeds up disturbance estimation, which accelerates
+                                                                                the transient response. However, in physical experiments (e.g., 𝜔𝑜 = 15),
+                                                                                an excessively high bandwidth ampliﬁes high-frequency noise and struc-
+                                                                                tural vibrations. This noise enters the feedforward compensation term
+                                                                                𝑧3 as false disturbances, which causes minor steady-state chattering and
+Fig. 29. Force response of DO-MPAC with diﬀerent admittance parameters          degrades the error metrics compared to the 𝜔𝑜 = 8 case. Conversely, a
+(𝑚, 𝑏).                                                                         lower bandwidth (e.g., 𝜔𝑜 = 3) provides stronger low-pass ﬁltering. Al-
+                                                                                though this slows the transient response, it ﬁlters out high-frequency
+                                                                                interference and yields a smooth disturbance estimate. Therefore, the
+                                                                                DO-MPAC tuning process requires a balance between rapid response and
+                                                                                steady-state stability. This trade-oﬀ explains the discrepancy between
+                                                                                the optimal bandwidths in the simulation (𝜔𝑜 = 90) and the physical
+                                                                                experiments (𝜔𝑜 = 8).
+                                                                                    Notably, the force response curves show no signiﬁcant overshoot
+                                                                                across all 𝑄, 𝑅, and 𝜔𝑜 conﬁgurations, which demonstrates the safety
+                                                                                and robustness of DO-MPAC. The ESO feedforward compensation eﬀec-
+                                                                                tively suppresses the inﬂuence of nonlinear contact dynamics, and the
+                                                                                MPC receding horizon optimization constrains abrupt state variations.
+                                                                                Together, these mechanisms improve safe human-robot interaction.
+                 Fig. 30. Force response of DO-MPAC with diﬀerent 𝑁𝑝 .              To verify the DO-MPAC parameter low-dependency analysis in
+                                                                                Remark 3, ﬁve sets of 𝑚 and 𝑏 are tested in Experiment 2. Fig. 29
+                                                                                shows the results, and Table 7 lists the metrics. Despite wide param-
+    In summary, the comprehensive evaluations across both scenarios             eter variations, the force response curves show similar initial conver-
+reveal the inherent limitations of the baseline methods. The conven-            gence and consistent steady-state tracking. Even when the virtual mass
+tional AC with ﬁxed parameters is susceptible to signiﬁcant force ﬂuctu-        𝑚 (1.5 to 8) and damping 𝑏 (500 to 2000) change signiﬁcantly, all error
+ations when environmental conditions change. Although the parameter             metrics remain within a narrow range. The minor numerical diﬀerences
+adaptation mechanism of AAC improves its adaptability, its reliance on          reﬂect actual physical interaction dynamics. Real contact environments
+error accumulation results in substantial transient force errors during         inevitably introduce unmodeled impacts, which cause a brief ESO phase
+stiﬀness transitions. By integrating a disturbance observer with SMC,           delay. During this delay, 𝑚 and 𝑏 act as physical impedance, which
+DOBSMAC estimates and partially mitigates environment-induced dis-              absorbs the residual high-frequency energy. Overall, these results
+turbances. However, its performance remains constrained by the ﬁxed             demonstrate that DO-MPAC eﬀectively suppresses the traditional tun-
+reaching dynamics of the linear sliding surface. Furthermore, as ob-            ing trade-oﬀ between compliance and rapid response, which proves its
+served in the experiments, the discontinuous switching nature of SMC            strong parameter robustness.
+
+                                                                           14
+J. Shen et al.                                                                                                                  Control Engineering Practice 178 (2027) 107240
+
+
+ Table 7                                                                                         Based on these mechanisms, practical DO-MPAC tuning follows four
+ Quantitative performance metrics of DO-MPAC under diﬀerent parameter                        steps. First, deﬁne the theoretical boundaries [𝜔min , 𝜔max ] using distur-
+ settings.                                                                                   bance frequencies and hardware limits. For physical deployment, select
+    Parameters            Values                MFD (%)     IAE (N⋅s)    ITAE (N⋅s2 )        an initial 𝜔𝑜 based on simulation results to ensure baseline observation.
+    Weights (𝑄, 𝑅)        𝑄 = 100, 𝑅 = 0.1      56.6887     87.5671      1566.3672
+                                                                                             Second, adjust 𝑄 and 𝑅 to ensure stable steady-state compliance with-
+                          𝑄 = 0.5, 𝑅 = 10       24.9383     30.0884      421.7086            out low-frequency deviations, even if this delays transient convergence.
+                          𝑄 = 0.1, 𝑅 = 100      24.4035     27.0056      352.8618            Third, increase 𝜔𝑜 to compensate for the transient delay, which improves
+    Bandwidth (𝜔𝑜 )       𝜔𝑜 = 15               28.3538     33.3919      633.8973            rapid response and maintains steady-state stability. Finally, iterate be-
+                          𝜔𝑜 = 8                24.9383     30.0884      421.7086            tween the MPC weights and 𝜔𝑜 until the system achieves an optimal
+                          𝜔𝑜 = 3                23.1583     40.2548      383.4374            balance between transient speed and steady-state accuracy.
+    Admittance (𝑚, 𝑏)     𝑚 = 1.5, 𝑏 = 2000     23.1732     28.6681      404.2125
+                          𝑚 = 1.5, 𝑏 = 500      26.2889     27.1199      368.1447            6. Conclusion and discussion
+                          𝑚 = 3.5, 𝑏 = 1000     24.9383     30.0884      421.7086
+                          𝑚 = 8, 𝑏 = 500        25.1312     26.4574      358.9115
+                                                                                                 This paper has presented an integrated autonomous compliant ultra-
+                          𝑚 = 8, 𝑏 = 2000       21.3303     26.2377      367.8479
+                                                                                             sound scanning framework based on 3D point clouds to maintain con-
+    Horizon (𝑁𝑝 )         𝑁𝑝 = 5                24.0488     29.9249      424.9066            sistent probe poses and stable contact forces on complex human sur-
+                          𝑁𝑝 = 15               24.9383     30.0884      421.7086
+                                                                                             faces. For trajectory planning, an anisotropic geodesic distance ﬁeld is
+                          𝑁𝑝 = 35               18.5403     22.7586      275.1407
+                                                                                             established to adapt to various anatomical topologies, which satisﬁes
+                                                                                             probe pose constraints and avoids abrupt orientation shifts. Regarding
+  Table 8                                                                                    force control, the proposed DO-MPAC scheme is developed to main-
+  Quantitative computational time metrics of the evaluated controllers.                      tain a stable and compliant interaction force. By combining an extended
+                                                                                             state observer (ESO) with receding horizon optimization, this strategy
+     Method          Parameter      Mean (𝜇s)    Max (𝜇s)       Ratio > 5000𝜇s (%)
+                                                                                             eﬀectively suppresses environmental uncertainties and predictively en-
+     AC                             0.6282       130.2640       0.0000                       sures optimal contact force transitions. Additionally, the formulation
+     AAC                            0.6460       289.9560       0.0000
+                                                                                             of a virtual control law structurally suppresses the coupling eﬀect be-
+     DOBSMAC                        1.2795       305.1640       0.0000
+                                                                                             tween the force tracking dynamics and the admittance parameters. This
+     DO-MPAC         𝑁𝑝 = 5         42.2618      15139.2000     0.0325                       scheme mitigates the traditional trade-oﬀ between physical compliance
+                     𝑁𝑝 = 15        43.1690      22888.5000     0.0300
+                     𝑁𝑝 = 35        43.7656      22565.9000     0.0425
+                                                                                             and tracking agility. Simulations and physical experiments have con-
+                                                                                             ﬁrmed that DO-MPAC improves upon conventional reactive methods in
+                                                                                             transient response, steady-state precision, and robustness against vary-
+                                                                                             ing stiﬀness. Speciﬁcally, in highly curved environments with variable
+    Finally, computational time tests are conducted to evaluate the                          tissue stiﬀness, DO-MPAC achieves rapid force tracking while mitigat-
+real-time feasibility. Table 8 compares the timing metrics across the                        ing the transient force overshoots that compromise interaction safety
+four controllers. Unlike AC, AAC, and DOBSMAC with explicit con-                             in traditional control architectures. Ultimately, this research addresses
+trol laws, DO-MPAC incorporates a predictive optimization framework,                         the performance limitations of existing methods in time-varying con-
+which increases its computational time. However, due to the oﬄine pre-                       tact environments, oﬀering a robust and clinically viable solution for
+computation of the analytical MPC gain matrix discussed in Section 3.3,                      robot-assisted ultrasound examinations.
+its average time stays around 43𝜇s. Rare cycles exceed the 5000𝜇s limit,                         Despite the demonstrated capabilities of the proposed framework,
+but the overtime ratio remains below 0.1%. For these overtime cycles,                        several limitations remain to be addressed. From a perception and plan-
+the system applies a zero-order hold to maintain the previous control                        ning perspective, the current trajectory generation relies on static, high-
+command, which ensures continuous and safe operation. These data                             quality 3D point clouds, making the system susceptible to real-time
+show that DO-MPAC meets real-time requirements over 99.9% of the                             sensor noise, occlusions, and dynamic tissue deformations. In terms
+time, and its computational burden ﬁts within hardware limits. Fur-                          of control and execution, while the simpliﬁed 1D normal admittance
+thermore, various 𝑁𝑝 values are tested in Experiment 2 to evaluate                           model eﬀectively preserves scanning reproducibility, the eﬀects of tan-
+prediction horizon impacts. Fig. 30 shows the results, and Table 7 lists                     gential motion and multi-axis coupling warrant more explicit consid-
+the metrics. It can be observed that 𝑁𝑝 creates a clear trade-oﬀ between                     eration. Additionally, while the current analytical MPC ensures com-
+computational cost and control accuracy. A larger 𝑁𝑝 gives the MPC a                         putational eﬃciency, it omits explicit online constraints. Incorporat-
+broader future vision. The controller evaluates long-term impacts over a                     ing explicit constrained optimization without compromising the high-
+wider time window, which prevents short-sighted suboptimal decisions.                        frequency control loops remains a computational challenge for future
+Consequently, the probe plans smoother and more forward-looking mo-                          development. Finally, although DO-MPAC exhibits strong robustness in
+tion commands, which achieves better global tracking accuracy.                               complex curved environments, its performance under sudden patient
+    In summary, the integration of the disturbance observer and MPC                          movements or atypical physiological disturbances requires rigorous val-
+eﬀectively meets the constant force control requirements for ultrasound                      idation. Future work will focus on incorporating real-time dynamic tra-
+probes in complex soft tissues. The ESO estimates and compensates for                        jectory updates and explicit multi-axis dynamic modeling. To facilitate
+lumped disturbances, which reconstructs the force error into a nominal                       clinical translation, future studies will include in vivo validation on hu-
+second-order system. Consequently, the virtual parameters 𝑚 and 𝑏 oper-                      man subjects, where the system’s robustness against complex physiolog-
+ate independently of nominal tracking. They act as physical impedance,                       ical variations and unmodeled disturbances can be further evaluated,
+which absorbs high-frequency impacts during initial contact or ESO de-                       thereby improving its clinical feasibility.
+lays. The MPC weights 𝑄 and 𝑅 govern nominal responses. A higher 𝑄∕𝑅
+ratio accelerates transient tracking but ampliﬁes noise, which causes                        CRediT authorship contribution statement
+steady-state ﬂuctuations. Conversely, a larger 𝑅 generates smoother
+commands, which improves steady-state accuracy. Furthermore, the                                Jiaen Shen: Writing – original draft, Validation, Software, Method-
+ESO bandwidth 𝜔𝑜 determines feedforward compensation. A larger 𝜔𝑜                            ology, Conceptualization; Yongfei Feng: Writing – review & editing,
+speeds up estimation but introduces measurement noise. A smaller 𝜔𝑜                          Supervision, Formal analysis; Qiqi Pan: Writing – review & editing, Soft-
+provides low-pass ﬁltering, which beneﬁts steady-state performance but                       ware, Formal analysis; Yuhui Cui: Writing – review & editing, Software,
+delays the transient response.                                                               Formal analysis; Jingcong Zhang: Writing – review & editing, Formal
+
+                                                                                        15
+J. Shen et al.                                                                                                                                      Control Engineering Practice 178 (2027) 107240
+
+
+analysis; Hongbo Wang: Writing – review & editing, Supervision, Fund-                                   Khalil, H. K. (2002). Nonlinear Systems. (3rd ed.). Prentice Hall.
+ing acquisition.                                                                                        Li, S., Chen, Q., Li, W., Wang, M., Pang, S., & Wu, K. (2026a). Observer-based sliding
+                                                                                                            mode admittance control for ultrasound robot force-tracking in complex interaction
+                                                                                                            environments. Control Engineering Practice, 169, 106764.
+Declaration of competing interest                                                                       Li, S., Pi, Y., Li, W., Carbone, G., & Wu, K. (2026b). Trajectory-aware feedforward ad-
+                                                                                                            mittance control for contact force tracking with time-varying reference trajectory in a
+                                                                                                            teleoperated robotic ultrasound system. Control Engineering Practice, 168, 106674.
+    The authors declare that they have no known competing ﬁnancial                                      Li, Z., Huang, B., Ye, Z., Deng, M., & Yang, C. (2018). Physical human–robot interaction of
+interests or personal relationships that could have appeared to inﬂuence                                    a robotic exoskeleton by admittance control. IEEE Transactions on Industrial Electronics,
+the work reported in this paper.                                                                            65(12), 9614–9624.
+                                                                                                        Mayne, D. Q., Rawlings, J. B., Rao, C. V., & Scokaert, P. O. M. (2000). Constrained model
+                                                                                                            predictive control: Stability and optimality. Automatica, 36(6), 789–814.
+Acknowledgments                                                                                         Moore, C. L., & Copel, J. A. (2011). Point-of-care ultrasonography. New England Journal
+                                                                                                            of Medicine, 364(8), 749–757.
+                                                                                                        Ning, G., Zhang, X., & Liao, H. (2021). Autonomic robotic ultrasound imaging system
+   This work was supported in parts by the National Key Research and                                        based on reinforcement learning. IEEE Transactions on Biomedical Engineering, 68(9),
+Development Program of China under Grant 2024YFF1206900.                                                    2787–2797.
+                                                                                                        Priester, A. M., Natarajan, S., & Culjat, M. O. (2013). Robotic ultrasound systems in
+                                                                                                            medicine. IEEE Transactions on Ultrasonics, Ferroelectrics, and Frequency Control, 60(3),
+References                                                                                                  507–523.
+                                                                                                        Rawlings, J. B., & Mayne, D. Q. (2009). Model Predictive Control: Theory and Design.
+Cao, G., Cao, D., & Liu, H. (2025). Respiratory motion-robust robotic ultrasound acqui-                     Madison, WI, USA: Nob Hill Publishing.
+    sitions via vision-haptic fusion control and 3D compensation. IEEE Transactions on In-              Rusu, R. B., & Cousins, S. (2011). 3D is here: Point cloud library (PCL). In 2011 IEEE
+    strumentation and Measurement, 74, 4018511.                                                             International conference on robotics and automation (pp. 1–4). IEEE.
+Duan, J., Gan, Y., Chen, M., & Dai, X. (2018). Adaptive variable impedance control for                  Şen, H. T., Bell, M. A. L., Zhang, Y., Ding, K., Boctor, E., Wong, J., Iordachita, I., &
+    dynamic contact force tracking in uncertain environment. Robotics and Autonomous                        Kazanzides, P. (2016). System integration and in vivo testing of a robot for ultrasound
+    Systems, 102, 54–65.                                                                                    guidance and monitoring during radiotherapy. IEEE Transactions on Biomedical Engi-
+Evans, K., Roll, S., & Baker, J. (2009). Work-related musculoskeletal disorders (WRMSD)                     neering, 64(7), 1608–1618.
+    among registered diagnostic medical sonographers and vascular technologists: a rep-                 Sigrist, R. M. S., Liau, J., El Kaﬀas, A., Chammas, M. C., & Willmann, J. K. (2017). Ultra-
+    resentative sample. Journal of Diagnostic Medical Sonography, 25(6), 287–299.                           sound elastography: Review of techniques and clinical applications. Theranostics, 7(5),
+Fu, Y., Lin, W., Yu, X., Rodríguez-Andina, J. J., & Gao, H. (2022). Robot-assisted teleop-                  1303.
+    eration ultrasound system based on fusion of augmented reality and predictive force.                Su, H., Mariani, A., Ovur, S. E., Menciassi, A., Ferrigno, G., & De Momi, E. (2021). To-
+    IEEE Transactions on Industrial Electronics, 70(7), 7449–7456.                                          ward teaching by demonstration for robot-assisted minimally invasive surgery. IEEE
+Gao, Z. et al. (2003). Scaling and bandwidth-parameterization based controller tuning. In                   Transactions on Automation Science and Engineering, 18(2), 484–494.
+    Acc (pp. 989–994). (vol. 4).                                                                        Su, K., Liu, J., Ren, X., Huo, Y., Du, G., Zhao, W., Wang, X., Liang, B., Li, D., & Liu, P. X.
+Hamedani, M. H., Sadeghian, H., Zekri, M., Sheikholeslam, F., & Keshmiri, M. (2021).                        (2024). A fully autonomous robotic ultrasound system for thyroid scanning. Nature
+    Intelligent impedance control using wavelet neural network for dynamic contact force                    Communications, 15(1), 4004.
+    tracking in unknown varying environments. Control Engineering Practice, 113, 104840.                Tan, J., Li, J., Li, Y., Li, B., Leng, Y., Rong, Y., & Fu, C. (2023). Autonomous trajectory
+Harrison, G., & Harris, A. (2015). Work-related musculoskeletal disorders in ultrasound:                    planning for ultrasound-guided real-time tracking of suspicious breast tumor targets.
+    can you reduce risk? Ultrasound (Leeds, England), 23(4), 224–230.                                       IEEE Transactions on Automation Science and Engineering, 21(3), 2478–2493.
+He, W., Xue, C., Yu, X., Li, Z., & Yang, C. (2020). Admittance-based controller design for              Tan, J., Li, Y., Li, B., Leng, Y., Peng, J., Wu, J., Luo, B., Chen, X., Rong, Y., & Fu, C.
+    physical human–robot interaction in the constrained task space. IEEE Transactions on                    (2022). Automatic generation of autonomous ultrasound scanning trajectory based on
+    Automation Science and Engineering, 17(4), 1937–1949.                                                   3-D point cloud. IEEE Transactions on Medical Robotics and Bionics, 4(4), 976–990.
+Hennersperger, C., Fuerst, B., Virga, S., Zettinig, O., Frisch, B., Neﬀ, T., & Navab, N. (2016).        Virga, S., Zettinig, O., Esposito, M., Pﬁster, K., Frisch, B., Neﬀ, T., Navab, N., & Hen-
+    Towards MRI-based autonomous robotic US acquisitions: A ﬁrst feasibility study. IEEE                    nersperger, C. (2016). Automatic force-compliant robotic ultrasound screening of ab-
+    Transactions on Medical Imaging, 36(2), 538–548.                                                        dominal aortic aneurysms. In 2016 IEEE/RSJ International conference on intelligent robots
+Ihnatsenka, B., & Boezaart, A. P. (2010). Ultrasound: Basic understanding and learning                      and systems (IROS) (pp. 508–513). IEEE.
+    the language. International Journal of Shoulder Surgery, 4(3), 55.                                  Von Haxthausen, F., Böttger, S., Wulﬀ, D., Hagenah, J., García-Vázquez, V., & Ipsen, S.
+Jiang, J., Luo, J., Wang, H., Tang, X., Nian, F., & Qi, L. (2024). Force tracking control                   (2021). Medical robotics for ultrasound imaging: Current systems and future trends.
+    method for robotic ultrasound scanning system under soft uncertain environment. Ac-                     Current Robotics Reports, 2(1), 55–71.
+    tuators, 13(2), 62.                                                                                 Wang, Z., Zhao, B., Zhang, P., Yao, L., Wang, Q., Li, B., Meng, M. Q.-H., & Hu, Y. (2022).
+Jiang, Z., Gao, Y., Xie, L., & Navab, N. (2022). Towards autonomous atlas-based ultrasound                  Full-coverage path planning and stable interaction control for automated robotic breast
+    acquisitions in presence of articulated motion. IEEE Robotics and Automation Letters,                   ultrasound scanning. IEEE Transactions on Industrial Electronics, 70(7), 7051–7061.
+    7(3), 7423–7430.                                                                                    Welleweerd, M. K., de Groot, A. G., De Looijer, S. O. H., Siepel, F. J., & Stramigioli, S.
+Jiang, Z., Grimm, M., Zhou, M., Esteban, J., Simson, W., Zahnd, G., & Navab, N. (2020).                     (2020). Automated robotic breast ultrasound acquisition using ultrasound feedback. In
+    Automatic normal positioning of robotic ultrasound probe based only on conﬁdence                        2020 IEEE International conference on robotics and automation (ICRA) (pp. 9946–9952).
+    map optimization and force measurement. IEEE Robotics and Automation Letters, 5(2),                     IEEE.
+    1342–1349.                                                                                          Yi, S., & Zhai, J. (2019). Adaptive second-order fast nonsingular terminal sliding mode
+Jiang, Z., Salcudean, S. E., & Navab, N. (2023). Robotic ultrasound imaging: State-of-the-                  control for robotic manipulators. ISA Transactions, 90, 41–51.
+    art and future perspectives. Medical Image Analysis, 89, 102878.                                    Yoon, I., Na, M., & Song, J.-B. (2024). Assembly of low-stiﬀness parts through admit-
+Jiang, Z.-P., & Wang, Y. (2001). Input-to-state stability for discrete-time nonlinear systems.              tance control with adaptive stiﬀness. Robotics and Computer-Integrated Manufacturing,
+    Automatica, 37(6), 857–869.                                                                             86, 102678.
+Jung, S., Hsia, T. C., & Bonitz, R. G. (2004). Force tracking impedance control of robot                Zhan, J., Cartucho, J., & Giannarou, S. (2020). Autonomous tissue scanning under free-
+    manipulators under unknown environment. IEEE Transactions on Control Systems Tech-                      form motion for intraoperative tissue characterisation. In 2020 IEEE International con-
+    nology, 12(3), 474–483.                                                                                 ference on robotics and automation (ICRA) (pp. 11147–11154). IEEE.
+Keemink, A. Q. L., Van der Kooij, H., & Stienen, A. H. A. (2018). Admittance control                    Zhang, L., Yang, D., Niu, B., Yang, H., Huang, Q., Jiang, L., & Liu, H. (2025). Smooth path
+    for physical human–robot interaction. The International Journal of Robotics Research,                   planning and dynamic contact force regulation for robotic ultrasound scanning. IEEE
+    37(11), 1421–1444.                                                                                      Robotics and Automation Letters, 10(10), 10570–10577.
+
+
+
+
+                                                                                                   16
+

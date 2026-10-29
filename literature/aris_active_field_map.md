@@ -2,8 +2,8 @@
 
 coverage_status: PARTIAL
 coverage_record:
-research_effort_budget: {"queries": 23, "fulltext_gateway_events": 17, "accepted_evidence_cards": 17}
-stopping_reason: 已完成用户提供的10份有效原文核查并补足两项关键接口。按用户要求交付当前现状等待验收；一项错误HTML全文及受限引用链仍阻止无保留的查全判断。
+research_effort_budget: {"queries": 28, "fulltext_gateway_events": 24, "accepted_evidence_cards": 24}
+stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；历史无期刊/年代下限补查完成。沿DO-MPAC实际参考文献核查三个直接近邻后再作收尾判断。
 
 ## Field Core Purposes
 
@@ -50,39 +50,50 @@ stopping_reason: 已完成用户提供的10份有效原文核查并补足两项�
 [
   {
     "id": "M1",
-    "mechanism": "误差自适应、结构参数前馈与鲁棒反馈直接调节力/运动。 DOSMAC将刚度、位置误差和输入增益变化合并为扰动后补偿，原实物共同变化来自固定曲面扫描。",
+    "mechanism": "误差自适应、结构参数前馈与鲁棒反馈直接调节力/运动。 DOSMAC将刚度、位置误差和输入增益变化合并为扰动后补偿，原实物共同变化来自固定曲面扫描。 R11跨周期适应前馈/K/D；DO-MPAC以ESO补偿把力误差近似转成双积分器，再解析选择虚拟动作，m/b固定、k=0。",
     "source_ids": [
       "local-E32",
       "local-G22",
       "jh4Hbf-KuS8J",
-      "local-S01"
+      "local-S01",
+      "mMyBOC13ISAJ",
+      "local-S03"
     ]
   },
   {
     "id": "M2",
-    "mechanism": "在线环境/预测参数辨识进入增益规则、参考QP或预测运动决策；区分估计变量、增益变量、动作和目标。 MHE-VIC联合估计环境阻抗和机器人扰动，按Kr=估计Ke及阻尼规则更新，法向表面预先测量并视为静态。",
+    "mechanism": "在线环境/预测参数辨识进入增益规则、参考QP或预测运动决策；区分估计变量、增益变量、动作和目标。 MHE-VIC联合估计环境阻抗和机器人扰动，按Kr=估计Ke及阻尼规则更新，法向表面预先测量并视为静态。 E41直接把增益作为优化变量，OS-QP与MS非线性求解的计算和约束条件不同。 E45明确离线OPFB-ADP训练后执行历史反馈策略；环境力学未知常量、位置子系统变化，不能称在线材料参数更新。",
     "source_ids": [
       "GkLovpurDJwJ",
       "local-H01",
       "local-G02",
       "Ae8L1SwFxN4J",
-      "local-S02"
+      "local-S02",
+      "local-E41",
+      "local-S03",
+      "tS1rA372YsUJ"
     ]
   },
   {
     "id": "M3",
-    "mechanism": "示教或策略学习形成接触行为；超声图像收益可以驱动目标力增量，不自动意味着阻抗增益学习。",
+    "mechanism": "示教或策略学习形成接触行为；超声图像收益可以驱动目标力增量，不自动意味着阻抗增益学习。 E27学习增益与参考增量，G23联合输出位置与增益；ACT-US则学习名义轨迹并用图像评分选择目标力，呼吸补偿由导纳执行。 跨周期适应、离线值迭代与预训练策略是不同学习方式。",
     "source_ids": [
       "local-G22",
-      "rYX23DX-cGMJ"
+      "rYX23DX-cGMJ",
+      "local-E27",
+      "local-G23",
+      "zws_WiLclY0J",
+      "mMyBOC13ISAJ",
+      "tS1rA372YsUJ"
     ]
   },
   {
     "id": "M4",
-    "mechanism": "运动预测补偿参考，或主动/被动机械柔顺结构隔离扰动。",
+    "mechanism": "运动预测补偿参考，或主动/被动机械柔顺结构隔离扰动。 ACT-US摘要视觉前馈与方法段落力信号呼吸预测的连接尚不充分，不据此补造接口。",
     "source_ids": [
       "local-G13",
-      "wftPH5bwT0gJ"
+      "wftPH5bwT0gJ",
+      "zws_WiLclY0J"
     ]
   },
   {
@@ -127,6 +138,35 @@ stopping_reason: 已完成用户提供的10份有效原文核查并补足两项�
     "evidence_ids": [
       "local-S01"
     ]
+  },
+  {
+    "transition_id": "T-FEEDFORWARD-IMPEDANCE",
+    "family": "M3",
+    "previous_problem_or_bottleneck": "重复交互中只学习前馈无法稳定位置/速度发散作用。",
+    "progress_and_conditions": "R11原文Fig5比较支持前馈与K/D共适应的分工，周期参考、机器人模型及有界集合收敛条件明确；后来的E27和G23分别使用预训练/历史修正和状态策略输出增益与参考。",
+    "residual_or_new_bottleneck": "周期适应、训练分布与动作接口各有限制；学出增益不等于识别材料，也不自动证明单次动态组织任务收益。",
+    "research_question_shift": "从只抵消重复负载转向同时塑造反馈响应，再形成不同训练与联合动作表示；这是证据支持的机制关系，不断言作者之间未核准的直接发现顺序。",
+    "subsequent_direction": "以在线模型/历史或策略联合选择参考与增益，并单独报告训练成本和任务收益。",
+    "transition_problem_status": "partially_addressed",
+    "evidence_ids": [
+      "mMyBOC13ISAJ",
+      "local-E27",
+      "local-G23"
+    ]
+  },
+  {
+    "transition_id": "T-LUMPED-PREDICTIVE",
+    "family": "M2",
+    "previous_problem_or_bottleneck": "DO-MPAC原文直接引用DOSMAC：总扰动补偿后仍需协调瞬态速度、超调与抖振。",
+    "progress_and_conditions": "DO-MPAC在相同法向固定导纳m/b,k=0基础上，用ESO及反馈线性化近似得到双积分器，离线解析预测反馈减少原测试误差。原文对照支持本实例推进，不声称所有SMC都会失效。",
+    "residual_or_new_bottleneck": "噪声/ESO带宽、突变滞后和稀有超时仍存在；省去显式MPC约束换取解析速度，独立患者运动有待实物检验。",
+    "research_question_shift": "以补偿后的力误差动态选择预测虚拟动作，改变瞬态决策；这条替代路线没有要求逐项恢复材料/运动。",
+    "subsequent_direction": "该文提出在线约束、多轴与动态点云更新；是作者后续方向而非已验证能力。",
+    "transition_problem_status": "partially_addressed",
+    "evidence_ids": [
+      "local-S01",
+      "local-S03"
+    ]
   }
 ]
 ```
@@ -138,40 +178,53 @@ stopping_reason: 已完成用户提供的10份有效原文核查并补足两项�
   {
     "problem": "B1",
     "method": "M1",
-    "mechanism": "误差自适应、结构参数前馈与鲁棒反馈直接调节力/运动。",
+    "mechanism": "误差自适应、结构参数前馈与鲁棒反馈直接调节力/运动。 DOSMAC将刚度、位置误差和输入增益变化合并为扰动后补偿，原实物共同变化来自固定曲面扫描。 R11跨周期适应前馈/K/D；DO-MPAC以ESO补偿把力误差近似转成双积分器，再解析选择虚拟动作，m/b固定、k=0。",
     "source_ids": [
       "local-E32",
       "local-G22",
-      "jh4Hbf-KuS8J"
+      "jh4Hbf-KuS8J",
+      "local-S01",
+      "mMyBOC13ISAJ",
+      "local-S03"
     ]
   },
   {
     "problem": "B1",
     "method": "M2",
-    "mechanism": "在线环境/预测参数辨识进入增益规则、参考QP或预测运动决策；区分估计变量、增益变量、动作和目标。",
+    "mechanism": "在线环境/预测参数辨识进入增益规则、参考QP或预测运动决策；区分估计变量、增益变量、动作和目标。 MHE-VIC联合估计环境阻抗和机器人扰动，按Kr=估计Ke及阻尼规则更新，法向表面预先测量并视为静态。 E41直接把增益作为优化变量，OS-QP与MS非线性求解的计算和约束条件不同。 E45明确离线OPFB-ADP训练后执行历史反馈策略；环境力学未知常量、位置子系统变化，不能称在线材料参数更新。",
     "source_ids": [
       "GkLovpurDJwJ",
       "local-H01",
       "local-G02",
-      "Ae8L1SwFxN4J"
+      "Ae8L1SwFxN4J",
+      "local-S02",
+      "local-E41",
+      "local-S03",
+      "tS1rA372YsUJ"
     ]
   },
   {
     "problem": "B2",
     "method": "M3",
-    "mechanism": "示教或策略学习形成接触行为；超声图像收益可以驱动目标力增量，不自动意味着阻抗增益学习。",
+    "mechanism": "示教或策略学习形成接触行为；超声图像收益可以驱动目标力增量，不自动意味着阻抗增益学习。 E27学习增益与参考增量，G23联合输出位置与增益；ACT-US则学习名义轨迹并用图像评分选择目标力，呼吸补偿由导纳执行。 跨周期适应、离线值迭代与预训练策略是不同学习方式。",
     "source_ids": [
       "local-G22",
-      "rYX23DX-cGMJ"
+      "rYX23DX-cGMJ",
+      "local-E27",
+      "local-G23",
+      "zws_WiLclY0J",
+      "mMyBOC13ISAJ",
+      "tS1rA372YsUJ"
     ]
   },
   {
     "problem": "B1",
     "method": "M4",
-    "mechanism": "运动预测补偿参考，或主动/被动机械柔顺结构隔离扰动。",
+    "mechanism": "运动预测补偿参考，或主动/被动机械柔顺结构隔离扰动。 ACT-US摘要视觉前馈与方法段落力信号呼吸预测的连接尚不充分，不据此补造接口。",
     "source_ids": [
       "local-G13",
-      "wftPH5bwT0gJ"
+      "wftPH5bwT0gJ",
+      "zws_WiLclY0J"
     ]
   },
   {
@@ -195,52 +248,72 @@ stopping_reason: 已完成用户提供的10份有效原文核查并补足两项�
   {
     "family": "M1",
     "assumptions": [
-      "有界结构参数和不确定性；内外环接口"
+      "有界结构参数和不确定性；内外环接口",
+      "R11周期历史与机器人模型条件；DO-MPAC可微有界扰动变化率、名义Schur稳定。"
     ],
     "effective": [
-      "ARIC气球变力接触实验"
+      "ARIC气球变力接触实验",
+      "DO-MPAC移动表面/时变刚度仿真与静态异质曲面五次重复实物。"
     ],
     "failure": [
-      "模型K无特定物理意义，不等于真实刚度识别"
+      "模型K无特定物理意义，不等于真实刚度识别",
+      "ESO高带宽放大噪声、突变滞后；硬件没有独立呼吸平台，执行饱和不等于约束MPC。"
     ],
     "source_ids": [
       "local-E32",
       "local-G22",
-      "jh4Hbf-KuS8J"
+      "jh4Hbf-KuS8J",
+      "local-S01",
+      "mMyBOC13ISAJ",
+      "local-S03"
     ]
   },
   {
     "family": "M2",
     "assumptions": [
-      "可用接触模型、激励和估计/控制动态条件"
+      "可用接触模型、激励和估计/控制动态条件",
+      "E45环境参数未知常量、线性位置子系统、端点参考、PE采集、完美内环；离线训练后执行。"
     ],
     "effective": [
       "原文参考/增益和预测控制实例"
     ],
     "failure": [
-      "Roveda带宽分离、Lin阻尼激励、Wang力方向平衡速度近似各自限定适用性"
+      "Roveda带宽分离、Lin阻尼激励、Wang力方向平衡速度近似各自限定适用性",
+      "DO-MPAC通过离线解析增益节省在线计算，但没有在线增益优化或显式MPC约束。"
     ],
     "source_ids": [
       "GkLovpurDJwJ",
       "local-H01",
       "local-G02",
-      "Ae8L1SwFxN4J"
+      "Ae8L1SwFxN4J",
+      "local-S02",
+      "local-E41",
+      "local-S03",
+      "tS1rA372YsUJ"
     ]
   },
   {
     "family": "M3",
     "assumptions": [
-      "观测、训练分布、奖励代理和约束定义"
+      "观测、训练分布、奖励代理和约束定义",
+      "R11周期历史；E27随机预训练及前试次回归；G23状态策略；ACT-US多模态示教和力区间弱标签。"
     ],
     "effective": [
-      "TASE脊柱模体目标力策略"
+      "TASE脊柱模体目标力策略",
+      "原文支持增益/参考学习，或图像目标力与呼吸补偿，两者不同。"
     ],
     "failure": [
-      "期望累计约束不等于逐时刻硬保证"
+      "期望累计约束不等于逐时刻硬保证",
+      "ACT-US表格RMS、标准差与结论方差措辞不一致；不照搬综合百分比。"
     ],
     "source_ids": [
       "local-G22",
-      "rYX23DX-cGMJ"
+      "rYX23DX-cGMJ",
+      "local-E27",
+      "local-G23",
+      "zws_WiLclY0J",
+      "mMyBOC13ISAJ",
+      "tS1rA372YsUJ"
     ]
   },
   {
@@ -256,7 +329,8 @@ stopping_reason: 已完成用户提供的10份有效原文核查并补足两项�
     ],
     "source_ids": [
       "local-G13",
-      "wftPH5bwT0gJ"
+      "wftPH5bwT0gJ",
+      "zws_WiLclY0J"
     ]
   },
   {
@@ -296,7 +370,9 @@ stopping_reason: 已完成用户提供的10份有效原文核查并补足两项�
 [
   "Lin摘要对在线位置估计的概括需与首次接触备注区分。",
   "Cao名义视觉更新时间与人为延迟试验阈值不可直接等同。",
-  "DOSMAC正文称已处理刚度与位置共同变化；所核实物实验是固定曲面沿扫描高度变化，不等于独立生理运动验证。二者保留其层次差异。"
+  "DOSMAC正文称已处理刚度与位置共同变化；所核实物实验是固定曲面沿扫描高度变化，不等于独立生理运动验证。二者保留其层次差异。",
+  "ACT-US摘要强调视觉前馈，而方法主要写呼吸力带通/正弦预测，视觉和速度前馈的接口尚未完整给出；不得补造。",
+  "DO-MPAC概括措辞称处理动态约束，但式25/Remark4为无约束解析预测控制，硬饱和在执行端。"
 ]
 ```
 
@@ -306,19 +382,18 @@ stopping_reason: 已完成用户提供的10份有效原文核查并补足两项�
 {
   "coverage_status": "PARTIAL",
   "research_effort_budget": {
-    "queries": 23,
-    "fulltext_gateway_events": 17,
-    "accepted_evidence_cards": 17
+    "queries": 28,
+    "fulltext_gateway_events": 24,
+    "accepted_evidence_cards": 24
   },
-  "stopping_reason": "已完成用户提供的10份有效原文核查并补足两项关键接口。按用户要求交付当前现状等待验收；一项错误HTML全文及受限引用链仍阻止无保留的查全判断。",
+  "stopping_reason": "用户补齐的两篇和两项本地历史机制原文已读；历史无期刊/年代下限补查完成。沿DO-MPAC实际参考文献核查三个直接近邻后再作收尾判断。",
   "coverage_gaps": [
-    "DOB-MPC超声线索(10.1016/j.conengprac.2026.107240)仍只有安全验证HTML，最早公开时间及完整方法不可核准；它可能改变直接任务近邻边界。",
-    "引用链补查已执行但基础辨识条目仅有摘要，少量身份/时间待核；尚不支持截至截止日的无遗漏或搜索饱和判断。"
+    "DO-MPAC原文参考文献出现三项尚未在本轮完整核准的直接超声近邻：Li2026b trajectory-aware feedforward admittance、Zhang2025 smooth path/dynamic force regulation、Jiang2024 force tracking under soft uncertain environment。需正式查询其身份/摘要，判断是否改变时间变参考补偿、在线增益/估计路线或最接近工作；仅对实质缺口请求原文。"
   ],
   "blind_spots": [
-    "原文证据按实际选段而非全文通读标记。",
-    "两条HOLD_IDENTITY和两条年份冲突保留；未用其作能力判断。",
-    "C03原文p1给出2026-09-15公开，符合截止；C08仅见2026-07-27接收，公开日期仍待元数据确认。"
+    "24卡均明确选段阅读，未声称全文精读或独立复证。",
+    "早期身份/年份待核来源不承担决定性判断；不同观测/任务与源指标不做跨论文数值排名。",
+    "当前在用户确认问题内补全文献；不重新选题，不改变C1/C2或启动实验。"
   ]
 }
 ```
