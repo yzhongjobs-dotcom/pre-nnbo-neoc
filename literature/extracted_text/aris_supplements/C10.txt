@@ -1,0 +1,1458 @@
+Special Issue: ISER 2023
+
+                                                                                                               The International Journal of
+                                                                                                                         Robotics Research
+Explicit force-based control strategies for                                                                            2026, Vol. 0(0) 1–28
+                                                                                                                    © The Author(s) 2026
+compliant robot-assisted ultrasound imaging                                                                        Article reuse guidelines:
+                                                                                                         sagepub.com/journals-permissions
+                                                                                                        DOI: 10.1177/02783649261441635
+                                                                                                             journals.sagepub.com/home/ijr
+
+
+
+Adrian Piedra1 , R Brooke Jeffrey2  and Oussama Khatib1 
+
+
+
+Abstract
+In this paper, we present a robotic ultrasound system that implements explicit contact force control and force-based full
+probe orientation optimization to achieve stable, responsive, and high-quality ultrasound imaging. Traditional robotic
+ultrasound systems often rely on implicit force control methods, such as admittance control, which are limited by their
+underlying motion-control loops. In contrast, our approach directly regulates contact force and moment at the end-
+effector, enabling rapid adaptation to heterogeneous tissue properties and dynamic environments. We benchmark the
+proposed explicit force controller against a state-of-the-art integral adaptive admittance controller, demonstrating a
+signiﬁcant reduction in phase lag from 121° to 5.76° at force tracking frequencies exceeding typical respiratory rates. In a
+second set of benchmarking experiments, compared to the admittance-based method, the explicit force controller achieves
+a reduction in average force tracking error of 77.7 % when the phantom is moving toward the transducer, and 72.6 % when
+the phantom is moving away. We integrate the explicit force and moment controller into a six-DoF haptic framework that
+renders physically-grounded interaction forces to the operator while the robot autonomously regulates contact force and
+optimizes probe alignment based on acoustic coupling. Validation across static and dynamic scans, as well as under external
+perturbations, shows that the system consistently maintains target force and moment proﬁles, aligns the probe with local
+surface normals, and adapts to changing contact conditions. Experimental results demonstrate that explicit force-based
+control improves ultrasound image quality, as quantiﬁed by conﬁdence maps, compared to a manual haptic scan. These
+ﬁndings support the use of explicit force and moment control as an effective approach for robotic ultrasound imaging.
+
+Keywords
+robot-assisted ultrasound, explicit contact force control, force-based full probe orientation optimization
+
+
+
+1. Introduction                                                  pressure, and awkward postures (Pike et al., 1997). Epi-
+                                                                 demiological studies indicate that between 76% to 90% of
+Ultrasound is among the most widely used diagnostic im-          sonographers practice in pain, with up to one in ﬁve
+aging modalities today, owing to its low cost, inherent safety   practitioners sustaining a career-ending injury, further ex-
+due to the absence of ionizing radiation, and portability        acerbating workforce shortages and limiting patient access
+(Szabo, 2004). Consequently, ultrasound is indispensable         to ultrasound imaging (Al-Rammah et al., 2017; Evans et al.,
+across diverse healthcare settings, from hospitals to remote     2009; Zangiabadi et al., 2024).
+clinics, facilitating timely and effective diagnosis of con-        Robotic ultrasound systems, such as the one presented in
+ditions such as cardiac disease, liver pathology, and prenatal   Figure 1, offer a compelling solution by assisting human
+health (Moore and Copel, 2011; Picano, 2005). Despite            operators in performing ultrasound scans. In robotic
+these signiﬁcant advantages, ultrasound imaging faces a
+fundamental challenge: acquiring high-quality images re-
+quires skilled sonographers trained in the complex manual        1
+                                                                   Stanford Robotics Laboratory, Computer Science Department, Stanford
+manipulation of the handheld transducer (Avola et al.,
+                                                                 University, Stanford, CA, USA
+2022). This reliance on specialized human operators cre-         2
+                                                                   Department of Radiology, School of Medicine, Stanford University,
+ates bottlenecks in healthcare delivery, particularly in low-    Stanford, CA, USA
+resource regions where trained personnel are scarce (Gopaul
+et al., 2018; Stewart et al., 2020).                             Corresponding author:
+                                                                 Adrian Piedra, Stanford Robotics Laboratory, Computer Science
+    Furthermore, sonographers suffer from a dispropor-           Department, Stanford University, 353 Jane Stanford Way, Room 286A,
+tionately high rate of work-related musculoskeletal disor-       Gates Computer Science Building, Stanford, CA 94305, USA.
+ders caused by repetitive motions, sustained transducer          Email: apiedra@stanford.edu
+2                                                                             The International Journal of Robotics Research 0(0)
+
+
+
+
+Figure 1. Robotic ultrasound acquisition system (with a focus on the gallbladder as an example). Left: Abdominal ultrasound phantom
+with right-anterior-superior coordinate frame and labeled organs. Middle: Seven-degree-of-freedom robot manipulating ultrasound
+transducer over the gallbladder. Right: Robotically acquired ultrasound image with the gallbladder highlighted.
+
+
+
+ultrasound, the transducer is mounted onto a robotic ma-           uncontrolled and variable tissue deformation, which com-
+nipulator capable of precise, repeatable movements, po-            promises the repeatability of image acquisition (Šarabon
+tentially reducing operator fatigue and variability in image       et al., 2019). Achieving high-precision force regulation is
+quality (Akbari et al., 2021; Kim et al., 2021; Mathur et al.,     essential for image stability and accurate 3D reconstruction
+2019). Such systems can also enhance clinical workﬂow              (Huang et al., 2019).
+efﬁciency and consistency, signiﬁcantly alleviating the                Beyond axial force, optimizing probe orientation is vital
+burden on skilled technicians (Jiang et al., 2023).                for maintaining acoustic coupling and image clarity. Ex-
+    Moreover, robot-assisted ultrasound platforms facilitate       isting strategies typically address this through indirect,
+teleoperation, allowing expert clinicians to remotely control      motion-based methods such as image-derived velocity
+the scanning procedure through haptic interfaces (Conti            commands (Chatelain et al., 2017; Welleweerd et al., 2021).
+et al., 2014; Piedra et al., 2024). Figure 2 shows such a          While some systems incorporate limited moment feedback
+haptic interface used for remotely performing ultrasound
+scanning with force and moment feedback rendered to the
+operator. The remote scanning capability is especially
+beneﬁcial in underserved or rural settings, extending expert
+care to areas lacking local specialized medical personnel
+(Arbeille et al., 2016; Britton et al., 2019; Monsky et al.,
+2025).
+    Despite this promise, the clinical utility of existing ro-
+botic ultrasound platforms is often constrained by their
+reliance on compliance-based control methods, such as
+admittance or impedance, as forms of implicit force regu-
+lation (Jiang et al., 2020; Keemink et al., 2018; Ma et al.,
+2021b). Speciﬁcally, admittance control measures the in-
+teraction force to command a desired motion, while im-
+pedance control measures motion deviations to command a
+desired force. Both approaches are considered implicit
+because they rely on motion within the control loop (either
+as a measurement or a command), preventing a direct and
+independent regulation of the contact force.
+    In contrast, explicit force control measures the interaction
+force and directly commands a corrective force at the ac-
+tuation level, removing motion from the control loop en-
+tirely (Whitney, 1987). Because implicit architectures             Figure 2. Haptically-guided ultrasound setup. Back: Robotic
+                                                                   manipulator scans a medical phantom using explicit force/
+introduce motion-based dependencies, they can suffer from
+                                                                   moment control. Front: Operator uses a six-degree-of-freedom
+phase lag and a sluggish response that struggles to maintain       haptic device to guide the robot while monitoring ultrasound
+accuracy during dynamic contact (Volpe and Khosla, 1993;           images. Force feedback communicates contact pressure, while
+Whitney, 1987). Crucially, inaccurate force tracking leads to      moment feedback aligns the device with the robot’s orientation.
+Piedra et al.                                                                                                                    3
+
+
+(Huang et al., 2019), explicit moment control remains no-         Implicit methods, such as admittance and impedance con-
+tably absent in the literature.                                   trol, rely on motion within the control loop. Speciﬁcally,
+    In this paper, we present a robotic ultrasound system         admittance control measures the interaction force to com-
+based on explicit contact force control and force-based           mand a desired motion, whereas impedance control mea-
+orientation optimization. Our approach, derived from the          sures motion deviations to command a desired force (Dyck
+operational space formulation (Khatib, 1987), directly            et al., 2022; Keemink et al., 2018). While both are widely
+regulates contact forces and moments to ensure stable, re-        used in robotic applications, impedance control requires
+sponsive, and accurate scanning. To address current limi-         knowledge of the environment’s position (Suligoj et al.,
+tations in the ﬁeld, we provide a comparative analysis with a     2021). In clinical settings, the location of the scanning
+state-of-the-art implicit force controller, highlighting the      surface changes due to patient respiration and shifting.
+advantages of explicit force control.                                 In contrast, admittance control measures interaction
+    This paper is organized as follows. Section 2 provides an     forces to command a desired motion, allowing it to track a
+overview of literature related to the use of robotics in the      desired force without requiring knowledge of the environ-
+ﬁeld of ultrasound imaging, with an emphasis on devel-            mental position (Keemink et al., 2018; Lin et al., 2025).
+opments in contact force control and full probe orientation       Recent advancements have sought to address the limitations
+optimization. Section 3 introduces a control framework for        of standard admittance control in soft, uncertain environ-
+explicit motion and force control in robotic ultrasound           ments, such as those encountered in robotic ultrasound
+imaging, while Section 4 shows a control framework for            imaging. Speciﬁcally, integral adaptive admittance control
+haptically-guided robotic ultrasound. Section 5 presents          (IAAC) represents the current state of the art, utilizing in-
+experimental results performed on an abdominal phantom,           tegral action to eliminate steady-state force errors and
+and Section 6 concludes the paper.                                adaptive gains to estimate unknown tissue stiffness in real
+                                                                  time (Jiang et al., 2024). However, admittance-based force
+                                                                  control, as with any compliance-based approach, is subject
+2. Related work
+                                                                  to “sluggish” performance compared to explicit methods
+The ﬁeld of robotic ultrasound imaging has recently ad-           because implicit methods regulate force through an inner
+vanced signiﬁcantly, driven by the integration of robotics,       motion-control loop (Whitney, 1987).
+artiﬁcial intelligence, and imaging technologies. These               Explicit force control measures the interaction force and
+developments address critical limitations in manual ultra-        directly commands a corrective force at the actuation level,
+sound procedures, such as operator fatigue, inconsistent          removing the intermediate motion loop entirely (Whitney,
+image quality, and limited access to expert clinicians, par-      1987). Controlling force at the end-effector, as done in both
+ticularly in remote or underserved areas. Salcudean et al.        impedance-based and explicit force control, is most effec-
+(2022) categorize robotic ultrasound systems into tele-           tively achieved through closed-loop torque control on ro-
+operated and autonomous platforms, highlighting the im-           botic manipulators equipped with joint torque sensors (Dyck
+portance of contact force control and probe orientation           et al., 2022). This is typically implemented using operational
+optimization to achieve effective robotic imaging. Despite        space control frameworks, which utilize task-space inertia
+these insights, translating these concepts into robust clinical   matrix decoupling to enhance stability and responsiveness
+solutions remains challenging.                                    during dynamic interactions (Khatib, 1987; Welleweerd
+                                                                  et al., 2021). While various systems have incorporated
+                                                                  force feedback for incremental position-based force regu-
+2.1. Contact force control
+                                                                  lation (Fang et al., 2017; Huang et al., 2018, 2019; Jiang
+Ensuring consistent contact force between the ultrasound          et al., 2021; Ma et al., 2021; Ning et al., 2021a, 2021b; Wang
+probe and patient anatomy is essential for stable, high-          et al., 2023), explicit contact force control remains relatively
+quality imaging. Traditional approaches often rely on po-         unexplored in the ﬁeld of robotic ultrasound.
+sition- and/or velocity-based motion loops to implicitly
+regulate contact forces (Jiang et al., 2020; Keemink et al.,      2.1.2. Performance and stability considerations. The stability of
+2018; Ma et al., 2021b). These methods utilize motion             any force control scheme is highly sensitive to the inter-
+within the force control loop, either as the feedback mea-        action environment. Whitney (1977) noted that admittance
+surement or the control output. Alternatively, indirect           control stability depends on the product of terms including
+methods employ image-derived feedback to adjust the probe         the sampling period, controller gains, and environmental
+pose based on inferred contact, frequently without closing        stiffness. Proportional explicit force control can also become
+the loop on measured forces (Abolmaesumi et al., 2002;            unstable when interacting with rigid surfaces, whereas
+Zettinig et al., 2017; Jiang et al., 2021a, 2021b, 2022).         stability typically improves with increased environmental
+                                                                  compliance (An and Hollerbach, 1987). The stability
+2.1.1. Implicit and explicit force control. A fundamental dis-    boundary is deﬁned by the interaction between the robot, the
+tinction exists between implicit and explicit force regulation.   sensor, and the workpiece (Eppinger and Seering, 1987a).
+4                                                                          The International Journal of Robotics Research 0(0)
+
+
+While extremely compliant surfaces can lead to a loss of            Existing systems with force feedback have used adaptive
+force feedback, high-stiffness environments can drive the        control strategies to modify control parameters online.
+system toward instability. Volpe and Khosla (1993) dem-          Cortesão et al. (2006) developed a method to change
+onstrated that position-based force control inherently adds      controller stiffness based on the environment, employing
+stiffness to the plant, which can be fundamentally desta-        higher force control gains when the environment is more
+bilizing. Furthermore, performance is strictly bounded by        compliant to maintain responsiveness, and reducing said
+hardware constraints, including actuator bandwidth, sensor       gains for stiffer environments to maintain stability. This
+ﬁltering, and digital sampling rates (Eppinger and Seering,      approach has been successfully applied to ultrasound
+1987b; Lawrence, 1988).                                          scanning on human subjects, where it accounts for the
+                                                                 variability in tissue stiffness across different anatomical
+2.1.3. Image-driven force optimization. Beyond the force         regions (Santos and Cortesão, 2018).
+control architecture, a critical challenge lies in determining
+the optimal contact force for different anatomical targets.
+While most systems utilize a constant reference force, recent
+                                                                 2.2. Full probe orientation optimization
+advancements have introduced artiﬁcial intelligence-driven       Optimizing the ultrasound probe orientation is essential for
+strategies to dynamically derive desired force values from       maximizing acoustic coupling, improving image clarity, and
+real-time ultrasound images (Zakeri et al., 2025).               reducing artifacts. Effective probe alignment typically in-
+                                                                 volves orienting the probe normal to the tissue surface
+2.1.4. Clinical force magnitudes. Robotic ultrasound con-        (Ihnatsenka and Boezaart, 2010).
+trollers must operate within speciﬁc force thresholds that           One common approach relies on image-derived feed-
+vary signiﬁcantly across clinical specialties (Suchoń et al.,   back, where image quality metrics are translated into angular
+2025). For abdominal procedures, baseline studies have           velocity commands to maintain contact (Chatelain et al.,
+quantiﬁed average axial forces at 7.0 N (Gilbertson and          2017). Alternatively, deep learning has been used to esti-
+Anthony, 2013) and (8.2 ± 4.3) N, with a range of 1.2 N to       mate the surface normal angle directly from 3D ultrasound
+36.5 N (Dhyani et al., 2017). Patient-speciﬁc factors further    volumes, enabling immediate orientation corrections
+inﬂuence these requirements; for instance, scanning high-        (Osburg et al., 2022). Other systems utilize external vision;
+BMI subjects requires higher mean forces (10.5 N) com-           for instance, RGB-D cameras can recognize anatomical
+pared to normal-BMI subjects (7.9 N) to maintain diagnostic      targets to compute an orientation perpendicular to the skin
+quality (Dhyani et al., 2017). Maintaining precise regulation    (Ma et al., 2021b), while others estimate the normal by
+is essential because force variations as small as 1.5 N          analyzing the 3D curvature of pre-planned sweep trajec-
+signiﬁcantly degrade measurement repeatability (Šarabon         tories (Jiang et al., 2021b). Distance-based sensing offers a
+et al., 2019), and 5.0 N is sufﬁcient to almost completely       robust alternative, exempliﬁed by the A-SEE system, which
+compress vascular structures (Gilbertson and Anthony,            uses four laser distance sensors embedded in the end-
+2015).                                                           effector for autonomous self-positioning without pre-
+    The mechanical interaction between the probe and un-         operative data (Ma et al., 2022). Finally, hybrid methods
+derlying tissue serves as the basis for ultrasound elastog-      use parallel load cells to provide limited moment feedback
+raphy, which controls deformation to characterize tissue         for ﬁne-tuning the orientation from an initial vision-based
+stiffness as a biomarker for pathology (Ozturk et al., 2018).    estimate (Huang et al., 2019).
+Recent advancements leverage deep learning for sound                 Despite these advancements, many probe orientation
+speed inversion from channel data, providing diagnostic          methods rely on admittance controllers that convert mea-
+capabilities similar to shear wave imaging while improving       sured errors into motion commands. These controllers suffer
+frame rates and robustness against motion artifacts (Feigin      from the same latency as admittance-based contact force
+et al., 2020).                                                   control. To achieve more responsive alignment, Khansari
+                                                                 et al. (2016) demonstrated a zero-moment compliant
+2.1.5. Environmental contact estimation. Accurate and real-      strategy that minimizes measured moments about the
+time estimation of environmental contact geometry signif-        contact point to align surfaces. Adapting this to ultrasound
+icantly enhances robotic force control performance.              can help the probe remain ﬂush with the tissue by driving
+Adaptive stiffness control methods adjust gains dynamically      misalignment moments to zero. However, explicit closed-
+based on interaction dynamics, typically reducing stiffness      loop moment control for optimizing ultrasound probe ori-
+and increasing damping in compliant directions                   entation remains unexplored in the literature.
+(Hennersperger et al., 2017; Jiang et al., 2023; Salisbury,
+1980). Jorda et al. (2022) introduced a probabilistic
+framework using a force-space particle ﬁlter to estimate
+                                                                 2.3. Evaluating ultrasound image quality
+uncertain environmental contact states, improving the            The objective evaluation of ultrasound image quality is a
+system’s ability to adapt to changing interactions.              multi-layered challenge, spanning from low-level signal
+Piedra et al.                                                                                                                    5
+
+
+integrity to high-level clinical utility. Quantifying this           autonomous systems to distinguish between noise and true
+quality is essential for robotic systems to provide closed-          diagnostic information (Song et al., 2022).
+loop feedback; early frameworks utilized quantitative in-
+terfaces to statistically assess penetration depth and reso-
+lution as indicators of diagnostic effectiveness (Hemmsen            2.4. Teleoperated ultrasound systems
+et al., 2010).
+                                                                     Teleoperated robotic systems expand clinical reach by al-
+                                                                     lowing expert sonographers to perform examinations from
+2.3.1. Signal-based metrics and noise characteristics. Traditional
+                                                                     remote locations. These platforms typically utilize haptic
+assessment often utilizes full-reference metrics like peak
+                                                                     interfaces to map clinician hand movements to a remote
+signal-to-noise ratio and mean squared error (MSE). How-
+                                                                     manipulator while providing tactile feedback of probe-
+ever, these metrics frequently fail to capture features relevant
+                                                                     patient contact (Conti et al., 2014). Our previous work
+to clinical diagnosis because they do not account for the
+                                                                     developed a framework for recording and replaying expert
+unique physics of ultrasound (Chow and Paramesran, 2016).
+                                                                     scanning strategies, enabling autonomous survey scans that
+Speciﬁcally, ultrasound images are characterized by multi-
+                                                                     can be followed by detailed remote-guided examinations
+plicative speckle noise, which is typically modeled by a
+                                                                     (Piedra et al., 2024). Despite these capabilities, achieving
+Rayleigh distribution for envelope-detected signals or a
+                                                                     high-ﬁdelity remote interaction requires addressing the
+Gamma distribution for intensity-based data (Loizou et al.,
+                                                                     technical challenges of communication latency and
+2006). While the structural similarity index is more consistent
+                                                                     bandwidth.
+with human visual perception than MSE, it remains sensitive
+                                                                        To ensure stability over long distances, architectures such
+to the image translations and rotations inherent in freehand
+                                                                     as the dual-proxy model provide local autonomy that
+scanning, limiting its utility for real-time robotic guidance
+                                                                     maintains consistent contact forces despite signal delays
+(Rangaraju et al., 2012).
+                                                                     (Jorda et al., 2022). Augmented reality and predictive force
+                                                                     models further assist operators by projecting anatomical
+2.3.2. Computing conﬁdence maps. To address the lack of
+                                                                     models and predicting contact forces to compensate for
+absolute reference images in clinical settings, conﬁdence
+                                                                     time-lagged visual feedback (Fu et al., 2023). Collaborative
+maps provide a no-reference estimate of uncertainty caused
+                                                                     methods have also incorporated shared control, where the
+by acoustic attenuation and shadowing (Karamalis et al.,
+                                                                     robot autonomously manages low-level stabilization while
+2012). These maps utilize a random walk framework to
+                                                                     the clinician directs the high-level diagnostic trajectory (Si
+model the probability of sound wave propagation, identi-
+                                                                     et al., 2024).
+fying regions with poor acoustic coupling or signiﬁcant
+                                                                        Although the feasibility of teleoperated robot-assisted
+signal loss. The resulting per-pixel conﬁdence scores serve
+                                                                     ultrasound has been demonstrated, widespread clinical
+as a robust feedback signal for robotic control; for in-
+                                                                     transition depends on leveraging high-speed networks to
+stance, several studies have utilized conﬁdence map
+                                                                     maintain image feedback while reﬁning six-degree-of-
+moments to design visual servoing laws that optimize
+                                                                     freedom (six-DoF) haptic interfaces to improve sonogra-
+probe orientation in real time (Chatelain et al., 2015,
+                                                                     pher control and diagnostic reproducibility across stan-
+2017). More recently, this approach has been extended to
+                                                                     dardized commercial platforms (Hidalgo et al., 2023).
+autonomous breast scanning, where conﬁdence-driven
+control keeps the scanning trajectory tangent to the tis-
+sue surface without requiring a prior patient model
+                                                                     2.5. Clinical adaptability and standardization
+(Welleweerd et al., 2021).
+                                                                     Widespread adoption of robotic ultrasound hinges on
+2.3.3. Content-aware quality assessment. Despite their utility       transitioning from experimental feasibility to standardized,
+in identifying acoustic coupling, conﬁdence maps primarily           reproducible diagnostic capabilities. Historically, Ossoinig
+evaluate pixel-level signal strength without considering the         (1979) demonstrated that standardization of instrumentation
+semantic signiﬁcance of the image content (Song et al.,              and techniques in echography enables highly reproducible
+2022). A high-conﬁdence image may still be diagnostically            tissue differentiation. Modern robotic systems offer a
+useless if it fails to capture the required anatomical plane. To     pathway to re-introduce this rigor by minimizing the inter-
+bridge this gap, deep learning-based quality assessment              operator variability inherent in manual ultrasound scanning;
+frameworks have been developed to learn evaluation                   for instance, Kojcev et al. (2017) showed that robotic ac-
+standards directly from clinical experts. For example, sys-          quisitions signiﬁcantly improve trajectory and coverage
+tems for fetal ultrasound assess quality based on the clear          reproducibility compared to expert sonographers. Further-
+depiction of key structures, such as the stomach bubble or           more, stable robotic control is helpful for accurate 3D
+umbilical vein (Wu et al., 2017). Recent robotic architec-           volume reconstruction; Janvier et al. (2008) demonstrated
+tures have integrated bilinear convolutional neural networks         that robotic 3D ultrasound allows for sub-millimeter posi-
+to achieve high correlation with physician scoring, enabling         tioning accuracy (0.46 mm to 0.75 mm mean error) and
+6                                                                             The International Journal of Robotics Research 0(0)
+
+
+quantiﬁcation errors of 0.9% to 3.0% for vascular                 the gravity vector, and τ 2 Rn is the vector of joint torques.
+stenoses.                                                          Note that A(q) is a symmetric positive-deﬁnite matrix.
+    As systems evolve toward supervised autonomy, estab-              Let x 2 Rm denote the operational (task) space coordi-
+lishing rigorous performance benchmarks and safety stan-           nates associated with the operational point O. The task
+dards becomes critical for commercialization (Haidegger,           Jacobian J ðqÞ 2 Rm×n relates joint-space velocities to task-
+2019). To this end, Nagy and Haidegger (2022) proposed             space velocities through
+capability assessment models to quantify automated subtask
+performance, such as force application, against benchmarks.                                            _
+                                                                                             x_ ¼ J ðqÞq:                     (2)
+Future research should focus on integrating these stan-               Since the robot manipulator is redundant with respect to
+dardized protocols with advanced interfaces, such as im-           the task of controlling the transducer six-dimensional mo-
+mersive virtual reality (Shyam et al., 2023), to help systems      tion and force, the redundancy is controlled with a joint
+adapt to diverse patient anatomies while maintaining clinical      conﬁguration-holding control torque vector τ 0 2 Rn pro-
+safety.                                                            jected onto the dynamically-consistent task null-space, N(q).
+                                                                   The joint-space control torques are
+
+                                                                                      τ ¼ J T ðqÞF þ N T ðqÞτ 0 ,             (3)
+3. Explicit motion and force control for
+robotic ultrasound imaging                                         where N ðqÞ ¼ I7×7  J ðqÞJ ðqÞ.
+We present a robotic ultrasound acquisition system com-               To express the robot’s dynamics in operational space, we
+posed of an ultrasound transducer and a compliant, seven-          use the dynamically-consistent generalized inverse of the
+DoF torque-controlled robotic manipulator equipped with a          task Jacobian, J ðqÞ, which is the solution to the generalized
+force/torque sensor at the wrist. These components and the         inverse of J(q) that minimizes the robot’s instantaneous
+ultrasound phantom, along with its labeled anatomy and             kinetic energy. The dynamically-consistent inverse is de-
+right-anterior-superior (RAS) anatomical coordinate frame,         ﬁned as
+are shown in Figure 1.                                                                                              1
+                                                                           J ðqÞ ¼ A1 ðqÞJ T ðqÞ J ðqÞA1 ðqÞJ T ðqÞ :        (4)
+   The manipulator’s kinematic structure satisﬁes the
+six-DoF requirement for full probe pose control while                                                  T
+                                                                     Multiplying equation (1) by J ðqÞ yields the task-space
+providing a redundant degree of freedom that enables               dynamics
+control of the robot’s posture, analogous to the elbow
+                                                                               T
+positioning of a human arm. The redundancy allows the                                               _ q_ þ gðqÞ ¼ τ Þ,
+                                                                              J ðqÞ ð AðqÞ€q þ bðq, qÞ                        (5)
+manipulator to perform motions within the null-space of                             ⇒ ΛðxÞ€x þ μðx, x_ Þ þ pðxÞ ¼ F,
+the probe’s task-space control. Moreover, the manipu-
+lator’s integrated joint torque sensors are fundamental to         where ΛðxÞ 2 Rm×m is the task-space inertia matrix at O,
+our explicit force control approach, providing the high-           μðx, x_ Þ 2 Rm is the vector of Coriolis and centrifugal forces
+frequency feedback necessary for controlling force at the          in task space, pðxÞ 2 Rm is the task-space gravity vector, and
+end-effector. The ultrasound transducer is rigidly at-             F 2 Rm is the generalized task force. Explicitly, these
+tached to the force/torque sensor, which is rigidly at-            quantities are given by
+tached to the robotic manipulator’s wrist. All data from                                                    1
+the wrist-mounted force/torque sensor is dynamically                               ΛðxÞ ¼ J ðqÞA1 ðqÞJ T ðqÞ ,               (6)
+compensated for the mass and inertia of the ultrasound
+                                                                                                    _  ΛðqÞJ_ ðqÞq,
+                                                                                           T
+probe and its coupling hardware.                                              μðx, x_ Þ ¼ J ðqÞbðq, qÞ            _           (7)
+
+                                                                                                   T
+                                                                                        pðxÞ ¼ J ðqÞgðqÞ:                     (8)
+3.1. Operational space formulation
+We adopt the operational space control framework intro-               In general, since the joint-space inertia matrix A(q) is
+duced by Khatib (1987) to describe the robot’s dynamics at         positive-deﬁnite, it follows that Λ1(x) is positive semi-
+the point, O, corresponding to the center of the transducer        deﬁnite. Speciﬁcally, equation (5) holds for non-singular
+lens. For a robot with n generalized degrees of freedom            joint conﬁgurations q because the task Jacobian J(q) is full
+q 2 Rn , the joint-space dynamics are                              rank, Λ1(x) is positive-deﬁnite, and so Λ(x) is well-deﬁned
+               AðqÞ€        _ q_ þ gðqÞ ¼ τ,
+                   q þ bðq, qÞ                              (1)    and also positive-deﬁnite. Near singular joint conﬁgura-
+                                                                   tions, J(q) becomes rank-deﬁcient, requiring special oper-
+where q_ and € q are the joint velocities and accelerations,       ational space control strategies.
+respectively, AðqÞ 2 Rn×n is the joint-space inertia matrix,          In the context of ultrasound imaging, the frame de-
+     _ is the vector of Coriolis and centrifugal forces, g(q) is
+bðq, qÞ                                                            ﬁned at the operational point O consists of both three-
+Piedra et al.                                                                                                                7
+
+
+                                                                  respectively, such that Vf,t + Vm,t = I3×3. Similarly, in ro-
+                                                                  tation, the force and motion spaces are deﬁned by orthog-
+                                                                  onal projection matrices Vf,r and Vm,r, respectively,
+                                                                  such that Vf,r + Vm,r = I3×3. The resulting six-dimensional
+                                                                  force-space and motion-space projections are given by the
+                                                                  following block diagonal matrices, hereafter referred to as
+                                                                  the task speciﬁcation matrices:
+                                                                                           "              #
+                                                                                              Vf , t 03×3
+                                                                                     Vf ¼                   ,              (11)
+                                                                                              03×3 Vf , r
+                                                                                           "                   #
+                                                                                               Vm, t   03×3
+                                                                                    Vm ¼                           :      (12)
+                                                                                               03×3    Vm, r
+
+
+                                                                     We use the uniﬁed force and motion controller in op-
+                                                                  erational space to locally control both the constrained
+                                                                  motion and force behavior on the robot (Khatib, 1987). With
+                                                                  this decoupling technique and assuming perfect estimates of
+                                                                  the dynamic components, the motion and force control loops
+                                                                  regulate the desired behavior of the decoupled end-effector
+Figure 3. In-plane and out-of-plane orientation optimization.     equivalent to a unit mass system in motion space and a force
+                                                                  source in force space. This uniﬁed control strategy provides
+                                                                  good performance in controlling both the motion of the
+dimensional translational and three-dimensional rota-             transducer and its contact with the phantom.
+tional components. We refer to the translational and
+rotational components in equation (5) with () t and () r,
+respectively. Using this notation, the center of the
+transducer lens’ position and orientation are represented         3.3. Force-based full orientation optimization
+by xt and x r. The end-effector’s instantaneous linear and        Maintaining zero-moment control at the tip of the ultra-
+angular velocity are v and ω. These quantities are rep-           sound probe is critical, as any residual moment results in
+resented by                                                       orientation error, which in turn affects the quality and
+                                                              consistency of the reconstructed ultrasound image. Fur-
+                    x                      v
+              x¼ t ,                x_ ¼     :          (9)       thermore, moment control must be enforced in both the in-
+                    xr                    ω
+                                                                  plane and out-of-plane directions for full probe orientation
+    The task forces and moments are denoted by F. In this         optimization. Figure 3 illustrates the imaging range of the
+paper, we represent the end-effector’s orientation as a ro-       probe in both orientations.
+tation matrix R 2 SOð3Þ. The end-effector rotation in task           The control force (moment) in rotational force (moment)
+space, xr, is derived from R according to the selected task       space, denoted Ff,r, will be referred to as M throughout the
+representation.                                                   remainder of this paper. The control moment, M, is com-
+                                                                  puted to track the desired end-effector moment, Md, using a
+                                                                  proportional-integral controller with feedforward moment
+3.2. Constrained operational space control                        compensation and velocity-based damping, as deﬁned in the
+Consider a robot manipulator holding an ultrasound probe          following:
+that is in contact with the environment at O. Now, the robot’s                        
+task-space dynamics are given by adding the contact force                   M ¼ Vf , r Md  Kp, f , r ðMs  Md Þ
+Fc between the probe and the environment to the left-hand                                               Z                (13)
+side of equation (5) as shown:                                                                Ki, f , r ðMs  Md Þ :
+                ΛðxÞ€x þ μðx, x_ Þ þ pðxÞ þ Fc ¼ F:        (10)
+                                                                     The moment-space proportional and integral gains are
+   In contact, the task workspace is separated into the force     Kp,f,r and Ki,f,r. The sensed task moment, Ms, is used as
+space (directions of constraints) and motion space (direc-        feedback to the controller.
+tions of free motion). Linearly, the force and motion spaces         Figure 4 illustrates the origin of the moment error in the
+are deﬁned by orthogonal projection matrices Vf,t and Vm,t,       system. When the robot establishes contact with the
+8                                                                              The International Journal of Robotics Research 0(0)
+
+
+                                                                      The translational force-space proportional and integral
+                                                                   gains are Kp,f,t and Ki,f,t. The sensed linear force, Fs, is used
+                                                                   as feedback to the controller.
+                                                                      The control objective, illustrated in Figure 4, is to regulate the
+                                                                   applied force to the environment, Fa, to match the desired force,
+                                                                   Fd, by minimizing the force error deﬁned as eF = Fa  Fd. It is
+                                                                   assumed that the contact force is accurately measured by the
+                                                                   force/torque sensor, that is, Fa = Fs and eF = Fs  Fd. Force
+                                                                   regulation is successfully achieved as eF converges to zero,
+                                                                   ensuring the applied force tracks the desired value.
+
+
+                                                                   3.5. Force space damping
+                                                                   The control force in the full force space, denoted Ff, is
+                                                                   computed by adding velocity-based damping to the con-
+                                                                   catenated translational and rotational force controllers, Ff,t
+Figure 4. Contact state and control deﬁnitions.                    and Ff,r, as follows:
+                                                                                           "            #                "        #
+                                                                                               Ff , t                         v
+                                                                                   Ff ¼                      b f Kv, f
+                                                                                                            ΛV                       ,
+environment, it experiences a contact force Fc, which                                          Ff , r                         ω
+generates a contact moment Mc about the control point due                                  "            #                                 (16)
+to the lever arm r. This moment represents the effect of the                                   Ff , t
+                                                                                       ¼                     b f Kv, f x_ :
+                                                                                                            ΛV
+contact force applied by the probe onto the environment.                                        M
+    We assume that the contact force Fc is accurately mea-
+sured by the force/torque sensor and is thus equal to the                                                            b is used to
+                                                                      The estimate of the task-space inertia matrix, Λ,
+sensed force Fs. And therefore we also assume that the             dynamically decouple the force-space damping. The de-
+contact moment Mc is equal the sensed moment Ms.                   rivative gain matrix for force-space damping is Kv,f.
+    The control objective is to drive the applied moment at
+the control point to zero. Accordingly, we deﬁne the moment
+error as the difference between the applied moment and the         3.6. Motion control
+desired moment (set as zero), such that
+                                                                   Let the desired end-effector position and rotation in task
+                                                                   coordinates be denoted xd,t and xd,r, respectively. The de-
+                                                                   sired end-effector rotation matrix, Rd, is used to derive xd,r.
+                                                                   The instantaneous angular error corresponding to the error
+                                                                   between the actual end-effector rotation and its desired
+The controller minimizes this error, causing the probe to rotate   rotation is expressed as
+until the moment is eliminated. The zero-moment goal is
+achieved when the transducer lens is aligned with the                                     δf ¼ E þ
+                                                                                                 r ðxr  xd, r Þ,                         (17)
+environment.
+                                                                   where the matrix Er maps the basic Jacobian to the task
+                                                                   Jacobian, J = ErJ0, as a function of the task representation,
+3.4. Contact force control                                         and Eþ
+                                                                        r is the pseudoinverse of Er. The end-effector error in
+                                                                   motion is then
+The control force in translational force space, Ff,t, is com-                                                
+puted to follow the desired end-effector force, Fd, through a                             em, t      xt  xd, t
+                                                                                  em ¼           ¼                :         (18)
+proportional-integral controller with feedforward force                                   em, r         δf
+compensation as follows:
+                                                                     The control force in motion space, Fm, is generated by an
+                                                                   operational space proportional-derivative controller given
+             Ff , t ¼ Vf , t Fd  Kp, f , t ðFs  Fd Þ
+                                Z                                 by
+                                                          (15)
+                      Ki, f , t ðFs  Fd Þ :                                                                 
+                                                                                Fm ¼ ΛVb m Kp, m em  Kv, m x_ ,          (19)
+Piedra et al.                                                                                                                        9
+
+
+
+
+Figure 5. Left: Freehand abdominal ultrasound scan setup. Top right: Singular values of the contact force snapshot matrix from the full
+freehand scan, showing that the expert primarily controls force along a single direction. Bottom right: Sensed force along the
+transducer’s long axis, bz, in the force/torque sensor frame. The average axial force, Fz, is 13.4 N.
+
+
+                                                  b is used to
+   The estimate of the task-space inertia matrix, Λ,                 radiologist applies force along a single dominant di-
+dynamically decouple the system. The proportional and                rection. By applying POD to the force snapshot matrix,
+derivative gains for motion control are Kp,m and Kv,m.               we evaluate this assumption by examining the resulting
+                                                                     singular values.
+                                                                        The three singular values of the force snapshot matrix
+3.7. Uniﬁed force and motion control                                 computed at each time step are shown in Figure 5. The
+The control forces in force and motion space are composed            average ratio between the largest and second-largest
+together with two additional gravity and Coriolis/centrifugal        singular values was 217%, while the average ratio be-
+compensation terms. The result is the dynamically de-                tween the largest and smallest singular values was 721%.
+coupled and uniﬁed force and motion-control force, F, given          This signiﬁcant disparity conﬁrms that the interaction is
+by                                                                   dominated by a single principal axis. Therefore, we
+                                                                     consider the force to be applied in a single direction,
+                                  μþb
+                    F ¼ Ff þ Fm þ b p,                       (20)    which we choose as the transducer’s long axis, bz, in all
+                                                                     subsequent experiments. A second plot of the sensed
+where bμ is the estimated vector of task-space Coriolis and
+                                                                     force at the probe tip shows an average Fz of 13.4 N,
+centrifugal forces, and b
+                        p is the estimated task-space gravity.
+                                                                     justifying the use of this desired force in our
+Transitions from free-space motion to closed-loop force
+                                                                     experiments.
+control are stabilized with a passivity observer (Jorda et al.,
+2017). The control torques speciﬁed to the robot are given
+                                                                     3.8.2. Task speciﬁcation matrices. When the end-effector is in
+by using F with equation (3).
+                                                                     contact with the phantom, the force-space projection matrix
+                                                                     in translation is
+3.8. Task speciﬁcation                                                                         Vf , t ¼ bz bzT ,                  (21)
+3.8.1. Expert-derived contact force speciﬁcation. To establish a
+                                                                     where bz is the transducer’s long axis and the motion-space
+clinically relevant desired force, we analyzed an expert
+radiologist’s scanning behavior using the recording mech-            projection matrix in translation is Vm, t ¼ I3×3  bz bzT .
+anism developed in our previous work Piedra et al. (2024).              For force-based full orientation optimization, the
+As shown in Figure 5, this hardware captures the trans-              zero-moment controller is applied in the rotational force
+ducer’s trajectory and applied contact forces during freehand        space, which is orthogonal to the translational force
+scanning. Using this system, the radiologist performed a             space. This applies zero-moment control in the trans-
+comprehensive abdominal scan.                                        ducer lens plane, allowing the transducer lens to conform
+   To analyze the recorded force data, we utilized proper            to the phantom surface while the linear force is con-
+orthogonal decomposition (POD), a data-driven tech-                  trolled along the probe’s long axis. The force-space
+nique used to obtain low-dimensional descriptions of                 projection in rotation is then
+high-dimensional data by extracting the principal di-                                      Vf , r ¼ I3×3  Vf , t ,
+rections of variance (Chatterjee, 2000). In abdominal                                                                             (22)
+                                                                                                  ¼ I3×3  bz bzT ,
+ultrasound, multiple contact directions are uncommon
+due to the use of ultrasound gel, which minimizes                    and the motion-space projection matrix in rotation is
+friction and lateral forces. Consequently, we assume the             Vm,r = I3×3  Vf,r = Vf,t. This enables control of the
+10                                                                            The International Journal of Robotics Research 0(0)
+
+
+
+
+Figure 6. Robot proxy (light green) deﬁning desired transducer force and motion at control point (dark green). Top: Transducer
+translating and rotating in free space. Bottom: Transducer moving along curved surface while maintaining contact force.
+
+
+
+transducer rotation about its long axis, which selects the        4. Haptically-guided robotic ultrasound
+imaging plane (e.g., transverse, sagittal, oblique) de-
+pending on the transducer’s orientation relative to the           Haptic guidance in robot-assisted ultrasound enables cli-
+patient or phantom. In practice, this relative orientation is     nicians to interactively reﬁne scans, particularly in regions
+monitored through the camera-based registration pre-              requiring detailed assessment beyond autonomous capa-
+sented in Section 5.1.2.                                          bilities. This interaction emulates freehand scanning at a
+   Finally, we have the following task speciﬁcation matrices      distance, allowing intuitive control without direct contact.
+(with the matrix sizes removed):                                      Our framework necessitates a fully actuated 6-DoF haptic
+         T                                                    interface to support the explicit control of the probe’s full pose. In
+          bz bz    0                  I  bz bzT    0             this setup, linear force feedback communicates real-life contact
+  Vf ¼                      , Vm ¼                       : (23)
+             0 I  bz bzT                0       bz bzT           forces to the operator, providing the tactile sensitivity needed to
+                                                                  assess tissue stiffness or maintain speciﬁc pressure. Furthermore,
+   In free space, the robot’s task speciﬁcation matrices are      the inclusion of moment feedback allows the haptic device to
+set for pure motion control in translation and rotation, with     align with the real-world orientation of the probe mounted to the
+Vm = I6×6 and Vf = 06×6.                                          manipulator. This ensures that the clinician’s movements remain
+                                                                  intuitive relative to the real-time ultrasound image orientation.
+3.8.3. Robot proxy. In general, the robot end-effector goal       This is important for clinical transparency and cannot be ad-
+pose is abstracted as the robot proxy. For clarity, only the      dressed by simpler, linear-only force feedback devices.
+translational components are discussed, but this concept              When the robotic ultrasound system is guided by an operator
+naturally extends to rotational control. In motion space, the     through a haptic device, ensuring safety and stability in the
+linear displacement between the robot end-effector position       interaction is of the utmost importance. Haptic–robot interaction
+xt and the robot proxy position xp deﬁnes the desired end-        is sensitive to delays, especially when communicating over
+effector translation as                                           remote connections. To mitigate these effects while maintaining
+                                                                  high-ﬁdelity six-DoF interaction, we implement the dual-proxy
+                          xd, t ¼ xp, t                   (24)
+                                                                  paradigm for remote operations (Jorda et al., 2022). This method
+   In force space, the desired linear force can be speciﬁed as    was validated over a distance of 10,000 km to demonstrate its
+the linear displacement between the robot position and its        stability and robustness to communication delays.
+proxy position with a virtual spring,
+
+                     Fd ¼ kvir ðxt  xp, t Þ              (25)    4.1. Haptic–robot interaction via the dual-proxy
+                                                                  model
+where kvir is the spring stiffness. The control forces ex-
+pressed in both motion and force space are illustrated in         The dual-proxy model, illustrated in Figure 7, captures the
+Figure 6.                                                         behavior of the robot and haptic device and relates the two
+Piedra et al.                                                                                                                   11
+
+
+workspaces through an afﬁne transformation along with a             the position error between the robot/haptic current position
+constant scaling factor. The haptic device position, xH, and        and robot/haptic proxy using virtual springs with stiffness.
+rotation, RH, are measured in the device frame. These values        The control inputs to the robot controllers (15) and (19) are
+are expressed in the robot frame to obtain the robot proxy
+position and rotation.                                                                       xd, t ¼ xrp ,                    (31)
+
+                  xrp ¼ xRCW þ sRTHR xH ,                 (26)                              Rd ¼ Rrp ,                      (32)
+                                                                                                     "              #
+                 Rrp ¼ RTHR RH RHR RRCW ,                (27)                                         xR  xrp
+                                                                                      Fd ¼ Kvir,R                  :         (33)
+                                                                                                           δfR
+where xRCW and RRCW are the offsets between the
+robot and the desired center of the robot workspace in              where Kvir,R encodes the robot’s virtual spring stiffnesses
+position and rotation, respectively, s is the scaling factor, and   and δfR is the instantaneous angular error between the end-
+RHR is the rotation matrix from the robot frame to the haptic      effector’s actual and desired orientations.
+device frame. The reverse transformation computes the                  The haptic control input, with Kvir,H as the haptic
+haptic proxy position and rotation                                  virtual spring stiffness and δfH as the instantaneous
+                 xhp ¼ RHR ðxR  xRCW Þs1                (28)    angular error between the actual and desired haptic device
+                                                                    orientation, is
+                 Rhp ¼ RHR RR RTRCW RTHR :               (29)                                             
+                                                                                                     x  xhp
+                                                                                      FH ¼ Kvir,H H            :          (34)
+from the robot position xR and rotation RR measured in the                                             δfH
+robot’s base frame.
+                                                                       On a haptic device capable of rendering feedback mo-
+   The control inputs are computed by projecting the robot
+                                                                    ments, the operator feels a torsional spring restoring the
+and haptic proxies onto the task motion and force spaces,
+                                                                    haptic device to the same orientation as the actual transducer
+which are deﬁned by the robot’s directions of free motion
+                                                                    mounted on the robot. This restoring moment is depicted in
+and constraints. The robot’s task speciﬁcation matrices are
+                                                                    Figure 8.
+described in Section 3.8.2. After computing the robot’s force
+projection matrix, Vf, the haptic device force-space pro-
+jection matrix is                                                   4.2. Online environmental contact estimation
+                             " T               #
+                 RHR 03×3          RHR 03×3                       In an ultrasound setting, the haptic feedback ﬁdelity relies on
+      Vf , H ¼                 Vf                 ,      (30)       knowledge of the robot environment geometry, which is
+                 03×3 RHR          03×3 RTHR
+                                                                    estimated through the force-space particle ﬁlter (Jorda et al.,
+and the haptic device motion-space projection matrix is             2022). In free space, most of the particles are grouped in the
+Vm,H = I6×6  Vf,H.                                                 center of a 3D unit sphere as shown in Figure 9. However,
+   In motion space, the robot and haptic proxies represent          when the end-effector is in contact, most particles are along
+goal points. In force space, a target force is computed with        the sphere boundary and grouped around the normal to said
+                                                                    contact. This binary classiﬁcation between free space and
+                                                                    contact is used to parameterize the robot controller as
+                                                                    speciﬁed in Section 3.8.2.
+
+
+                                                                    5. Experimental validation
+                                                                    We characterize the performance of the proposed explicit
+                                                                    force control (EFC) framework by ﬁrst evaluating its contact
+                                                                    force regulation against a state-of-the-art implicit method
+                                                                    based on integral adaptive admittance control (IAAC) (Jiang
+                                                                    et al., 2024).
+                                                                        Then, we demonstrate the system’s broader utility
+                                                                    through simultaneous contact force and force-based orien-
+                                                                    tation optimization across several clinically-inspired sce-
+                                                                    narios. These evaluations include static imaging of hard and
+Figure 7. Left: Interaction between robot transducer and robot      soft tissue to demonstrate force and moment control en-
+proxy in the force/motion spaces. Right: Interaction between        gagement in different regions, and dynamic scanning tasks
+haptic device and haptic proxy in the force/motion spaces.          that emulate clinical sweep motions.
+12                                                                      The International Journal of Robotics Research 0(0)
+
+
+                                                              the controller’s ability to track perturbations in motion di-
+                                                              rections while simultaneously compensating for environ-
+                                                              mental shifts in the explicit force- and moment-controlled
+                                                              directions.
+                                                                 Finally, we assess the system in a teleoperation context
+                                                              by comparing a manual six-DoF haptic scan, in which the
+                                                              operator speciﬁes varying axial forces, to an autonomous
+                                                              replay of the same recorded scan. In the replay task, the EFC
+                                                              autonomously regulates the axial force to a constant 13.4 N,
+                                                              and the in-plane and out-of-plane moments to zero, while
+                                                              tracking the recorded trajectory that is projected into the
+                                                              motion-controlled directions. This comparison between the
+                                                              two haptically-guided scanning modes (manual and au-
+                                                              tonomous replay) allows us to quantify the differences in
+                                                              acquired image conﬁdence.
+
+
+
+                                                              5.1. Experimental setup
+                                                              All experiments were conducted using the torque-controlled
+                                                              seven-DoF Franka Emika Panda manipulator (Franka Ro-
+                                                              botics GmbH) and the high-ﬁdelity ABDFAN abdominal
+                                                              phantom (Kyoto Kagaku Co., Ltd.), as illustrated in
+                                                              Figure 10. The phantom provides clinically realistic echo-
+Figure 8. Haptic moment feedback.                             genicity and includes internal structures such as the liver,
+                                                              gallbladder, kidneys, spleen, vascular structures, and pa-
+   Afterward, we investigate the framework’s motion-aware     thologies such as cysts and tumors.
+and force-aware capabilities by simulating patient move-         To facilitate repeatable and clinically relevant trajecto-
+ment during a scan. Speciﬁcally, these two experiments test   ries, we deﬁne ﬁve anatomical landmarks (A to E) across
+                                                              the torso surface. Points A and D are positioned over the
+                                                              rigid rib structures to evaluate hard-tissue interaction,
+                                                              while B and C are located over compliant soft-tissue re-
+                                                              gions. Point E serves as the central reference, which is also
+                                                              above a soft-tissue region. As shown in the schematic on
+                                                              the right of Figure 10, these landmarks are organized into
+                                                              two distinct layers: a contact plane that corresponds to the
+                                                              phantom’s coronal plane, and a free-space plane located
+                                                              10 cm above.
+                                                                 During all experiments, we deﬁne task-space coordinates
+                                                              resolved in the transducer frame: axial force represents
+                                                              contact force along the transducer’s long axis, z, while in-
+                                                              plane and out-of-plane moments represent torques measured
+                                                              about the transducer’s x and y axes, respectively. Unless
+                                                              otherwise indicated, the controller is set to maintain a
+                                                              constant axial force of 13.4 N and zero-magnitude moments.
+                                                              Robotic and haptic data were recorded at 100 Hz, while
+                                                              ultrasound images were recorded at 5 Hz.
+
+                                                              5.1.1. Robot end-effector design. The end-effector design for
+                                                              robotic ultrasound scan acquisition, based on the one from
+                                                              our previous work (Piedra et al., 2024), is presented in
+                                                              Figure 11. The force, in-plane, and out-of-plane axes in the
+                                                              transducer frame are labeled. The force/torque sensor is used
+Figure 9. Online environmental contact estimation with the    to (1) maintain constant contact between the ultrasound
+force-space particle ﬁlter.                                   transducer and phantom surface and (2) align the transducer
+Piedra et al.                                                                                                                13
+
+
+
+
+Figure 10. Left: Dimensions of the phantom and experimental paths. Middle: Anatomy of the torso. Right: Presentation of the free
+space and contact planes containing the via points and their projections inside the phantom.
+
+
+
+lens normal to the surface through zero-moment control.          5.1.2. Tracking phantom motion. To ensure continuous
+The speciﬁc force/torque sensor used in the experiments is a     tracking of the phantom’s position and orientation, we
+9105-NET-GAMMA1715 (ATI Industrial Automation)                   utilize a world camera that monitors the phantom’s RAS
+with calibration SI-130-10, which has a force resolution of      anatomical coordinate frame. This global tracking is
+ 1                                                               necessary because the robot’s end-effector camera
+20 N along the transducer’s force axis and a moment reso-
+           1
+lution of 800 Nm.                                               (shown in Figure 11), while useful for registration and
+                                                                 other applications, is subject to occlusions during the
+                                                                 scanning process. Both the world camera and the end-
+                                                                 effector camera are Intel RealSense D455 RGB-D
+                                                                 cameras.
+                                                                    To utilize the phantom tracking information for robotic
+                                                                 control, the world camera’s pose must be registered with
+                                                                 respect to the robot base frame. This is achieved by si-
+                                                                 multaneously capturing a ﬁxed AprilTag (Olson, 2011) on
+                                                                 the phantom with both the world camera and the end-
+                                                                 effector camera. Since the end-effector camera and the
+                                                                 ultrasound transducer are both rigidly ﬁxed to the robot,
+                                                                 their poses relative to the robot base are known via
+                                                                 forward kinematics. Consequently, the spatial transform
+                                                                 between the world camera and the robot base is computed
+                                                                 through the shared AprilTag reference, as illustrated in
+                                                                 Figure 12.
+
+                                                                 5.1.3 Haptic interface and control deﬁnitions. For haptically-
+                                                                 guided scans, we utilize a Force Dimension sigma.7 haptic
+                                                                 device shown in Figure 2, which provides six-DoF force/
+                                                                 torque feedback (Tobergte et al., 2011). This interface al-
+                                                                 lows the operator to perceive the physical interaction forces
+                                                                 generated during the robotic ultrasound procedure. To en-
+                                                                 sure clinical realism, a custom 3D-printed adapter was
+                                                                 developed to mimic the ergonomic form factor of a standard
+                                                                 ultrasound transducer, as shown in Figure 13. The control
+                                                                 framework maps the motion of the haptic stylus directly to
+                                                                 the robot’s desired motion and/or force, which is then
+                                                                 regulated by our controller.
+                                                                    The modes of operation, illustrated in Figure 14, are
+                                                                 categorized based on the task inputs speciﬁed by the
+Figure 11. Top: Robot end-effector design including force/
+                                                                 human user or the robot. In a fully manual scan, the user
+torque sensor, stereo camera, and ultrasound transducer.
+Bottom: Transducer frame with labeled axes and lens              speciﬁes the desired motion, force, and orientation. In a
+dimensions.                                                      fully autonomous scan, the robot speciﬁes all of these
+14                                                                          The International Journal of Robotics Research 0(0)
+
+
+
+
+                                                                 Figure 13. Left: Haptic device frame attached to the base of the
+                                                                 six-DoF haptic device. Right: Haptic probe adapter frame.
+
+
+                                                                 5.1.4. Assessing image quality with conﬁdence maps. The
+                                                                 convex ultrasound images were captured with a Butterﬂy
+                                                                 iQ+ transducer, which operates through Butterﬂy iQ’s
+                                                                 proprietary software. The imaging software provides access
+                                                                 to 2D brightness (B-mode) images, but does not provide the
+                                                                 raw radio frequency signals along the scanlines.
+                                                                    Following the methodology described in Karamalis
+                                                                 et al. (2012), we compute the conﬁdence of each ac-
+                                                                 quired image through a multi-step pipeline shown in
+                                                                 Figure 15. The procedure involves the following steps: (1)
+                                                                 record the Butterﬂy iQ screen image; (2) mask the pixels
+Figure 12. Robot end-effector and world cameras simultaneously
+                                                                 in the screen image corresponding to the convex ultra-
+tracking phantom anatomical frame.
+                                                                 sound image; (3) ﬂatten the convex masked pixels to a
+                                                                 rectangular shape; (4) compute the conﬁdence map for the
+                                                                 ﬂattened image; (5) for illustration purposes, warp the
+parameters instead (with the orientation partially deter-        ﬂattened conﬁdence map back to the original convex
+mined through explicit moment control). A semi-                  shape of the ultrasound image.
+autonomous scan combines both approaches, where the                 The algorithm utilizes the free parameters in Karamalis
+user speciﬁes the desired translational motion and the           et al. (2012): α = 6, β = 90, and γ = 0.05. The α parameter
+desired imaging plane, while the robot speciﬁes the de-          scales intensities to model depth-dependent signal attenu-
+sired force and controls the remaining orientation through       ation, β regulates the sensitivity of the graph weights to
+explicit moment control.                                         image features representing acoustic transmission, and γ
+   For the purpose of comparison a manual haptically-            penalizes lateral discontinuities to account for the physical
+guided scan to an assisted semi-autonomous one, we im-           constraints of ultrasound beam-width. These conﬁdence
+plemented two primary operational modes:                         maps provide a quantitative metric of image quality based
+                                                                 on acoustic coupling, which is optimized when the probe is
+     · Manual haptic scan: The user directly controls the        ﬂush with the tissue surface.
+       robot proxy through the haptic interface. In this mode,
+       our controller regulates the axial contact force based
+       on the user’s input, but moment control is disabled.
+       This allows the operator to freely manipulate the
+                                                                 5.2. Benchmarking explicit force control
+       transducer orientation.                                   This section presents a quantitative assessment of the axial
+     · Semi-autonomous replay: The robot autonomously            force regulation performance of the proposed EFC archi-
+       follows a previously recorded haptic scanning path.       tecture. To establish a baseline for comparison, the EFC is
+       In this mode, both explicit force and moment              benchmarked against the IAAC scheme, representing a
+       control are active. The robot maintains a constant        state-of-the-art implicit force control strategy. The primary
+       target force of 13.4 N and utilizes moment control to     objective of this benchmarking study is to characterize the
+       maintain the transducer perpendicularity relative to      force tracking accuracy of both controllers under dynamic
+       the surface normal, regardless of the original            interaction conditions. The evaluation is conducted across
+       recorded orientation.                                     two distinct experimental scenarios:
+Piedra et al.                                                                                                                            15
+
+
+
+
+Figure 14. Left: Modes of haptically-guided operations. Right: Deﬁnition of transducer frame directions.
+
+
+
+   · Sinusoidal force tracking: Assessing the controller’s           where Kv,f,t and Kv,f,r are the translational and rotational
+     ability to follow a time-varying force proﬁle, which is         force-space velocity gains, respectively.
+     critical for applications requiring precise force                  Similarly, the translational and rotational motion gain
+     modulation.                                                     matrices for proportional and derivative feedback in
+   · Constant force tracking under phantom motion:                   equation (19) are given by:
+     Maintaining a constant target force while the phantom                                "                              #
+     is subjected to external translational motion, simu-                                    Kp, m, t I3x3   03x3
+                                                                                  Kp, m ¼                                  , (36)
+     lating a moving environment such as patient respi-                                        03x3        Kp, m, r I3x3
+     ration or shifting.
+                                                                                            "                                   #
+                                                                                                Kv, m, t I3x3      03x3
+                                                                                  Kv, m ¼                                           :   (37)
+5.2.1. Explicit force controller design. The explicit force                                        03x3         Kv, m, r I3x3
+controller is implemented following the details presented in
+Section 3. The gains used for our explicit motion and force
+controller are listed in Table 1. The velocity gain matrix              Note that the compliant experimental environment al-
+presented in equation (16) is given by the following values:         lows for large proportional force and moment control gains.
+                                                                   The small transducer lens moment arm further permits a
+                        Kv, f , t I3x3     03x3                      large proportional moment control gains. Additionally, we
+                Kv, f ¼                                       (35)
+                          03x3           Kv, f , r I3x3              implement zero-crossing reset for the integral terms in both
+                                                                     force and moment control to prevent integral windup.
+
+
+
+
+Figure 15. Conﬁdence map generation pipeline. Left: Raw ultrasound images acquired using the Butterﬂy iQ software. Middle left:
+Corresponding ﬂattened ultrasound image. Middle right: Conﬁdence map computed from the ﬂattened image. Right: Final convex
+(warped) conﬁdence map.
+16                                                                            The International Journal of Robotics Research 0(0)
+
+
+5.2.2. Implicit force controller design. We implemented a         Table 1. Controller gains for explicit force and motion control.
+state-of-the-art implicit IAAC contact force controller as
+                                                                  Force control                   Motion control
+a baseline for comparison to our EFC approach. The
+details of the IAAC implementation are described in               Parameter    Value   Unit       Parameter     Value   Unit
+Jiang et al. (2024), and the controller is summarized in
+Algorithm 1. Two versions of the IAAC controller are              Kp,f,t        8      —          Kp,m,t        250     Nm1
+                                                                  Kv,f,t       25      Nsm1    Kv,m,t         24     Nsm1
+presented: one with the baseline parameters used in
+                                                                  Ki,f,t        5      s1
+Jiang et al. (2024) for robotic ultrasound on a phantom,
+                                                                  Kp,f,r       25      —          Kp,m,r        200     Nrad1
+and another with parameters tuned for improved per-
+                                                                  Kv,f,r       25      Ns1      Kv,m,r         23     Nsrad1
+formance on our experimental setup. The baseline pa-
+                                                                  Ki,f,r        5      s1
+rameters are as follows: m = 4 kg, b = 480 Nsm 1 , k =
+200 Nm 1, b  k e ¼1000 Nm 1 , α = 1, β = 1, k i = 0.2.
+Tuning the response of the IAAC for a sinusoidal force            The linear actuator used for this set of experiments exhibited
+goal resulted in the following modiﬁed parameters: b* =           asymmetric accelerations in the two different directions,
+120 Nsm 1, k* = 100 Nm 1, b  k *e ¼2000 Nm 1 , k*i ¼ 0:8   resulting in slightly different time durations for the approach
+.                                                                 and retraction motions. The phantom stayed at rest for
+                                                                  approximately 5 s between the periods of motion.
+
+                                                                  5.2.4. Results on sinusoidal force tracking. The results for the
+                                                                  dynamic sinusoidal force tracking are illustrated in Figure 16
+                                                                  and detailed in Table 2. Across the tested frequency spectrum
+                                                                  (0.2 Hz to 1.6 Hz), the EFC maintained a signiﬁcantly lower
+                                                                  phase lag compared to the IAAC variants. Speciﬁcally, the
+                                                                  EFC exhibited a lag ranging from 1.44° at 0.2 Hz to a
+                                                                  maximum of only 5.76° at 1.6 Hz. In contrast, the tuned IAAC
+                                                                  and baseline IAAC reached substantial phase lags of 121.0°
+                                                                  and 149.8°, respectively, at the highest frequency.
+                                                                     In terms of tracking accuracy, the EFC achieved sub-
+                                                                  Newton average errors for frequencies up to 0.8 Hz (0.56 ±
+                                                                  0.28 N), with a maximum recorded error of 1.28 N. At 1.6 Hz,
+                                                                  the EFC recorded an average error of 1.01 ± 0.61 N and a peak
+                                                                  error of 3.37 N. This performance represents a signiﬁcant
+                                                                  improvement over the tuned IAAC, whose average error rose
+                                                                  from 1.32 ± 0.72 N at 0.2 Hz to 11.28 ± 5.39 N at 1.6 Hz.
+
+                                                                  5.2.5. Results on constant force tracking under phantom
+                                                                  motion. The tracking performance during repetitive phan-
+                                                                  tom displacement is visualized in Figure 17 and summarized
+                                                                  in Table 3. During the time periods in which the phantom
+                                                                  was stationary, both the EFC and the tuned IAAC performed
+                                                                  effectively, yielding average errors of 0.19 ± 0.22 N and
+5.2.3. Experimental design. In order to compare the contact       0.29 ± 0.73 N, respectively.
+force control performance of our EFC against an IAAC, the             However, the EFC demonstrated superior consistency
+robot followed sinusoidal force trajectories from 0 N to          during active environmental motion. It maintained an average
+20 N, covering a typical range of forces in clinical ultra-       tracking error of 1.25 ± 0.37 N (max 1.66 N) when the
+sound of the abdomen. The force trajectories had increasing       phantom moved toward the transducer and 1.43 ± 0.45 N (max
+frequencies of 0.2 Hz, 0.4 Hz, 0.8 Hz, and 1.6 Hz, exceeding      2.02 N) during retraction. Under the same dynamic conditions,
+the typical human respiratory frequency of around 0.3 Hz.         the tuned IAAC average error increased to approximately
+Contact force control was maintained during experiments at        5.4 N across both directions, while the baseline IAAC reached
+anatomical landmark E on the torso phantom.                       a peak error of 18.76 N during the approach phase.
+   A second set of experiments for comparing the contact
+force controllers involved following a constant desired force
+of 13.4 N while the phantom was repeatedly displaced
+                                                                  5.3. Static force and moment control
+toward the transducer and away from the transducer by a           The objective of this experiment is to evaluate the system’s
+distance of 15 cm with a constant velocity of about 5 cms1.     ability to maintain a stable acoustic window and
+Piedra et al.                                                                                                                         17
+
+
+
+
+Figure 16. Sensed contact force during the sinusoidal force tracking experiment, represented in the transducer frame. The sinusoidal
+force frequency increases from 0.2 Hz to 1.6 Hz (left-to-right).
+
+
+demonstrate how each component of the EFC framework                 projection point A0 , B0 , C0 , or D0 . In Phase III, the robot tried
+contributes to image quality. In clinical practice, sonogra-        to reach the points A, B, C, or D located within the phantom
+phers often hold the transducer stationary to observe blood         and made contact with the phantom surface using position
+ﬂow or organ motility; however, maintaining a constant              control. In Phase IV, force control was engaged to apply a
+force and perpendicular orientation on curved, compliant            target force of 13.4 N. In Phase V, moment control was
+anatomy is manually taxing. This section demonstrates the           activated in addition to force control to align the probe with
+EFC’s ability to regulate a constant 13.4 N axial force while       the surface normal. This process was repeated for each target
+simultaneously utilizing moment control to ensure the               point and ultrasound images were recorded for computing
+transducer remains ﬂush with the phantom surface at                 corresponding conﬁdence maps, as described in
+landmarks A–E.                                                      Section 5.1.4.
+
+5.3.1. Experimental design. The static experiment was di-           5.3.2. Results. Figure 18 presents the sensed forces and
+vided into ﬁve sequential phases and repeated for each of the       moments expressed in the transducer frame, along with
+via points A, B, C, and D. Figure 10 highlights the positions       sample images in the lower right showing the probe before
+of these points, along with their projections onto a plane          and after moment control is applied. In the initial two
+located above the phantom surface. This projection allowed          phases, forces and moments remain near zero, consistent
+the robot to align vertically above each target point while         with free-space motion. Correspondingly, the average
+remaining in free space. In Phase I, the robot moved to point       conﬁdence is also near zero, reﬂecting poor image quality
+E0 in free space. In Phase II, the robot translated to the top      when the probe is not in contact. In Phase III, pose control
+
+
+Table 2. Benchmarking contact force controllers with respect to phase lag and force tracking error across different frequencies.
+
+                Phase lag [◦]                                          Force tracking error (avg. ± std. dev./max) [N]
+
+Freq (Hz)       IAAC (baseline)   IAAC (tuned)   EFC (our method)      IAAC (baseline)       IAAC (tuned)            EFC (our method)
+
+0.2              33.8              11.52         1.44                  3.77 ± 1.79/6.21      1.32 ± 0.72/2.40        0.19 ± 0.10/0.44
+0.4              64.8              23.0          2.88                  6.14 ± 3.03/10.28     2.78 ± 1.35/5.44        0.32 ± 0.19/0.83
+0.8             109.4              49.0          5.76                  7.31 ± 3.59/12.97     5.65 ± 3.07/11.30       0.56 ± 0.28/1.28
+1.6             149.8             121.0          5.76                  6.96 ± 3.38/12.51     11.28 ± 5.39/18.13      1.01 ± 0.61/3.37
+18                                                                            The International Journal of Robotics Research 0(0)
+
+
+
+
+Figure 17. Top: Sensed contact force, represented in the transducer frame, during the constant force tracking experiment under
+phantom motion. The shaded regions indicate the time periods during which the phantom was moving toward or away from the
+transducer. The baseline IAAC occasionally loses contact with the phantom during motion, resulting in periods of zero sensed force.
+Bottom: The transducer’s elevation in the robot base frame. The baseline IAAC occasionally loses contact with the phantom and
+therefore does not follow the same elevation trajectory.
+
+
+
+results in a sharp increase in both force and moment               onto the phantom surface in the background, with the color
+magnitudes, as contact occurs without regulation. Conﬁ-            gradient from blue to red indicating progression over time.
+dence remains low, except at point B, where partial align-            The results for this and the subsequent experiments are
+ment may have yielded a slight improvement. In Phase IV,           summarized in Table 4.
+force control is activated, leading to convergence toward the
+target contact force of 13.4 N, while moments remain non-
+                                                                   5.4. Dynamic force and moment control
+zero. This yields a modest increase in image conﬁdence. In
+Phase V, moment control is engaged, and the moments                To capture volumetric data or perform longitudinal scans,
+converge to zero. Simultaneously, image conﬁdence in-              the robot must maintain contact parameters while traversing
+creases signiﬁcantly, indicating improved probe alignment          unknown or varying surface curvatures. This experiment
+and image quality. The desired force remains stable                evaluates the tracking performance during a continuous
+throughout. At the bottom of the ﬁgure, raw ultrasound             sweep across the abdominal surface of the phantom. The
+images and corresponding conﬁdence maps illustrate rep-            primary challenge addressed here is the simultaneous reg-
+resentative examples from each phase.                              ulation of axial force and the suppression of in-plane and
+    Figure 19 shows the 3D trajectory of the end-effector          out-of-plane moments as the tissue stiffness and surface
+(large dots) and the position proxy (small dots), both ex-         normal change.
+pressed in the phantom frame. The small dots represent the
+desired position, which attempts to bring the probe inside         5.4.1. Experimental design. In the dynamic experiment, the
+the phantom, while the end-effector remains constrained to         robot followed the closed-loop path depicted in the left
+the surface. The right plot shows the trajectory projected         image of Figure 10, starting and ending at point A. This
+
+
+Table 3. Benchmarking contact force controllers with respect to force tracking error under different types of phantom motion.
+
+                                     Force tracking error (avg. ± std. dev./max) [N]
+
+Controller                           Stationary                            Toward                                Away
+
+IAAC (baseline)                      11.54 ± 2.83/16.74                    13.59 ± 5.46/18.76                    10.46 ± 4.25/13.73
+IAAC (tuned)                         0.29 ± 0.73/6.18                      5.61 ± 1.21/6.88                      5.22 ± 1.71/6.73
+EFC (our method)                     0.19 ± 0.22/1.52                      1.25 ± 0.37/1.66                      1.43 ± 0.45/2.02
+Piedra et al.                                                                                                                      19
+
+
+
+
+Figure 18. Top: Sensed forces, moments (in the transducer frame), and average image conﬁdence over time across all experimental
+phases (described in legend). Bottom left: Representative raw ultrasound images and corresponding conﬁdence maps at selected
+points. Bottom right: Visual depiction of the ﬁnal two phases at points A, B, C, and D, showing the probe in contact with the phantom.
+
+
+trajectory was designed to guide the transducer across re-          closely follows the intended square path marked on the
+gions of varying stiffness, including both stiff and soft           phantom surface, with slight erroneous curve tracking due
+sections, and transitions in both directions. The commanded         to the phantom’s curved surface. The average orientation
+scanning speed was 3 cms1.                                        error between the actual and desired transducer orienta-
+                                                                    tion is 1.27°.
+5.4.2. Results. The force plot in Figure 20 shows that the
+sensed force in the transducer frame along the controlled
+direction remains close to the target value of 13.4 N, with
+an average error of 0.33 N. The average moments about
+                                                                    5.5. Force-aware and motion-aware control
+the x and y axes in the transducer frame are 0.01 Nm              Clinical environments are inherently dynamic, with
+and 0.02 Nm, respectively. Notably, transitions between            disturbances arising from patient respiration and shifting
+soft and stiff regions of the phantom do not signiﬁcantly           positions. This section explores the robustness of the
+affect the stability of the controlled force or moment              EFC framework when subjected to external environ-
+regulation.                                                         mental motion. We evaluate the system’s ability to de-
+   In Figure 21, the left plot displays the 3D trajectory of        couple the desired interaction force from the
+the end-effector in the phantom frame, along with the               translational disturbance of the phantom, ensuring that
+robot proxy it follows. The average position tracking error         image quality and contact safety are preserved despite
+is 0.75 cm. The right panel conﬁrms that the trajectory             patient movement.
+20                                                                                The International Journal of Robotics Research 0(0)
+
+
+
+
+Figure 19. Left: 3D trajectories of the end-effector and robot proxy during the static experiment around the four target points. Right:
+2D projection of the same trajectories onto the (x, z) plane, overlaid on a background image of the phantom.
+
+
+
+5.5.1. Experimental design. Two experiments were designed              5.5.2. Results. During the motion-aware experiment, shown
+to evaluate the robot’s ability to maintain stable position,           on the left side of Figure 22, the sensed forces in the
+constant contact force, and zero moment despite patient                transducer frame closely follow the desired constant force of
+motion in 3D space. In both experiments, the robot was                 13.4 N, with an average error of 0.13 N. The corresponding
+commanded to reach point E inside the phantom using full               sensed moments in the x and y directions remain near zero,
+force and moment control. In the motion-aware experiment,              with average values of 0.01 Nm and 0.01 Nm in the x and
+an external operator manually displaced the phantom within             y directions, respectively, and standard deviations of
+the horizontal plane, deﬁned by the x and z axes of the RAS            0.01 Nm in both directions.
+anatomical frame. In the force-aware experiment, the op-                  In contrast, during the force-aware experiment (right side
+erator introduced perturbations along the vertical direction           of Figure 22), the average force error in the z direction
+(y-axis in the RAS frame) as well as in both in-plane and out-         increases to 1.31 N, and the average moments stay around
+of-plane orientations.                                                 zero, but the standard deviations in the x and y directions rise
+
+
+Table 4. Experimental results on explicit force and motion tracking across various scanning scenarios. Directions are speciﬁed in the
+transducer frame.
+
+                    Avg. force        Avg. moment         Std. dev. moment         Avg. position      Avg. orientation     Avg. image
+Experiment          error (z)[N]      (x, y) [Nm]        (x, y) [Nm]             error [cm]         error [◦]            conﬁdence
+
+Force tracking      0.70              —                   —                        —                  —                    —
+Dynamic             0.33              0.01, 0.02         —                        0.75               1.27                 —
+Motion-aware        0.13              0.01, 0.01         —                        0.63               0.57                 —
+Force-aware         1.31              0.05, 0.02          —                        0.44               0.78                 —
+Manual haptic       0.30              0.08, 0.05         0.16, 0.04               0.77               2.11                 0.27
+Replay haptic       0.18              0.01, 0.03         0.02, 0.03               0.45               2.13                 0.32
+Piedra et al.                                                                                                                  21
+
+
+
+
+Figure 20. Left: Sensed forces and moments in the transducer frame recorded during the dynamic experiment. Right: Schematic of the
+robot’s scanning path along the torso, indicating via points and relative surface stiffness.
+
+
+to 0.05 Nm and 0.02 Nm, respectively. During the force-         rotational errors of 0.57° and 0.78° for the motion-aware and
+aware experiment, the phantom was subjected to both in-           force-aware experiments, respectively.
+plane and out-of-plane displacements. This increase is at-
+tributed to the vertical motion of the phantom, as shown in
+the bottom photographs of the ﬁgure.
+                                                                  5.6. Haptically-guided scans
+    This vertical displacement is also evident in the 3D
+trajectories, which are plotted at the same scale in the z        This ﬁnal evaluation explores the synergy between human
+direction for direct comparison. Additionally, the end-           intuition and robotic precision through haptically-guided
+effector and robot proxy trajectories, shown in the third         ultrasound scanning. We compare manual scanning (where
+plot, indicate low tracking error in both experiments, with       the operator deﬁnes the transducer trajectory, force, and
+average positional errors of 0.63 cm and 0.44 cm and              orientation) against a semi-autonomous replay mode that
+
+
+
+
+Figure 21. Left: 3D trajectories of the end-effector and robot proxy during the dynamic experiment around the four target points.
+Right: 2D projection of the same trajectories onto the (x, z) plane, overlaid on a background image of the phantom.
+22                                                                           The International Journal of Robotics Research 0(0)
+
+
+
+
+Figure 22. Top: Sensed forces and moments in the transducer frame, along with end-effector and proxy positions in the robot base
+frame for both motion-aware and force-aware experiments. Middle: 3D trajectories of the end-effector and proxy in the robot base
+frame during both experiments. Bottom: Photographic documentation illustrating the experimental setups for motion-aware and force-
+aware condition.
+
+
+autonomously tracks a constant desired force and aligns the       probe’s orientation. The proxy-following behavior was
+transducer normal to the surface.                                 implemented as described in Section 4.1, using closed-loop
+                                                                  force control.
+5.6.1. Experimental design. This experiment involved per-            The second part of the experiment consisted of replaying
+forming a manual scan using the six-DoF haptic device             the same scan autonomously, with both force and moment
+shown in Figure 13. The robot followed a proxy controlled         control enabled. During this phase, the robot followed the
+by the haptic device operator. Moment control was disabled        recorded trajectory while actively regulating contact force
+during this phase, allowing the operator to freely adjust the     and probe orientation using moment control to enhance
+Piedra et al.                                                                                                                  23
+
+
+
+
+Figure 23. Top: Sensed forces, moments (in the transducer frame), and average image conﬁdence over time for both manual scan and
+replay experiments. Middle: 3D trajectories of the end-effector and proxy in the robot base frame during both experiments. Bottom:
+2D projection of the same trajectories onto the (x, z) plane, overlaid on a background image of the phantom.
+24                                                                            The International Journal of Robotics Research 0(0)
+
+
+ultrasound image quality. In both the manual and autono-              · The explicit contact force controller tracked a time-
+mous conditions, ultrasound images were recorded for                    varying force proﬁle representative of physiological
+subsequent comparison of conﬁdence map outputs.                         motion with less phase lag and greater accuracy than a
+                                                                        state-of-the-art implicit force control method. The
+5.6.2. Results. In the top left plot of Figure 23, the desired          explicit method also demonstrated greater accuracy
+end-effector force trajectory in the transducer frame varies            and disturbance rejection when tracking a constant
+over time due to manual speciﬁcation by the operator.                   desired force with a moving phantom.
+Despite this variability, the robot successfully tracks the           · In static scans, force control alone achieved consistent
+desired force with an average error of 0.30 N. In contrast, the         contact, but proper probe alignment and improved image
+replay experiment uses a ﬁxed desired force of 13.4 N,                  quality were only obtained with the addition of moment
+resulting in a lower average error of 0.18 N.                           control. This alignment effect was consistent across ana-
+    Regarding moment regulation, the manual scan does not               tomical targets and most signiﬁcant in soft-tissue regions.
+include moment control, leading to higher deviations in the x         · During dynamic scans over regions of varying stiff-
+and y directions. The standard deviation of the sensed                  ness, the system maintained both desired contact force
+moments in the x and y directions during the manual scan is             and optimal force-based orientation throughout mo-
+0.16 Nm and 0.04 Nm, respectively, compared to 0.02 Nm               tion, enabling continuous image acquisition.
+and 0.03 Nm in the replay scan. The average sensed mo-               · Under external disturbances, the robot compliantly
+ments in these directions are 0.08 Nm and 0.05 Nm,                   translated and rotated with the phantom while pre-
+respectively, during the manual scan, compared                          serving the desired contact force and optimal probe
+to 0.01 Nm and 0.03 Nm in the replay experiment in                   orientation, showing force and motion awareness.
+which moment control is active. This difference in control            · In a haptically-guided scan, the system successfully
+strategy also impacts image quality: the average conﬁdence              followed human-deﬁned trajectories while autono-
+score during the replay experiment is 0.32, which is an                 mously regulating constant force and normal orien-
+18.5 % improvement over the average conﬁdence of 0.27 in                tation, resulting in improved image quality over a
+the manual scan. This reﬂects improved alignment of the                 manual haptic scan (without assisted constant force
+transducer with the surface normal during the replay scan.              and normal orientation control).
+    The robot maintains accurate tracking of the proxy in
+both cases, with an average positional error of 0.77 cm in the        A key ﬁnding of this study is that while the explicit
+manual scan and 0.45 cm in the replay. The average rota-           force controller demonstrates the ability to accurately
+tional error for the manual and replay scans are 2.11° in the      track dynamic force proﬁles, as evidenced by the
+manual scan and 2.13°, respectively.                               benchmarking and haptically-guided experiments, the
+    In the 3D visualizations, black arrows are plotted every       determination of the optimal force for a speciﬁc diag-
+15 data points to indicate the direction and magnitude of the      nostic task requires higher-level reasoning. In this work,
+applied force. The arrow direction reﬂects the end-effector        we utilized conﬁdence maps as a measure of acoustic
+orientation in the phantom frame, while the arrow length is        coupling to optimize probe orientation; however, this
+proportional to the sensed force in the transducer frame. In the   metric characterizes the physics of signal transmission
+manual scan, the arrows exhibit variable lengths and non-          rather than diagnostic utility. Consequently, future
+uniform orientations, indicating inconsistent force application    research will prioritize the integration of diagnostically-
+and alignment. In contrast, the replay scan shows more uniform     aware objectives, perhaps utilizing learning-based models
+arrows, demonstrating improved control of both force and           to generate image-based desired forces in real time
+moment, and consequently, enhanced ultrasound image quality.       (Zakeri et al., 2025).
+
+6. Conclusion                                                      Acknowledgments
+                                                                   The authors are grateful to Enzo Andreacchio for their substantial
+This work presents an explicit force-based control frame-
+                                                                   contributions to the preparation of this manuscript.
+work for robotic ultrasound imaging, addressing the fun-
+damental limitations of implicit force regulation in dynamic
+                                                                   ORCID iDs
+clinical environments. By utilizing force/torque feedback
+and controlling force at the end-effector, the proposed            Adrian Piedra  https://orcid.org/0000-0003-4308-8965
+system eliminates the sluggish response of intermediate            R Brooke Jeffrey  https://orcid.org/0000-0002-5678-8103
+motion loops. Our evaluation demonstrates that this ar-            Oussama Khatib  https://orcid.org/0000-0003-0482-1415
+chitecture provides a high-bandwidth solution for main-
+taining precise contact forces and optimal probe orientation,      Funding
+even during dynamic scanning and under external distur-            The authors received no ﬁnancial support for the research, au-
+bances. We highlight the following results:                        thorship, and/or publication of this article.
+Piedra et al.                                                                                                                         25
+
+
+Declaration of conﬂicting interests                                   Conti F, Park J and Khatib O (2014) Interface design and control
+The authors declared no potential conﬂicts of interest with respect        strategies for a robot assisted ultrasonic examination system.
+to the research, authorship, and/or publication of this article.           Springer Tracts in Advanced Robotics 79: 97–113. https://doi.
+                                                                           org/10.1007/978-3-642-28572-1_7/COVER
+                                                                      Cortesão R, Park J and Khatib O (2006) Real-time adaptive control
+Supplemental material
+                                                                           for haptic telemanipulation with kalman active observers.
+Supplemental material for this article is available online.
+                                                                           IEEE Transactions on Robotics 22: 987–999. https://doi.org/
+                                                                           10.1109/TRO.2006.878787
+References                                                            Dhyani M, Roll SC, Gilbertson MW, et al. (2017) A pilot study to
+                                                                           precisely quantify forces applied by sonographers while
+Abolmaesumi P, Salcudean S, Zhu WH, et al. (2002) Image-guided
+     control of a robot for medical ultrasound. IEEE Transactions          scanning: a step toward reducing ergonomic injury. Work 58:
+     on Robotics and Automation 18: 11–23. https://doi.org/10.             241–247. https://doi.org/10.3233/WOR-172611
+     1109/70.988970                                                   Dyck M, Sachtler A, Klodmann J, et al. (2022) Impedance control
+Akbari M, Carriere J, Meyer T, et al. (2021) Robotic ultrasound            on arbitrary surfaces for ultrasound scanning using discrete
+     scanning with real-time image-based force adjustment: quick           differential geometry. IEEE Robotics and Automation Letters
+                                                                           7: 7738–7746. https://doi.org/10.1109/LRA.2022.3184800
+     response for enabling physical distancing during the covid-19
+                                                                      Eppinger SD and Seering WP (1987a) Introduction to dynamic
+     pandemic. Frontiers in Robotics and AI 8: 645424. https://doi.
+                                                                           models for robot force control. IEEE Control Systems
+     org/10.3389/frobt.2021.645424
+                                                                           Magazine 7: 48–52. https://doi.org/10.1109/MCS.1987.
+Al-Rammah TY, Alouﬁ AS, Algaeed SK, et al. (2017) The
+                                                                           1105274
+     prevalence of work-related musculoskeletal disorders among
+                                                                      Eppinger SD and Seering WP (1987b) Understanding bandwidth
+     sonographers. Work 57: 211–219. https://doi.org/10.3233/
+                                                                           limitations in robot force control. IEEE 4: 904–909. https://
+     WOR-172558
+                                                                           doi.org/10.1109/robot.1987.1087932
+An CH and Hollerbach JM (1987) Dynamic stability issues in force
+                                                                      Evans K, Roll S and Baker J (2009) Work-related musculoskeletal
+     control of manipulators. In: Proceedings of the American
+                                                                           disorders (wrmsd) among registered diagnostic medical so-
+     Control Conference, pp. 821–827. https://doi.org/10.1109/
+                                                                           nographers and vascular technologists: a representative
+     ROBOT.1987.1087935
+                                                                           sample. Journal of Diagnostic Medical Sonography 25:
+Arbeille P, Zuj K, Saccomandi A, et al. (2016) Teleoperated
+                                                                           287–299. https://doi.org/10.1177/8756479309351748
+     echograph and probe transducer for remote ultrasound in-
+                                                                      Fang TY, Zhang HK, Finocchi R, et al. (2017) Force-assisted
+     vestigation on isolated patients (study of 100 cases). Tele-
+                                                                           ultrasound imaging system through dual force sensing and
+     medicine Journal and e-Health: The Ofﬁcial Journal of the
+                                                                           admittance robot control. International Journal of Computer
+     American Telemedicine Association 22: 599–607. https://doi.
+                                                                           Assisted Radiology and Surgery 12: 983–991. https://doi.org/
+     org/10.1089/TMJ.2015.0186                                             10.1007/s11548-017-1566-9
+Avola D, Cinque L, Fagioli A, et al. (2022) Ultrasound medical        Feigin M, Freedman D and Anthony BW (2020) A deep learning
+     imaging techniques. ACM Computing Surveys 54: 1–38.                   framework for single-sided sound speed inversion in medical
+     https://doi.org/10.1145/3447243                                       ultrasound. IEEE Transactions on Biomedical Engineering
+Britton N, Miller MA, Safadi S, et al. (2019) Tele-ultrasound in           67: 1142–1151. https://doi.org/10.1109/TBME.2019.
+     resource-limited settings: a systematic review. Frontiers in          2931195
+     Public Health 7: 463648. https://doi.org/10.3389/FPUBH.          Fu Y, Lin W, Yu X, et al. (2023) Robot-assisted teleoperation
+     2019.00244/BIBTEX                                                     ultrasound system based on fusion of augmented reality and
+Chatelain P, Krupa A and Navab N (2015) Optimization of ul-                predictive force. IEEE Transactions on Industrial Electronics
+     trasound image quality via visual servoing. In: Proceedings -         70: 7449–7456. https://doi.org/10.1109/TIE.2022.3201322
+     IEEE International Conference on Robotics and Automation,        Gilbertson MW and Anthony BW (2013) An ergonomic, in-
+     pp. 5997–6002. https://doi.org/10.1109/ICRA.2015.7140040              strumented ultrasound probe for 6-axis force/torque mea-
+Chatelain P, Krupa A and Navab N (2017) Conﬁdence-driven                   surement. In: Proceedings of the Annual International
+     control of an ultrasound probe. IEEE Transactions on Ro-              Conference of the IEEE Engineering in Medicine and Biology
+     botics 33: 1410–1424. https://doi.org/10.1109/TRO.2017.               Society. EMBS, pp. 140–143. https://doi.org/10.1109/EMBC.
+     2723618                                                               2013.6609457
+Chatterjee A (2000) An introduction to the proper orthogonal          Gilbertson MW and Anthony BW (2015) Force and position
+     decomposition. Current Science 78: 808–817.                           control system for freehand ultrasound. IEEE Transactions on
+Chow LS and Paramesran R (2016) Review of medical image                    Robotics 31: 835–849. https://doi.org/10.1109/TRO.2015.
+     quality assessment. Biomedical Signal Processing and                  2429051
+     Control 27: 145–154. https://doi.org/10.1016/J.BSPC.2016.        Gopaul R, Bearman G and Stevens MP (2018) Ultrasound use in
+     02.006                                                                resource-limited settings: a systematic review. Journal of
+26                                                                               The International Journal of Robotics Research 0(0)
+
+
+     Global Radiology 4: 4. https://doi.org/10.7191/JGR.2018.         Jiang Z, Salcudean SE and Navab N (2023) Robotic ultrasound
+     1049                                                                  imaging: State-of-the-art and future perspectives. Medical
+Haidegger T (2019) Autonomy for surgical robots: concepts and              Image Analysis 89: 102878. https://doi.org/10.1016/J.
+     paradigms. IEEE Transactions on Medical Robotics and                  MEDIA.2023.102878
+     Bionics 1: 65–76. https://doi.org/10.1109/TMRB.2019.             Jiang J, Luo J, Wang H, et al. (2024) Force tracking control method
+     2913282                                                               for robotic ultrasound scanning system under soft uncertain
+Hemmsen MC, Petersen MM, Nikolov SI, et al. (2010) Ultrasound              environment. Actuators 13: 62. https://doi.org/10.3390/
+     image quality assessment: a framework for evaluation of               act13020062
+     clinical image quality. Proceedings of SPIE - The Interna-       Jorda M, Balachandran R, Ryu JH, et al. (2017) New passivity
+     tional Society for Optical Engineering 7629: 105–116. https://        observers for improved robot force control. In: IEEE Inter-
+     doi.org/10.1117/12.840664                                             national Conference on Intelligent Robots and Systems,
+Hennersperger C, Fuerst B, Virga S, et al. (2017) Towards mri-             Volume 2017-September. Institute of Electrical and Elec-
+     based autonomous robotic us acquisitions: a ﬁrst feasibility          tronics Engineers Inc., pp. 2177–2184. https://doi.org/10.
+     study. IEEE Transactions on Medical Imaging 36: 538–548.              1109/IROS.2017.8206036
+     https://doi.org/10.1109/TMI.2016.2620723                         Jorda M, Vulliez M and Khatib O (2022) Local autonomy-based
+Hidalgo EM, Wright L, Isaksson M, et al. (2023) Current appli-             haptic-robot interaction with dual-proxy model. IEEE
+     cations of robot-assisted ultrasound examination. JACC.               Transactions on Robotics 38: 2943–2961. https://doi.org/10.
+     Cardiovascular Imaging 16: 239–247. https://doi.org/10.               1109/TRO.2022.3160053
+     1016/J.JCMG.2022.07.018                                          Karamalis A, Wein W, Klein T, et al. (2012) Ultrasound conﬁdence
+Huang Q, Wu B, Lan J, et al. (2018) Fully automatic three-                 maps using random walks. Medical Image Analysis 16:
+     dimensional ultrasound imaging based on conventional                  1101–1112. https://doi.org/10.1016/j.media.2012.07.005
+     b-scan. IEEE Transactions on Biomedical Circuits and Sys-        Keemink AQ, van der Kooij H and Stienen AH (2018) Admittance
+     tems 12: 426–436. https://doi.org/10.1109/TBCAS.2017.                 control for physical human–robot interaction. The Interna-
+     2782815                                                               tional Journal of Robotics Research 37: 1421–1444. https://
+Huang Q, Lan J and Li X (2019) Robotic arm based automatic                 doi.org/10.1177/0278364918768950
+     ultrasound scanning for three-dimensional imaging. IEEE          Khansari M, Klingbeil E and Khatib O (2016) Adaptive human-
+     Transactions on Industrial Informatics 15: 1173–1182.                 inspired compliant contact primitives to perform surface-
+     https://doi.org/10.1109/TII.2018.2871864                              surface contact under uncertainty. The International Jour-
+Ihnatsenka B and Boezaart AP (2010) Ultrasound: basic under-               nal of Robotics Research 35: 1651–1675. https://doi.org/10.
+     standing and learning the language. International Journal of          1177/0278364916648389
+     Shoulder Surgery 4: 55–62. https://doi.org/10.4103/0973-         Khatib O (1987) A uniﬁed approach for motion and force control of
+     6042.76960                                                            robot manipulators: the operational space formulation. IEEE
+Janvier MA, Durand LG, Cardinal MHR, et al. (2008) Performance             Journal of Robotics and Automation 3: 43–53. https://doi.org/
+     evaluation of a medical robotic 3d-ultrasound imaging sys-            10.1109/JRA.1987.1087068
+     tem. Medical Image Analysis 12: 275–290. https://doi.org/10.     Kim R, Schloen J, Campbell N, et al. (2021) Robot-assisted semi-
+     1016/J.MEDIA.2007.10.006                                              autonomous ultrasound imaging with tactile sensing and
+Jiang Z, Grimm M, Zhou M, et al. (2020) Automatic normal                   convolutional neural-networks. IEEE Transactions on Med-
+     positioning of robotic ultrasound probe based only on con-            ical Robotics and Bionics 3: 96–105. https://doi.org/10.1109/
+     ﬁdence map optimization and force measurement. IEEE                   TMRB.2020.3047154
+     Robotics and Automation Letters 5: 1342–1349. https://doi.       Kojcev R, Khakzar A, Fuerst B, et al. (2017) On the reproducibility
+     org/10.1109/LRA.2020.2967682                                          of expert-operated and robotic ultrasound acquisitions. In-
+Jiang Z, Grimm M, Zhou M, et al. (2021a) Automatic force-based             ternational Journal of Computer Assisted Radiology and
+     probe positioning for precise robotic ultrasound acquisition.         Surgery 12(6): 1003–1011. https://doi.org/10.1007/S11548-
+     IEEE Transactions on Industrial Electronics 68:                       017-1561-1
+     11200–11211. https://doi.org/10.1109/TIE.2020.3036215            Lawrence DA (1988) Impedance control stability properties in
+Jiang Z, Wang H, Li Z, et al. (2021b) Motion-aware robotic 3d              common implementations, 1185–1190. https://doi.org/10.
+     ultrasound. In: Proceedings - IEEE International Conference           1109/ROBOT.1988.12222
+     on Robotics and Automation, Volume 2021-May. Institute of        Lin XX, Li MD, Ruan SM, et al. (2025) Autonomous robotic
+     Electrical and Electronics Engineers Inc., pp. 12494–12500.           ultrasound scanning system: a key to enhancing image
+     https://doi.org/10.1109/ICRA48506.2021.9561487                        analysis reproducibility and observer consistency in ultra-
+Jiang Z, Li Z, Grimm M, et al. (2022) Autonomous robotic                   sound imaging. Frontiers in Robotics and AI 12: 1527686.
+     screening of tubular structures based only on real-time ul-           https://doi.org/10.3389/frobt.2025.1527686
+     trasound imaging feedback. IEEE Transactions on Industrial       Loizou CP, Pattichis CS, Pantziaris M, et al. (2006) Quality
+     Electronics 69: 7064–7075. https://doi.org/10.1109/TIE.               evaluation of ultrasound imaging in the carotid artery based
+     2021.3095787                                                          on normalization and speckle reduction ﬁltering. Medical, &
+Piedra et al.                                                                                                                             27
+
+
+    Biological Engineering & Computing 44(5): 414–426. https://              Ophthalmology Clinics 19: 127–210. https://doi.org/10.1097/
+    doi.org/10.1007/S11517-006-0045-1                                        00004397-197901940-00007
+Ma G, Oca SR, Zhu Y, et al. (2021a) A novel robotic system for         Ozturk A, Grajo JR, Dhyani M, et al. (2018) Principles of ultra-
+    ultrasound-guided peripheral vascular localization. In: Pro-             sound elastography. Abdominal Radiology 43: 773–785.
+    ceedings - IEEE International Conference on Robotics and                 https://doi.org/10.1007/S00261-018-1475-6
+    Automation, Volume 2021-May. Institute of Electrical and           Picano E (2005) Economic and biological costs of cardiac imaging.
+    Electronics Engineers Inc., pp. 12321–12327. https://doi.org/            Cardiovascular Ultrasound 3: 13. https://doi.org/10.1186/
+    10.1109/ICRA48506.2021.9561924                                           1476-7120-3-13
+Ma X, Zhang Z and Zhang HK (2021b) Autonomous scanning                 Piedra A, Jeffrey RB and Khatib O (2024) Robotic ultrasound
+    target localization for robotic lung ultrasound imaging. In:             imaging with haptic guidance and human expert strategies. In:
+    IEEE International Conference on Intelligent Robots and                  Springer Proceedings in Advanced Robotics, Volume 30.
+    Systems. Institute of Electrical and Electronics Engineers Inc.,         Springer Nature, pp. 53–65. https://doi.org/10.1007/978-3-
+    pp. 9467–9474. https://doi.org/10.1109/IROS51168.2021.                   031-63596-0_6
+    9635902                                                            Pike I, Russo A, Berkowitz J, et al. (1997) The prevalence of
+Ma X, Kuo WY, Yang K, et al. (2022) A-see: Active-sensing end-               musculoskeletal disorders among diagnostic medical sonog-
+    effector enabled probe self-normal-positioning for robotic               raphers. Journal of Diagnostic Medical Sonography 13:
+    ultrasound imaging applications. IEEE Robotics and Auto-                 219–227. https://doi.org/10.1177/875647939701300501
+    mation Letters 7: 12475–12482. https://doi.org/10.1109/            Rangaraju DKS, Kumar K and Renumadhavi C (2012) Review
+    LRA.2022.3218183                                                         paper on quantitative image quality assessment–medical ul-
+Mathur B, Topiwala A, Schaffer S, et al. (2019) A semi-                      trasound images. The International Journal of Engineering
+    autonomous robotic system for remote trauma assessment.                  Research & Technology 1(4).
+    In: Proceedings - 2019 IEEE 19th International Conference          Salcudean SE, Moradi H, Black DG, et al. (2022) Robot-assisted
+                                                                             medical imaging: a review. Proceedings of the IEEE 110:
+    on Bioinformatics and Bioengineering, BIBE 2019. Institute
+                                                                             951–967. https://doi.org/10.1109/JPROC2022.3162840
+    of Electrical and Electronics Engineers Inc., pp. 649–656.
+                                                                       Salisbury JK (1980) Active stiffness control of a manipulator in
+    https://doi.org/10.1109/BIBE.2019.00122
+                                                                             cartesian coordinates Proceedings of the IEEE Conference on
+Monsky WL, James RC, Krishnan AU, et al. (2025) Remote and
+                                                                             Decision and Control, Volume 1. IEEE, pp. 95–100. https://
+    telerobotic ultrasound imaging. Methodist DeBakey Cardio-
+                                                                             doi.org/10.1109/cdc.1980.272026
+    vascular Journal 21: 60–70. https://doi.org/10.14797/
+                                                                       Santos L and Cortesão R (2018) Computed-torque control for
+    MDCVJ.1645
+                                                                             robotic-assisted tele-echography based on perceived stiffness
+Moore CL and Copel JA (2011) Point-of-care ultrasonography.
+                                                                             estimation. IEEE Transactions on Automation Science and
+    New England Journal of Medicine 364: 749–757. https://doi.
+                                                                             Engineering 15: 1337–1354. https://doi.org/10.1109/TASE.
+    org/10.1056/NEJMRA0909487
+                                                                             2018.2790900
+Nagy TD and Haidegger T (2022) Performance and capability
+                                                                       Šarabon N, Kozinc Ž and Podrekar N (2019) Using shear-wave
+    assessment in surgical subtask automation. Sensors 22: 2501.
+                                                                            elastography in skeletal muscle: a repeatability and repro-
+    https://doi.org/10.3390/S22072501
+                                                                            ducibility study on biceps femoris muscle. PLoS One 14:
+Ning G, Chen J, Zhang X, et al. (2021a) Force-guided autonomous              e0222008. https://doi.org/10.1371/JOURNAL.PONE.
+    robotic ultrasound scanning control method for soft uncertain            0222008
+    environment. International Journal of Computer Assisted            Shyam A, Purayath A, Keerthivasan S, et al. (2023) Immersive
+    Radiology and Surgery 16: 2189–2199. https://doi.org/10.                 virtual reality platform for robot-assisted antenatal ultrasound
+    1007/s11548-021-02462-6                                                  scanning IEEE International Symposium on Robot and Hu-
+Ning G, Zhang X and Liao H (2021b) Autonomic robotic ultra-                  man Interactive Communication, pp. 1600–1605. https://doi.
+    sound imaging system based on reinforcement learning. IEEE              org/10.1109/RO-MAN57019.2023.10309266
+    Transactions on Biomedical Engineering 68: 2787–2797.              Si W, Wang N and Yang C (2024) Design and quantitative as-
+    https://doi.org/10.1109/TBME.2021.3054413                               sessment of teleoperation-based human–robot collaboration
+Olson E (2011) Apriltag: a robust and ﬂexible visual ﬁducial                method for robot-assisted sonography. IEEE Transactions on
+    system. In: Proceedings - IEEE International Conference on               Automation Science and Engineering. https://doi.org/10.
+    Robotics and Automation, pp. 3400–3407. https://doi.org/10.              1109/TASE.2024.3350524
+    1109/ICRA.2011.5979561                                             Song Y, Zhong Z, Zhao B, et al. (2022) Medical ultrasound image
+Osburg J, Wulff D and Ernst F (2022) Generalized automatic probe             quality assessment for autonomous robotic screening. IEEE
+    alignment based on 3d ultrasound. In: Current Directions in              Robotics and Automation Letters 7: 6290–6296. https://doi.
+    Biomedical Engineering, Volume 8. Walter de Gruyter                      org/10.1109/LRA.2022.3170209
+    GmbH, pp. 58–61. https://doi.org/10.1515/cdbme-2022-0015           Stewart KA, Navarro SM, Kambala S, et al. (2020) Trends in
+Ossoinig KC (1979) Standardized echography: basic principles,                ultrasound use in low and middle income countries: a sys-
+    clinical     applications,     and     results.   International          tematic review. International Journal of Maternal and Child
+28                                                                               The International Journal of Robotics Research 0(0)
+
+
+     Health and AIDS 9: 103–120. https://doi.org/10.21106/IJMA.            acquisitions. In: Proceedings - IEEE International Confer-
+     294                                                                   ence on Robotics and Automation, Volume 2021-May. In-
+Suchoń S, Burkacki M, Chrzan M, et al. (2025) What ranges of              stitute of Electrical and Electronics Engineers Inc.,
+     probe pressure are applied during ultrasound examinations? A          pp. 12515–12521. https://doi.org/10.1109/ICRA48506.2021.
+     systematic review. Sensors 25: 3415. https://doi.org/10.3390/         9560865
+     S25113415                                                        Whitney DE (1977) Force feedback control of manipulator ﬁne
+Suligoj F, Heunis CM, Sikorski J, et al. (2021) Robust-an au-              motions. Journal of Dynamic Systems, Measurement, and
+     tonomous robotic ultrasound system for medical imaging.               Control 99: 91–97. https://doi.org/10.1115/1.3427095
+     IEEE Access 9: 67456–67465. https://doi.org/10.1109/             Whitney DE (1987) Historical perspective and state of the art in
+     ACCESS.2021.3077037                                                   robot force control. The International Journal of Robotics
+Szabo TL (2004) Diagnostic ultrasound imaging: inside out:                 Research 6: 3–14. https://doi.org/10.1177/
+     second edition. In: Diagnostic Ultrasound Imaging: Inside             027836498700600101
+     Out: Second Edition, pp. 1–549. https://doi.org/10.1016/         Wu L, Cheng JZ, Li S, et al. (2017) Fuiqa: fetal ultrasound image
+     C2011-0-07261-7                                                       quality assessment with deep convolutional networks. IEEE
+Tobergte A, Helmer P, Hagn U, et al. (2011) The sigma.7 Haptic             Transactions on Cybernetics 47: 1336–1349. https://doi.org/
+     Interface for Mirosurge: A New bi-manual Surgical Console.            10.1109/TCYB.2017.2671898
+     Institute of Electrical and Electronics Engineers (IEEE),        Zakeri E, Spilkin A, Elmekki H, et al. (2025) Ai-powered robust
+     3023–3030. https://doi.org/10.1109/iros.2011.6094433                  interaction force control of a cardiac ultrasound robotic
+Volpe R and Khosla P (1993) A theoretical and experimental                 system. IEEE Transactions on Industrial Electronics 72:
+     investigation of explicit force control strategies for manipu-        3972–3983. https://doi.org/10.1109/TIE.2024.3451138
+     lators. IEEE Transactions on Automatic Control 3811:             Zangiabadi Z, Makki F, Marzban H, et al. (2024) Musculoskeletal
+     1634–1650. https://doi.org/10.1109/9.262033                           disorders among sonographers: a systematic review and meta-
+Wang Z, Zhao B, Zhang P, et al. (2023) Full-coverage path                  analysis. BMC Health Services Research 24: 1233. https://doi.
+     planning and stable interaction control for automated robotic         org/10.1186/S12913-024-11666-W
+     breast ultrasound scanning. IEEE Transactions on Industrial      Zettinig O, Frisch B, Virga S, et al. (2017) 3d ultrasound
+     Electronics 70: 7051–7061. https://doi.org/10.1109/TIE.               registration-based visual servoing for neurosurgical naviga-
+     2022.3204967                                                          tion. International Journal of Computer Assisted Radiology
+Welleweerd MK, de Groot AG, Groenhuis V, et al. (2021) Out-of-             and Surgery 12: 1607–1619. https://doi.org/10.1007/s11548-
+     plane corrections for autonomous robotic breast ultrasound            017-1536-2
+

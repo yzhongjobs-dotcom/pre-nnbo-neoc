@@ -1,0 +1,725 @@
+                                                                  Control Engineering Practice 168 (2026) 106674
+
+
+                                                                      Contents lists available at ScienceDirect
+
+
+                                                               Control Engineering Practice
+                                                         journal homepage: www.elsevier.com/locate/conengprac
+
+
+
+
+Trajectory-aware feedforward admittance control for contact force tracking
+with time-varying reference trajectory in a teleoperated robotic ultrasound
+system
+Sen Li           a , Yufan Pi           a , Weihua Li           b , Giuseppe Carbone                  c,d , Kai Wu     a,∗
+
+a Shien-Ming Wu School of Intelligent Engineering, South China University of Technology, Guangzhou, 511400, China
+b
+    School of Mechanical and Automotive Engineering, South China University of Technology, Guangzhou, 510630, China
+c School of Mechatronics and Vehicle Engineering, East China Jiaotong University, Nanchang, 330000, China
+d
+    DIMEG, University of Calabria, Rende, 87036, Italy
+
+
+
+
+a r t i c l e             i n f o                           a b s t r a c t
+
+Keywords:                                                   Maintaining stable and precise contact force under dynamic trajectories is critical in teleoperated robotic ultra-
+Force control                                               sound systems. Traditional admittance control (AC) methods often struggle to ensure eﬀective force tracking
+Admittance control                                          when the reference trajectories provided by human operators involve signiﬁcant velocity and acceleration vari-
+Dynamic reference trajectory
+                                                            ations. To overcome these limitations, this paper proposes a Trajectory-Aware Feedforward Admittance Control
+Ultrasound robot
+                                                            (TAFAC) algorithm. TAFAC improves upon conventional admittance control by incorporating feedforward com-
+                                                            pensation of velocity and acceleration terms from the reference trajectory, along with a delay-compensation
+                                                            mechanism. Unlike variable admittance methods reliant on online optimization or complex environment estima-
+                                                            tion, TAFAC maintains a straightforward, model-free structure that is easy to implement. Theoretical analyses
+                                                            demonstrate the stability and convergence of TAFAC under dynamic trajectory inputs. Comprehensive simu-
+                                                            lation and experimental validations under constant velocity (10, 15, 20 mm/s) and constant acceleration (1.0,
+                                                            1.5, 2.0 mm/s²) conditions conﬁrm TAFAC’s superior performance, signiﬁcantly reducing overshoot and steady-
+                                                            state errors. Experimental results show overshoot reduction exceeding 60 % and RMSE reduction of over 6.5 N
+                                                            compared to traditional AC, highlighting TAFAC’s eﬀectiveness for ensuring safe, accurate, and stable robotic
+                                                            ultrasound operations.
+
+
+
+
+1. Introduction                                                                                      One of the primary challenges in robotic ultrasound systems is main-
+                                                                                                 taining a safe and stable contact force between the probe and the pa-
+    Interaction with dynamic and complex environments has made sig-                              tient’s body. This is critical not only for ensuring patient comfort but
+niﬁcant strides in recent years, driven by increasing demands for preci-                         also for acquiring diagnostically useful ultrasound images (Bao et al.,
+sion and reliability across domains such as industrial automation (Zhang                         2023; Huang et al., 2024; Mathiassen et al., 2016). In teleoperated sce-
+et al., 2022), human-robot interaction (Chen et al., 2024), and teleopera-                       narios (Fig. 1), this challenge becomes even more pronounced, as the
+tion (Yang et al., 2024). Among these applications, teleoperated robotic                         probe’s motion is governed in real time by the operator via a haptic
+ultrasound systems represent a transformative advancement in medi-                               interface. Frequent adjustments to the probe’s pose are necessary to op-
+cal diagnostics, oﬀering a promising solution to the limited availabil-                          timize imaging quality, yet these dynamic inputs can lead to excessive
+ity of ultrasound services in remote and medically underserved regions                           or unstable contact forces (Si et al., 2024). This human-in-the-loop con-
+(Koizumi et al., 2009; Wu et al., 2025). These systems enable physicians                         trol introduces uncertainties and variability in trajectory dynamics that
+to remotely manipulate an ultrasound probe via a robotic platform-often                          can compromise force stability.
+enhanced with force and haptic feedback-thereby expanding access to                                  To address such challenges, force control methods have been widely
+high-quality imaging and reducing the reliance on-site medical person-                           adopted in robotic ultrasound applications. Force control in robotic sys-
+nel.                                                                                             tems typically employs strategies such as impedance control (Hogan,
+
+
+    ∗ Corresponding author.
+
+   E-mail addresses: 202320159814@mail.scut.edu.cn (S. Li), wiyufan@mail.scut.edu.cn (Y. Pi), whlee@scut.edu.cn (W. Li), giuseppe.carbone@unical.it (G.
+Carbone), whphwk@scut.edu.cn (K. Wu).
+
+https://doi.org/10.1016/j.conengprac.2025.106674
+Received 6 August 2025; Received in revised form 20 November 2025; Accepted 21 November 2025
+Available online 6 December 2025
+0967-0661/© 2025 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies.
+S. Li et al.                                                                                                         Control Engineering Practice 168 (2026) 106674
+
+
+1985), admittance control (Seraji, 1994). Admittance control, in partic-
+ular, has been widely adopted in robotic ultrasound applications due
+to its ability to translate external force inputs into compliant motion,
+thereby oﬀering a stable and intuitive force-position interaction frame-
+work (Ferraguti et al., 2019). In teleoperation, admittance controllers
+enable the robot to follow operator-deﬁned trajectories while maintain-
+ing safe interaction forces with soft tissue (Santos & Cortesão, 2013).
+Prior studies have demonstrated the eﬀectiveness of such methods un-
+der slowly varying or quasi-static reference inputs (Mathiassen et al.,
+2016; Xiao et al., 2025).
+    However, in real teleoperated ultrasound procedures, reference tra-
+jectories are often dynamic and unpredictable. Generated in real time by
+                                                                                       Fig. 1. The scheme of the teleoperated robotic ultrasound system.
+human operators, these trajectories frequently include signiﬁcant veloc-
+ity and acceleration components, especially during rapid adjustments or
+target repositioning (Fu et al., 2025). When the probe approaches the            the inability of conventional admittance control to guarantee accurate
+patient’s skin, these dynamic inputs can result in excessive interaction         force tracking in such cases.
+forces at contact onset, leading to discomfort or even harm to the patient            2. A novel Trajectory-Aware Feedforward Admittance Control
+(Munir et al., 2025; Si et al., 2024). Classical admittance control lacks        (TAFAC) method is proposed. By incorporating feedforward and delay-
+provisions for such dynamic transitions and often fails to regulate force        compensation terms derived from dynamic reference trajectories into
+eﬀectively under these conditions, which will be formally analyzed in            the admittance control law, the transfer function between the force error
+Section 2.                                                                       and the reference trajectory is reshaped to achieve stable force tracking
+    Recent studies have focused on enhancing classical admittance con-           under time-varying reference trajectories.
+trol by making it adaptable to uncertain and variable interaction en-                 3. Rigorous theoretical analysis is provided for the stability and con-
+vironments (Beber et al., 2024; Yoon et al., 2024). For example, vari-           vergence of TAFAC. In particular, the Routh criterion is applied to guar-
+able admittance control strategies are adopted to enhance compliance.            antee closed-loop stability, and the convergence of the force error under
+Adaptive variable admittance control strategies, which dynamically ad-           constant-acceleration reference trajectories is established using the ﬁnal
+just the virtual parameters (such as damping or stiﬀness) based on the           value theorem.
+force tracking error-often using adaptive laws-have been widely adopted               4. Both simulations and experiments are conducted under constant-
+in robotic force control (Duan et al., 2018; Hamedani et al., 2021).             velocity and constant-acceleration reference trajectories. The results
+For instance, Xie et al. (2023) proposed an adaptive variable admit-             demonstrate that TAFAC consistently outperforms conventional admit-
+tance control (AVAC) approach, where the damping parameter is ad-                tance control (AC) and adaptive variable admittance control (AVAC) in
+justed online based on a PID law according to the force tracking er-             terms of force tracking accuracy.
+ror. This method eﬀectively compensates for disturbances and improves                 The remainder of this paper is organized as follows: Section 2
+both transient and steady-state force control, as demonstrated in mobile         presents the interaction model and highlights the limitations of classical
+robot polishing experiments. Fu et al. (2024) proposed a variable ad-            admittance control under dynamic reference trajectories. Section 3 in-
+mittance control strategy for robotic ultrasound scanning, where con-            troduces the proposed control algorithm and provides its stability analy-
+trol parameters are optimized in real time to improve force stability            sis. Section 4 describes the simulation and experimental setup, as well as
+during contact. While eﬀective in complex environments, these meth-              the results presented in Section 5. Section 6 analyzes the limitations of
+ods neglect human input in teleoperation. Environmental information              the traditional AC and the comparative method AVAC, and further pro-
+is estimated by force and position data to achieve robust and accu-              vides a deeper explanation of the eﬀectiveness of the proposed TAFAC
+rate force control (Roveda et al., 2015; Zhang & Khamesee, 2017).                method. Finally, Section 7 concludes the study and discusses future re-
+Xiao et al. (2025) employed a Kalman ﬁlter-based estimation method               search directions.
+within a variable admittance framework, allowing the robot to adap-
+tively modulate its compliance based on real-time contact characteris-           2. Problem formulation
+tics during ultrasound scanning. However, these strategies rely heav-
+ily on environment estimation, which introduces latency and uncer-               2.1. Interaction model of robot and environment
+tainty. Learning based methods are also popular to enable robots learn-
+ing force control strategies from human experts (Ning et al., 2021; Niu              The teleoperated robotic ultrasound system used in this study is
+et al., 2025). Though these works enhance adaptability to environmental          shown in Fig. 1. It mainly consists of a 6-DOF (degree of freedom)
+variations, they generally assume the reference trajectory is quasi-static       doctor-side haptic device and a 6-DOF patient-side robotic manipula-
+and do not explicitly consider dynamic human-generated trajectories in           tor. The control scheme and contact illustration of the system are illus-
+teleoperation.                                                                   trated in Fig. 2. The doctor manipulates the handle of the haptic device
+    While the above methods contribute signiﬁcantly to the development           (Fig. 2(a)), and the real-time reference trajectory command 𝑥𝑖𝑛 is sent
+of adaptive and robust force control in ultrasound robotics, they pre-           to the robot controller for regulating the probe (Fig. 2(b)). In Fig. 2(b),
+dominantly focus on environmental uncertainty, contact phase tuning,             𝑥𝑚 denotes the modiﬁed output trajectory generated by the admittance
+or periodic disturbances. However, the speciﬁc challenge of real-time            controller, which serves as the command trajectory for the robot posi-
+reference trajectory dynamics frequently encountered in teleoperated             tion controller. Usually, it is assumed that the position controller has no
+diagnostic procedures remains insuﬃciently addressed. This motivates             error, which means 𝑥𝑚 could be treated as the real position of the robot.
+the development of a novel Trajectory-Aware Feedforward Admittance               When the robot is moving in free space shown in Fig. 2(b), the probe
+Control (TAFAC) algorithm tailored for contact force tracking in such            directly follows the reference trajectory 𝑥𝑖𝑛 sent from the haptic device.
+systems.                                                                         In this manner, the position error Δ𝑥 = 𝑥𝑚 − 𝑥𝑖𝑛 = 0, enabling trajectory
+    The main contributions of this study are summarized as follows:              tracking for the probe to follow the doctor’s command. Once the probe
+    1. The limitations of conventional admittance control in force track-        makes contact with the environment(contact force 𝑓𝑒 > 0), the real-time
+ing under time-varying reference trajectories are analyzed. Speciﬁcally,         reference trajectory command 𝑥𝑖𝑛 is sent to the admittance controller.
+a transfer function between the reference trajectory and the contact             Then, the admittance controller outputs the modiﬁed trajectory 𝑥𝑚 ac-
+force error is derived, and the ﬁnal value theorem is applied to reveal          cording to the admittance control law to the robot position controller. In
+
+                                                                             2
+S. Li et al.                                                                                                                              Control Engineering Practice 168 (2026) 106674
+
+
+
+
+Fig. 2. Control Scheme and contact illustration of the teleoperated ultrasound
+robot. (a) The doctor manipulates the Haptic Device, and the Reference Tra-
+jectory is sent to the robot. (b) The Robot moves in free space following the
+reference trajectory, Δ𝑥 = 𝑥𝑚 − 𝑥𝑖𝑛 = 0 (c)Robot contact with the environment
+under reference trajectory input.
+                                                                                                                     Fig. 3. The admittance control scheme.
+
+traditional force tracking admittance control, the control law is written
+as Eqs. (1) and (3).
+    The environment is commonly represented using the Kelvin-Voigt                    𝑘𝑒 𝑥𝑒
+linear model (Haddadi & Hashtrudi-Zaad, 2008), which characterizes                          − (𝑘𝑒 + 𝑏𝑒 𝑠)𝑥𝑚 (𝑠) = 𝑓𝑒 (𝑠)                                                            (5)
+                                                                                        𝑠
+it as a linear "spring-damper" system in Eq. (2). Since each Cartesian                Δ𝑓 (𝑠) = 𝑓𝑒 (𝑠) − 𝑓𝑑 (𝑠)                                                                      (6)
+component is independent, here a one-dimensional case is considered
+to describe these models without loss of generality. The mathematical                     Given that 𝑓𝑑 (𝑠) and 𝑥𝑖𝑛 (𝑠) are the system inputs, and 𝑥𝑚 (𝑠) and 𝑓𝑒 (𝑠)
+expressions for these models are as follows:                                          are intermediate feedback outputs, Eqs. (4)-(6) can be combined, and
+                                                                                      the algebraic terms involving 𝑥𝑚 (𝑠) and 𝑓𝑒 (𝑠) eliminated. This yields the
+𝑚(𝑥̈ 𝑚 − 𝑥̈ 𝑖𝑛 ) + 𝑏(𝑥̇ 𝑚 − 𝑥̇ 𝑖𝑛 ) + 𝑘(𝑥𝑚 − 𝑥𝑖𝑛 ) = Δ𝑓                    (1)        relationship between Δ𝑓 (𝑠), 𝑓𝑑 (𝑠), and 𝑥𝑖𝑛 (𝑠):
+𝑘𝑒 (𝑥𝑒 − 𝑥𝑚 ) − 𝑏𝑒 𝑥̇ 𝑚 = 𝑓𝑒                                               (2)                    𝑘 𝑥 −𝑠𝑓 (𝑠)
+                                                                                                 ( 𝑒𝑘 𝑒𝑠+𝑏 𝑑𝑠2 − 𝑥𝑖𝑛 (𝑠))
+                                                                                                        𝑒       𝑒
+                                                                                      Δ𝑓 (𝑠) =                                                                                      (7)
+Δ𝑓 = 𝑓𝑒 − 𝑓𝑑                                                               (3)                       1
+                                                                                                 ( 𝑘 +𝑏         1
+                                                                                                          + 𝑚𝑠2 +𝑏𝑠+𝑘 )
+                                                                                                    𝑒   𝑠   𝑒
+where m, b, and k represent the virtual mass, damping, and stiﬀness
+                                                                                          To determine the steady-state value of Δ𝑓 (𝑡), the ﬁnal value theorem
+coeﬃcients of the admittance controller. 𝑥𝑖𝑛 denotes the input desired
+                                                                                      of the Laplace transform is applied as follows:
+trajectory, while 𝑥𝑚 is the output modiﬁed trajectory of the admittance
+controller according to force error Δ𝑓 , which is the diﬀerence between               lim Δ𝑓 (𝑡) = lim 𝑠Δ𝑓 (𝑠)
+                                                                                      𝑡→∞               𝑠→0
+the measured contact force 𝑓𝑒 and desired force 𝑓𝑑 . The environment is
+                                                                                                                    𝑠(𝑚𝑠2 + 𝑏𝑠 + 𝑘)(𝑘𝑒 + 𝑏𝑒 𝑠)
+modeled by a Kelvin-Voigt linear model, where 𝑘𝑒 and 𝑏𝑒 represent the                             = lim
+                                                                                                        𝑠→0 𝑚𝑠2 + (𝑏 + 𝑏𝑒 )𝑠 + 𝑘 + 𝑘𝑒
+stiﬀness and damping coeﬃcients, respectively. 𝑥𝑒 is the environment                                        (                                     )
+equilibrium position.                                                                                               𝑘𝑒 𝑥𝑒 − 𝑠𝑓𝑑 (𝑠)
+                                                                                                        ×                             − 𝑥𝑖𝑛 (𝑠)                                     (8)
+    Due to visual occlusion or network delay, the doctor may still move                                   𝑘 𝑒 𝑠 + 𝑏𝑒 𝑠 2
+the handle downward with a certain velocity or acceleration even when                                   𝑘(𝑘𝑒 𝑥𝑒 − 𝑠𝑓𝑑 (𝑠))
+the probe is very close to the patient’s skin. This leads to great excessive                      = lim
+                                                                                                    𝑠→0        𝑘 + 𝑘𝑒
+force when the probe starts to contact with the environment under the
+                                                                                                            (𝑚𝑠2 + 𝑏𝑠 + 𝑘)(𝑘𝑒 𝑠 + 𝑏𝑒 𝑠2 )𝑥𝑖𝑛 (𝑠)
+doctor’s reference trajectory input, as shown in Fig. 2(c).                                             −
+                                                                                                                        𝑘 + 𝑘𝑒
+    Based on the above discussions, this study aims to reduce force error
+and achieve force tracking control under dynamic reference trajectory                    Generally, the desired contact force 𝑓𝑑 (𝑡) is known, so 𝑓𝑑 (𝑠) is a
+input for admittance control in teleoperated robotic ultrasound applica-              known function of 𝑠. According to the ﬁnal value theorem:
+tions.                                                                                lim 𝑠𝑓𝑑 (𝑠) = 𝑓𝑑𝑛                                                                             (9)
+                                                                                      𝑠→0
+2.2. Limitations of traditional admittance control under dynamic reference            where 𝑓𝑑𝑛 represents the ﬁnal desired force, which is known.
+trajectory                                                                                 Consider the situation where the motion of the robot’s end-eﬀector
+                                                                                      is static, i.e., satisfying 𝑥̇ 𝑖𝑛 = 0 and 𝑥𝑖𝑛 = 𝜆(here 𝜆 is a constant), then
+    The control scheme for admittance control under these circum-                     𝑥𝑖𝑛 (𝑠) = 𝜆𝑠 . Substituting this into Eq. (8) and setting its steady-state value
+stances is illustrated in Fig. 3. The force sensor measures the contact               to zero yields:
+force 𝑓𝑒 on the probe. When 𝑓𝑒 is detected to exceed 0, the reference                                       (              )
+                                                                                                          𝑘 𝑘𝑒 𝑥𝑒 − 𝑠𝑓𝑑 (𝑠)      𝜆𝑘𝑘𝑒
+trajectory 𝑥𝑖𝑛 , 𝑥̇ 𝑖𝑛 , 𝑥̈ 𝑖𝑛 generated from the haptic device will be sent to        lim Δ𝑓 (𝑡) = lim                      −
+the admittance controller, and the modiﬁed trajectory position 𝑥𝑚 is                  𝑡→∞             𝑠→0       𝑘 + 𝑘𝑒          𝑘 + 𝑘𝑒
+                                                                                                                                                                  (10)
+output to the robot position controller. Otherwise, when the force sen-                                       𝑘 (                  )
+                                                                                                    = lim         𝑘𝑒 (𝑥𝑒 − 𝜆) − 𝑓𝑑𝑛 = 0
+sor detects no contact force, the reference trajectory is directly sent to                            𝑠→0 𝑘 + 𝑘𝑒
+
+the robot position controller for trajectory tracking.                                    From a mathematical perspective, the conditions for satisfying the
+    Traditional force tracking admittance control cannot converge the                 steady-state value lim𝑡→∞ Δ𝑓 (𝑡) = 0 are as follows: 1.𝑘 = 0 or 2.𝜆 = 𝑥𝑒 −
+                                                                                      𝑓𝑑𝑛
+contact force to the desired level under a dynamic reference trajectory
+                                                                                      𝑘𝑒
+input. To improve the controller’s performance under dynamic reference                    For condition 1, the literature Jung et al. (2004) has studied setting
+trajectory input, the limitations of traditional admittance control are               the stiﬀness coeﬃcient 𝑘 to zero to achieve ideal force tracking con-
+ﬁrst theoretically investigated. Then, an improved admittance control is              trol. For condition 2, if the stiﬀness of the external environment 𝑘𝑒 and
+proposed, which will be discussed in Section 3. Here, the Steady-State                the precise initial position 𝑥𝑒 are known, the robot end-eﬀector position
+Error(SSE) of traditional admittance control is derived :                             𝜆 can be calculated to meet the desired force requirements. However,
+    Taking the Laplace transform on both sides of the Eqs. (1)–(3) yields:            as mentioned earlier, it is challenging to obtain these values directly
+(𝑚𝑠2 + 𝑏𝑠 + 𝑘)(𝑥𝑚 (𝑠) − 𝑥𝑖𝑛 (𝑠)) = Δ𝑓 (𝑠)                                   (4)       through compensation or estimation. Even slight compensation errors
+
+                                                                                  3
+S. Li et al.                                                                                                                Control Engineering Practice 168 (2026) 106674
+
+
+can lead to the accumulation of control errors, resulting in increasingly
+large steady-state force errors. Therefore, condition 1 is often used in
+static force tracking control. It can be concluded that when the envi-
+ronment is unknown, and the initial trajectory of the robot end-eﬀector
+undergoes dynamic changes, the necessary condition for zero steady-
+state force error is 𝑘 = 0. Under this condition, Eq. (4) is simpliﬁed as:
+  (           )   (            )
+𝑚 𝑥̈ 𝑚 − 𝑥̈ 𝑖𝑛 + 𝑏 𝑥̇ 𝑚 − 𝑥̇ 𝑖𝑛 = Δ𝑓                                  (11)
+
+     Thus, Eq. (8) can be simpliﬁed to:                                                            Fig. 4. The control scheme of the proposed algorithm.
+
+ lim Δ𝑓 (𝑡) = lim 𝑠Δ𝑓 (𝑠)
+𝑡→∞              𝑠→0
+                                                                                       the control law to real robot systems, Eq. (14) is appropriately modiﬁed
+                         (𝑚𝑠2 + 𝑏𝑠)(𝑘𝑒 𝑠 + 𝑏𝑒 𝑠2 )𝑥𝑖𝑛 (𝑠)
+               = lim −                                                                 into a discrete form as follows:
+                 𝑠→0         𝑚𝑠2 + (𝑏 + 𝑏𝑒 )𝑠 + 𝑘𝑒                                                 [                                                           ]
+                                                                                                 1
+                                                                                       Δ𝑥[𝑘]
+                                                                                         ̈    =     Δ𝑓 [𝑘 − 1] − 𝑏𝑥̇ 𝑖𝑛 [𝑘] − (𝑚 − 𝑏𝑇𝑠 )𝑥̈ 𝑖𝑛 [𝑘] − 𝑏Δ𝑥[𝑘 − 1]   (15)
+                         𝑚𝑏𝑒 𝑠4 + (𝑚𝑘𝑒 + 𝑏𝑏𝑒 )𝑠3 + 𝑏𝑘𝑒 𝑠2                                       𝑚
+               = lim −                                      𝑥𝑖𝑛 (𝑠)        (12)
+                 𝑠→0          𝑚𝑠2 + (𝑏 + 𝑏𝑒 )𝑠 + 𝑘𝑒                                        Where Δ𝑥 = 𝑥𝑚 − 𝑥𝑖𝑛 is the position error. 𝑘 and 𝑇𝑠 are the sample
+                                                                                       index and sampling period of the real robot system. The control frame-
+    In a teleoperated robotic ultrasound system, the reference trajectory
+                                                                                       work of the proposed adaptive admittance control system is shown in
+𝑥𝑖𝑛 of the robot end-eﬀector is decided by the doctor’s manipulation,
+                                                                                       Fig. 4. The following section will provide proof of the stability and con-
+meaning 𝑥̇ 𝑖𝑛 ≠ 0, 𝑥̈ 𝑖𝑛 ≠ 0. Considering that the haptic device is operated
+                                                                                       vergence of the proposed control strategy.
+manually and the input trajectory is often pre-processed with low-pass
+ﬁltering, the acceleration of the commanded motion can be assumed to
+                                                                                       3.2. Stability and convergence of adaptive control strategy
+be approximately constant over short time intervals. From a modeling
+and control design perspective, assuming a constant desired accelera-
+                                                                                           Theorem 1. The closed-loop system under the proposed Trajectory-
+tion simpliﬁes the derivation of the system’s dynamics and facilitates
+                                                                                       Aware Feedforward Admittance Control (TAFAC) is asymptotically sta-
+analytical stability analysis, particularly in evaluating the fundamental
+                                                                                       ble if the system parameters satisfy the following condition:
+limitations of admittance control in force tracking under dynamic refer-                        (                 )
+ences. Therefore, setting the reference acceleration 𝑥̈ 𝑖𝑛 as constant is a                         𝑚      𝑏 + 𝑏𝑒
+                                                                                       𝜏 < min           ,                                             (16)
+physically reasonable, engineering-practical, and theoretically justiﬁed                          𝑏 + 𝑏𝑒     𝑘𝑒
+approximation within the scope of the considered application. Assum-                      Proof: Based on the delay property of the Laplace transform, one
+ing 𝑥𝑖𝑛 (𝑡) = 𝜆𝑡2 , which implies 𝑥𝑖𝑛 (𝑠) = 2𝜆
+                                            𝑠3
+                                               . Substituting this into Eq. (12)       has:
+gives:
+                                                                                       [𝐹 (𝑡 − 𝜏)] = 𝑒−𝜏𝑠 𝐹 (𝑠)                                                    (17)
+                   𝑚𝑏 𝑠3 + (𝑚𝑘𝑒 + 𝑏𝑏𝑒 )𝑠2 + 𝑏𝑘𝑒 𝑠 2𝜆
+ lim Δ𝑓 (𝑡) = lim − 𝑒                            ⋅                         (13)           Applying the above property to both sides of Eq. (14) and taking the
+𝑡→∞           𝑠→0               𝑠2                 𝑘𝑒                                  Laplace transform yields:
+    Clearly, Eq. (13) diverges to inﬁnity. This observation demonstrates               ( 2          )(              )               (               )
+                                                                                        𝑚𝑠 + 𝑏𝑠𝑒−𝜏𝑠 𝑥𝑚 (𝑠) − 𝑥𝑖𝑛 (𝑠) = 𝑒−𝜏𝑠 Δ𝑓 (𝑠) − 𝑏𝑠 + (𝑚 − 𝑏𝜏)𝑠2 𝑥𝑖𝑛 (𝑠)
+that constant admittance control inevitably results in steady-state er-                                                                                      (18)
+rors under the dynamic reference trajectory of the robot end-eﬀector.
+Moreover, as the motion rate increases (i.e., as 𝜆 becomes larger), the                    Assuming the desired force 𝑓𝑑 and the initial position of the environ-
+steady-state error also grows signiﬁcantly. This highlights the inherent               ment 𝑥𝑒 are constants, both are set to zero for simpliﬁcation. This yields
+limitations of traditional admittance control. The following section pro-              the relationship between the reference trajectory relationship between
+poses a novel adaptive admittance control algorithm to reduce steady-                  𝑥𝑚 (𝑠) and Δ𝑓 (𝑠) can be expressed as:
+state errors and enhance the robot’s active compliance during dynamic                  Δ𝑓 (𝑠) = −(𝑘𝑒 + 𝑏𝑒 𝑠)𝑥𝑚 (𝑠)                                                  (19)
+motion. The stability and convergence of the proposed algorithm will
+                                                                                          Substituting Eq. (19) into Eq. (18) yields:
+be analyzed and veriﬁed in the following section.                                                 (        )
+                                                                                                𝑏𝑠 1 − 𝑒−𝜏𝑠 − 𝑏𝜏𝑠2
+                                                                                       Δ𝑓 (𝑠) =           2     −𝜏𝑠
+                                                                                                                    𝑥𝑖𝑛 (𝑠)                                         (20)
+3. Improved admittance control under dynamic reference                                           𝑒−𝜏𝑠 + 𝑚𝑠𝑘 +𝑏𝑠𝑒
+                                                                                                             +𝑏 𝑠
+                                                                                                             𝑒     𝑒
+trajectory
+                                                                                          Expanding 1 − 𝑒−𝜏𝑠 using the Taylor series gives:
+3.1. Improved admittance control algorithm                                                             (𝜏𝑠)2 (𝜏𝑠)3                 (𝜏𝑠)𝑛
+                                                                                       1 − 𝑒−𝜏𝑠 = 𝜏𝑠 −      +       + ⋯ + (−1)𝑛+1                         (21)
+                                                                                                         2!    3!                    𝑛!
+    As described above, traditional admittance control does not account                   When the control cycle is suﬃciently small, 𝑒−𝜏𝑠 ≈ 1 − 𝜏𝑠, Substitut-
+for the dynamic motion of the model, leading to a ﬁnal steady-state                    ing this approximation into Eq. (20) results in :
+deviation. To enhance the applicability of force-position coordination
+                                                                                       Δ𝑓 (𝑠)               (𝑘𝑒 + 𝑏𝑒 𝑠)𝑏𝑠 ⋅ 𝐺
+control, this section improves upon the traditional admittance control                         =                                                                    (22)
+law by incorporating the motion state of the robot’s end-eﬀector.                      𝑥𝑖𝑛 (𝑠)   (𝑚 − 𝜏𝑏 − 𝜏𝑏𝑒 )𝑠2 + (𝑏 + 𝑏𝑒 − 𝑘𝑒 𝜏)𝑠 + 𝑘𝑒
+                                                                                                         2         3                   𝑛
+    Speciﬁcally, the mathematical model for the end-eﬀector in Eq. (1)                 where 𝐺 = − (𝜏𝑠)2!
+                                                                                                          + (𝜏𝑠)
+                                                                                                              3!
+                                                                                                                  + ⋯ + (−1)𝑛+1 (𝜏𝑠)
+                                                                                                                                  𝑛!
+                                                                                                                                     . The corresponding charac-
+is modiﬁed as follows:                                                                 teristic equation of the linear system is:
+  (                   )   (                            )
+𝑚 𝑥̈ 𝑚 (𝑡) − 𝑥̈ 𝑖𝑛 (𝑡) + 𝑏 𝑥̇ 𝑚 (𝑡 − 𝜏) − 𝑥̇ 𝑖𝑛 (𝑡 − 𝜏)                                (𝑚 − 𝜏𝑏 − 𝜏𝑏𝑒 )𝑠2 + (𝑏 + 𝑏𝑒 − 𝑘𝑒 𝜏)𝑠 + 𝑘𝑒 = 0                                (23)
+                                      (          )
+        = Δ𝑓 (𝑡 − 𝜏) − 𝑏𝑥̇ 𝑖𝑛 (𝑡) − 𝑚 − 𝑏𝜏 𝑥̈ 𝑖𝑛 (𝑡)               (14)                    Using the Routh-Hurwitz criterion, the suﬃcient conditions for sta-
+    Where 𝜏 represents the system’s control cycle. Compared to tradi-                  bility are:
+tional admittance control strategies, the proposed control strategy in-                ⎧𝑚 − 𝜏𝑏 − 𝜏𝑏𝑒 > 0           (               )
+tegrates the desired trajectory velocity and acceleration of the robot’s               ⎪                              𝑚     𝑏 + 𝑏𝑒
+                                                                                       ⎨ 𝑏 + 𝑏𝑒 − 𝜏𝑘𝑒 > 0 ⟹ 𝜏 < min 𝑏 + 𝑏 ,   𝑘𝑒
+                                                                                                                                                                    (24)
+end-eﬀector, as well as the overall system’s control frequency. This ap-               ⎪                                 𝑒
+proach eﬀectively addresses the limitations discussed earlier. To apply                ⎩           𝑘𝑒 > 0
+
+                                                                                   4
+S. Li et al.                                                                                                                 Control Engineering Practice 168 (2026) 106674
+
+
+
+
+                                      Fig. 5. Simulation results of constant velocity (a–c) and constant acceleration (d–f).
+
+
+    This completes the proof of Theorem 1, demonstrating that the pro-                            Table 1
+posed Trajectory-Aware Feedforward Admittance Control (TAFAC) en-                                 Simulation parameters.
+sures asymptotic stability of the closed-loop system provided that the                              Symbol     Description                     Value
+control cycle satisﬁes the condition 𝜏 < min(𝑚∕(𝑏 + 𝑏𝑒 ), (𝑏 + 𝑏𝑒 )∕𝑘𝑒 ).
+                                                                                                    𝑚          Virtual Mass                    6 kg
+    Theorem 2: Given a reference trajectory with a constant accelera-                               𝑏          Virtual Damping                 900 N ⋅ s/m
+tion, the force tracking error Δ𝑓 converges asymptotically to 0 under the                           𝑥𝑒         Environment Initial Position    0m
+closed-loop system with TAFAC. Proof: Assuming 𝑥𝑖𝑛 (𝑠) = 2𝜆    𝑠3
+                                                                  , where 𝜆                         𝑘𝑒         Environment Stiﬀness            3000 N/m
+is a constant, the convergence is analyzed using the terminal value the-                            𝑏𝑒         Environment Damping             40 N⋅s/m
+                                                                                                    𝜏          Control cycle                   2 × 10−3 s
+orem of Laplace Transform:                                                                          𝑇          Simulation Time                 10 s
+
+lim Δ𝑓 (𝑡) = lim 𝑠Δ𝑓 (𝑠)                                                 (25)
+𝑡→∞            𝑠→0
+
+     Which leads to:                                                                a PID law based on force error. The equation of this method is described
+                                                                                    by:
+lim Δ𝑓 (𝑡) = lim 𝑠Δ𝑓 (𝑠)
+𝑡→∞          𝑠→0
+                   (         )                                                                  ̈ + (𝑏 + Δ𝑏(𝑡)) Δ𝑥(𝑡)
+                                                                                    Δ𝑓 (𝑡) = 𝑚 Δ𝑥(𝑡)             ̇                                                   (27)
+                  𝑠 𝑘𝑒 + 𝑏𝑒 𝑠 𝑏𝑠 ⋅ 𝐺              2𝜆
+= lim                                           ⋅                        (26)                                                 𝑡
+  𝑠→0 (𝑚 − 𝜏𝑏 − 𝜏𝑏𝑒 )𝑠2 + (𝑏 + 𝑏𝑒 − 𝑘𝑒 𝜏)𝑠 + 𝑘𝑒   𝑠3                                            𝑘𝑝 Δ𝑓 (𝑡) + 𝑘𝑑 Δ𝑓̇ (𝑡) + 𝑘𝑖 ∫0 Δ𝑓 (𝑡) 𝑑𝑡
+                                                                                    Δ𝑏(𝑡) = −                                                                        (28)
+=0                                                                                                               Δ𝑥(𝑡)
+                                                                                                                  ̇
+                                                                                    This AVAC controller is commonly used in contact force control and
+    This completes the proof of Theorem 2, conﬁrming that the force
+                                                                                    serves as a benchmark for evaluating the performance of the proposed
+tracking error converges asymptotically to zero under TAFAC when the
+                                                                                    method. For AVAC in particular, the PID parameters (𝑘𝑝 = 0.1, 𝑘𝑖 =
+reference trajectory has constant acceleration.
+                                                                                    2, 𝑘𝑑 = 0.01) are adopted. These values were obtained through a sys-
+                                                                                    tematic tuning process. Speciﬁcally, each parameter was swept within
+4. Simulation and experiments                                                       a predeﬁned range based on prior experience and stability constraints:
+                                                                                        - 𝑘𝑝 was varied from 0.05 to 0.5 in increments of 0.05,
+    Simulations and experiments are conducted to verify the advantages                  - 𝑘𝑖 was varied from 0.5 to 5 in increments of 0.5,
+of the proposed algorithm against traditional admittance control under                  - 𝑘𝑑 was varied from 0.005 to 0.05 in increments of 0.005.
+dynamic reference trajectories.                                                         The optimal set of parameters was selected based on a multi-criteria
+                                                                                    evaluation including convergence speed, overshoot, and steady-state
+4.1. Simulation validation                                                          error. The selected parameters represent the best-performing conﬁgu-
+                                                                                    ration among all tested combinations. For simplicity, the simulation
+    A series of robot-environment interaction simulations is designed us-           does not consider any external disturbances or account for errors in the
+ing MATLAB Simulink. These simulations are conducted to evaluate the                robot’s position controller. The parameters in the simulation are conﬁg-
+target force tracking performance of the proposed method compared to                ured as follows in Table 1.
+the traditional admittance control under dynamic reference trajectories.                The parameters of the admittance controller 𝑚 and 𝑏 are well-tuned
+The simulations focus on inputting the desired force 𝑓𝑑 and the refer-              by experience. The average stiﬀnesses are 3237 N/m and 1489 N/m
+ence trajectory 𝑥𝑖𝑛 of the robot’s end-eﬀector, while the outputs include           for the stiﬀ and soft phantom, respectively, in Jiang et al. (2021). 𝑘𝑒
+the feedback force 𝑓𝑒 from the environmental model and the corrected                =3000 N/m is chosen to simulate the ultrasound inspection condition.
+trajectory 𝑥𝑚 generated by the algorithm.                                           The stiﬀness and damping coeﬃcients are set to 3000 N/m and 40 N ⋅
+    The environmental model is based on the Kelvin-Voigt linear model               s/m, respectively. The control cycle is set to 2 ms, which corresponds
+described in Eq. (2). The simulation includes three control strategies for          with the actual UR5e robot control cycle used in the experiment. The
+comparison:                                                                         simulation is implemented in a discrete-time model, where the control
+    (i) AC: Traditional admittance control algorithm, implemented based             cycle serves as the sampling time (i.e., the simulation step size).
+on Eq. (11);                                                                            The simulation focuses on the contact force tracking performance
+    (ii) TAFAC: The proposed TAFAC algorithm, implemented according                 during dynamic reference trajectory inputs. Two types of simulations
+to Eq. (14);                                                                        are conducted, simulating the ultrasound probe making contact with
+    (iii) AVAC: An adaptive variable admittance controller based on PID             the environment at a constant reference velocity and at a constant ac-
+(Xie et al., 2023), which regulates the damping coeﬃcient according to              celeration. In the simulation scenario, the probe starts from a 30 mm
+
+                                                                                5
+S. Li et al.                                                                                                                   Control Engineering Practice 168 (2026) 106674
+
+
+distance above the environment with a constant velocity or accelera-
+tion to move towards the environment. The two types of simulation tests
+are described as follows: Constant Velocity (CV): The desired contact
+force is set to 𝑓𝑑 =15 N. The reference trajectories are set as 𝑥𝑖𝑛 (𝑡) = 𝑣𝑖𝑛 𝑡,
+where reference velocity 𝑣𝑖𝑛 = 𝑥̇ 𝑖𝑛 is tested with [10, 15, 20] mm/s in the
+constant velocity simulation.
+    Constant Acceleration (CA): The desired contact force is set to
+𝑓𝑑 =15 N. The reference trajectory is 𝑥̈ 𝑖𝑛 (𝑡) = 12 𝑎𝑖𝑛 𝑡2 , where reference
+acceleration 𝑎𝑖𝑛 = 𝑥̈ 𝑖𝑛 is tested with [1, 1.5, 2] mm/s² in the constant
+acceleration simulation. Here 𝑥𝑒 =-30 mm is simulated by setting a cor-
+responding initial velocity at 𝑡 = 0.
+    Fig. 5 presents simulation results for the contact force tracking per-
+formance under both constant velocity (a-c) and constant acceleration
+(d-f) reference trajectories. Three control methods-traditional admit-
+tance control (AC), adaptive variable admittance control (AVAC), and
+the proposed TAFAC-are comparatively analyzed.
+    In the constant velocity scenarios (Fig. 5(a–c)), the AC method con-                                         Fig. 6. Experimental platform.
+sistently demonstrates substantial overshoot and evident steady-state er-
+rors, signiﬁcantly deviating from the desired force trajectory. Although                                   Table 2
+the AVAC method eﬀectively reduces transient ﬂuctuations compared                                          Parameters of force/torque sensor.
+to AC, it still exhibits notable overshoot and requires relatively longer                                                Force, x-y-z    Torque, x-y-z
+durations to reach steady-state. Conversely, the TAFAC method achieves
+                                                                                                            Range        ±50.0 N         ±10.0 N⋅m
+rapid convergence, minimal overshoot, and stable force tracking at all                                      Precision    ±3.5 N          ±0.2 N⋅m
+velocities, maintaining excellent alignment with the desired contact                                        Accuracy     ±4.0 N          ±0.3 N⋅m
+force trajectory throughout the simulation duration.
+    In constant acceleration scenarios (Fig. 5(d–f)), the inadequacies of
+AC become even more pronounced, exhibiting divergent force trajec-                     three comparison methods (AC, TAFAC, and AVAC) are implemented
+tories at higher accelerations. AVAC method demonstrates improved                      within the motion planning framework of the robot. The programs are
+transient convergence compared to AC; however, as highlighted by the                   developed in Python, using the ur_rtde interface to enable real-time con-
+enlarged inset ﬁgures, it consistently exhibits observable steady-state er-            trol of the UR5e robotic manipulator. The experimental setup is depicted
+rors, indicating limitations in accurately maintaining the desired force               in Fig. 6. The same admittance parameters are adopted for all three com-
+under dynamic conditions. Conversely, TAFAC consistently maintains                     parison methods, and are consistent with the parameters in the simula-
+minimal overshoot and achieves stable, precise steady-state tracking.                  tion. For AVAC, the PID parameters are consistent with those used in
+The enlarged inset ﬁgures further illustrate TAFAC’s capability in elimi-              the simulation.
+nating steady-state deviations, clearly distinguishing its superior perfor-                This conﬁguration ensures high-frequency control for real-time ex-
+mance relative to AVAC.                                                                perimental execution, enabling accurate evaluation of the proposed and
+    In summary, simulation results demonstrate the eﬀectiveness of the                 traditional control algorithms in dynamic interaction scenarios.
+proposed TAFAC method, clearly indicating that the proposed TAFAC
+method provides superior performance across various dynamic con-                       4.2.2. Experiment design
+ditions. Speciﬁcally, TAFAC delivers excellent transient response, sig-
+                                                                                           In this experiment, the robotic end-eﬀector starts from a ﬁxed initial
+niﬁcantly reduced overshoot, and accurate steady-state tracking, out-
+                                                                                       position and moves downward along the Z-axis with varying dynamic
+performing both traditional AC and AVAC methods. These results fur-
+                                                                                       reference trajectories to achieve a target contact force. The initial ﬁxed
+ther conﬁrm the eﬀectiveness and robustness of TAFAC for robot-
+                                                                                       position is set 30 mm above the contact surface, and the target contact
+environment interaction tasks under diverse dynamic conditions.
+                                                                                       force is deﬁned as 𝑓𝑑 = 15 𝑁. Each experimental condition is conducted
+                                                                                       three times to ensure repeatability and reliability. The speciﬁc experi-
+4.2. Experimental validation                                                           mental conditions are as follows:
+                                                                                           Constant Velocity (CV): In the constant velocity experiment, the
+   According to the simulation results, the same two types of contact                  robot’s end-eﬀector moves downward following reference trajectories
+experiments are conducted in a real robotic system.                                    deﬁned as 𝑥𝑖𝑛 (𝑡) = 𝑣𝑖𝑛 (𝑡), where the reference velocity 𝑣𝑖𝑛 = 𝑥̇ 𝑖𝑛 is tested
+                                                                                       with [10, 15, 20] mm/s.
+4.2.1. Experiment setup                                                                    Constant Acceleration (CA): In the constant acceleration exper-
+    This experiment utilizes a 6-DOF UR5e robotic manipulator                          iment, the robot’s end-eﬀector moves downward following reference
+equipped with an ultrasound (US) probe (DAX, Siemens Healthineers),                    trajectories deﬁned as 𝑥𝑖𝑛 (𝑡) = 12 𝑎𝑖𝑛 𝑡2 , where the reference acceleration
+employing the robot’s internal force/ torque sensor for data acquisition.              𝑎𝑖𝑛 = 𝑥̈ 𝑖𝑛 is tested with [1, 1.5, 2] mm/s.
+The UR5e robotic manipulator has a payload capacity of 5 kg, a repeata-
+bility of ±0.03 mm, and a working radius of 550 mm. The speciﬁc pa-
+                                                                                       4.2.3. Performance metrics
+rameters of the force/torque sensor are listed in Table 2. The contact
+                                                                                           In this study, the Overshoot and Root Mean Square Error (RMSE)
+environment consists of a rubber block measuring 150 × 150 × 40 mm,
+                                                                                       are used to evaluate the performance of the proposed and traditional
+with an estimated contact stiﬀness of approximately 3000 N/m between
+                                                                                       algorithms under stabilized contact force conditions. The Overshoot of
+the probe and the rubber surface. This stiﬀness value closely approxi-
+                                                                                       𝑓𝑒 in each test is calculated by:
+mates the actual conditions encountered in ultrasound inspection. Com-
+munication between the controller and the robot is established via a                                 max 𝑓𝑒𝑡 − 𝑓𝑑
+                                                                                                       𝑡
+TCP connection over an Ethernet cable. Both the robotic system and the                 Overshoot =                   × 100 %                                           (29)
+                                                                                                            𝑓𝑑
+force sensor operate at a sampling frequency of 500 Hz.
+    The computational unit used in this experiment is equipped with an                 where 𝑓𝑑 denotes the desired contact force, and 𝑓𝑒𝑡 is the contact force
+Intel(R) Core(TM) i5-10500T CPU running at 2.30 GHz. Algorithms of                     measured at time step t. Additionally, the RMSE of the contact force is
+
+                                                                                   6
+S. Li et al.                                                                                                            Control Engineering Practice 168 (2026) 106674
+
+
+
+
+                                     Fig. 7. Experiment results of constant velocity (a–c) and constant acceleration (d–f).
+
+
+calculated according to:                                                                      Table 3
+         √                                                                                    Experiment results of constant velocity.
+         √
+         √1 ∑  𝑇
+                 (         )2
+RMSE = √          𝑓 𝑡 − 𝑓𝑑                                              (30)                    𝑣𝑖𝑛                    10 mm∕s     15 mm∕s     20 mm∕s
+            𝑇 𝑡=0 𝑒
+                                                                                                             AC        0.95        0.84        0.75
+                                                                                                ST (s)       AVAC      2.08        1.97        1.95
+    Here, 𝑇 represents the total number of sampling steps (5000 in this
+                                                                                                             TAFAC     1.12        0.97        0.96
+paper), and the time gap between each step is 2 ms. Moreover, the Set-
+tling Time (ST) is deﬁned as:                                                                                AC        61 %        91 %        122 %
+         {                            }                                                         Overshoot    AVAC      24 %        23 %        25 %
+𝑡𝑠 = min 𝑡|||𝑓𝑒𝑡 − 𝑓𝑑 || ≤ 𝜖, ∀𝑡 > 𝑡𝑠                             (31)                                       TAFAC     1%          1%          1%
+
+   In this experiment, 𝜖 is set to 5 %𝑓𝑑 . To minimize the inﬂuence of                                       AC        8.94        13.29       17.69
+                                                                                                RMSE (N)     AVAC      2.70        2.32        2.03
+noise from the force sensor, all experimental data are processed using a
+                                                                                                             TAFAC     2.38        2.03        2.08
+50 Hz low-pass ﬁlter.
+
+5. Experimental results
+                                                                                   method consistently maintains competitive settling time (1 s), minimal
+     All experimental data are sampled at a frequency of 500 Hz and pro-           overshoot (1 %), and low RMSE (2.03-2.38 N), demonstrating superior
+cessed using a 50 Hz low-pass ﬁlter to minimize noise from the force               combined transient and steady-state performance. Although at the high-
+sensor. The contact force data are analyzed from the point of initial              est velocity (20 mm/s), TAFAC’s RMSE (2.08 N) is slightly higher than
+contact, deﬁned as the moment when the contact force reached 0.7 N.                AVAC’ts (2.03 N), the diﬀerence is negligible, and the advantage in
+Performance metrics, including Overshoot, RMSE, and Settling Time,                 signiﬁcantly reduced overshoot and faster settling time makes TAFAC
+are calculated based on the methods described in Section 4.                        preferable overall.
+     Constant Velocity Results                                                         In summary, these experimental results validate that TAFAC eﬀec-
+     Fig. 7(a–c) illustrates the experimental results for the contact force        tively balances rapid convergence, minimal overshoot, and robust track-
+tracking performance of three diﬀerent admittance control methods                  ing precision, clearly outperforming AC and presenting notable advan-
+(AC, AVAC, and the proposed TAFAC) under constant reference trajec-                tages over AVAC, especially in scenarios demanding both high accuracy
+tory velocities of 10 mm/s, 15 mm/s, and 20 mm/s. To quantitatively                and transient stability.
+evaluate and compare the methods, Table 3 summarizes the calculated                    Constant Acceleration Results
+performance metrics, including settling time (ST), overshoot, and root                 The experimental results under constant acceleration conditions are
+mean square error (RMSE) based on the entire contact force trajectory.             depicted in Fig. 7(d–f), with quantitative comparisons summarized
+     From Fig. 7(a–c), the traditional AC method exhibits signiﬁcant               in Table 4. Here, the reference trajectory accelerations were set to
+overshoot and large steady-state errors (SSE) at all velocities, with the          1.0 mm/s², 1.5 mm/s², and 2.0 mm/s², respectively. Notably, the tradi-
+overshoot becoming more pronounced as velocity increases (61 % at                  tional AC method failed to achieve stable force tracking under these ac-
+10 mm/s, rising to 122 % at 20 mm/s). In comparison, the AVAC method               celerated conditions, resulting in divergence of the contact force. More-
+substantially reduces overshoot and SSE, but still exhibits notable de-            over, as the reference acceleration increases, the divergence of the AC
+viations from the desired force during transient stages. The proposed              method occurs more rapidly and with greater magnitude, making it en-
+TAFAC, however, achieves an exceptionally low overshoot (consistently              tirely unsuitable for dynamic force tracking in these scenarios. There-
+1 %) across all velocities and closely tracks the desired force trajectory         fore, its performance metrics are omitted from Table 4.
+with minimal ﬂuctuation.                                                               From Fig. 7(d–f), AVAC demonstrates improved stability and con-
+     The quantitative metrics in Table 3 further support these observa-            vergence compared to AC; however, it still suﬀers from noticeable
+tions. Despite AC demonstrating the shortest settling times (0.75-0.95 s),         overshoot (approximately 30 %) and relatively slow convergence, as
+its large overshoot and RMSE indicate poor overall force tracking capa-            evidenced by prolonged settling times of around 2.2 s. Importantly,
+bility. AVAC provides improved RMSE compared to AC at higher ve-                   the locally enlarged plots in Fig. 7(d–f) further reveal that AVAC ex-
+locities (2.03 N at 20 mm/s), but its longer settling times (2 s) and sig-         hibits clear steady-state errors after initial convergence, indicating its
+niﬁcant overshoot diminish overall control performance. The TAFAC                  limitations in maintaining precise force tracking under dynamic
+
+                                                                               7
+S. Li et al.                                                                                                          Control Engineering Practice 168 (2026) 106674
+
+
+               Table 4                                                             tions of traditional admittance control in managing dynamic reference
+               Experiment results of constant acceleration.                        trajectories commonly encountered in teleoperated robotic ultrasound
+                𝑎𝑖𝑛                     1 mm∕s2    1.5 mm∕s2   2 mm∕s2             procedures. By incorporating trajectory feedforward and delay compen-
+                                                                                   sation, the proposed method eﬀectively reduces overshoot and enhances
+                              AVAC      2.18       2.17        2.21
+                ST (s)                                                             force tracking accuracy. Stability and convergence of TAFAC were theo-
+                              TAFAC     1.10       1.09        1.26
+                                                                                   retically proven, and its eﬀectiveness was rigorously validated through
+                              AVAC      29 %       31 %        32 %
+                Overshoot                                                          simulations and real-robot experiments. Results consistently indicated
+                              TAFAC     1%         1%          1%
+                                                                                   superior transient and steady-state performances, signiﬁcantly outper-
+                              AVAC      3.60       3.64        3.67
+                RMSE (N)                                                           forming both traditional AC and adaptive variable admittance control
+                              TAFAC     2.4        2.4         2.6
+                                                                                   (AVAC).
+                                                                                       It should be noted that the present work primarily evaluates TAFAC
+                                                                                   under typical constant velocity and constant acceleration trajectories,
+acceleration trajectories. In contrast, the proposed TAFAC method con-
+                                                                                   which, although representative, do not encompass the full diversity of
+sistently achieves signiﬁcantly faster convergence, greatly reduced over-
+                                                                                   human-operated reference trajectories encountered in practical teleop-
+shoot, and more precise steady-state tracking performance at all accel-
+                                                                                   eration, such as non-stationary, abrupt, or highly stochastic movements.
+eration levels. Speciﬁcally, TAFAC maintains overshoot at only 1 % and
+                                                                                   Future research will focus on extending and validating TAFAC in more
+achieves settling times approximately half those of AVAC, ranging from
+                                                                                   complex and realistic scenarios, including variable environmental stiﬀ-
+1.09 to 1.26 s.
+                                                                                   ness and diverse human-generated trajectory proﬁles, to further enhance
+    Quantitative analysis presented in Table 4 further highlights these
+                                                                                   its applicability and robustness for real-world human-robot interaction
+advantages. TAFAC achieves notably lower RMSE values (ranging from
+                                                                                   tasks.
+2.4 N to 2.6 N), clearly outperforming AVAC (ranging from 3.60 to
+3.67 N). The diﬀerences are substantial and consistently in favor of
+TAFAC, reinforcing its superior capability in tracking dynamic trajec-             CRediT authorship contribution statement
+tories with varying accelerations.
+    Overall, these results clearly illustrate that the TAFAC method                    Sen Li: Writing – review & editing, Software, Methodology, Concep-
+not only maintains excellent robustness against trajectory disturbances            tualization; Yufan Pi: Writing – original draft, Methodology, Conceptu-
+caused by increasing accelerations but also signiﬁcantly outperforms               alization; Weihua Li: Validation, Writing – review & editing; Giuseppe
+the AVAC method in terms of rapid convergence, transient stability,                Carbone: Validation, Visualization, Writing – review & editing; Kai Wu:
+and steady-state tracking accuracy. The observed steady-state errors               Writing – review & editing, Supervision, Funding acquisition.
+of AVAC, as highlighted in the zoomed-in view, further underscore
+the eﬀectiveness of the proposed control approach for practical robot-             Data availability
+environment interactions in dynamically changing scenarios.
+                                                                                      No data was used for the research described in the article.
+6. Discussion
+                                                                                   Declaration of competing interest
+     The simulation and experimental results demonstrate that the con-
+ventional admittance control (AC) fails to regulate the contact force                  The authors declare that they have no known competing ﬁnancial
+when the reference trajectory 𝑥𝑖 𝑛 has nonzero derivatives. Speciﬁcally,           interests or personal relationships that could have appeared to inﬂuence
+a constant velocity input leads to a steady-state force error, and higher-         the work reported in this paper.
+order derivatives (e.g., constant acceleration) cause divergence, which
+is consistent with the analysis in Section 2.2                                     Acknowledgements
+     The adaptive variable admittance control (AVAC), which can be re-
+garded as a PID-based feedback approach, improves force tracking but                  This work was supported by the GJYC program of Guangzhou [grant
+still suﬀers from overshoot due to the feedforward eﬀect of 𝑥𝑖𝑛 on the             number 2024D03J0005]; and the Fundamental Research Funds for the
+contact force error. It is worth noting that although smaller 𝑘𝑖 could             Central Universities [grant number 2024ZYGXZR107]
+reduce the level of overshoot, the steady-state error also increases as
+                                                   𝑏                               Appendix A. Appendix
+the ﬁnal value of force error is lim Δ𝑓 (𝑡) = 𝑎0 𝑒 (see Appendix A for
+                                    𝑡→∞            𝑘𝑖
+the derivation process). Although overshoot is observed, AVAC signiﬁ-                 The AVAC control law could be written as:
+cantly enhances the regulation compared with AC. With constant veloc-                                                        𝑡
+ity references, AVAC stabilizes the force after overshoot; with constant                  ̇ = Δ𝑓 (𝑡) + 𝑘𝑝 Δ𝑓 (𝑡) + 𝑘𝑖
+                                                                                    ̈ + 𝑏𝑒(𝑡)
+                                                                                   𝑚𝑒(𝑡)                                         Δ𝑓 (𝑡)𝑑𝑡 + 𝑘𝑑 Δ𝑓̇ (𝑡)       (A.1)
+                                                                                                                        ∫0
+acceleration, it achieves stability but introduces a steady-state error that
+increases with acceleration magnitude. Increasing the derivative gain                 Taking Laplacian transformation of Eq. (A.1), one has:
+can reduce overshoot to some extent, but excessive values amplify sen-               2                                                 1
+                                                                                   𝑚𝑠 𝐸(𝑠) + 𝑏𝑠𝐸(𝑠) = (1 + 𝑘𝑝 )Δ𝐹 (𝑠) + 𝑘𝑑 𝑠Δ𝐹 (𝑠) + 𝑘𝑖 Δ𝐹 (𝑠)               (A.2)
+sor noise and risk destabilizing the system.                                                                                           𝑠
+     In contrast, the proposed TAFAC method incorporates a feedforward                Factorization on both sides, one has:
+compensation of the reference trajectory, which eﬀectively increases the                           (                     )
+                                                                                                                      𝑘
+relative degree of the transfer function between the reference trajectory          (𝑚𝑠2 + 𝑏𝑠)𝐸(𝑠) = (1 + 𝑘𝑝 ) + 𝑘𝑑 𝑠 + 𝑖 Δ𝐹 (𝑠)                              (A.3)
+𝑥𝑖𝑛 and the force error Δ𝑓 . This allows the contact force to remain sta-                                              𝑠
+ble and convergent even when the reference trajectory involves higher-                 Where 𝑒(𝑡) = 𝑥𝑚 (𝑡) − 𝑥𝑖𝑛 (𝑡), thus 𝐸(𝑠) = 𝑋𝑚 (𝑠) − 𝑋𝑖𝑛 (𝑠). Submitting
+order derivatives, thereby overcoming the limitations of both AC and               this into Eq. (A.3), one has:
+AVAC.                                                                                                             (                    )
+                                                                                                                                    𝑘
+                                                                                   (𝑚𝑠2 + 𝑏𝑠)(𝑋𝑚 (𝑠) − 𝑋𝑖𝑛 (𝑠)) = (1 + 𝑘𝑝 ) + 𝑘𝑑 𝑠 + 𝑖 Δ𝐹 (𝑠)           (A.4)
+                                                                                                                                     𝑠
+7. Conclusion
+                                                                                      Now the relationship between 𝑋𝑖𝑛 (𝑠) and Δ𝐹 (𝑠) is established. How-
+   This paper introduces the Trajectory-Aware Feedforward Admit-                   ever, 𝑋𝑚 (𝑠) is an intermediate variable and needs to be eliminated. Ac-
+tance Control (TAFAC) method, which addresses the inherent limita-                 cording to the assumption that there is no error between the real robot
+
+                                                                               8
+S. Li et al.                                                                                                                                        Control Engineering Practice 168 (2026) 106674
+
+
+position x and the commanded position 𝑥𝑚 , which means 𝑥 = 𝑥𝑚 . Then                                   Haddadi, A., & Hashtrudi-Zaad, K. (2008). Online contact impedance identiﬁcation for
+the environment model becomes:                                                                             robotic systems. In 2008 IEEE/RSJ International conference on intelligent robots and sys-
+                                                                                                           tems (pp. 974–980). IEEE.
+𝑓𝑒 (𝑡) = −𝑘𝑒 (𝑥𝑚 (𝑡) − 𝑥𝑒 ) − 𝑏𝑒 𝑥̇ 𝑚 (𝑡)                                                (A.5)         Hamedani, M.H., Sadeghian, H., Zekri, M., Sheikholeslam, F., & Keshmiri, M. (2021).
+                                                                                                           Intelligent impedance control using wavelet neural network for dynamic contact force
+   Normally, 𝑥𝑒 and 𝑓𝑑 are constant values, both are set to 0 for simpli-                                  tracking in unknown varying environments. Control Engineering Practice, 113, 104840.
+                                                                                                       Hogan, N. (1985). Impedance control: An approach to manipulation: Part II-
+ﬁcation, one has:                                                                                          implementation. Journal of dynamic systems, measurement, and control, 107(1), 8–16.
+                                                                                                       Huang, Q., Gao, B., & Wang, M. (2024). Robot-assisted autonomous ultrasound imaging
+Δ𝑓 (𝑡) = 𝑓𝑒 (𝑡) = −𝑘𝑒 𝑥𝑚 (𝑡) − 𝑏𝑒 𝑥̇ 𝑚 (𝑡)                                               (A.6)             for carotid artery. IEEE Transactions on Instrumentation and Measurement, 73, 1–9.
+                                                                                                       Jiang, Z., Zhou, Y., Bi, Y., Zhou, M., Wendler, T., & Navab, N. (2021). Deformation-aware
+   Taking Laplacian transformation of Eq. (A.6), one has the relation-                                     robotic 3d ultrasound. IEEE Robotics and Automation Letters, 6(4), 7675–7682.
+ship between Δ𝐹 (𝑠) and 𝑋𝑚 (𝑠):                                                                        Jung, S., Hsia, T.C., & Bonitz, R.G. (2004). Force tracking impedance control of robot
+                                                                                                           manipulators under unknown environment. IEEE Transactions on Control Systems Tech-
+Δ𝐹 (𝑠) = −(𝑘𝑒 + 𝑏𝑒 𝑠)𝑋𝑚 (𝑠)                                                              (A.7)             nology, 12(3), 474–483.
+                                                                                                       Koizumi, N., Warisawa, S., Nagoshi, M., Hashizume, H., & Mitsuishi, M. (2009). Con-
+    Submitting Eq. (A.7) into Eq. (A.4), one has the relationship between                                  struction methodology for a remote ultrasound diagnostic system. IEEE Transactions
+𝑋𝑖 𝑛(𝑠) and Δ𝐹 (𝑠):                                                                                        on robotics, 25(3), 522–538.
+                                                                                                       Mathiassen, K., Fjellin, J.E., Glette, K., Hol, P.K., & Elle, O.J. (2016). An ultrasound robotic
+Δ𝐹 (𝑠)     𝑠2 (𝑚𝑠 + 𝑏)(𝑘𝑒 + 𝑏𝑒 𝑠)                                                                          system using the commercial robot UR5. Frontiers in Robotics and AI, 3, 1.
+        =−                                                                               (A.8)         Munir, K., Al-Battal, A.F., Al-Sheghri, A., Becher, H., Noga, M., & Punithakumar, K.
+𝑋𝑖𝑛 (𝑠)          𝐽 + 𝑘𝑖 𝑘𝑒
+                                                                                                           (2025). A survey of autonomous robotic ultrasound scanning systems. IEEE Access,
+where J = (𝑚 + 𝑘𝑑 𝑏𝑒 )𝑠3 + (𝑏 + 𝑘𝑑 𝑘𝑒 + (1 + 𝑘𝑝 )𝑏𝑒 )𝑠2 + (𝑘𝑒 (1 + 𝑘𝑝 ) + 𝑘𝑖 𝑏𝑒 )𝑠.                        13, 103178–103197.
+                                                                                                       Ning, G., Chen, J., Zhang, X., & Liao, H. (2021). Force-guided autonomous robotic ultra-
+   Consider 𝑋𝑖𝑛 (𝑠) = 𝑎0 ∕𝑠 ↺, according to the Final value principle, one                                 sound scanning control method for soft uncertain environment. International Journal
+has:                                                                                                       of Computer Assisted Radiology and Surgery, 16(12), 2189–2199.
+                                                                                                       Niu, B., Yang, D., Zhang, L., Ji, Y., Jiang, L., & Liu, H. (2025). Enhancing ultrasound
+                         𝑠3 (𝑚𝑠 + 𝑏)(𝑘𝑒 + 𝑏𝑒 𝑠) 𝑎0        𝑏                                                scanning skills in a leader–follower robotic system through expert hand impedance
+lim 𝑠Δ𝐹 (𝑠) = lim −                            ×    = −𝑎0                                (A.9)
+𝑠→0              𝑠→0             𝑘𝑖 𝑘𝑒           𝑠3       𝑘𝑖                                               regulation. IEEE Journal of Biomedical and Health Informatics, 29(9), 6678–6688.
+                                                                                                       Roveda, L., Iannacci, N., Vicentini, F., Pedrocchi, N., Braghin, F., & Tosatti, L.M. (2015).
+    This means that when the reference trajectory 𝑥𝑖𝑛 (𝑡) possesses a con-                                 Optimal impedance force-tracking control design with impact formulation for interac-
+stant acceleration, the force tracking error of the AVAC method main-                                      tion tasks. IEEE Robotics and Automation Letters, 1(1), 130–136.
+                                                                                                       Santos, L., & Cortesão, R. (2013). Admittance control for robotic-assisted tele-echography.
+tains a steady-state error related to acceleration 𝑎0 , virtual damping b,
+                                                                                                           In 2013 16th International conference on advanced robotics (ICAR) (pp. 1–7). IEEE.
+and the PID parameter 𝑘𝑖 .                                                                             Seraji, H. (1994). Adaptive admittance control: An approach to explicit force control in
+                                                                                                           compliant motion. In Proceedings of the 1994 IEEE international conference on robotics
+References                                                                                                 and automation (pp. 2705–2712). IEEE.
+                                                                                                       Si, W., Wang, N., & Yang, C. (2024). Design and quantitative assessment of teleoperation-
+                                                                                                           based human–robot collaboration method for robot-assisted sonography. IEEE Trans-
+Bao, X., Wang, S., Zheng, L., Housden, R.J., Hajnal, J.V., & Rhode, K. (2023). A novel                     actions on Automation Science and Engineering, 22, 317–327.
+    ultrasound robot with force/torque measurement and control for safe and eﬃcient                    Wu, K., Feng, S., An, H., Carbone, G., & Li, W. (2025). Evaluation of robot kinematic
+    scanning. IEEE Transactions on Instrumentation and Measurement, 72, 1–12.                              performance under motion constraints in a teleoperated robotic ultrasound system.
+Beber, L., Lamon, E., Nardi, D., Fontanelli, D., Saveriano, M., & Palopoli, L. (2024). A                   Mechanism and Machine Theory, 207, 105952.
+    passive variable impedance control strategy with viscoelastic parameters estimation of             Xiao, S., Wang, T., Long, Y., & Yang, L. (2025). Optimizing variable admittance con-
+    soft tissues for safe ultrasonography. In 2024 IEEE International conference on robotics               trol for remote ultrasound scanning under uncertain environment. IEEE Access, 13,
+    and automation (ICRA) (pp. 1298–1304). IEEE.                                                           83274–83284.
+Chen, Y., Zhang, Y., Zhao, X., Xie, Q., Yang, K., Tao, B., & Ding, H. (2024). Physical human–          Xie, F., Chong, Z., Liu, X.J., Zhao, H., & Wang, J. (2023). Precise and smooth contact force
+    robot interaction based on adaptive impedance control for robotic-assisted total hip                   control for a hybrid mobile robot used in polishing. Robotics and Computer-Integrated
+    arthroplasty. IEEE/ASME Transactions on Mechatronics, 29(6), 4674–4686.                                Manufacturing, 83, 102573.
+Duan, J., Gan, Y., Chen, M., & Dai, X. (2018). Adaptive variable impedance control for                 Yang, Y., Hua, C., Ding, W., & Li, J. (2024). Gesture recognition-based robust predeﬁned-
+    dynamic contact force tracking in uncertain environment. Robotics and Autonomous                       time admittance control of bimanual teleoperation without force/torque measurement.
+    systems, 102, 54–65.                                                                                   IEEE Transactions on Instrumentation and Measurement, 73, 1–10.
+Ferraguti, F., Talignani Landi, C., Sabattini, L., Bonfe, M., Fantuzzi, C., & Secchi, C. (2019).       Yoon, I., Na, M., & Song, J.B. (2024). Assembly of low-stiﬀness parts through admit-
+    A variable admittance control strategy for stable physical human–robot interaction.                    tance control with adaptive stiﬀness. Robotics and Computer-Integrated Manufacturing,
+    The International Journal of Robotics Research, 38(6), 747–765.                                        86, 102678.
+Fu, J., Burzo, I., Iovene, E., Zhao, J., Ferrigno, G., & De Momi, E. (2024). Optimization-             Zhang, T., Yuan, C., & Zou, Y. (2022). Online optimization method of controller parame-
+    based variable impedance control of robotic manipulator for medical contact tasks.                     ters for robot constant force grinding based on deep reinforcement learning rainbow.
+    IEEE Transactions on Instrumentation and Measurement, 73, 1–8.                                         Journal of Intelligent & Robotic Systems, 105(4), 85.
+Fu, J., Maimone, G., Iovene, E., Zhao, J., Redaelli, A., Ferrigno, G., & De Momi, E.                   Zhang, X., & Khamesee, M.B. (2017). Adaptive force tracking control of a magnetically
+    (2025). Human-inspired active compliant and passive shared control framework for                       navigated microrobot in uncertain environment. IEEE/ASME Transactions on Mecha-
+    robotic contact-rich tasks in medical applications. IEEE Transactions on Robotics, 41,                 tronics, 22(4), 1644–1651.
+    2549–2568.
+
+
+
+
+                                                                                                   9
+

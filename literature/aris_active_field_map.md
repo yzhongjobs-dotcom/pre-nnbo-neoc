@@ -1,9 +1,9 @@
 # Active Field Map
 
-coverage_status: PARTIAL
+coverage_status: SUFFICIENT
 coverage_record:
-research_effort_budget: {"queries": 28, "fulltext_gateway_events": 24, "accepted_evidence_cards": 24}
-stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；历史无期刊/年代下限补查完成。沿DO-MPAC实际参考文献核查三个直接近邻后再作收尾判断。
+research_effort_budget: {"queries": 32, "accepted_evidence_cards": 27}
+stopping_reason: 已核读当前三篇人工补充的决定性直接近邻并修正路线边界；定向精确DOI复查无新增候选。结合此前机制骨干、近邻及引用链轮次，申请独立判断本范围的工作饱和，不声称无遗漏。
 
 ## Field Core Purposes
 
@@ -50,19 +50,20 @@ stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；
 [
   {
     "id": "M1",
-    "mechanism": "误差自适应、结构参数前馈与鲁棒反馈直接调节力/运动。 DOSMAC将刚度、位置误差和输入增益变化合并为扰动后补偿，原实物共同变化来自固定曲面扫描。 R11跨周期适应前馈/K/D；DO-MPAC以ESO补偿把力误差近似转成双积分器，再解析选择虚拟动作，m/b固定、k=0。",
+    "mechanism": "误差自适应、结构参数前馈与鲁棒反馈直接调节力/运动。 DOSMAC将刚度、位置误差和输入增益变化合并为扰动后补偿，原实物共同变化来自固定曲面扫描。 R11跨周期适应前馈/K/D；DO-MPAC以ESO补偿把力误差近似转成双积分器，再解析选择虚拟动作，m/b固定、k=0。 显式操作空间力/力矩调节通过力矩执行绕过位置导纳环节，硬件条件需分开。",
     "source_ids": [
       "local-E32",
       "local-G22",
       "jh4Hbf-KuS8J",
       "local-S01",
       "mMyBOC13ISAJ",
-      "local-S03"
+      "local-S03",
+      "BIP_InW4FSIJ"
     ]
   },
   {
     "id": "M2",
-    "mechanism": "在线环境/预测参数辨识进入增益规则、参考QP或预测运动决策；区分估计变量、增益变量、动作和目标。 MHE-VIC联合估计环境阻抗和机器人扰动，按Kr=估计Ke及阻尼规则更新，法向表面预先测量并视为静态。 E41直接把增益作为优化变量，OS-QP与MS非线性求解的计算和约束条件不同。 E45明确离线OPFB-ADP训练后执行历史反馈策略；环境力学未知常量、位置子系统变化，不能称在线材料参数更新。",
+    "mechanism": "在线环境/预测参数辨识进入增益规则、参考QP或预测运动决策；区分估计变量、增益变量、动作和目标。 MHE-VIC联合估计环境阻抗和机器人扰动，按Kr=估计Ke及阻尼规则更新，法向表面预先测量并视为静态。 E41直接把增益作为优化变量，OS-QP与MS非线性求解的计算和约束条件不同。 E45明确离线OPFB-ADP训练后执行历史反馈策略；环境力学未知常量、位置子系统变化，不能称在线材料参数更新。 C11为相邻的预标定组织模型/几何驱动目标力分支，点间由图像继续更新目标，不归作在线增益选择。",
     "source_ids": [
       "GkLovpurDJwJ",
       "local-H01",
@@ -71,7 +72,8 @@ stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；
       "local-S02",
       "local-E41",
       "local-S03",
-      "tS1rA372YsUJ"
+      "tS1rA372YsUJ",
+      "CkE-5mElf_IJ"
     ]
   },
   {
@@ -89,11 +91,12 @@ stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；
   },
   {
     "id": "M4",
-    "mechanism": "运动预测补偿参考，或主动/被动机械柔顺结构隔离扰动。 ACT-US摘要视觉前馈与方法段落力信号呼吸预测的连接尚不充分，不据此补造接口。",
+    "mechanism": "运动预测补偿参考，或主动/被动机械柔顺结构隔离扰动。 ACT-US摘要视觉前馈与方法段落力信号呼吸预测的连接尚不充分，不据此补造接口。 TAFAC补偿已知给定参考的速度/加速度，不等于估计未知组织运动。",
     "source_ids": [
       "local-G13",
       "wftPH5bwT0gJ",
-      "zws_WiLclY0J"
+      "zws_WiLclY0J",
+      "local-S04"
     ]
   },
   {
@@ -350,6 +353,33 @@ stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；
       "QC0NU0Ejk2UJ",
       "Ns0tgl-gOSMJ"
     ]
+  },
+  {
+    "family": "M1",
+    "assumptions": "C10：力矩执行、非奇异构型、动力学补偿及测量准确；柔顺接触允许较大增益。",
+    "effective_conditions": "C10移动模体与异质曲面扫描支持力/力矩调节；1.6Hz目标力的EFC/调参IAAC滞后5.76/121度。",
+    "failure_conditions": "不等同于位置接口可直接迁移；未知更硬接触性能、在线阻抗选择和临床诊断效用均未建立。",
+    "source_ids": [
+      "BIP_InW4FSIJ"
+    ]
+  },
+  {
+    "family": "M2",
+    "assumptions": "C11：预标定力—应变、点云几何、相邻点归一化变形连续与图像置信度。",
+    "effective_conditions": "三种乳房仿体、125Hz机器人/1kHz力采样、1mm/s扫描中调整目标力并作固定映射力反馈。",
+    "failure_conditions": "独立组织运动和在线阻抗更新未验证；式11–12方向疑点不改写为推定代码错误。",
+    "source_ids": [
+      "CkE-5mElf_IJ"
+    ]
+  },
+  {
+    "family": "M4",
+    "assumptions": "TAFAC：已知xin速度/加速度、线性KV与小控制周期，m/b固定。",
+    "effective_conditions": "单一橡胶15N，恒速/恒加速度参考，500Hz；减小超调和误差，但20mm/s RMSE略高于AVAC。",
+    "failure_conditions": "原文承认复杂人类轨迹与变刚度未充分验证；时延证明用一阶近似，不是任意通信延迟保证或未知患者运动恢复。",
+    "source_ids": [
+      "local-S04"
+    ]
   }
 ]
 ```
@@ -360,7 +390,8 @@ stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；
 [
   "环境参数、机器人阻抗、参考和控制动作是不同更新对象。",
   "参考/阻抗协调、动态力补偿和联合接触估计均有具体先例，按条件比较。",
-  "成像收益与接触误差有关但非同一指标；期望约束、被动性与逐时刻安全不能混用。"
+  "成像收益与接触误差有关但非同一指标；期望约束、被动性与逐时刻安全不能混用。",
+  "显式力矩执行、位置伺服导纳、已知参考前馈和图像目标力调节是不同控制/决策层；运动任务或信息进入控制已有多种有效路线，不能以是否采用刚度/漂移分解划定现状。"
 ]
 ```
 
@@ -372,7 +403,8 @@ stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；
   "Cao名义视觉更新时间与人为延迟试验阈值不可直接等同。",
   "DOSMAC正文称已处理刚度与位置共同变化；所核实物实验是固定曲面沿扫描高度变化，不等于独立生理运动验证。二者保留其层次差异。",
   "ACT-US摘要强调视觉前馈，而方法主要写呼吸力带通/正弦预测，视觉和速度前馈的接口尚未完整给出；不得补造。",
-  "DO-MPAC概括措辞称处理动态约束，但式25/Remark4为无约束解析预测控制，硬饱和在执行端。"
+  "DO-MPAC概括措辞称处理动态约束，但式25/Remark4为无约束解析预测控制，硬饱和在执行端。",
+  "C11发表式11–12在正力、K=6时只保持或增加目标力，未体现低置信度纠正增力；原文图像反馈解释与公式方向疑点保留，未据此推断实验代码或整篇无效。"
 ]
 ```
 
@@ -380,20 +412,18 @@ stopping_reason: 用户补齐的两篇和两项本地历史机制原文已读；
 
 ```json
 {
-  "coverage_status": "PARTIAL",
+  "coverage_status": "SUFFICIENT",
   "research_effort_budget": {
-    "queries": 28,
-    "fulltext_gateway_events": 24,
-    "accepted_evidence_cards": 24
+    "queries": 32,
+    "accepted_evidence_cards": 27
   },
-  "stopping_reason": "用户补齐的两篇和两项本地历史机制原文已读；历史无期刊/年代下限补查完成。沿DO-MPAC实际参考文献核查三个直接近邻后再作收尾判断。",
-  "coverage_gaps": [
-    "DO-MPAC原文参考文献出现三项尚未在本轮完整核准的直接超声近邻：Li2026b trajectory-aware feedforward admittance、Zhang2025 smooth path/dynamic force regulation、Jiang2024 force tracking under soft uncertain environment。需正式查询其身份/摘要，判断是否改变时间变参考补偿、在线增益/估计路线或最接近工作；仅对实质缺口请求原文。"
-  ],
+  "stopping_reason": "已核读当前三篇人工补充的决定性直接近邻并修正路线边界；定向精确DOI复查无新增候选。结合此前机制骨干、近邻及引用链轮次，申请独立判断本范围的工作饱和，不声称无遗漏。",
+  "coverage_gaps": [],
   "blind_spots": [
-    "24卡均明确选段阅读，未声称全文精读或独立复证。",
-    "早期身份/年份待核来源不承担决定性判断；不同观测/任务与源指标不做跨论文数值排名。",
-    "当前在用户确认问题内补全文献；不重新选题，不改变C1/C2或启动实验。"
+    "27卡为所注明选段，不是全文独立复证或数学定理认证。",
+    "Jiang2024独立身份未闭合；C10已提供IAAC定义与调参比较，S03有复现比较；不据该待核引文作未检查能力或唯一性判断。",
+    "少量旧身份/版本/公开日期仍未核准，仅保留发现背景，不承担决定性前沿主张。",
+    "界定到既定法向接触控制问题，不覆盖纯成像/规划或整个机器人医学文献。"
   ]
 }
 ```

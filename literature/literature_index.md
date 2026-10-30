@@ -5,15 +5,15 @@ This directory retains original papers, extracted texts, sources and actual read
 ## Usage and sources
 
 - Scientific entries: [field state](../research/field_state.md), [candidate methods](../research/optimal_impedance_question_and_methods.md), [transferable mechanisms](../research/transferable_mechanisms.md).
-- ARIS bounded supplementation: [query/screening data](aris_literature_search.json), [previous independent review](aris_coverage_review.json), [scope and research-experience standard](../research/related_work_scope_and_coverage.md). Current:31 queries,220 candidate/local/alias records,24 accepted selected-passage cards. These are not main-reference or coverage counts.
-- Source-bound cards in `aris_evidence/` now additionally include C09/S03 and reused R11/E45. Originals, actual roles and inspected pages are in the [manifest](local_materials_manifest.json); no whole-paper or theorem certification is implied.
+- ARIS bounded supplementation: [query/screening data](aris_literature_search.json), [previous independent review](aris_coverage_review.json), [scope and research-experience standard](../research/related_work_scope_and_coverage.md). Current:32 queries,221 candidate/local/alias records,27 accepted selected-passage cards. These are not main-reference or coverage counts.
+- Source-bound cards in `aris_evidence/` include C09/S03, reused R11/E45, and the newly supplied C10/C11/S04. Originals, actual roles and inspected pages are in the [manifest](local_materials_manifest.json); no whole-paper or theorem certification is implied.
 - Current manual work: [one consolidated checklist](manual_fulltext_requests.md), [two-paper Controller request](aris_human_fulltext_request.json), [registration template](aris_fulltext_manifest_template.json). Prior ACT-US/DO-MPAC request completed. New IJRR/RA-L originals plus one unverified backward-citation identity prevent final closure; stop for user files/acceptance, no automatic method/experiment work.
 - Local files/SHA256: [materials manifest](local_materials_manifest.json). Each record identifies PDF/text paths, purpose, source URL, known version and reading scope. Deduplicated files are shared rather than copied.
 - Requested repository 1: [academic-writing-skill literature](https://github.com/yzhongjobs-dotcom/academic-writing-skill/tree/c88d48eb08a876eb9b81a30d37b62d70fa028581/文献资料). Screened 22 identities/abstracts and examined key passages in ten papers; those ten are local. Metadata for twelve others remains in [sample sources](top_venue_sample_sources_and_reading_scope.json), without implying full-text reading.
 - Requested repository 2: [e2e/User Batch V2](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/source-materials/user-batch-v2) and [idea-stage](https://github.com/yzhongjobs-dotcom/e2e/tree/8fff5f3cbb1d47405f54888c0e92c61d08e31ced/idea-stage). Of the original 61 screened papers, local material includes 25 directly relevant, six partly relevant and five background papers; 25 currently irrelevant papers retain exclusion reasons only. Ten originals added from existing leads are also local.
 - Complete screening, original pages and neighbors without obtained full text appear in [sources/screening](impedance_literature_sources_and_screening.json). Do not copy all 2653 discovery records, 105 old evidence cards or 3822 search events, or treat them as confirmed conclusions.
 
-There are **103** deduplicated local PDFs with corresponding texts. The 106 usage records include field sources, background/method transfer, and independent reverse-analysis samples; this is not the number of core related-work references. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
+There are **106** deduplicated local PDFs with corresponding texts. The 109 usage records include field sources, background/method transfer, and independent reverse-analysis samples; this is not the number of core related-work references. Verify selected IDs with `python -X utf8 literature/verify_materials.py --ids E27 F08 YOPO`; verify all with `python -X utf8 literature/verify_materials.py`. `--download` restores missing selected files and checks hashes; it does not search/screen again. Extraction uses system `pdftotext`. Record version-dependent text differences explicitly; do not overwrite original identity hashes.
 
 ## Original methods and direct evidence
 
@@ -118,7 +118,7 @@ The 2026-10-22 review selected 21 additional originals/author manuscripts from t
 | G24 | [Variable Impedance Control in End-Effector Space: An Action Space for Reinforcement Learning in Contact-Rich Tasks](papers/field_supplements/G24.pdf) · [text](extracted_text/field_supplements/G24.txt) | Learned impedance action-space prior |
 | G25 | [Model Predictive Robot-Environment Interaction Control for Mobile Manipulation Tasks](papers/field_supplements/G25.pdf) · [text](extracted_text/field_supplements/G25.txt) | Adjacent online identification/predictive interaction control |
 
-G09 is a local author manuscript with a placeholder journal DOI; its exact equivalence to an arXiv revision is not asserted. G23/G24/G25 are retained arXiv author versions with journal/conference identities recorded separately. G12 and G22 have identity/abstract-level reading in this review. Neither is used to infer detailed theory or missing capabilities.
+G09 is a local author manuscript with a placeholder journal DOI; its exact equivalence to an arXiv revision is not asserted. G23/G24/G25 are retained arXiv author versions with journal/conference identities recorded separately. G12 remains at identity/abstract scope. G22 now also has selected original-passage ARIS evidence; this is not a full-paper or independent theory audit.
 
 ## Task-scoped local coverage supplements (2026-10-26)
 
@@ -176,3 +176,13 @@ The unchanged [sample mathematical-boundary results](top_venue_sample_math_check
 | S03 | DO-MPAC: observer-compensated analytical predictive action with fixed admittance | [PDF](papers/aris_supplements/S03.pdf) · [text](extracted_text/aris_supplements/S03.txt) |
 
 Selected passages and text paths follow the materials manifest. Library retention does not automatically add a source to the research-status argument. The user replaced the earlier S03 security page with a valid original, now archived and read. R11 and E45 reuse their existing PDFs/texts for the newly recorded mechanism passages.
+
+## Supplied direct-task originals read on 2026-10-30
+
+| ID | Actual role | Source |
+|---|---|---|
+| C10 | Torque-interface explicit force/moment control; moving phantom | [Piedra IJRR2026](papers/aris_supplements/C10.pdf) · [evidence](aris_evidence/C10.json) |
+| C11 | Geometry/model/image-driven desired force; fixed feedback mapping | [Zhang RA-L2025](papers/aris_supplements/C11.pdf) · [evidence](aris_evidence/C11.json) |
+| S04 | Known-reference feedforward and control-cycle compensation | [Li TAFAC CEP2026](papers/aris_supplements/S04.pdf) · [evidence](aris_evidence/S04.json) |
+
+The three originals close their download requests. Independent coverage and current remaining requests are in [manual requests](manual_fulltext_requests.md); source retention alone does not certify completeness.
