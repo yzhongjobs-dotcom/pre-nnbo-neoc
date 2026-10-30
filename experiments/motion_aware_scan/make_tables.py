@@ -1,0 +1,116 @@
+"""Build results/tables.md from the JSON outputs (main cohort + replication)."""
+import json, os
+import numpy as np
+from collections import defaultdict
+
+H = os.path.dirname(os.path.abspath(__file__))
+NAMES = {'Proposed': 'Proposed', 'RossiType': 'Rossi-type', 'WijType': 'Wijayarathne-type (privileged k)',
+         'DOMPAC': 'DO-MPAC', 'RossiDOMPAC': 'Rossi est. + DO-MPAC', 'Oracle': 'Reference (true k, true surface)',
+         'Abl-noProjection': 'w/o drift projection', 'Abl-noConservative': 'w/o conservative stiffness',
+         'Abl-noFeedforward': 'w/o drift feed-forward', 'Abl-noExcitation': 'w/o excitation'}
+
+
+def name(m):
+    if m.startswith('Fixed:'):
+        return 'Fixed A1 at k=%s N/m' % m.split(':')[1]
+    return NAMES.get(m, m)
+
+
+def main_table(s, task, methods):
+    rows = ['| Method | RMSE [N] | P95 error [N] | worst peak [N] | contact-loss episodes | oscillation RMS [N] | excitation ripple [N] |',
+            '|---|---:|---:|---:|---:|---:|---:|']
+    for m in methods:
+        v = s.get(task+'|'+m)
+        if v is None:
+            continue
+        rows.append('| %s | %.3f ± %.3f | %.2f | %.1f | %.0f | %.3f | %.3f |' % (
+            name(m), v['rmse'][0], v['rmse'][1], v['p95'][0], v['peak_max'], v['n_loss'], v['osc'][0], v['ripple'][0]))
+    return '\n'.join(rows)
+
+
+def paired_table(pm, tasks, methods):
+    rows = ['| Comparison (method − Proposed) | '+' | '.join(tasks)+' |', '|---|'+'---:|'*len(tasks)]
+    for m in methods:
+        cells = []
+        for t in tasks:
+            v = pm.get(t, {}).get(m)
+            cells.append('—' if v is None or not np.isfinite(v[0]) else '%+.3f [%+.3f, %+.3f]' % tuple(v))
+        rows.append('| %s | ' % name(m)+' | '.join(cells)+' |')
+    return '\n'.join(rows)
+
+
+def s1_table():
+    s1 = json.load(open(os.path.join(H, 'results', 'S1_estimation.json')))
+    g = defaultdict(list)
+    for r in s1:
+        if not r.get('diverged'):
+            g[(r['level'], r['motion'], r['exc'])].append(r)
+    rows = ['| Tissue | Motion | Excitation | Static-surface k̂/k | Rossi band-pass k̂/k | Projection k̂/k | P(k̂+cσ ≥ k) | ripple [N] |',
+            '|---|---|---|---|---|---|---:|---:|']
+    for lvl in ('soft', 'mid', 'stiff'):
+        for mo in ('static', 'breathing', 'push'):
+            for ex in (True, False):
+                rs = g[(lvl, mo, ex)]
+                f = lambda k: np.nanmedian(np.array([r[k] for r in rs]), axis=0)
+                a, b, c = f('static'), f('rossi'), f('proj')
+                rows.append('| %s | %s | %s | %.2f [%.2f, %.2f] | %.2f [%.2f, %.2f] | %.2f [%.2f, %.2f] | %.2f | %.3f |' % (
+                    lvl, mo, 'on' if ex else 'off', a[1], a[0], a[2], b[1], b[0], b[2], c[1], c[0], c[2],
+                    np.nanmean([r['cover'] for r in rs]), np.nanmean([r['ripple'] for r in rs])))
+    return '\n'.join(rows)
+
+
+def combo_table():
+    c = json.load(open(os.path.join(H, 'results', 'S1_combination.json')))
+    rows = ['| Rossi estimate k̂/k inside | T3 | T2 soft | T2 stiff |', '|---|---|---|---|']
+    for m in ('RossiType', 'RossiDOMPAC'):
+        cells = []
+        for t in ('T3', 'T2-soft', 'T2-stiff'):
+            a = np.nanmedian(np.array([r['ratio'] for r in c if r['method'] == m and r['task'] == t], float), axis=0)
+            cells.append('%.2f [%.2f, %.2f]' % (a[1], a[0], a[2]))
+        rows.append('| %s | ' % ('its own integral loop' if m == 'RossiType' else 'the DO-MPAC loop')+' | '.join(cells)+' |')
+    return '\n'.join(rows)
+
+
+def scaling_table():
+    sc = json.load(open(os.path.join(H, 'results', 'S2_scaling.json')))
+    rows = ['| Tissue modulus [Pa] | J of scaled A1 | J of best re-optimised | best (D1 multiplier, K_PF1) |',
+            '|---:|---:|---:|---|']
+    for r in sc:
+        rows.append('| %.1e | %.3f | %.3f | (%s, %s) |' % (r['E'], r['J_scaled_A1'], r['J_best_reoptimised'],
+                                                         r['best']['dmul'], r['best']['kpf']))
+    return '\n'.join(rows)
+
+
+def timing_table(s):
+    rows = ['| Method | per-call time P50 [ms] | worst-task P99 [ms] |', '|---|---:|---:|']
+    for m in ('Proposed', 'RossiType', 'WijType', 'DOMPAC', 'RossiDOMPAC'):
+        v = [s['S3']['%s|%s' % (t, m)] for t in ('T3', 'T2-soft', 'T2-stiff')]+[s['S2']['T1|'+m]]
+        rows.append('| %s | %.3f | %.3f |' % (name(m), np.median([x['t_p50'] for x in v]), max(x['t_p99'] for x in v)))
+    return '\n'.join(rows)
+
+
+if __name__ == '__main__':
+    s = json.load(open(os.path.join(H, 'results', 'summary.json')))
+    r = json.load(open(os.path.join(H, 'results_replication', 'summary.json')))
+    main = ['Proposed', 'RossiType', 'WijType', 'DOMPAC', 'RossiDOMPAC', 'Oracle']
+    fixed = sorted([k.split('|')[1] for k in s['S2'] if k.split('|')[1].startswith('Fixed')])
+    abl = ['Proposed', 'Abl-noProjection', 'Abl-noConservative', 'Abl-noFeedforward', 'Abl-noExcitation']
+    out = ['# Simulation results (generated by make_tables.py)', '',
+           'Fixed-impedance ends use the stiffness range seen on development scenes (5th/95th percentile): %.0f and %.0f N/m.' % tuple(s['k_bounds']), '',
+           '## S1 Estimation on identical closed-loop data (median [10th, 90th percentile] of k̂/k)', '', s1_table(), '',
+           '## S1b Does disturbance compensation absorb the excitation information?', '', combo_table(), '',
+           '## S2 Static heterogeneous scan (T1, 12 test scenes)', '', main_table(s['S2'], 'T1', main+fixed), '',
+           '### S2 scaling check (true stiffness, feed-forward off)', '', scaling_table(), '']
+    for t, lab in (('T3', 'S3a Spine scan with breathing and push events (T3, 12 scenes)'),
+                   ('T2-stiff', 'S3b Push/retract on stiff tissue (T2)'), ('T2-soft', 'S3c Push/retract on soft tissue (T2)')):
+        out += ['## '+lab, '', main_table(s['S3'], t, main+fixed), '']
+    out += ['## Paired bootstrap of mean RMSE difference (method − Proposed), 95% CI; main cohort', '',
+            paired_table(s['paired'], ['T1', 'T3', 'T2-stiff', 'T2-soft'], ['RossiType', 'WijType', 'DOMPAC', 'RossiDOMPAC', 'Oracle']), '',
+            '## Replication cohort (fresh seeds), paired differences', '',
+            paired_table(r['paired'], ['T1', 'T3', 'T2-stiff', 'T2-soft'], ['RossiType', 'WijType', 'DOMPAC', 'RossiDOMPAC', 'Oracle']), '',
+            '## Ablation (S3 scenes)', '']
+    for t in ('T3', 'T2-stiff', 'T2-soft'):
+        out += ['### '+t, '', main_table(s['ablation'], t, abl), '']
+    out += ['## Computation time (single process, from observation to command)', '', timing_table(s), '']
+    open(os.path.join(H, 'results', 'tables.md'), 'w', encoding='utf-8').write('\n'.join(out))
+    print('\n'.join(out))

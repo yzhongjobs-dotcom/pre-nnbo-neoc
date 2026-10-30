@@ -111,9 +111,11 @@ def k_eff(x,d,p):
     return (footprint(x,d+hd,p)[0]-footprint(x,d-hd,p)[0])/(2*hd)*1.4   # SLS instantaneous (1+alpha)
 
 @njit(cache=True)
-def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog):
+def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog,direct=False):
     """advance nticks control periods (NC plant steps each) with gains g; returns new nlog
-    (negative on divergence). noise: (n,2) standard normals per 1 kHz F/T sample."""
+    (negative on divergence). noise: (n,2) standard normals per 1 kHz F/T sample.
+    direct=True: g[5] is the absolute position command (the policy runs its own
+    controller); the command rate is limited to VMAX and the same delay/servo apply."""
     alpha=0.4; tauS=0.3; lam=0.3; ns=p[14]; v=p[5]
     M=g[0]; D=g[1]; K=g[2]; ki=g[3]; KPF=g[4]; uff=g[5]
     Tc=NC*DT; NFT=max(int(round(1e-3/DT)),1); afc=1.0-math.exp(-2*math.pi*fc*1e-3)
@@ -150,7 +152,11 @@ def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog):
                 vn=min(max(vn,-VMAX),VMAX)
                 s[3]+=0.5*(s[4]+vn)*Tc; s[4]=vn
                 for q in range(ndel): s[13+q]=s[14+q]
-                s[13+ndel]=s[3]+KPF*ef+uff
+                if direct:
+                    prev=s[12+ndel] if ndel>0 else s[13]
+                    s[13+ndel]=min(max(uff,prev-VMAX*Tc),prev+VMAX*Tc)
+                else:
+                    s[13+ndel]=s[3]+KPF*ef+uff
                 if nlog<log.shape[0]:
                     log[nlog,0]=t; log[nlog,1]=s[1]; log[nlog,2]=s[2]; log[nlog,3]=fn; log[nlog,4]=ft
                     log[nlog,5]=s[6]; log[nlog,6]=d; log[nlog,7]=modulus(s[1],p); log[nlog,8]=k_eff(s[1],d,p)
@@ -216,6 +222,22 @@ def episode(p,policy,T=10.0,platform='PC125',seed=0,update=None,dt=5e-4):
         return None if n<0 else log[:n]
     policy.reset(pl)
     per=max(int(round((update or pl['Tc'])/pl['Tc'])),1); n=0
+    if getattr(policy,'direct',False):
+        # direct position-command policies (motion_aware study); command is absolute
+        nd=int(pl['ndel'])
+        while n<nt:
+            # provisional row n: what the controller reads at the start of this period
+            # (filtered force, encoder, last sent command); truth columns for oracles.
+            # advance() overwrites it with the logged values of this period.
+            x_,y_=s[1],s[2]; d_=surface(x_,s[0],p)[0]+y_
+            log[n,:]=0.; log[n,0]=s[0]; log[n,1]=x_; log[n,2]=y_; log[n,5]=s[6]; log[n,6]=d_
+            log[n,7]=modulus(x_,p); log[n,8]=k_eff(x_,d_,p); log[n,11]=s[13+nd]
+            ycmd=float(policy(Obs(log,n+1)))
+            if not np.isfinite(ycmd): ycmd=float(s[13+int(pl['ndel'])])   # hold (first call)
+            g=np.array([1.,100.,0.,0.,0.,ycmd])
+            n=advance(s,p,g,min(per,nt-n),*args,log,n,True)
+            if n<0: return None
+        return log[:n]
     while n<nt:
         g=np.clip(_pad(policy(Obs(log,n))),GMIN,GMAX)
         n=advance(s,p,g,min(per,nt-n),*args,log,n)
