@@ -232,11 +232,14 @@ def episode(p,policy,T=10.0,platform='PC125',seed=0,update=None,dt=5e-4):
             x_,y_=s[1],s[2]; d_=surface(x_,s[0],p)[0]+y_
             log[n,:]=0.; log[n,0]=s[0]; log[n,1]=x_; log[n,2]=y_; log[n,5]=s[6]; log[n,6]=d_
             log[n,7]=modulus(x_,p); log[n,8]=k_eff(x_,d_,p); log[n,11]=s[13+nd]
+            F_seen=log[n,5]
             ycmd=float(policy(Obs(log,n+1)))
             if not np.isfinite(ycmd): ycmd=float(s[13+int(pl['ndel'])])   # hold (first call)
             g=np.array([1.,100.,0.,0.,0.,ycmd])
+            n0=n
             n=advance(s,p,g,min(per,nt-n),*args,log,n,True)
             if n<0: return None
+            log[n0,5]=F_seen     # keep the logged force identical to what the controller consumed
         return log[:n]
     while n<nt:
         g=np.clip(_pad(policy(Obs(log,n))),GMIN,GMAX)

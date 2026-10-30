@@ -1,4 +1,4 @@
-"""S2 supplement: does "update = scaling" lose much against re-optimising per stiffness?
+"""S2 supplement: is the per-stiffness re-optimum consistent with pure scaling (same normalised parameters)?
 
 On homogeneous breathing tissue at four stiffness levels, the controller uses the true
 stiffness (to isolate the scaling claim from estimation) and the drift feed-forward off.
@@ -13,16 +13,18 @@ import common
 from common import S
 import proposed as Pm
 import run_experiments as RX
+RX.TU.OUT = os.path.join(common.HERE, 'tuned_v2')     # use the post-audit tuned parameters
+RX.RES = os.path.join(common.HERE, 'results_v2'); os.makedirs(RX.RES, exist_ok=True)
 
 LEVELS = (1.5e4, 6e4, 2.5e5, 1.0e6)       # tissue modulus [Pa]
-GRID_D = (0.5, 0.7, 1.0, 1.4, 2.0)          # multipliers on D1
-GRID_K = (0.0, 0.5, 1.0, 1.5)
+GRID_D = (0.12, 0.18, 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0)   # multipliers on D1 (boundary extended)
+GRID_K = (0.0, 0.25, 0.5, 0.75, 1.0, 1.5)
 
 
 def scenes(E):
     r = np.random.default_rng(int(E) % 9973)
     out = []
-    for i in range(4):
+    for i in range(8):
         p, T = S.make('N1', r, dict(E=E*float(r.uniform(.9, 1.1))))
         out.append((p, T, 9900+i))
     return out
@@ -30,7 +32,7 @@ def scenes(E):
 
 def _cost(args):
     E, dmul, kpf = args
-    base = RX.tuned('Proposed')
+    base = RX.tuned('Proposed-KF')       # final method's unit design A1
     kw = dict(M1=base['M1'], D1=base['D1']*dmul, KPF1=kpf if kpf is not None else base['KPF1'], ki=0.0,
               feedforward=False)
     Js = []

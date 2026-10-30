@@ -54,13 +54,14 @@ class MotionAware(common.DirectPolicy):
     def __init__(self, M1=None, D1=None, KPF1=None, ki=None, a_force=.25, f_exc=20.8,
                  nw=16, degree=3, noise=.04, c=2., rho_d=.02, chi2_max=4., rel_max=.25,
                  feedforward=True, conservative=True, excitation=True, v_app=.006, adaptive_exc=False,
-                 sector_lo=.5, tag=None):
+                 sector_lo=.5, kgood_rule='consistent', edge_rule='legacy', tag=None):
         d = A1 if M1 is None else dict(M1=M1, D1=D1, KPF1=KPF1, ki=ki)
         self.params = dict(M1=d['M1'], D1=d['D1'], KPF1=d['KPF1'], ki=d['ki'] if ki is None else ki,
                            a_force=a_force, f_exc=f_exc, nw=nw, degree=degree, noise=noise, c=c,
                            rho_d=rho_d, chi2_max=chi2_max, rel_max=rel_max, feedforward=feedforward,
                            conservative=conservative, excitation=excitation, v_app=v_app,
-                           adaptive_exc=adaptive_exc, sector_lo=sector_lo)
+                           adaptive_exc=adaptive_exc, sector_lo=sector_lo, kgood_rule=kgood_rule,
+                           edge_rule=edge_rule)
         if tag:
             self.name = tag
 
@@ -75,13 +76,15 @@ class MotionAware(common.DirectPolicy):
         k_hat = min(max(fit['k'], K_MIN), K_MAX)
         sig = 1.0/math.sqrt(fit['info'])            # info = ||Y_perp||^2/noise^2
         self.k_hat = k_hat; self.rel = sig/k_hat
+        precise = sig <= p['rel_max']*k_hat
+        consistent = fit['chi2'] <= p['chi2_max']
+        # unbiased estimate for the open-loop channels (feed-forward/excitation); updated before the
+        # feedback-stiffness choice so that every variant (incl. the ablation) shares this logic
+        if precise and (consistent or p['kgood_rule'] == 'precise'):
+            self.k_good = k_hat
         if not p['conservative']:
             return k_hat, True
         cand = min(max(k_hat+p['c']*sig, K_MIN), K_MAX)
-        precise = sig <= p['rel_max']*k_hat
-        consistent = fit['chi2'] <= p['chi2_max']
-        if precise:
-            self.k_good = k_hat                      # last precise estimate (for FF/excitation)
         if self.first:
             if precise and consistent:
                 self.first = False
@@ -89,9 +92,13 @@ class MotionAware(common.DirectPolicy):
             return self.kbar, False
         if precise and consistent:                   # valid window
             return max(cand, (1-p['rho_d'])*self.kbar), True
-        if precise:                                  # model mismatch (e.g. fast push/edge):
-            return max(k_hat, self.kbar), False      # may raise to the estimate, never lower
-        return self.kbar, False                      # too little information: hold
+        if not consistent and p['edge_rule'] == 'raise':
+            # model mismatch: local stiffness is changing inside the window; under-estimation is the
+            # dangerous direction, so raise to the conservative bound (larger when less certain)
+            return max(cand, self.kbar), False
+        if precise:                                  # model mismatch (legacy rule): raise to estimate
+            return max(k_hat, self.kbar), False
+        return self.kbar, False                      # consistent but too little information: hold
 
     def drift_pred(self, o, n):
         """predicted equivalent force drift at the time this command acts."""
@@ -120,10 +127,10 @@ class MotionAware(common.DirectPolicy):
         e = FD-F
         # contact supervision
         if self.mode == 0 and F < .3:
-            self.mode = 1; self.inband = 0
+            self.mode = 1; self.inband = 0; self.x_prev = 0.
         if self.mode == 1:                                   # lost: approach
             if F >= .5:
-                self.mode = 0; self.adm.reset(); self.q_prev = None; self.first_after = True
+                self.mode = 0; self.adm.reset(); self.q_prev = None; self.x_prev = 0.
             else:
                 self._trace(t, 1)
                 return sent+p['v_app']*self.Tc
@@ -134,9 +141,12 @@ class MotionAware(common.DirectPolicy):
         dq = 0.
         if p['feedforward'] and self.mode == 0:
             q = self.drift_pred(o, n)
-            if isinstance(q, tuple):                       # oracle: surface height [m]
+            if isinstance(q, tuple):
+                # displacement-domain drift prediction s [m] (oracle surface, or a motion tracker):
+                # the feed-forward command increment is -Delta s
                 if self.q_prev is not None:
-                    dq = self.kbar*(q[1]-self.q_prev)
+                    k_un0 = self.k_good if np.isfinite(self.k_good) else self.kbar
+                    dq = k_un0*(q[1]-self.q_prev)
                 self.q_prev = q[1]
                 q = None
             if q is not None:

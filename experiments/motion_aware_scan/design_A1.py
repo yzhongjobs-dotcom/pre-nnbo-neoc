@@ -16,7 +16,7 @@ import numpy as np
 Tc, tau_s, fc = 0.008, 0.019, 30.0
 a_s = math.exp(-Tc/tau_s)
 a_f = math.exp(-2*math.pi*fc*Tc)
-KI = 30.0
+KI = 0.0     # with ki > 0 the loop is type 2 and no design passes the circle test (see main)
 SECTOR = (0.5, 2.0)          # design sector [a, b]
 DELTA = 0.07                 # commutation-error allowance on the upper end (rho_d = 0.02)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -132,18 +132,31 @@ def design():
     return best, rows
 
 
+def feasible_set():
+    """the circle-screened design set actually used for tuning (A1_feasible.json)."""
+    a, b = SECTOR
+    kap = np.concatenate([np.linspace(a, 1, 4), np.linspace(1, b*(1+DELTA), 6)])
+    feas = []
+    for M1 in np.logspace(-6, -1, 16):
+        for D1 in np.logspace(-3, 0, 25):
+            for K in (0.0, 0.5, 1.0):
+                if not stable(M1, D1, K, kap):
+                    continue
+                ok, m = circle_ok(M1, D1, K, a, b*(1+DELTA))
+                if ok:
+                    feas.append(dict(M1=float(M1), D1=float(D1), KPF1=float(K), ki=KI, margin=m, bw=1/D1))
+    feas.sort(key=lambda x: -x['bw'])
+    return feas
+
+
 if __name__ == '__main__':
-    best, rows = design()
-    J, M1, D1, KPF1, rms, ng, marg = best
-    # reference: C1 rule prior expressed at unit stiffness
-    c1 = (0.3/2.4e4, 1/80, 2.0)
-    c1_stable = [k for k in np.linspace(0.05, 3, 60) if stable(*c1, [k])]
-    res = dict(M1=M1, D1=D1, KPF1=KPF1, ki=KI, sector=SECTOR, delta=DELTA,
-               nominal_cost=J, step_breath_rms_mm=rms, noise_gain=ng, circle_margin=marg,
-               feasible_points=len(rows),
-               C1_rule_unit=dict(M1=c1[0], D1=c1[1], KPF1=c1[2],
-                                 stable_kappa_max=float(max(c1_stable)) if c1_stable else None),
-               stable_kappa_range_selected=[float(k) for k in (min(k for k in np.linspace(0.02, 6, 300) if stable(M1, D1, KPF1, [k])),
-                                                               max(k for k in np.linspace(0.02, 6, 300) if stable(M1, D1, KPF1, [k])))])
-    json.dump(res, open(os.path.join(HERE, 'A1_design.json'), 'w'), indent=2)
-    print(json.dumps(res, indent=2))
+    # 1) type-2 check: with ki = 30 no design passes the disk test
+    global_ki = KI
+    KI = 30.0
+    n30 = sum(circle_ok(M1, D1, K, SECTOR[0], SECTOR[1]*(1+DELTA))[0]
+              for M1 in np.logspace(-6, -1, 6) for D1 in np.logspace(-3, 0, 8) for K in (0.0, 1.0))
+    KI = global_ki
+    feas = feasible_set()
+    json.dump(feas, open(os.path.join(HERE, 'A1_feasible.json'), 'w'), indent=1)
+    print(json.dumps(dict(n_feasible_ki0=len(feas), n_feasible_ki30_coarse=int(n30),
+                          fastest=feas[:3]), indent=1))
