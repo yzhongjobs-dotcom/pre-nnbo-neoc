@@ -66,7 +66,7 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 
 1. N01–N04 done. Keep claims aligned with their originals (pages in field_state §6).
 2. Integrate verified points from the independent critique of draft §一–四; keep facts traceable to originals/evidence cards.
-3. Present the three sections for user acceptance. Only then implement the §三 method changes in the cobot benchmark and run the §四 validation (three existing tasks, Wijayarathne-type / TASE2018-type / DO-MPAC-type / static-surface-MHE comparators, oracle reference, one ablation section, timing), stating quota before large runs.
+3. Design-stage verdict: all baselines met (methods B3 completed afterwards). Simulation plan is in [methods §10](../research/optimal_impedance_question_and_methods.md#10-仿真验证方案2026-10-30待执行) (S1 estimation mechanism, S2 stiffness span, S3 main task, one ablation, timing; fresh test seeds; ~10–12 scenes per condition). After user go-ahead, implement the §三 method changes in the cobot benchmark and run the §四 validation (three existing tasks, Wijayarathne-type / TASE2018-type / DO-MPAC-type / static-surface-MHE comparators, oracle reference, one ablation section, timing), stating quota before large runs.
 4. Unproven items to keep explicit: variable-gain and recovery-switching stability, exact scaling under viscoelastic/HC nonlinearity and saturation, physical motion recovery (not claimed), real-robot evidence.
 
 ## 5. Where things are
