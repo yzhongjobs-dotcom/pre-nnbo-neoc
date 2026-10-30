@@ -41,12 +41,12 @@ After an independent setup audit (19 findings; fixes listed in paper draft §5.7
 re-run with `scenes_v2.py` families (S2 static span, S3a–c moderate motion, S3d stress test),
 `tune_v2.py` (equal 61-evaluation budget, objective mean log(1+J)), `space_patch.py` (fixed
 comparators), `imm.py`/`variants.py` (Kalman/IMM motion trackers), `select_final.py`
-(pre-declared selection on seeds 80000+: single-model Kalman chosen) and `run_v2.py`.
+(pre-declared selection on seeds 80000+: IMM chosen after the 1 ms alignment fix; the misaligned round had chosen single-model Kalman, archived in results_v2/pre_alignment_fix/) and `run_v2.py`.
 Primary results: `results_v2/confirm/` (seeds 90000+, untouched) and `results_v2/tables.md`
-(`make_tables_v2.py`). `results_v2/test` and `results_v2/replication` are the earlier round with
-the IMM tracker as final method (it destabilised in 2/12 T3 scenes); `results/` and
+(`make_tables_v2.py`). `results_v2/test` and `results_v2/replication` are an earlier round (before the 1 ms
+alignment fix) with the IMM tracker as final method (it destabilised in 2/12 T3 scenes); `results/` and
 `results_replication/` are the pre-audit round. Diagnostics: `diag_phases.py`, `test_imm.py`.
 
 ```
-FINAL=Proposed-KF SPLIT=confirm python -X utf8 run_v2.py && python -X utf8 scaling_check.py && python -X utf8 make_tables_v2.py
+FINAL=Proposed-IMM SPLIT=confirm python -X utf8 run_v2.py && FINAL=Proposed-IMM python -X utf8 scaling_check.py && python -X utf8 make_tables_v2.py
 ```

@@ -6,174 +6,174 @@ Primary cohort: confirmation (seeds 90000+, untouched by tuning, selection and e
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 0.274 ± 0.112 | 0.265 | 0.57 | 6.8 | 0.0000 | 0.00 | 0.140 |
-| Rossi-type | 0/12 | 0.528 ± 0.262 | 0.528 | 1.15 | 8.4 | 0.0009 | 0.02 | 0.302 |
+| Proposed (IMM motion tracker) | 0/12 | 0.113 ± 0.026 | 0.105 | 0.23 | 5.1 | 0.0000 | 0.00 | 0.097 |
+| Rossi-type | 0/12 | 0.522 ± 0.263 | 0.522 | 1.15 | 8.2 | 0.0009 | 0.02 | 0.295 |
 | Wijayarathne-type proxy (privileged k) | 0/12 | 0.181 ± 0.067 | 0.181 | 0.41 | 5.2 | 0.0000 | 0.00 | 0.059 |
 | DO-MPAC | 0/12 | 0.704 ± 0.477 | 0.704 | 1.66 | 11.5 | 0.0076 | 0.11 | 0.155 |
-| Rossi est. + DO-MPAC | 0/12 | 1.228 ± 0.839 | 1.228 | 2.42 | 17.5 | 0.0293 | 0.34 | 0.422 |
-| Reference (true k, true future surface) | 0/12 | 0.767 ± 0.299 | 0.767 | 1.85 | 8.7 | 0.0000 | 0.00 | 0.018 |
-| Fixed A1 at k=1109 N/m | 0/12 | 6.608 ± 3.598 | 6.607 | 15.94 | 79.1 | 0.0864 | 0.02 | 6.312 |
-| Fixed A1 at k=28083 N/m | 0/12 | 3.145 ± 0.717 | 3.145 | 7.82 | 19.0 | 0.0190 | 0.26 | 0.036 |
+| Rossi est. + DO-MPAC | 0/12 | 1.218 ± 0.829 | 1.218 | 2.38 | 17.3 | 0.0276 | 0.34 | 0.422 |
+| Reference (true k, true future surface) | 0/12 | 0.577 ± 0.227 | 0.577 | 1.34 | 7.4 | 0.0000 | 0.00 | 0.017 |
+| Fixed A1 at k=1109 N/m | 0/12 | 6.323 ± 3.811 | 6.323 | 14.88 | 85.9 | 0.0952 | 0.03 | 6.246 |
+| Fixed A1 at k=28083 N/m | 0/12 | 2.535 ± 0.615 | 2.535 | 6.20 | 16.2 | 0.0166 | 0.22 | 0.031 |
 
 ## S3a spine scan, breathing + moderate pushes (confirmation cohort)
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 0.205 ± 0.085 | 0.195 | 0.42 | 6.9 | 0.0000 | 0.00 | 0.139 |
-| Rossi-type | 0/12 | 1.366 ± 0.550 | 1.366 | 2.81 | 18.8 | 0.0231 | 0.38 | 0.700 |
+| Proposed (IMM motion tracker) | 0/12 | 0.166 ± 0.053 | 0.159 | 0.33 | 9.5 | 0.0000 | 0.00 | 0.142 |
+| Rossi-type | 0/12 | 1.367 ± 0.549 | 1.367 | 2.82 | 18.7 | 0.0227 | 0.37 | 0.701 |
 | Wijayarathne-type proxy (privileged k) | 0/12 | 0.863 ± 0.400 | 0.863 | 1.69 | 10.9 | 0.0084 | 0.14 | 0.229 |
 | DO-MPAC | 0/12 | 2.387 ± 0.650 | 2.387 | 4.56 | 28.0 | 0.0874 | 1.15 | 0.587 |
-| Rossi est. + DO-MPAC | 0/12 | 5.993 ± 10.930 | 5.993 | 13.29 | 271.5 | 0.1945 | 4.19 | 2.517 |
-| Reference (true k, true future surface) | 0/12 | 1.001 ± 0.304 | 1.001 | 1.77 | 7.1 | 0.0000 | 0.00 | 0.024 |
-| Fixed A1 at k=1109 N/m | 0/12 | 11.734 ± 5.697 | 11.734 | 26.38 | 74.4 | 0.2013 | 0.21 | 10.673 |
-| Fixed A1 at k=28083 N/m | 0/12 | 6.227 ± 1.391 | 6.227 | 13.26 | 42.0 | 0.3137 | 1.88 | 0.175 |
+| Rossi est. + DO-MPAC | 1/12 | 2.730 ± 1.289 | 2.730 | 4.60 | 37.7 | 0.1309 | 1.02 | 0.798 |
+| Reference (true k, true future surface) | 0/12 | 0.781 ± 0.240 | 0.781 | 1.35 | 6.4 | 0.0000 | 0.00 | 0.022 |
+| Fixed A1 at k=1109 N/m | 0/12 | 10.793 ± 5.018 | 10.792 | 24.11 | 71.9 | 0.2331 | 1.53 | 10.200 |
+| Fixed A1 at k=28083 N/m | 0/12 | 5.187 ± 1.156 | 5.187 | 10.40 | 38.0 | 0.3038 | 1.91 | 0.160 |
 
 ## S3b soft tissue, moderate pushes (confirmation cohort)
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 0.101 ± 0.006 | 0.064 | 0.19 | 4.3 | 0.0000 | 0.00 | 0.055 |
-| Rossi-type | 0/12 | 0.177 ± 0.072 | 0.177 | 0.38 | 5.0 | 0.0000 | 0.00 | 0.080 |
+| Proposed (IMM motion tracker) | 0/12 | 0.079 ± 0.007 | 0.069 | 0.15 | 4.4 | 0.0000 | 0.00 | 0.064 |
+| Rossi-type | 0/12 | 0.177 ± 0.071 | 0.177 | 0.38 | 5.0 | 0.0000 | 0.00 | 0.081 |
 | Wijayarathne-type proxy (privileged k) | 0/12 | 0.142 ± 0.049 | 0.142 | 0.32 | 4.9 | 0.0000 | 0.00 | 0.053 |
 | DO-MPAC | 0/12 | 1.819 ± 0.749 | 1.819 | 3.53 | 12.6 | 0.0457 | 0.70 | 0.054 |
-| Rossi est. + DO-MPAC | 0/12 | 0.328 ± 0.158 | 0.328 | 0.76 | 5.8 | 0.0000 | 0.00 | 0.082 |
-| Reference (true k, true future surface) | 0/12 | 0.019 ± 0.003 | 0.019 | 0.04 | 4.1 | 0.0000 | 0.00 | 0.013 |
-| Fixed A1 at k=1109 N/m | 0/12 | 0.436 ± 0.128 | 0.436 | 1.00 | 6.1 | 0.0000 | 0.00 | 0.023 |
-| Fixed A1 at k=28083 N/m | 0/12 | 3.467 ± 1.091 | 3.467 | 7.12 | 26.5 | 0.1173 | 0.93 | 0.045 |
+| Rossi est. + DO-MPAC | 0/12 | 0.328 ± 0.158 | 0.328 | 0.76 | 5.8 | 0.0000 | 0.00 | 0.083 |
+| Reference (true k, true future surface) | 0/12 | 0.020 ± 0.003 | 0.020 | 0.04 | 4.1 | 0.0000 | 0.00 | 0.014 |
+| Fixed A1 at k=1109 N/m | 0/12 | 0.341 ± 0.102 | 0.341 | 0.79 | 5.7 | 0.0000 | 0.00 | 0.023 |
+| Fixed A1 at k=28083 N/m | 0/12 | 3.188 ± 0.900 | 3.188 | 6.33 | 23.4 | 0.1152 | 1.09 | 0.043 |
 
 ## S3c stiff tissue, moderate pushes (confirmation cohort)
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 0.576 ± 0.441 | 0.563 | 1.32 | 10.7 | 0.0227 | 0.70 | 0.230 |
-| Rossi-type | 0/12 | 3.296 ± 1.770 | 3.296 | 6.28 | 37.0 | 0.1909 | 3.12 | 0.934 |
+| Proposed (IMM motion tracker) | 0/12 | 0.685 ± 0.549 | 0.681 | 1.53 | 30.8 | 0.0272 | 0.78 | 0.352 |
+| Rossi-type | 0/12 | 3.268 ± 1.896 | 3.268 | 6.30 | 37.1 | 0.1784 | 3.12 | 0.961 |
 | Wijayarathne-type proxy (privileged k) | 0/12 | 2.504 ± 1.054 | 2.504 | 4.96 | 29.9 | 0.0729 | 0.24 | 1.482 |
 | DO-MPAC | 0/12 | 5.677 ± 1.063 | 5.677 | 10.29 | 56.0 | 0.4715 | 0.99 | 3.136 |
-| Rossi est. + DO-MPAC | 5/12 | 8.609 ± 4.622 | 8.609 | 8.70 | 155.3 | 0.4650 | 2.18 | 3.427 |
-| Reference (true k, true future surface) | 0/12 | 0.051 ± 0.019 | 0.051 | 0.11 | 4.3 | 0.0000 | 0.00 | 0.013 |
-| Fixed A1 at k=1109 N/m | 0/12 | 34.288 ± 12.995 | 34.272 | 70.40 | 146.4 | 0.3154 | 1.64 | 29.285 |
-| Fixed A1 at k=28083 N/m | 0/12 | 7.708 ± 1.814 | 7.708 | 16.02 | 52.0 | 0.3148 | 2.52 | 0.385 |
+| Rossi est. + DO-MPAC | 5/12 | 7.650 ± 3.247 | 7.650 | 10.56 | 154.5 | 0.4428 | 1.68 | 2.850 |
+| Reference (true k, true future surface) | 0/12 | 0.052 ± 0.019 | 0.052 | 0.11 | 4.3 | 0.0000 | 0.00 | 0.014 |
+| Fixed A1 at k=1109 N/m | 0/12 | 33.627 ± 13.945 | 33.622 | 72.27 | 154.6 | 0.3647 | 1.31 | 29.480 |
+| Fixed A1 at k=28083 N/m | 0/12 | 6.234 ± 1.445 | 6.234 | 12.54 | 42.0 | 0.3037 | 2.54 | 0.370 |
 
 ## S3d stress test: stiff tissue, fast pushes (confirmation cohort)
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 1.119 ± 0.592 | 1.113 | 2.40 | 32.9 | 0.0481 | 1.26 | 0.750 |
-| Rossi-type | 0/12 | 4.259 ± 1.586 | 4.259 | 5.95 | 57.2 | 0.1841 | 1.75 | 1.977 |
+| Proposed (IMM motion tracker) | 0/12 | 0.950 ± 0.748 | 0.947 | 1.93 | 26.3 | 0.0401 | 1.69 | 0.428 |
+| Rossi-type | 0/12 | 4.344 ± 1.661 | 4.344 | 5.89 | 60.7 | 0.1958 | 1.96 | 1.989 |
 | Wijayarathne-type proxy (privileged k) | 0/12 | 4.430 ± 1.666 | 4.429 | 9.21 | 58.0 | 0.1967 | 0.30 | 4.159 |
 | DO-MPAC | 0/12 | 7.714 ± 2.070 | 7.714 | 11.31 | 113.2 | 0.5772 | 1.56 | 4.339 |
-| Rossi est. + DO-MPAC | 6/12 | 41.913 ± 32.213 | 41.912 | 56.09 | 565.1 | 0.6716 | 3.49 | 20.391 |
-| Reference (true k, true future surface) | 0/12 | 0.070 ± 0.031 | 0.070 | 0.16 | 4.4 | 0.0000 | 0.00 | 0.015 |
-| Fixed A1 at k=1109 N/m | 0/12 | 37.864 ± 10.908 | 37.802 | 77.46 | 214.1 | 0.3223 | 1.47 | 31.351 |
-| Fixed A1 at k=28083 N/m | 0/12 | 8.965 ± 3.059 | 8.965 | 17.25 | 101.3 | 0.3814 | 2.16 | 0.832 |
+| Rossi est. + DO-MPAC | 6/12 | 42.466 ± 32.668 | 42.466 | 61.56 | 602.7 | 0.6690 | 3.58 | 20.708 |
+| Reference (true k, true future surface) | 0/12 | 0.073 ± 0.032 | 0.073 | 0.17 | 4.4 | 0.0000 | 0.00 | 0.016 |
+| Fixed A1 at k=1109 N/m | 0/12 | 35.942 ± 13.026 | 35.937 | 77.09 | 193.4 | 0.3909 | 1.54 | 31.047 |
+| Fixed A1 at k=28083 N/m | 0/12 | 7.390 ± 2.428 | 7.390 | 12.94 | 86.2 | 0.3638 | 2.18 | 0.827 |
 
 ## Paired bootstrap, confirmation cohort
 
 | method − Proposed (RMSE, N) | S2 | T3m | T2m-soft | T2m-stiff | T2f-stiff |
 |---|---:|---:|---:|---:|---:|
-| Rossi-type | +0.254 [+0.139, +0.373] (n=12, Proposed better in 11) | +1.160 [+0.872, +1.449] (n=12, Proposed better in 12) | +0.076 [+0.045, +0.120] (n=12, Proposed better in 12) | +2.720 [+2.010, +3.539] (n=12, Proposed better in 12) | +3.139 [+2.366, +4.053] (n=12, Proposed better in 12) |
-| Wijayarathne-type proxy (privileged k) | -0.093 [-0.151, -0.049] (n=12, Proposed better in 1) | +0.657 [+0.470, +0.856] (n=12, Proposed better in 12) | +0.041 [+0.021, +0.070] (n=12, Proposed better in 10) | +1.929 [+1.386, +2.474] (n=12, Proposed better in 12) | +3.310 [+2.465, +4.259] (n=12, Proposed better in 12) |
-| DO-MPAC | +0.430 [+0.173, +0.685] (n=12, Proposed better in 9) | +2.182 [+1.834, +2.527] (n=12, Proposed better in 12) | +1.718 [+1.312, +2.160] (n=12, Proposed better in 12) | +5.101 [+4.503, +5.630] (n=12, Proposed better in 12) | +6.595 [+5.546, +7.832] (n=12, Proposed better in 12) |
-| Rossi est. + DO-MPAC | +0.954 [+0.538, +1.421] (n=12, Proposed better in 12) | +5.788 [+2.000, +12.636] (n=12, Proposed better in 12) | +0.227 [+0.151, +0.325] (n=12, Proposed better in 12) | +8.236 [+5.277, +11.817] (n=7, Proposed better in 7) | +41.090 [+17.157, +66.461] (n=6, Proposed better in 6) |
-| Reference (true k, true future surface) | +0.493 [+0.355, +0.630] (n=12, Proposed better in 12) | +0.795 [+0.628, +0.942] (n=12, Proposed better in 12) | -0.081 [-0.085, -0.078] (n=12, Proposed better in 0) | -0.525 [-0.781, -0.299] (n=12, Proposed better in 0) | -1.050 [-1.392, -0.725] (n=12, Proposed better in 0) |
-| Fixed A1 at k=1109 N/m | +6.334 [+4.394, +8.432] (n=12, Proposed better in 12) | +11.529 [+8.394, +14.743] (n=12, Proposed better in 12) | +0.335 [+0.272, +0.412] (n=12, Proposed better in 12) | +33.712 [+26.543, +41.096] (n=12, Proposed better in 12) | +36.745 [+30.732, +43.013] (n=12, Proposed better in 12) |
-| Fixed A1 at k=28083 N/m | +2.871 [+2.513, +3.269] (n=12, Proposed better in 12) | +6.022 [+5.217, +6.781] (n=12, Proposed better in 12) | +3.366 [+2.855, +4.066] (n=12, Proposed better in 12) | +7.133 [+6.133, +8.150] (n=12, Proposed better in 12) | +7.845 [+6.285, +9.778] (n=12, Proposed better in 12) |
+| Rossi-type | +0.409 [+0.275, +0.549] (n=12, Proposed better in 12) | +1.201 [+0.909, +1.492] (n=12, Proposed better in 12) | +0.098 [+0.067, +0.140] (n=12, Proposed better in 12) | +2.583 [+1.845, +3.466] (n=12, Proposed better in 12) | +3.395 [+2.603, +4.257] (n=12, Proposed better in 12) |
+| Wijayarathne-type proxy (privileged k) | +0.068 [+0.040, +0.095] (n=12, Proposed better in 11) | +0.697 [+0.504, +0.902] (n=12, Proposed better in 12) | +0.062 [+0.043, +0.091] (n=12, Proposed better in 12) | +1.820 [+1.295, +2.361] (n=12, Proposed better in 12) | +3.480 [+2.562, +4.385] (n=12, Proposed better in 12) |
+| DO-MPAC | +0.591 [+0.324, +0.851] (n=12, Proposed better in 12) | +2.221 [+1.864, +2.569] (n=12, Proposed better in 12) | +1.740 [+1.335, +2.182] (n=12, Proposed better in 12) | +4.992 [+4.414, +5.513] (n=12, Proposed better in 12) | +6.765 [+5.704, +7.975] (n=12, Proposed better in 12) |
+| Rossi est. + DO-MPAC | +1.105 [+0.662, +1.583] (n=12, Proposed better in 12) | +2.574 [+1.815, +3.305] (n=11, Proposed better in 11) | +0.249 [+0.173, +0.346] (n=12, Proposed better in 12) | +7.287 [+5.191, +9.870] (n=7, Proposed better in 7) | +41.858 [+16.981, +67.083] (n=6, Proposed better in 6) |
+| Reference (true k, true future surface) | +0.464 [+0.348, +0.581] (n=12, Proposed better in 12) | +0.615 [+0.488, +0.729] (n=12, Proposed better in 12) | -0.059 [-0.063, -0.056] (n=12, Proposed better in 0) | -0.633 [-0.951, -0.350] (n=12, Proposed better in 0) | -0.877 [-1.325, -0.504] (n=12, Proposed better in 0) |
+| Fixed A1 at k=1109 N/m | +6.211 [+4.246, +8.502] (n=12, Proposed better in 12) | +10.627 [+7.888, +13.418] (n=12, Proposed better in 12) | +0.262 [+0.211, +0.322] (n=12, Proposed better in 12) | +32.942 [+25.302, +40.846] (n=12, Proposed better in 12) | +34.992 [+27.679, +42.577] (n=12, Proposed better in 12) |
+| Fixed A1 at k=28083 N/m | +2.422 [+2.083, +2.773] (n=12, Proposed better in 12) | +5.021 [+4.348, +5.656] (n=12, Proposed better in 12) | +3.109 [+2.675, +3.674] (n=12, Proposed better in 12) | +5.549 [+4.809, +6.299] (n=12, Proposed better in 12) | +6.440 [+5.287, +7.884] (n=12, Proposed better in 12) |
 
 ## Ablation: S3a spine scan, breathing + moderate pushes
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 0.205 ± 0.085 | 0.195 | 0.42 | 6.9 | 0.0000 | 0.00 | 0.139 |
-| window-polynomial feed-forward (earlier version) | 0/12 | 0.495 ± 0.451 | 0.472 | 0.96 | 21.9 | 0.0120 | 1.21 | 0.276 |
-| two-model IMM tracker (bandwidth switching) | 0/12 | 9.541 ± 30.885 | 9.530 | 21.99 | 329.9 | 0.0043 | 0.17 | 1.331 |
-| w/o drift projection | 0/12 | 8.863 ± 4.108 | 8.848 | 20.02 | 101.8 | 0.2776 | 2.73 | 2.798 |
-| w/o conservative stiffness | 0/12 | 0.414 ± 0.538 | 0.394 | 0.57 | 31.8 | 0.0018 | 0.14 | 0.236 |
-| w/o motion feed-forward | 0/12 | 5.869 ± 2.552 | 5.869 | 11.98 | 55.2 | 0.2802 | 1.88 | 0.184 |
-| w/o excitation | 0/12 | 20.223 ± 4.726 | 20.223 | 52.06 | 93.5 | 0.1000 | 1.13 | 0.317 |
+| Proposed (IMM motion tracker) | 0/12 | 0.166 ± 0.053 | 0.159 | 0.33 | 9.5 | 0.0000 | 0.00 | 0.142 |
+| window-polynomial feed-forward (earlier version) | 0/12 | 0.470 ± 0.275 | 0.461 | 0.97 | 11.6 | 0.0044 | 0.38 | 0.274 |
+| single-model Kalman tracker | 0/12 | 0.198 ± 0.050 | 0.155 | 0.37 | 6.1 | 0.0000 | 0.00 | 0.126 |
+| w/o drift projection | 0/12 | 53.767 ± 74.539 | 53.654 | 96.39 | 446.4 | 0.2048 | 2.68 | 3.986 |
+| w/o conservative stiffness | 0/12 | 1.043 ± 1.963 | 1.037 | 1.08 | 64.9 | 0.0466 | 1.55 | 0.442 |
+| w/o motion feed-forward | 0/12 | 4.613 ± 1.606 | 4.613 | 8.58 | 42.4 | 0.2427 | 1.89 | 0.169 |
+| w/o excitation | 0/12 | 22.915 ± 20.538 | 22.915 | 53.46 | 199.6 | 0.1085 | 1.69 | 1.176 |
 
 ## Ablation: S3b soft tissue, moderate pushes
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 0.101 ± 0.006 | 0.064 | 0.19 | 4.3 | 0.0000 | 0.00 | 0.055 |
-| window-polynomial feed-forward (earlier version) | 0/12 | 0.147 ± 0.013 | 0.077 | 0.26 | 4.6 | 0.0000 | 0.00 | 0.060 |
-| two-model IMM tracker (bandwidth switching) | 0/12 | 0.064 ± 0.012 | 0.056 | 0.13 | 4.4 | 0.0000 | 0.00 | 0.042 |
-| w/o drift projection | 0/12 | 0.717 ± 0.337 | 0.665 | 1.64 | 13.8 | 0.0004 | 0.02 | 0.562 |
-| w/o conservative stiffness | 0/12 | 0.117 ± 0.004 | 0.070 | 0.22 | 4.4 | 0.0000 | 0.00 | 0.064 |
-| w/o motion feed-forward | 0/12 | 0.825 ± 0.357 | 0.822 | 1.79 | 8.6 | 0.0093 | 0.78 | 0.024 |
-| w/o excitation | 0/12 | 4.757 ± 1.199 | 4.757 | 10.34 | 33.5 | 0.1134 | 0.92 | 0.121 |
+| Proposed (IMM motion tracker) | 0/12 | 0.079 ± 0.007 | 0.069 | 0.15 | 4.4 | 0.0000 | 0.00 | 0.064 |
+| window-polynomial feed-forward (earlier version) | 0/12 | 0.173 ± 0.015 | 0.135 | 0.34 | 4.8 | 0.0000 | 0.00 | 0.112 |
+| single-model Kalman tracker | 0/12 | 0.153 ± 0.006 | 0.074 | 0.27 | 4.5 | 0.0000 | 0.00 | 0.061 |
+| w/o drift projection | 0/12 | 5.670 ± 6.372 | 5.637 | 9.01 | 32.4 | 0.0049 | 0.05 | 0.848 |
+| w/o conservative stiffness | 0/12 | 0.090 ± 0.005 | 0.077 | 0.17 | 4.3 | 0.0000 | 0.00 | 0.073 |
+| w/o motion feed-forward | 0/12 | 0.685 ± 0.232 | 0.684 | 1.54 | 7.8 | 0.0000 | 0.00 | 0.022 |
+| w/o excitation | 0/12 | 4.688 ± 1.362 | 4.688 | 10.31 | 33.6 | 0.1117 | 0.88 | 0.091 |
 
 ## Ablation: S3c stiff tissue, moderate pushes
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 0.576 ± 0.441 | 0.563 | 1.32 | 10.7 | 0.0227 | 0.70 | 0.230 |
-| window-polynomial feed-forward (earlier version) | 0/12 | 20.573 ± 57.979 | 20.562 | 58.85 | 740.5 | 0.1206 | 2.58 | 2.793 |
-| two-model IMM tracker (bandwidth switching) | 0/12 | 6.168 ± 18.035 | 6.147 | 13.44 | 215.9 | 0.0585 | 1.86 | 0.759 |
-| w/o drift projection | 0/12 | 20.472 ± 25.342 | 20.466 | 39.40 | 668.5 | 0.5005 | 2.34 | 5.535 |
-| w/o conservative stiffness | 0/12 | 1.307 ± 1.078 | 1.298 | 2.30 | 39.5 | 0.0815 | 3.06 | 0.495 |
-| w/o motion feed-forward | 0/12 | 13.194 ± 6.321 | 13.193 | 28.24 | 138.1 | 0.3228 | 2.46 | 0.519 |
-| w/o excitation | 0/12 | 7.879 ± 9.971 | 7.879 | 20.80 | 78.8 | 0.0522 | 0.97 | 0.343 |
+| Proposed (IMM motion tracker) | 0/12 | 0.685 ± 0.549 | 0.681 | 1.53 | 30.8 | 0.0272 | 0.78 | 0.352 |
+| window-polynomial feed-forward (earlier version) | 0/12 | 2.273 ± 1.635 | 2.271 | 3.34 | 72.1 | 0.1070 | 2.62 | 0.900 |
+| single-model Kalman tracker | 0/12 | 0.549 ± 0.367 | 0.537 | 1.35 | 10.2 | 0.0182 | 0.41 | 0.251 |
+| w/o drift projection | 0/12 | 55.373 ± 34.906 | 54.836 | 122.79 | 506.4 | 0.2008 | 1.82 | 6.385 |
+| w/o conservative stiffness | 0/12 | 11.234 ± 33.197 | 11.231 | 30.31 | 444.0 | 0.0809 | 1.27 | 1.677 |
+| w/o motion feed-forward | 0/12 | 8.721 ± 4.208 | 8.721 | 17.45 | 120.6 | 0.3169 | 2.55 | 0.494 |
+| w/o excitation | 0/12 | 8.905 ± 9.666 | 8.905 | 22.73 | 69.5 | 0.0474 | 0.98 | 0.438 |
 
 ## Ablation: S3d stress test: stiff tissue, fast pushes
 
 | Method | fail | RMSE [N] | RMSE w/o excitation line [N] | P95 [N] | worst peak [N] | loss fraction | longest loss [s] | osc RMS [N] |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0/12 | 1.119 ± 0.592 | 1.113 | 2.40 | 32.9 | 0.0481 | 1.26 | 0.750 |
-| window-polynomial feed-forward (earlier version) | 0/12 | 5.525 ± 3.164 | 5.524 | 8.41 | 118.5 | 0.2673 | 2.37 | 2.270 |
-| two-model IMM tracker (bandwidth switching) | 0/12 | 1.380 ± 0.857 | 1.379 | 2.71 | 34.6 | 0.1110 | 1.58 | 0.672 |
-| w/o drift projection | 0/12 | 23.689 ± 29.520 | 23.685 | 49.55 | 708.1 | 0.5931 | 2.64 | 6.521 |
-| w/o conservative stiffness | 0/12 | 4.487 ± 2.715 | 4.484 | 6.00 | 121.3 | 0.2452 | 2.66 | 2.059 |
-| w/o motion feed-forward | 0/12 | 27.328 ± 18.825 | 27.328 | 62.73 | 337.3 | 0.3814 | 2.07 | 1.305 |
-| w/o excitation | 0/12 | 12.873 ± 10.940 | 12.873 | 32.67 | 137.0 | 0.1394 | 1.42 | 1.158 |
+| Proposed (IMM motion tracker) | 0/12 | 0.950 ± 0.748 | 0.947 | 1.93 | 26.3 | 0.0401 | 1.69 | 0.428 |
+| window-polynomial feed-forward (earlier version) | 0/12 | 6.162 ± 2.866 | 6.161 | 7.19 | 105.5 | 0.2546 | 2.29 | 1.980 |
+| single-model Kalman tracker | 0/12 | 1.993 ± 1.679 | 1.988 | 2.90 | 61.6 | 0.1082 | 2.09 | 1.003 |
+| w/o drift projection | 0/12 | 65.930 ± 62.673 | 65.309 | 149.83 | 665.9 | 0.2577 | 1.70 | 6.918 |
+| w/o conservative stiffness | 0/12 | 3.669 ± 1.646 | 3.668 | 4.67 | 67.1 | 0.1978 | 2.74 | 2.095 |
+| w/o motion feed-forward | 0/12 | 15.342 ± 9.091 | 15.342 | 30.64 | 226.4 | 0.3788 | 2.12 | 1.197 |
+| w/o excitation | 0/12 | 9.875 ± 14.069 | 9.875 | 27.90 | 245.8 | 0.1011 | 1.69 | 1.164 |
 
 ## Ablation paired (confirmation)
 
 | method − Proposed (RMSE, N) | S2 | T3m | T2m-soft | T2m-stiff | T2f-stiff |
 |---|---:|---:|---:|---:|---:|
-| window-polynomial feed-forward (earlier version) | — | +0.289 [+0.102, +0.536] (n=12, Proposed better in 11) | +0.046 [+0.042, +0.051] (n=12, Proposed better in 12) | +19.997 [+1.800, +55.228] (n=12, Proposed better in 12) | +4.406 [+2.813, +6.275] (n=12, Proposed better in 12) |
-| two-model IMM tracker (bandwidth switching) | — | +9.336 [-0.004, +27.955] (n=12, Proposed better in 7) | -0.037 [-0.041, -0.032] (n=12, Proposed better in 0) | +5.592 [-0.014, +16.516] (n=12, Proposed better in 5) | +0.261 [-0.039, +0.613] (n=12, Proposed better in 5) |
-| w/o drift projection | — | +8.658 [+6.393, +10.947] (n=12, Proposed better in 12) | +0.616 [+0.464, +0.829] (n=12, Proposed better in 12) | +19.897 [+9.728, +35.789] (n=12, Proposed better in 12) | +22.570 [+10.286, +41.669] (n=12, Proposed better in 12) |
-| w/o conservative stiffness | — | +0.209 [-0.007, +0.500] (n=12, Proposed better in 9) | +0.016 [+0.014, +0.018] (n=12, Proposed better in 12) | +0.732 [+0.228, +1.353] (n=12, Proposed better in 9) | +3.368 [+1.916, +5.014] (n=12, Proposed better in 12) |
-| w/o motion feed-forward | — | +5.663 [+4.325, +7.136] (n=12, Proposed better in 12) | +0.724 [+0.571, +0.952] (n=12, Proposed better in 12) | +12.618 [+9.381, +16.311] (n=12, Proposed better in 12) | +26.209 [+16.603, +37.597] (n=12, Proposed better in 12) |
-| w/o excitation | — | +20.018 [+17.288, +22.604] (n=12, Proposed better in 12) | +4.656 [+3.995, +5.340] (n=12, Proposed better in 12) | +7.303 [+2.196, +13.394] (n=12, Proposed better in 9) | +11.754 [+6.114, +18.035] (n=12, Proposed better in 11) |
+| window-polynomial feed-forward (earlier version) | — | +0.304 [+0.181, +0.446] (n=12, Proposed better in 12) | +0.094 [+0.086, +0.104] (n=12, Proposed better in 12) | +1.588 [+0.807, +2.626] (n=12, Proposed better in 12) | +5.212 [+3.613, +6.988] (n=12, Proposed better in 12) |
+| single-model Kalman tracker | — | +0.031 [+0.016, +0.045] (n=12, Proposed better in 11) | +0.074 [+0.072, +0.076] (n=12, Proposed better in 12) | -0.136 [-0.338, +0.013] (n=12, Proposed better in 5) | +1.043 [+0.299, +1.882] (n=12, Proposed better in 10) |
+| w/o drift projection | — | +53.601 [+21.557, +101.144] (n=12, Proposed better in 12) | +5.590 [+2.347, +9.538] (n=12, Proposed better in 12) | +54.688 [+39.492, +77.247] (n=12, Proposed better in 12) | +64.981 [+37.072, +105.653] (n=12, Proposed better in 12) |
+| w/o conservative stiffness | — | +0.877 [+0.064, +2.139] (n=12, Proposed better in 11) | +0.011 [+0.009, +0.012] (n=12, Proposed better in 12) | +10.549 [+0.190, +30.799] (n=12, Proposed better in 9) | +2.720 [+1.964, +3.594] (n=12, Proposed better in 12) |
+| w/o motion feed-forward | — | +4.447 [+3.550, +5.354] (n=12, Proposed better in 12) | +0.606 [+0.498, +0.752] (n=12, Proposed better in 12) | +8.037 [+6.043, +10.631] (n=12, Proposed better in 12) | +14.393 [+9.746, +20.008] (n=12, Proposed better in 12) |
+| w/o excitation | — | +22.749 [+14.538, +35.887] (n=12, Proposed better in 12) | +4.609 [+3.911, +5.431] (n=12, Proposed better in 12) | +8.220 [+3.234, +13.810] (n=12, Proposed better in 9) | +8.926 [+2.739, +17.609] (n=12, Proposed better in 11) |
 
-## S1 estimation by motion phase (seeds 60000+, data from the final Kalman-tracker controller)
+## S1 estimation by motion phase (seeds 60000+, data from the final IMM-tracker controller)
 
 | tissue | phase | excitation | static-surface k̂/k | Rossi band-pass k̂/k | projection k̂/k | empirical coverage |
 |---|---|---|---|---|---|---:|
-| soft | breathing | on | 0.16 [0.03, 0.80] | 1.00 [0.99, 1.02] | 1.04 [0.85, 1.19] | 1.00 |
-| soft | breathing | off | -0.50 [-93.06, 89.41] | 1.80 [0.21, 3.59] | 358.24 [-244.59, 728.96] | 1.00 |
-| soft | push-hold | on | 1.01 [0.85, 1.15] | 0.99 [0.98, 1.00] | 1.08 [0.90, 1.23] | 1.00 |
-| soft | push-hold | off | 1.74 [0.17, 3.74] | 2.45 [2.01, 2.62] | 306.98 [-60.45, 617.01] | 1.00 |
-| soft | push-ramp | on | 0.04 [-0.01, 1.00] | 0.99 [0.96, 1.03] | 1.07 [0.92, 1.14] | 1.00 |
-| soft | push-ramp | off | -44.60 [-377.45, 211.52] | 4.86 [0.16, 268.74] | 235.67 [-134.37, 600.19] | 1.00 |
-| soft | push-rest | on | 1.02 [0.88, 1.13] | 0.99 [0.97, 1.05] | 1.05 [0.89, 1.17] | 1.00 |
-| soft | push-rest | off | 10.29 [-11.48, 243.90] | 9.32 [8.70, 280.50] | 344.56 [-190.14, 652.65] | 1.00 |
-| soft | static | on | 1.02 [0.90, 1.13] | 1.02 [1.00, 1.04] | 1.04 [0.88, 1.16] | 1.00 |
-| soft | static | off | 176.53 [-32.31, 374.43] | 278.53 [278.51, 278.56] | 388.02 [-72.18, 648.00] | 1.00 |
-| mid | breathing | on | 0.03 [-0.01, 0.27] | 0.84 [0.82, 0.87] | 1.01 [0.84, 1.12] | 1.00 |
-| mid | breathing | off | -0.10 [-14.62, 14.75] | 0.39 [0.06, 0.76] | 43.04 [-42.88, 106.27] | 1.00 |
-| mid | push-hold | on | 0.98 [0.80, 1.08] | 0.41 [0.37, 0.44] | 1.00 [0.83, 1.12] | 0.96 |
-| mid | push-hold | off | 0.83 [0.45, 1.12] | 0.63 [0.45, 0.65] | 1.86 [-4.38, 24.24] | 0.99 |
-| mid | push-ramp | on | 0.01 [-0.06, 0.09] | 0.40 [0.32, 0.89] | 0.97 [0.76, 1.02] | 0.87 |
-| mid | push-ramp | off | -13.74 [-130.05, 26.54] | 0.15 [0.02, 42.35] | -6.24 [-71.48, 102.00] | 0.96 |
-| mid | push-rest | on | 0.97 [0.85, 1.09] | 0.44 [0.35, 1.00] | 1.00 [0.86, 1.13] | 0.99 |
-| mid | push-rest | off | 0.83 [0.50, 46.11] | 0.46 [0.45, 57.57] | 29.49 [-7.23, 105.93] | 0.99 |
-| mid | static | on | 0.97 [0.83, 1.10] | 1.03 [1.02, 1.04] | 1.01 [0.84, 1.15] | 1.00 |
-| mid | static | off | 34.89 [-8.81, 78.70] | 55.31 [55.30, 55.31] | 71.05 [-33.49, 130.70] | 1.00 |
-| stiff | breathing | on | 0.00 [-0.00, 0.02] | 0.08 [0.07, 0.09] | 0.98 [0.87, 1.07] | 0.98 |
-| stiff | breathing | off | 0.00 [-0.01, 0.01] | 0.03 [0.03, 0.06] | 0.98 [0.82, 1.10] | 0.98 |
-| stiff | push-hold | on | 0.97 [0.84, 1.03] | 0.14 [0.11, 0.14] | 0.97 [0.86, 1.05] | 0.88 |
-| stiff | push-hold | off | 0.53 [0.30, 0.85] | 0.30 [0.26, 0.31] | 0.99 [0.83, 1.08] | 0.90 |
-| stiff | push-ramp | on | 0.01 [-0.06, 0.03] | 0.13 [0.08, 0.44] | 0.94 [0.70, 1.02] | 0.55 |
-| stiff | push-ramp | off | 0.01 [-9.09, 0.10] | 0.23 [0.18, 0.37] | 0.95 [0.55, 1.07] | 0.56 |
-| stiff | push-rest | on | 0.95 [0.86, 1.05] | 0.15 [0.14, 1.01] | 0.96 [0.87, 1.07] | 0.96 |
-| stiff | push-rest | off | 0.96 [0.77, 10.71] | 0.21 [0.21, 10.94] | 0.99 [0.79, 19.59] | 0.97 |
-| stiff | static | on | 0.96 [0.85, 1.05] | 0.99 [0.98, 1.01] | 0.97 [0.86, 1.07] | 0.99 |
-| stiff | static | off | 8.24 [-0.43, 17.14] | 11.07 [11.07, 11.07] | 16.17 [-4.42, 27.40] | 1.00 |
+| soft | breathing | on | 0.16 [0.01, 0.74] | 1.02 [1.00, 1.04] | 1.09 [0.85, 1.28] | 0.98 |
+| soft | breathing | off | 0.50 [-43.03, 44.18] | 2.75 [0.25, 4.69] | 302.50 [-151.67, 610.28] | 0.99 |
+| soft | push-hold | on | 1.01 [0.82, 1.20] | 1.03 [1.01, 1.04] | 1.12 [0.91, 1.32] | 1.00 |
+| soft | push-hold | off | 3.67 [0.34, 8.26] | 5.07 [4.25, 5.85] | 526.91 [-82.45, 936.35] | 0.99 |
+| soft | push-ramp | on | 0.04 [-0.01, 0.75] | 1.03 [0.99, 1.09] | 1.08 [0.82, 1.30] | 0.96 |
+| soft | push-ramp | off | -29.69 [-349.30, 191.71] | 6.30 [0.25, 295.77] | 305.52 [-132.38, 706.37] | 1.00 |
+| soft | push-rest | on | 1.04 [0.84, 1.21] | 1.03 [1.00, 1.10] | 1.12 [0.85, 1.36] | 0.98 |
+| soft | push-rest | off | 11.69 [-16.44, 262.72] | 7.46 [6.75, 291.50] | 344.17 [-227.59, 660.79] | 0.99 |
+| soft | static | on | 1.02 [0.86, 1.20] | 1.10 [1.09, 1.12] | 1.11 [0.88, 1.33] | 0.99 |
+| soft | static | off | 145.44 [-51.78, 352.44] | 274.06 [273.98, 274.12] | 344.61 [-232.51, 614.27] | 0.99 |
+| mid | breathing | on | 0.01 [-0.02, 0.10] | 0.36 [0.34, 0.42] | 1.05 [0.89, 1.23] | 0.97 |
+| mid | breathing | off | -0.01 [-16.81, 12.66] | 0.22 [0.04, 0.35] | 38.56 [-26.57, 87.64] | 0.98 |
+| mid | push-hold | on | 1.00 [0.73, 1.09] | 0.40 [0.37, 0.42] | 1.05 [0.84, 1.15] | 0.93 |
+| mid | push-hold | off | 0.78 [0.15, 1.18] | 0.52 [0.38, 0.53] | 15.09 [-1.69, 84.64] | 0.97 |
+| mid | push-ramp | on | 0.01 [-0.01, 0.22] | 0.40 [0.29, 0.90] | 1.02 [0.83, 1.16] | 0.87 |
+| mid | push-ramp | off | -8.85 [-103.71, 21.78] | 0.19 [0.02, 25.88] | 4.26 [-56.21, 56.90] | 0.89 |
+| mid | push-rest | on | 1.02 [0.87, 1.14] | 0.41 [0.31, 1.04] | 1.06 [0.89, 1.23] | 0.97 |
+| mid | push-rest | off | 1.00 [0.23, 39.96] | 0.43 [0.35, 50.85] | 24.40 [-7.18, 86.14] | 0.99 |
+| mid | static | on | 1.01 [0.88, 1.15] | 1.05 [1.03, 1.07] | 1.05 [0.88, 1.21] | 0.98 |
+| mid | static | off | 28.02 [-7.93, 68.55] | 52.69 [52.68, 52.69] | 55.82 [-51.23, 116.80] | 0.98 |
+| stiff | breathing | on | 0.00 [-0.01, 0.04] | 0.09 [0.07, 0.14] | 1.05 [0.91, 1.19] | 0.98 |
+| stiff | breathing | off | 0.00 [-0.01, 0.03] | 0.04 [0.03, 0.12] | 1.09 [0.93, 1.38] | 0.99 |
+| stiff | push-hold | on | 0.98 [0.64, 1.08] | 0.07 [0.06, 0.08] | 1.01 [0.82, 1.14] | 0.88 |
+| stiff | push-hold | off | 0.79 [0.41, 1.00] | 0.10 [0.10, 0.10] | 1.02 [0.83, 1.17] | 0.92 |
+| stiff | push-ramp | on | 0.01 [-0.04, 0.02] | 0.07 [0.05, 0.30] | 1.01 [0.69, 1.13] | 0.72 |
+| stiff | push-ramp | off | 0.01 [-1.61, 0.37] | 0.10 [0.06, 0.72] | 1.03 [0.57, 1.18] | 0.76 |
+| stiff | push-rest | on | 1.01 [0.89, 1.13] | 0.07 [0.06, 1.06] | 1.05 [0.89, 1.21] | 0.96 |
+| stiff | push-rest | off | 1.06 [0.85, 10.16] | 0.08 [0.07, 11.14] | 1.17 [0.87, 17.86] | 0.98 |
+| stiff | static | on | 1.01 [0.89, 1.13] | 1.04 [1.01, 1.07] | 1.05 [0.91, 1.21] | 0.98 |
+| stiff | static | off | 9.65 [0.66, 19.40] | 12.95 [12.95, 12.96] | 17.58 [-1.97, 30.35] | 1.00 |
 
-## S1 independent repetition (seeds 50000+, data from the earlier IMM controller)
+## S1 earlier repetition (seeds 50000+, before the 1 ms alignment fix)
 
 | tissue | phase | excitation | static-surface k̂/k | Rossi band-pass k̂/k | projection k̂/k | empirical coverage |
 |---|---|---|---|---|---|---:|
@@ -212,18 +212,18 @@ Primary cohort: confirmation (seeds 90000+, untouched by tuning, selection and e
 
 | modulus [Pa] | J scaled A1 | J best re-optimised | best (D1 mult, K_PF1) |
 |---:|---:|---:|---|
-| 1.5e+04 | 0.299 | 0.009 | (0.12, 1.5) |
-| 6.0e+04 | 1.265 | 0.025 | (0.12, 1.5) |
-| 2.5e+05 | 15.061 | 0.248 | (0.12, 1.5) |
-| 1.0e+06 | 114.431 | 1.882 | (0.12, 1.5) |
+| 1.5e+04 | 0.174 | 0.020 | (0.25, 1.0) |
+| 6.0e+04 | 0.731 | 0.059 | (0.25, 1.0) |
+| 2.5e+05 | 8.618 | 0.583 | (0.25, 1.0) |
+| 1.0e+06 | 68.076 | 4.425 | (0.25, 1.5) |
 
 ## Computation time (single process)
 
 | method | P50 [ms] | P99 [ms] | worst-scene P99 [ms] | calls > 8 ms |
 |---|---:|---:|---:|---:|
-| Proposed (Kalman motion tracker) | 0.478 | 0.911 | 1.047 | 0.0000 |
-| Rossi-type | 0.044 | 0.109 | 0.122 | 0.0000 |
-| Wijayarathne-type proxy (privileged k) | 0.007 | 0.070 | 0.077 | 0.0000 |
-| DO-MPAC | 0.025 | 0.068 | 0.080 | 0.0000 |
-| Rossi est. + DO-MPAC | 0.067 | 0.167 | 0.181 | 0.0000 |
-| window-polynomial feed-forward (earlier version) | 0.186 | 0.452 | 1.863 | 0.0000 |
+| Proposed (IMM motion tracker) | 0.638 | 1.125 | 1.188 | 0.0000 |
+| Rossi-type | 0.062 | 0.138 | 0.244 | 0.0000 |
+| Wijayarathne-type proxy (privileged k) | 0.008 | 0.074 | 0.103 | 0.0000 |
+| DO-MPAC | 0.035 | 0.102 | 0.121 | 0.0000 |
+| Rossi est. + DO-MPAC | 0.103 | 0.215 | 0.302 | 0.0000 |
+| window-polynomial feed-forward (earlier version) | 0.171 | 0.340 | 0.449 | 0.0000 |

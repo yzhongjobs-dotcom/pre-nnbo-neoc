@@ -43,8 +43,9 @@ class _MatchedDisplacement:
             y = float(o.log[j, 2])
             target = float(o.log[j-self.ndel, 11]) if j >= self.ndel else self.initial
             for _ in range(self.ns):
-                y = target+(y-target)*self.eb
+                # same order as the plant: sample with the current position, then advance the servo
                 self.filtered += self.afc*(y-self.filtered)
+                y = target+(y-target)*self.eb
         self.last = o.n-1
         return self.filtered
 

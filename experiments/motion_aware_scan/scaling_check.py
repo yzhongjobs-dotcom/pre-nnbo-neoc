@@ -32,7 +32,7 @@ def scenes(E):
 
 def _cost(args):
     E, dmul, kpf = args
-    base = RX.tuned('Proposed-KF')       # final method's unit design A1
+    base = RX.tuned(os.environ.get('FINAL', 'Proposed-IMM'))   # final method's unit design A1
     kw = dict(M1=base['M1'], D1=base['D1']*dmul, KPF1=kpf if kpf is not None else base['KPF1'], ki=0.0,
               feedforward=False)
     Js = []

@@ -64,12 +64,14 @@ def _build(log, j0, m, degree, ns, eb, afc, ndel, te, ye, tw):
         yy = log[j, 2]
         tgt = log[j-ndel, 11]
         for mm in range(1, ns+1):
-            yy = tgt+(yy-tgt)*eb
+            # plant order per 1 ms sample: the force is sampled with the current position, then the
+            # servo advances; sample mm-1 therefore sees the position after mm-1 ms of servo motion
             w = afc*a**(ns-mm)
-            tau = (log[j, 0]+mm*1e-3-te)/tw
+            tau = (log[j, 0]+(mm-1)*1e-3-te)/tw
             Y[jj] += w*(yy-ye)
             for d in range(degree+1):
                 X[jj, d] += w*tau**d
+            yy = tgt+(yy-tgt)*eb
         Z[jj] = log[j+1, 5]-a**ns*log[j, 5]
     return X, Y, Z, keep
 
