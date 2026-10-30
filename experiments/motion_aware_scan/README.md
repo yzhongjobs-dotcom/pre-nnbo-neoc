@@ -46,7 +46,7 @@ Primary results: `results_v2/confirm/` (seeds 90000+, not used for tuning or sel
 (`make_tables_v2.py`). `results_v2/test` and `results_v2/replication` are an earlier round (before the 1 ms
 alignment fix) with the IMM tracker as final method (it destabilised in 2/12 T3 scenes); `results/` and
 `results_replication/` are the pre-audit round. Diagnostics: `diag_phases.py`, `test_imm.py`.
-Self-check checks: `ff_loop.py` (frozen-gain analysis of the force-closed motion feed-forward loop -> results_v2/ff_loop.json), `consistency_check.py` (rho_d capped to the A1 screening range, supervisor removed / reduced to the FF gate -> results_v2/consistency.json), `mechanism_checks.py` (comparators with the same supervisor, predictor swap with all else fixed, normalisation removed -> results_v2/mechanism_checks.json).
+Self-check checks: `ff_loop.py` (frozen-gain analysis of the force-closed motion feed-forward loop -> results_v2/ff_loop.json), `consistency_check.py` (rho_d capped to the A1 screening range, supervisor removed / reduced to the FF gate -> results_v2/consistency.json), `mechanism_checks.py` (comparators with the same supervisor, predictor swap with all else fixed, normalisation removed -> results_v2/mechanism_checks.json), `tracker_dilemma.py` (single-bandwidth two-ends test and IMM mode probabilities, quiet vs event segments -> results_v2/tracker_dilemma.json), `tracker_refine.py` (displacement-domain measurement-noise floor, pre-declared adoption rule; not adopted -> results_v2/tracker_refine.json).
 
 ```
 FINAL=Proposed-IMM SPLIT=confirm python -X utf8 run_v2.py && FINAL=Proposed-IMM python -X utf8 scaling_check.py && python -X utf8 make_tables_v2.py

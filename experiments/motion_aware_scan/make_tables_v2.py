@@ -109,6 +109,22 @@ if __name__ == '__main__':
                 M[f+'|'+n]['rmse'], M[f+'|'+n]['peak'], M[f+'|'+n]['minus_final']['mean'], *M[f+'|'+n]['minus_final']['ci'])
                 for f in FAM)+' |')
         out.append('')
+    td = os.path.join(R, 'tracker_dilemma.json')
+    if os.path.exists(td):
+        D = json.load(open(td))['summary']
+        out += ['## Tracker bandwidth dilemma (tracker_dilemma.py; RMSE quiet / event [N], IMM maneuver probability quiet / event)', '',
+                '| tracker | '+' | '.join(FAM)+' |', '|---|'+'---|'*len(FAM)]
+        for n in ('KF-low', 'KF-high', 'KF-tuned', 'IMM'):
+            out.append('| %s | ' % n+' | '.join('%.3f / %.3f' % (D[f+'|'+n]['quiet'], D[f+'|'+n]['ev']) for f in FAM)+' |')
+        out.append('| IMM mode prob. | '+' | '.join('%.2f / %.2f' % (D[f+'|IMM']['mu_quiet'], D[f+'|IMM']['mu_ev']) for f in FAM)+' |')
+        out.append('')
+    tr = os.path.join(R, 'tracker_refine.json')
+    if os.path.exists(tr):
+        Tr = json.load(open(tr))
+        out += ['## Measurement-noise floor refinement (tracker_refine.py, pre-declared rule: adopt only if >5% better on select)', '',
+                'dev mean log(1+J): current %.3f, refined %.3f (best sigma_y = %g m); select: current %.3f, refined %.3f; adopted: %s'
+                % (Tr['dev']['current'], Tr['dev']['refined'], Tr['dev']['params']['r_floor'], Tr['select']['current'],
+                   Tr['select']['refined'], Tr['select']['adopt']), '']
     cc = os.path.join(R, 'consistency.json')
     if os.path.exists(cc):
         Cc = json.load(open(cc))['summary']

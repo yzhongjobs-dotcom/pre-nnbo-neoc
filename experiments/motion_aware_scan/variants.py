@@ -33,18 +33,22 @@ class MotionAwareIMM(proposed.MotionAware):
     name = 'Proposed-IMM'
 
     def __init__(self, q_smooth=1e-5, q_maneuver=0.1, p_stay=.98,
-                 r_scale=4., q_kf=1e-3, single_model=False, gate=False, **kw):
+                 r_scale=4., q_kf=1e-3, single_model=False, gate=False, r_floor=0., **kw):
         values = (q_smooth, q_maneuver, p_stay, r_scale, q_kf)
         if not all(np.isfinite(v) for v in values):
             raise ValueError('tracker parameters must be finite')
         if min(q_smooth, q_maneuver, q_kf) < 0 or r_scale <= 0 or not 0 <= p_stay <= 1:
             raise ValueError('invalid tracker parameters')
+        if not np.isfinite(r_floor) or r_floor < 0:
+            raise ValueError('r_floor must be finite and nonnegative')
         super().__init__(**kw)
         self.single_model = bool(single_model)
+        self.r_floor = float(r_floor)
         self.motion_params = (dict(q_kf=q_kf, r_scale=r_scale) if single_model else
                               dict(q_smooth=q_smooth, q_maneuver=q_maneuver,
                                    p_stay=p_stay, r_scale=r_scale))
         self.params.update(self.motion_params)
+        self.params['r_floor'] = float(r_floor)
         self.gate = bool(gate)
         self.name = ('Proposed-KF' if single_model else 'Proposed-IMM')+('g' if gate else '')
 
@@ -113,6 +117,9 @@ class MotionAwareIMM(proposed.MotionAware):
         # noise is the inherited force-noise scale [N]; r_scale absorbs inversion,
         # encoder approximation and measurement correlations, not modeled exactly here.
         R = (self.params['noise']/kref)**2*self.motion_params['r_scale']
+        # displacement-domain floor [m]: encoder interpolation, the (y-s) dln k term and contact-model error do
+        # not shrink with stiffness, unlike force noise / k (r_floor = 0 reproduces the earlier model)
+        R += self.r_floor**2
         if self.gate and self.fit is not None and np.isfinite(self.fit.get('chi2', np.nan)):
             # consistency gate: when the stiffness window is inconsistent (local stiffness changing
             # inside the window), force changes are not attributable to tissue motion; inflate the

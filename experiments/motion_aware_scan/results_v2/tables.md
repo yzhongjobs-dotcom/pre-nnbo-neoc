@@ -241,6 +241,20 @@ Primary cohort: confirmation (seeds 90000+, not used for tuning or selection; ev
 | RossiType+sup | 0.518 (8) +0.406 [+0.274, +0.543] | 1.948 (62) +1.782 [+1.136, +2.510] | 0.177 (5) +0.098 [+0.067, +0.140] | 3.974 (67) +3.289 [+2.709, +3.807] | 4.619 (76) +3.670 [+3.224, +4.085] |
 | WijType+sup | 0.181 (5) +0.068 [+0.040, +0.095] | 0.977 (10) +0.811 [+0.540, +1.118] | 0.142 (5) +0.062 [+0.043, +0.091] | 2.320 (21) +1.636 [+1.254, +2.042] | 3.217 (40) +2.267 [+1.628, +2.982] |
 
+## Tracker bandwidth dilemma (tracker_dilemma.py; RMSE quiet / event [N], IMM maneuver probability quiet / event)
+
+| tracker | S2 | T3m | T2m-soft | T2m-stiff | T2f-stiff |
+|---|---|---|---|---|---|
+| KF-low | 0.850 / 0.128 | 0.628 / 0.611 | 0.073 / 0.157 | 0.554 / 0.808 | 1.500 / 3.474 |
+| KF-high | 0.117 / 0.167 | 0.149 / 0.205 | 0.086 / 0.093 | 0.733 / 0.549 | 12.484 / 2.522 |
+| KF-tuned | 0.206 / 0.263 | 0.140 / 0.199 | 0.079 / 0.091 | 0.574 / 0.420 | 0.304 / 1.530 |
+| IMM | 0.106 / 0.157 | 0.130 / 0.200 | 0.075 / 0.090 | 0.729 / 0.559 | 0.427 / 1.708 |
+| IMM mode prob. | 0.44 / 0.52 | 0.43 / 0.57 | 0.40 / 0.73 | 0.28 / 0.76 | 0.23 / 0.76 |
+
+## Measurement-noise floor refinement (tracker_refine.py, pre-declared rule: adopt only if >5% better on select)
+
+dev mean log(1+J): current 0.346, refined 0.346 (best sigma_y = 0 m); select: current 0.514, refined 0.514; adopted: False
+
 ## Consistency checks (consistency_check.py; RMSE [N], worst peak)
 
 | variant | S2 | T3m | T2m-soft | T2m-stiff | T2f-stiff |

@@ -6,7 +6,8 @@ so for k_ref = k the measurement does not depend on the probe command and the fe
 (kappa_g - 1), kappa_g = k/k_ref. This script builds the linearised 8 ms platform model of design_A1.py
 (one-period delay, 19 ms servo and 30 Hz force filter at 1 ms sub-steps, unit-stiffness admittance A1 at
 feedback ratio kappa = k/k_bar) plus the exact one-step filter inversion, filter-weighted encoder
-interpolation, a steady-state constant-acceleration Kalman filter (one IMM mode frozen) and the 12 ms + tau_s
+interpolation, a steady-state constant-acceleration Kalman filter (one IMM mode frozen; its gain recomputed at every
+kappa_g with the controller's R = r (sigma/k_ref)^2) and the 12 ms + tau_s
 predictor, and reports the closed-loop spectral radius over (kappa, kappa_g).
 Run: python -X utf8 ff_loop.py -> results_v2/ff_loop.json
 """
@@ -83,13 +84,15 @@ if __name__ == '__main__':
     for k_phys in (1e3, 3e3, 1e4, 3e4, 1e5):
         for mode, q in (('smooth', P['q_smooth']), ('maneuver', P['q_maneuver'])):
             K = kalman_gain(q, k_phys)
+            # the controller sets R = r (sigma/k_ref)^2 with k_ref = k/kappa_g, so the steady-state gain changes along kappa_g
+            Kg = {float(kg): kalman_gain(q, k_phys/kg) for kg in kg_grid}
             for kappa in (0.5, 1.0, 2.0):
-                r = [radius(kappa, kg, K) for kg in kg_grid]
+                r = [radius(kappa, kg, Kg[float(kg)]) for kg in kg_grid]
                 st = [float(kg) for kg, v in zip(kg_grid, r) if v < 1-1e-9]
                 rng = (min(st), max(st)) if st else None
                 # stable interval containing kappa_g = 1
                 lo = hi = None
-                if radius(kappa, 1.0, K) < 1:
+                if r[list(kg_grid).index(1.0)] < 1:
                     i1 = list(kg_grid).index(1.0)
                     j = i1
                     while j > 0 and r[j-1] < 1: j -= 1
