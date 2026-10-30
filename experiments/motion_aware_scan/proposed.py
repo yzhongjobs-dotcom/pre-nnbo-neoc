@@ -54,14 +54,14 @@ class MotionAware(common.DirectPolicy):
     def __init__(self, M1=None, D1=None, KPF1=None, ki=None, a_force=.25, f_exc=20.8,
                  nw=16, degree=3, noise=.04, c=2., rho_d=.02, chi2_max=4., rel_max=.25,
                  feedforward=True, conservative=True, excitation=True, v_app=.006, adaptive_exc=False,
-                 sector_lo=.5, kgood_rule='consistent', edge_rule='legacy', tag=None):
+                 sector_lo=.5, kgood_rule='consistent', edge_rule='legacy', recovery=True, tag=None):
         d = A1 if M1 is None else dict(M1=M1, D1=D1, KPF1=KPF1, ki=ki)
         self.params = dict(M1=d['M1'], D1=d['D1'], KPF1=d['KPF1'], ki=d['ki'] if ki is None else ki,
                            a_force=a_force, f_exc=f_exc, nw=nw, degree=degree, noise=noise, c=c,
                            rho_d=rho_d, chi2_max=chi2_max, rel_max=rel_max, feedforward=feedforward,
                            conservative=conservative, excitation=excitation, v_app=v_app,
                            adaptive_exc=adaptive_exc, sector_lo=sector_lo, kgood_rule=kgood_rule,
-                           edge_rule=edge_rule)
+                           edge_rule=edge_rule, recovery=recovery)
         if tag:
             self.name = tag
 
@@ -126,7 +126,11 @@ class MotionAware(common.DirectPolicy):
         sent = log[n-1, 11]
         e = FD-F
         # contact supervision
-        if self.mode == 0 and F < .3:
+        # recovery: True = full supervisor (approach mode); 'gate' = only switch off the motion
+        # feed-forward and excitation and freeze k_bar while lost (k -> 0 leaves the FF loop's stable
+        # range of k/k_ref, see ff_loop.py); False = none
+        lost = p['recovery'] == 'gate' and F < .3
+        if self.mode == 0 and F < .3 and p['recovery'] is True:
             self.mode = 1; self.inband = 0; self.x_prev = 0.
         if self.mode == 1:                                   # lost: approach
             if F >= .5:
@@ -134,12 +138,13 @@ class MotionAware(common.DirectPolicy):
             else:
                 self._trace(t, 1)
                 return sent+p['v_app']*self.Tc
-        k_bar, _ = self.stiffness(o, n)
-        self.kbar = k_bar
+        if not lost:
+            k_bar, _ = self.stiffness(o, n)
+            self.kbar = k_bar
         du = self.adm.increment(e)
         # drift feed-forward (normal mode only)
         dq = 0.
-        if p['feedforward'] and self.mode == 0:
+        if p['feedforward'] and self.mode == 0 and not lost:
             q = self.drift_pred(o, n)
             if isinstance(q, tuple):
                 # displacement-domain drift prediction s [m] (oracle surface, or a motion tracker):
@@ -167,7 +172,7 @@ class MotionAware(common.DirectPolicy):
             eps = (1-p['sector_lo'])/(2*p['c'])
             want = min(max((self.rel/eps-0.5)/0.5, 0.), 1.) if np.isfinite(self.rel) else 1.
             self.exc_gain += 0.1*(want-self.exc_gain)
-        x = p['a_force']*self.exc_gain*math.sin(2*math.pi*p['f_exc']*(t+self.Tc)) if (p['excitation'] and self.mode == 0) else 0.
+        x = p['a_force']*self.exc_gain*math.sin(2*math.pi*p['f_exc']*(t+self.Tc)) if (p['excitation'] and self.mode == 0 and not lost) else 0.
         dx = x-self.x_prev; self.x_prev = x
         self._trace(t, self.mode)
         # feedback uses the conservative k_bar (stability); the open-loop feed-forward and the
