@@ -76,7 +76,8 @@ def Amat(lkap, lkg, mu, lk):
 
 
 if __name__ == '__main__':
-    grid = dict(lkap=np.log([0.5, 0.7, 1.0, 1.4, 2.0]), lkg=np.log([0.85, 0.92, 1.0, 1.08, 1.15]),
+    # design region (paper property 7): kappa in [0.5, 1.4]; the wider kappa = 2 row is reported separately below
+    grid = dict(lkap=np.log([0.5, 0.7, 1.0, 1.2, 1.4]), lkg=np.log([0.85, 0.92, 1.0, 1.08, 1.15]),
                 mu=np.array([0., .25, .5, .75, 1.]), lk=np.log([1e3, 3e3, 1e4, 3e4, 1e5]))
     pts = [(a, b, c, d) for a in grid['lkap'] for b in grid['lkg'] for c in grid['mu'] for d in grid['lk']]
     As = {pt: Amat(*pt) for pt in pts}
@@ -114,6 +115,11 @@ if __name__ == '__main__':
                unstable=[[float(math.exp(p[0])), float(math.exp(p[1])), float(p[2]), float(math.exp(p[3]))] for p in pts if rho[p] >= 1],
                rho_max=max(rho[pt] for pt in stable), a=a, c1=c1, c2=c2, lipschitz=Lc, budget=budget,
                allowable_rate_per_tick=allow, average_dwell_ticks=Nd)
+    wide = [(math.log(2.0), b_, c_, d_) for b_ in grid['lkg'] for c_ in grid['mu'] for d_ in grid['lk']]
+    out['kappa2_unstable'] = int(sum(np.max(np.abs(np.linalg.eigvals(Amat(*w_)))) >= 1 for w_ in wide))
+    out['kappa2_points'] = len(wide)
+    out['note'] = ('balanced-coordinate slow-variation certificate (scratchpad check) allows ~1e-7 per tick; '
+                   'the raw-coordinate numbers below are not meaningful as rates (state units unbalanced)')
     json.dump(out, open(os.path.join(D.HERE, 'results_v2', 'theory_ltv.json'), 'w'), indent=1, default=float)
     print(json.dumps({k: v for k, v in out.items() if k != 'unstable'}, indent=1, default=float))
     print('unstable grid points (kappa, kappa_g, mu, k):', out['unstable'][:20], '... total', len(out['unstable']))

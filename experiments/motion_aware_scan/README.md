@@ -51,3 +51,11 @@ Self-check checks: `ff_loop.py` (frozen-gain analysis of the force-closed motion
 ```
 FINAL=Proposed-IMM SPLIT=confirm python -X utf8 run_v2.py && FINAL=Proposed-IMM python -X utf8 scaling_check.py && python -X utf8 make_tables_v2.py
 ```
+
+Tail-failure round (2026-10-31): `cohort_eval.py` (50-scene cohorts: diag seeds 110000+ for diagnosis/design, final 130000+
+untouched; configs incl. comparators, ablations, oracles), `diag_stiff.py`, `diag_onset.py`, `diag_kappag.py`, `diag_updates.py`,
+`trace_scene.py` (failure diagnosis), `robustness.py` (controller on the nominal platform, plant mismatched; native-spectrum
+extra noise; OOD scenes), `theory_ltv.py` (frozen IMM linearisation over the design region), `make_tables_cohort.py`
+(-> results_v2/tables_cohort.md, the primary tables). Final method: tuned_v2/Proposed-IMMb.json (Proposed-IMM + meas_bound=1.0
++ enc_y=True). Yuen-type route-3 comparator: comparators.YuenType, tuned_v2/YuenType.json, yuen_smoke.py.
+Archived inputs for the draft: results_v2/diag_updates.json (per-window errors by chi2, earlier version), results_v2/timing_final.json (timing of the final method), results_v2/theory_ltv.json (frozen design-region stability), results_v2/robustness_final.json (means and medians).

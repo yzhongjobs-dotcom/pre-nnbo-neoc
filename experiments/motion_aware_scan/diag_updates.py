@@ -62,6 +62,9 @@ if __name__ == '__main__':
     with Pool(16) as po:
         rows = [r for res in po.map(_ep, sc) for r in res]
     A = np.array(rows, float)
+    json.dump(dict(note='updates of k_good by the earlier version (no acceptance rule, model-reconstructed displacement) on the diag cohort; '
+                   'err = ln(k_hat/k_true); too-low beyond band: err < -0.18 (= -ln 1.2)', columns=['ln_err', 'rel', 'chi2', 'F', 'window_dF', 'inside_ramp', 'since_ramp_end'],
+                   rows=[[float(x) for x in r] for r in rows]), open(os.path.join(H, 'results_v2', 'diag_updates.json'), 'w'))
     e = A[:, 0]; big = e < -0.18                   # gain too low by more than 1/1.2 (dangerous side)
     print('updates %d; |err| q50 %.3f q95 %.3f; fraction too low beyond band %.3f, too high beyond band %.3f'
           % (len(e), np.median(abs(e)), np.percentile(abs(e), 95), big.mean(), (e > 0.29).mean()))
