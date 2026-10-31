@@ -54,7 +54,7 @@ class MotionAware(common.DirectPolicy):
     def __init__(self, M1=None, D1=None, KPF1=None, ki=None, a_force=.25, f_exc=20.8,
                  nw=16, degree=3, noise=.04, c=2., rho_d=.02, chi2_max=4., rel_max=.25,
                  feedforward=True, conservative=True, excitation=True, v_app=.006, adaptive_exc=False,
-                 sector_lo=.5, kgood_rule='consistent', edge_rule='legacy', recovery=True, follow_tau=0., ff_band=None, kg_avg=2., rel_meas=None, kg_gamma=0., gain_noise=False, meas_bound=None, meas_better=False, recontact=False, enc_y=False, oracle_meas=False, oracle_fb=False, tag=None):
+                 sector_lo=.5, kgood_rule='consistent', edge_rule='legacy', recovery=True, follow_tau=0., ff_band=None, kg_avg=2., rel_meas=None, kg_gamma=0., gain_noise=False, meas_bound=None, meas_better=False, recontact=False, enc_y=False, ff_jump=None, oracle_meas=False, oracle_fb=False, tag=None):
         d = A1 if M1 is None else dict(M1=M1, D1=D1, KPF1=KPF1, ki=ki)
         self.params = dict(M1=d['M1'], D1=d['D1'], KPF1=d['KPF1'], ki=d['ki'] if ki is None else ki,
                            a_force=a_force, f_exc=f_exc, nw=nw, degree=degree, noise=noise, c=c,
@@ -62,7 +62,7 @@ class MotionAware(common.DirectPolicy):
                            conservative=conservative, excitation=excitation, v_app=v_app,
                            adaptive_exc=adaptive_exc, sector_lo=sector_lo, kgood_rule=kgood_rule,
                            edge_rule=edge_rule, recovery=recovery, follow_tau=follow_tau, ff_band=ff_band,
-                           kg_avg=kg_avg, rel_meas=rel_meas, kg_gamma=kg_gamma, gain_noise=gain_noise, meas_bound=meas_bound, meas_better=meas_better, recontact=recontact, enc_y=enc_y,
+                           kg_avg=kg_avg, rel_meas=rel_meas, kg_gamma=kg_gamma, gain_noise=gain_noise, meas_bound=meas_bound, meas_better=meas_better, recontact=recontact, enc_y=enc_y, ff_jump=ff_jump,
                            oracle_meas=oracle_meas,
                            oracle_fb=oracle_fb)
         if tag:
@@ -222,6 +222,14 @@ class MotionAware(common.DirectPolicy):
                 if self.q_prev is not None:
                     k_un0 = self.k_good if np.isfinite(self.k_good) else self.kbar
                     dq = k_un0*(q[1]-self.q_prev)
+                    if p['ff_jump'] is not None and np.isfinite(self.k_check) and np.isfinite(self.k_good):
+                        # property 4: a discrepancy beyond x ff_jump between the latest precise estimate and the
+                        # measurement gain cannot come from window noise (rel <= rel_max); it signals a stiffness jump
+                        # (e.g. ridge entry), kappa_g is then certainly outside the stable band, so the feed-forward
+                        # loop is opened until the measurement gain is updated by an accepted window
+                        r = self.k_check/self.k_good
+                        if r > p['ff_jump'] or r < 1./p['ff_jump']:
+                            dq = 0.
                     if p['ff_band'] is not None and np.isfinite(self.k_check) and np.isfinite(self.k_good):
                         # property 4: the feed-forward loop gain scales with g (kappa_g - 1); keep g|kappa_g-1|
                         # inside the stable band [lo, hi] using the latest precise estimate as kappa_g check
