@@ -39,3 +39,8 @@
 ## Ebrahimi et al., "Simultaneous Online Registration-Independent Stiffness Identification and Tip Localization of Surgical Instruments in Robot-Assisted Eye Surgery," T-RO 39(2), 2023, 10.1109/TRO.2022.3201393（HokaNUBl3lAJ）
 - 机制：在线辨识**器械**弯曲刚度（最小二乘/自适应，视觉提供变形），用刚度把 FBG 测得的巩膜力换算成器械变形，作为 Kalman 滤波的针尖位置量测。
 - 与本文：外域可迁移机制（以在线刚度为增益把力换算成位置量测），不作竞争者；它无闭环前馈，不存在本文的增益耦合。只可在方法背景中一句交代。
+
+## 补读（第二轮）
+- Zakeri et al., "AI-Powered Robust Interaction Force Control of a Cardiac Ultrasound Robotic System," IEEE TIE 2025, 10.1109/TIE.2024.3451138：UR5e内置力/力矩；外环CNN（UCF-Net）从超声图像特征决定目标力，内环混合位置/力控制中的自适应滤波准滑模（AFQSMC）；心脏体模上对恒力控制与FQSMC/SMC/PI改善；患者身体刚度/阻尼作为模型不确定量，不在线辨识，也不估计运动（摘要、Sec. II、结论）。路线二近年代表，图像决定期望力。
+- Chen et al., "Ultrasound-Guided Robotic Autonomous Operation Based on Real-Time Deformation Tracking and Prediction," IEEE TII 2025：超声非刚性配准（≤30 ms）跟踪组织/路径形变，遗忘因子RLS预测下一步形变，时变向量场引导手术工具跟随；体外双臂消融实验。不涉及探头接触力控制，与恒力扫描任务不直接相关，不写入研究现状。
+- Li H.-Y. et al., RA-L 2018（10.1109/LRA.2018.2812916）：人–机器人–移动环境三方交互中的变导纳+自适应控制，保证无源（S2摘要）；窗口外、pHRI，最多作路线二一句背景，ARIS要求全文。

@@ -6,6 +6,12 @@
 
 ---
 
+**2026-10-31 · 研究现状改写（第二轮）**
+- 依据：ARIS 29 张卡与 Field Map（覆盖审查 CONTINUE，指出历史锚点、用户来源、真前向引文、标题级排除复筛等未完成）；Claude 精读 Wei、Lei、Xiao、Beber、Zakeri 等；Haninger ICRA2024 经 arXiv 原文核对（局部可观条件存在；MPC 中只在线修正静止点、刚度取离线值；表面不随时间运动）。
+- 决定：按 skill 阶段一重写初稿第一节——三条路线各沿时间线写到 2024–2026 代表作、先写做到什么再写前提与失效机制；新增"最接近的工作与区别"段（观测条件最近 Rossi，机制最近 Wei，力换算运动最近 Moreira 压头与 Yuen，动态恒力强对照 Piedra 与 DO-MPAC）；缺口限定在核读范围。Chen TII2025（手术路径形变跟踪、无接触力控制）不写入；Ebrahimi 只作外域机制记录。
+- 独立审稿（[review](agent_runs/2026-10-31_read2/review_output.md)）后修正：Wei 不属同观测条件（需力矩与动力学）；Beber 含突发运动但由约束兜底；Rossi 滤除的是静止表面几何；"各取一种信息""绕开带宽""尚未解决"等改为有界表述；补入 AuSoScan、Fu、Duan、Yan。保留"近半发散""3.8倍"，注明出处与条件。
+- 推翻条件：第三轮真前向引文或复筛若出现运动中在线辨识刚度并用于前馈的工作，需改写最近邻与缺口。
+
 **2026-10-31 · 人工全文批次筛选**
 - 触发：用户要求先筛选再给下载清单。
 - 决定：用 ARIS `withdraw-admission`（记为用户撤回，理由写入 Controller）撤回 13 篇：低层级综述 3（IEEE Access、Sensors、IJMRCAS；保留 Proc. IEEE 2022、IEEE RBME 2026）；2022 前的通用背景 4（Sariyildiz 2015、Spyrakos 2020/2021、Bogdanovic 2020）；低相关或外域 6（力传感器硬件、ISRM 冗余解析、IJMRCAS 变导纳、专家臂阻抗、EMG 人机协作、声影姿态优化）。批次剩 24 篇，本地已有 7 篇，用户需下载 17 篇；另把 R03、L15、R05、R06 列为可选下载，供覆盖审查核对。

@@ -186,3 +186,21 @@ Selected passages and text paths follow the materials manifest. Library retentio
 | S04 | Known-reference feedforward and control-cycle compensation | [Li TAFAC CEP2026](papers/aris_supplements/S04.pdf) · [evidence](aris_evidence/S04.json) |
 
 The three originals close their download requests. Independent coverage and current remaining requests are in [manual requests](manual_fulltext_requests.md); source retention alone does not certify completeness.
+
+## 2022–2026 related-work update (formal ARIS run `recent-related-work-20261031`)
+
+IDs used in draft §1. Full texts are in `manual_inbox/` (user downloads, title-named) or the ARIS run's `source-materials/`; reading notes in [field state §7](../research/field_state.md) and `project_records/agent_runs/2026-10-31_read1/`.
+
+| ID | Role in §1 | Paper |
+|---|---|---|
+| R03 | Route 1, joint stiffness/force estimation, static environment | Wei et al., Composite Disturbance Filtering for Interaction Force Estimation With Online Environmental Stiffness Exploration, TMECH 2025, 10.1109/TMECH.2024.3443310 |
+| R04 | Route 1, EKF contact parameters + MPC, local observability | Haninger et al., Differentiable Compliant Contact Primitives for Estimation and Model Predictive Control, ICRA 2024, 10.1109/ICRA57147.2024.10611406 (arXiv 2303.17476) |
+| L28 | Route 1, offline viscoelastic map + passive VIC (US) | Beber et al., A Passive Variable Impedance Control Strategy with Viscoelastic Parameters Estimation of Soft Tissues for Safe Ultrasonography, ICRA 2024 (`papers/beber.pdf`) |
+| A01 | Route 1, position-interface online stiffness + contact location (US) | Xiao et al., Optimizing Variable Admittance Control for Remote Ultrasound Scanning Under Uncertain Environment, IEEE Access 2025 |
+| A03 | Route 2, position-interface admittance with ~20 ms servo lag | Wang J. et al., Task Space Compliant Control and Six-Dimensional Force Regulation Toward Automated Robotic Ultrasound Imaging, TASE 2024 |
+| A04 | Route 2, force-only IRL contact actions | Ning et al., Inverse-Reinforcement-Learning-Based Robotic Ultrasound Active Compliance Control in Uncertain Environments, TIE 2024 |
+| R05 | Route 2, image-defined target force + robust sliding-mode force control | Zakeri et al., AI-Powered Robust Interaction Force Control of a Cardiac Ultrasound Robotic System, TIE 2025 |
+| R01 | Route 3, RGB-D event repositioning | Jiang Z. et al., Precise Repositioning of Robotic Ultrasound: Improving Registration-Based Motion Compensation Using Ultrasound Confidence Optimization, TIM 2022 |
+| L15 | Route 3, US-image 6-DOF respiratory motion compensation | Lei et al., Robotic Respiratory Liver Motion Compensation for Stable Ultrasound Imaging of Small Lesions, IEEE Sensors J. 2025 |
+| A02 | Route 3, US-image motion estimation + one-step prediction | Qian et al., Breaking the Latency Barrier: Synergistic Perception and Control for High-Frequency 3D Ultrasound Servoing, ICRA 2026 |
+| A05 | Route 3, RGB-D patient tracking + hierarchical impedance under patient motion | Yan et al., A Unified Interaction Control Framework for Safe Robotic Ultrasound Scanning with Human-Intention-Aware Compliance, IROS 2024 |
