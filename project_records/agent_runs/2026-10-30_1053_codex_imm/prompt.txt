@@ -1,0 +1,15 @@
+任务：实现“交互多模型（IMM）组织运动跟踪器”及其在所提控制器中的变体。只在 D:/pip_env/temp/claude/E--github-project-scan-impedance-update/87afbb68-b141-417b-8521-15bc71118679/scratchpad/codex_imm/ 下新建 imm.py、variants.py、test_imm.py；不要修改仓库文件（我审阅后再拷入 experiments/motion_aware_scan/）。
+
+背景（先读仓库 experiments/motion_aware_scan/proposed.py、common.py、plant 见 experiments/cobot_scan_benchmark/plant.py）：所提方法用窗口投影回归估计刚度 k（这部分不变），并用组织运动漂移做跨延迟前馈。开发集误差分解显示剩余误差主要在推拉斜坡（组织运动在“平稳准周期呼吸”和“突发推拉机动”之间切换），现有前馈是“相邻窗口三次多项式拟合差分＋外推”，滞后和噪声大。拟迁移雷达机动目标跟踪的 IMM（Blom & Bar-Shalom 1988；放疗呼吸肿瘤追踪亦用 IMM/卡尔曼做延迟补偿）来跟踪等效组织位移。
+
+1. imm.py：class IMMTracker
+   - 状态 x=[s, s_dot, s_ddot]（等效组织位移，米）。两个常加速度（或 Singer）模型：M1 平稳（过程噪声谱密度 q_smooth），M2 机动（q_maneuver，远大于 q_smooth）。马尔可夫转移矩阵由 p_stay（两模型相同的停留概率）给出。离散周期 Tc=0.008。量测 z=s+v，方差 R。
+   - 标准 IMM：交互混合 → 各模型 KF 预测/更新 → 模型概率更新 → 合并估计。数值稳定（对称化协方差、概率下限）。
+   - 方法：reset(z0)、update(z) 返回合并状态、predict(L) 返回 (s, s_dot) 在当前时刻往后 L 秒的预测（按各模型 CA 外推后按模型概率合并）、mu 属性为模型概率。
+2. variants.py：def build(name, tuned) 返回策略对象；tuned(m) 返回该方法调好的参数字典（tuned('Proposed') 为所提方法参数）。实现：
+   - class MotionAwareIMM(proposed.MotionAware)：重写 drift_pred(o, n) 返回 (None, s_pred) 位移元组（proposed.step 已支持：前馈指令增量为 −Δs_pred）。量测构造（必须用增量以免刚度更新引起跳变）：每拍用测力滤波的一步逆 F_in[j]=(F[j]−a^ns F[j−1])/(1−a^ns)（a=1−afc，ns=每拍 1 ms 采样数），以及区间平均编码器位置 ybar[j]（可用 log[j,2] 近似），增量 Δz = (F_in[j]−F_in[j−1])/k_ref − (y[j]−y[j−1])，k_ref 用 self.k_good（无效时用 self.kbar），累积 Z += Δz 作为量测喂给 IMM。注意每拍只更新一次（用记录的拍号去重），接触丢失恢复时重置跟踪器。预测提前量 L=(ndel+0.5)·Tc，返回 s_pred = s(t+L) + tau·s_dot(t+L)（tau 为伺服一阶滞后，self.tau）。R 由测力噪声换算：R=(sigma_F/k_ref)^2·κ，可作为参数 r_scale。
+   - 名称：'Proposed-IMM'（双模型）与 'Proposed-KF'（单模型，仅 M1 但 q 可调，作为消融以说明双模型切换的作用）。参数：q_smooth、q_maneuver、p_stay、r_scale（KF 用 q_kf、r_scale），其余参数沿用 tuned('Proposed')。构造时允许传入覆盖参数。
+   - 提供 space(name, r) 给出这些新参数的调参空间（对数均匀；p_stay 0.9–0.999），以及 perturb(name, params, r)。
+3. test_imm.py：合成信号测试：s(t)=呼吸（2–5 mm，0.2–0.33 Hz）＋平滑阶跃推拉（3–8 mm，斜坡 0.15–0.5 s，smoothstep 3a²−2a³）＋白噪声（标准差等效 1–50 μm），Tc=8 ms，提前量 L=12 ms+19 ms。比较三种因果预测的 RMSE（全程、斜坡段、平稳段）：(a) 现方案：最近 N=24 点三次多项式拟合在末端外推 L（含 tau·导数项）；(b) 单模型 KF；(c) IMM。用若干组 q 参数做小网格，报告各自最佳。用 python -X utf8 运行（在仓库 experiments/motion_aware_scan 目录下，sys.path 插入 codex_imm 目录）。另外用 variants.build 在一个 scenarios.make('T2', np.random.default_rng(11), dict(stiff=True, ramp=0.3)) 场景上跑通 'Proposed-IMM'（参数 tuned 读取 experiments/motion_aware_scan/tuned/Proposed.json 的 best.params 即可）确认不发散并打印 RMSE。
+
+最终回复（中文）：实现要点（IMM 方程对应 Blom & Bar-Shalom 的步骤）、合成测试表格、闭环冒烟结果、你认为的风险。

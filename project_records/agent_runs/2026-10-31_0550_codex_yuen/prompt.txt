@@ -1,0 +1,12 @@
+在 E:/github_project/scan-impedance-update/experiments/motion_aware_scan 中实现一个“路线三”对照方法 YuenType，并完成同预算调参与确认集评估。只修改/新增：comparators.py（新增类）、space_patch.py（新增搜索空间）、tune_v2.py（使其能调 YuenType）、run_v2.py（METHODS 可选包含 YuenType，不改变已有方法的行为与结果），以及新增 yuen_smoke.py。不要修改 proposed.py、variants.py、cohort_eval.py、scenes_v2.py、common.py 和 cobot_scan_benchmark/ 下的平台文件。
+
+依据：Yuen et al. T-RO 2010（literature/manual_inbox/Force_tracking_with_feed-forward_motion_estimation_for_beating_heart_surgery.pdf，式(2)(12)–(13)、§V）与 Cao et al. TIM2025（literature/papers/field_supplements/G13.pdf，视觉正弦模型预测下一周期位置作导纳参考，误差超阈值重拟合）。先读这两篇与 comparators.py 中已有对照（RossiType、WijType、DOMPAC）的写法（DirectPolicy、增量指令、只读控制器可得信息）。
+YuenType 设计（位置接口适配，取对其最有利的公平版本，并在类文档中写明）：
+1) 运动量测：特权运动传感器（模拟视觉/超声跟踪），读取场景的真实表面高度 surface(x,t,p)（plant.surface，Oracle 已用 p_scene 的方式），按传感器采样率 f_s（默认30 Hz）采样、延迟 tau_m（默认30 ms）、加高斯噪声 sigma_m（默认0.1 mm）；接触中持续更新（比 Yuen 原文接触后停更更强）。
+2) 运动预测：周期模型——偏置+基频+若干谐波（默认2）的时变傅里叶级数，用 EKF 或递推最小二乘在线估计幅值/相位/频率（参照 Yuen 式(13)），按 (n_del+0.5)Tc + tau_s + tau_m 外推得到预测表面位置；残差超阈值时按 Cao 的做法重新初始化（重拟合）。
+3) 力控制：固定名义刚度 k_h0 的力反馈（PI 或与 Yuen 式(12)等价的导纳形式），指令增量 = 力反馈增量/k_h0 + 预测表面位置增量（前馈）。不估计刚度。可选小幅无关激励不需要。
+4) 可调参数（space_patch 中定义，范围合理且覆盖原文设置）：k_h0、K_P、K_I（或等价导纳参数）、谐波数∈{1,2,3}、EKF过程噪声尺度、重拟合阈值；传感器参数 f_s、tau_m、sigma_m 固定为默认（属于特权条件，不调）。
+5) 用 tune_v2.py 的同预算（默认1+随机40+局部20=61次，目标 mean log(1+min(J,1e3))，开发集 scenes_v2 'dev'）调参，结果写 tuned_v2/YuenType.json。
+6) 用确认集（scenes_v2 'confirm'，与 results_v2/confirm/main.json 同场景、同 sid）评估：写 results_v2/confirm_yuen.json（逐场景 rmse、peak、loss、loss_max、J），并与 confirm/main.json 中 Proposed 配对 bootstrap（方法−Proposed，95%区间），逐族打印。不要覆盖 results_v2/confirm/ 下已有文件。
+7) yuen_smoke.py：在1个呼吸场景（T3m）与1个推拉场景上检查预测误差与力误差，并核对时间对齐（传感器延迟、无未来信息泄漏）。
+完成后在终端最后输出：实现要点、调参最优参数、确认集逐族 RMSE/peak/loss_max 与配对区间、任何你认为对其不公平或对其过于有利之处。中文。

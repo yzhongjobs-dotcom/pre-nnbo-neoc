@@ -1,0 +1,21 @@
+任务：在 E:/github_project/scan-impedance-update/experiments/motion_aware_scan/ 下新建 comparators.py 与 smoke_comparators.py，实现四个对照控制器。只写这两个文件，不改其他文件（若确需改 common.py 或 plant.py，请在最终回复中说明原因而不要改）。
+
+先读：
+- experiments/motion_aware_scan/common.py（DirectPolicy 基类、window_fit、task_metrics；策略每 8 ms 返回绝对位置指令，plant 直接模式会做速度限幅、一周期延迟、19 ms 一阶伺服）。
+- experiments/cobot_scan_benchmark/plant.py（Obs 列：0 t，2 编码器位置 y（越大压入越深），3 真实法向力（仅评估用），5 滤波测力 F，6 真实压入深度 d（仅特权/评估用），8 真实局部刚度 k_eff（仅特权/评估用），11 已发送指令）；scenarios.py（make('T1'|'T2'|'T3', rng) 返回 (p,T)）。
+- 原文：Rossi ICRA2016 文本 D:/pip_env/temp/claude/E--github-project-scan-impedance-update/87afbb68-b141-417b-8521-15bc71118679/scratchpad/txt/N01_rossi2016.txt；DO-MPAC 原文 literature/papers/aris_supplements/S03.pdf（可用 pdftotext 抽取；其证据卡 literature/aris_evidence/S03.json）；Wijayarathne 文本 .../scratchpad/txt/wij2020.txt。
+
+除特权对照外，策略只能读 Obs 的 0、2、5、11 列。目标力 FD=common.FD（4 N）。所有类继承 common.DirectPolicy，实现 reset(platform)（先调用 super().reset）与 step(o)->绝对指令，并在 self.trace 里每拍追加 (t, k_hat 或 k_nominal)。用 o.log[o.n-1,11] 作为上一拍实际发送指令，以增量形式更新指令，避免绕开限幅造成积累误差。每个类有 name 与 params（dict，含所有可调参数及默认值），构造函数接受这些参数作为关键字。
+
+1. RossiType（Rossi 等 ICRA2016 式(5)–(11)，§III-A.2）：
+   - 在指令上叠加正弦激励 x_exc=(a_force/k_hat)·sin(2π f_exc t)，默认 f_exc=20.8 Hz、a_force=0.25 N（与我们的方法相同的力域纹波预算，以示公平）。
+   - 对 F 与 y 在 f_exc 处做二阶带通（离散化于 Tc=8 ms，品质因数 Q 可调），用标量 EWRLS（遗忘因子 lam）拟合 F_bp = k·y_bp 得 k_hat，裁剪到 [common.K_MIN, common.K_MAX]；未收敛前 k_hat=K_MAX（保守）。
+   - 控制：积分力控按估计柔度归一化（式(11) 标量形式）：Δy_cmd=(K_I/k_hat)·(FD−F)·Tc，再加激励增量。无运动前馈（原文没有）。
+   - 可调：K_I（默认取使带宽合理的值，如 30 rad/s，请从原文含义出发说明）、lam、Q、a_force。
+2. WijType（Wijayarathne 与 Hammond ICRA2020 §IV）：原文用专用 20 Hz 探头独立测刚度。仿真中以特权信号模拟：k_meas = k_eff（Obs 列 8）×(1+0.05·N(0,1))，经 RLS（式(14)–(17)，自适应遗忘 λ_k=clip(tanh|innovation|,...) 或等效实现）得 k_hat；PI 力控增益按估计柔度 C=1/k_hat 缩放：Δy_cmd=C·(K_P·Δe+K_I·e·Tc)，e=FD−F。无运动前馈、无机器人激励。在 docstring 中注明这是对其有利的特权设置。
+3. DOMPAC（Shen 等 CEP2027，S03 式(17)–(29)）：固定虚拟导纳 m、b、k=0，按名义刚度 k_h0 构造力误差动力学，三阶 ESO 估计力误差导数与总扰动，补偿后对虚拟控制 u0 做有限时域二次优化，增益离线解析计算（Np 可调，原文 15），在线取首个控制量；执行为导纳位置指令（按原文从 u0 得到位置/速度指令的方式实现，并离散化到 8 ms）。保留原文自由度：m、b、k_h0、ESO 带宽、Q/R、Np。请在 docstring 中逐式标注对应原文式号；原文细节不足之处写明你的实现选择。
+4. RossiDOMPAC（组合基线）：DOMPAC 的名义刚度 k_h0 在线替换为 RossiType 同款激励＋带通 EWRLS 的 k_hat（同样的激励），并相应更新依赖 k_h0 的 ESO/预测增益（可在线重算或按比例缩放，说明选择）。
+
+smoke_comparators.py：对四个类各跑 scenarios.make('T2', np.random.default_rng(11)) 与 make('T3', np.random.default_rng(12)) 一个场景（seed=0），打印 common.task_metrics(log, f_exc) 的 rmse、peak、n_loss、osc_ex、ripple，以及 k_hat 末值与真实 k_eff 末值、每拍计算时间均值。用 python -X utf8 运行并确认不发散；若发散，只做最小的数值稳定性修正（如离散化方式），不要为好看而调参，在最终回复中报告。
+
+最终回复（中文）：四个类的实现要点与原文式号对应、你的实现选择、smoke 结果数字、已知局限。

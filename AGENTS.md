@@ -49,7 +49,12 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
 7. Use Git history for change tracking. Do not create separate change logs,
    cleanup records, language-migration reports or relocation histories.
    Keep scientific reasoning in the relevant research document, experimental
-   report or failure analysis. After checking each completed checkpoint,
+   report or failure analysis. For later review (user request 2026-10-31), also
+   keep two light records: `project_records/decision_log.md` (each key decision:
+   trigger, decision, reasons incl. rejected options, what would overturn it,
+   links; a few lines, newest first) and `project_records/agent_runs/` (raw
+   prompt and final output of every Codex/ARIS run, no process logs). They
+   support review only and must not displace the research documents. After checking each completed checkpoint,
    automatically run `python -X utf8 scripts/research_sync.py --message "research: <specific change and purpose>"`.
    No repeat upload permission is needed. Before starting work, update with
    `git pull --rebase origin main`; the helper also fetches the baseline tag in

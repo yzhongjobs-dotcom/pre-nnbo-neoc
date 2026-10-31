@@ -1,0 +1,12 @@
+任务：修正对照方法的公平性问题（来自独立审计）。只修改 D:/pip_env/temp/claude/E--github-project-scan-impedance-update/87afbb68-b141-417b-8521-15bc71118679/scratchpad/codex_out/ 目录下的 comparators.py（它是 E:/github_project/scan-impedance-update/experiments/motion_aware_scan/comparators.py 的副本），并在同目录新建 space_patch.py（给出各对照的新调参空间函数 space(method, r) 的完整实现，供我替换 tune_equal.py 中对应分支）以及 smoke.py（冒烟测试）。不要改仓库其他文件。
+
+先读：仓库 experiments/motion_aware_scan/common.py（DirectPolicy、window_fit 的 _build：它用编码器位置加伺服一阶插值在 1 ms 子步重建位移，并用与 30 Hz 测力滤波相同的权重滤波）、tune_equal.py、proposed.py；plant 见 experiments/cobot_scan_benchmark/plant.py（每拍 8 ms，测力滤波 30 Hz 在 1 kHz 上执行，记录列 0 t、2 y、5 滤波力、11 已发送指令；列 3/6/8 为真值仅特权可读）。原文：Rossi 文本 D:/pip_env/temp/claude/E--github-project-scan-impedance-update/87afbb68-b141-417b-8521-15bc71118679/scratchpad/txt/N01_rossi2016.txt；DO-MPAC 原文 literature/papers/aris_supplements/S03.pdf；Wijayarathne 文本 .../scratchpad/txt/wij2020.txt。
+
+需修正：
+1. RossiType 与 RossiDOMPAC 的估计器：回归用“已 30 Hz 低通的力”配“未经同样处理的编码器位移”，幅相失配。改为给位移通道施加与测力链路一致的预处理：在每拍用伺服插值在 1 ms 子步重建位移并按测力滤波同样的离散低通（系数 afc=1-exp(-2π·30·1e-3)）滤波，得到与力同处理域的位移，再进入同频带通与 EWRLS（可复用 common 中的思路，但不要调用 window_fit 本身）。激励频率 f_exc 改为可调参数（原文实验为 0.5 Hz 力参考激励，理论为高频位移激励；允许 2–30 Hz 范围），激励方式保留原文式(5)的固定位移幅值 A_E。在 docstring 中注明这是任务适配，并注明与原文实验设置的差异。
+2. DOMPAC 与 RossiDOMPAC：把调参参数化为 Q/R 比（单一参数 q_over_r，R 固定为 1）与预测时域 Np（离散可选 {8, 15, 25, 40}），其余 m、b、k_h0、eso_bandwidth 保留。确认名义闭环（补偿后的双积分器 + 预测增益）在所选范围内稳定，并在 space_patch 里给出合理范围（可先用名义闭环极点筛除明显过慢或不稳定的组合，说明依据）。
+3. WijType：明确命名为“带噪特权刚度 PI 代理”（docstring）；探头刚度测量更新率 probe_hz 改为可调（20–125 Hz），遗忘机制提供两种可选：原适配（tanh 创新）与标准常数遗忘因子 lam（0.8–0.999），由参数 forget_mode 选择。
+4. space_patch.py：给出 RossiType、WijType、DOMPAC、RossiDOMPAC 的新空间（用 tune_equal.py 中的 logu 风格），覆盖上述新增自由度。
+5. smoke.py：对四个类在 scenarios.make('T2', np.random.default_rng(11))（硬或软皆可）与 make('T3', np.random.default_rng(12)) 上用默认参数各跑一次，打印 RMSE、peak、n_loss，并对 RossiType 在“静止均匀组织、无呼吸无推拉”（p[2]=0, p[15]=0）上打印 k_hat/k_eff 的中位数，验证预处理修正后静止条件下估计接近 1。用 python -X utf8 运行（工作目录设为仓库 experiments/motion_aware_scan，可 sys.path 插入 codex_out 目录优先导入新 comparators）。
+
+最终回复（中文）：每处修改与理由、静止条件下 Rossi 估计比值修正前后对比、smoke 数字、仍存在的局限。

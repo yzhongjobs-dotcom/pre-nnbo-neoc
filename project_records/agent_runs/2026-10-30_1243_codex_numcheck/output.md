@@ -1,0 +1,25 @@
+| 原句（位置） | 正确值或证据边界 | 来源 |
+|---|---|---|
+| “静态表面估计与带通估计严重低估”（摘要）；“组织运动时……0%–16%”（§4、§5.2） | 0%–16%仅对应**有激励的呼吸、推拉斜坡阶段**；保持、恢复阶段静态估计约0.98–1.04。软组织带通估计约1.02–1.03，并未严重低估。 | [tables.md·S1](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/results_v2/tables.md:141) |
+| “全部所测条件与阶段中，中位数为1.01–1.12”（§5.2） | 必须限定为**有激励**；无激励时，投影估计中位数最高达526.91。 | 同上 |
+| “得到不受运动影响的局部刚度”（摘要、§4、§5.8、§6） | 仅对子空间内漂移具有条件性代数不变性；不能概括为任意运动下不受影响。硬组织斜坡分位区间为[0.69, 1.13]，覆盖率0.72。 | 同上；[common.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/common.py:79) |
+| “慢变部分正是组织运动带来的力变化，可以直接用来补偿运动”（§4） | 慢变投影还含探头位移贡献；漂移还包含松弛。最终IMM使用逐拍力差扣除位移后的增量量测，并非直接使用慢变投影。 | [common.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/common.py:104)、[variants.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/variants.py:126) |
+| “前馈用无偏的刚度估计”（§3、§4） | 实际是**未加保守裕量的估计**，且先限幅到[200, 300000] N/m；没有无偏性保证，S1中位数也存在正偏。 | [proposed.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/proposed.py:76)、tables.md·S1 |
+| “投影在白化后进行”（§3.2） | 当前代码未实施噪声协方差白化，使用等权回归，并在基矩阵正规方程中加入\(10^{-12}I\)正则；应区分理论投影与实际实现。 | [common.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/common.py:103) |
+| 三分支更新式及“下降每周期不超过\(\rho_d\)”（§3.3） | 缺少初始化与限幅例外：首次精确且一致窗口**直接设为限幅后的候选值**，可突破下降限速；候选值本身也截断至刚度上下限。 | [proposed.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/proposed.py:76) |
+| “本平台约0.05–0.07”（交换误差，§3.3） | 代入最终\(\rho_d=0.0615792\)，原文自己的近似式给出\(\delta=0.20783\)，约**0.21**；不能继续沿用按旧下降率设置的0.07裕量。 | [最终参数](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/tuned_v2/Proposed-IMM.json:13) |
+| “该上侧界的经验覆盖率只有0.72”（§3.3） | 0.72统计的是原始窗口量\(\hat k+c\sigma_k\ge k\)的覆盖率，**不是实际\(\bar k\)或含路径滞后的扇区上界覆盖率**；也不是S3d的统计。 | [run_v2.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/run_v2.py:164) |
+| “\(A_1\)离线最优设计”（§3结构表） | 最终\(A_1\)来自稳定性筛选后的开发集参数搜索，没有证明其为名义问题最优解。 | [最终参数](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/tuned_v2/Proposed-IMM.json:5)、[tune_v2.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/tune_v2.py:109) |
+| “\(s_p(t)=\hat s(t+\tau_d)+\tau_s\dot{\hat s}(t+\tau_d)\)”（§3.5） | 实际预测时域为\((n_{\rm del}+0.5)T_c=\mathbf{12\,ms}\)，再加19 ms速度补偿；不是仅按一周期指令延迟8 ms外推。 | [variants.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/variants.py:132) |
+| 激励“经\(1/\bar k\)换算为位移”（§3.5） | 正常阶段用\(1/k_{\rm good}\)；首次接受估计前用\(1/k_{\rm seek}\)，不是\(1/\bar k\)。 | [proposed.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/proposed.py:170) |
+| “前馈是开环通道，用\(\hat k\)不影响稳定扇区”（§3.8） | 前馈经测力闭合成回路，不能据此断言不影响稳定性；当前也没有该回路的定量稳定保证。“性质4的第二项”同样已不对应当前公式。 | [variants.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/variants.py:100)、[proposed.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/proposed.py:142) |
+| “前馈增量取\(\Delta q=\Delta\hat g_p-\hat k\Delta y_e\)”；“逐拍样本构造漂移的前馈……未采用”（§3.8） | 前式仅对应旧多项式分支。最终IMM确实逐拍累积\(\Delta F^{in}/k_{\rm good}-\Delta\bar y\)，再跟踪预测；需明确“未采用”指哪个直接前馈变体。 | [variants.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/variants.py:126) |
+| “无论组织软硬，力的响应速度与阻尼都保持一致”（§3概览）；“刚度归一化消除了它”（§5.3、§5.8） | 一致性有线性、冻结增益等条件；S2比较的是含估计、前馈、激励等部件的完整系统，不能单独归因于刚度归一化。 | [proposed.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/proposed.py:137)、[run_v2.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/run_v2.py:42) |
+| “最优点在内部”（§5.3） | 仅前三档在内部；最硬一档\(K_{PF,1}=1.5\)正好位于网格上边界。只能称**网格内最优点**。 | [S2_scaling.json](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/results_v2/S2_scaling.json)、[scaling_check.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/scaling_check.py:22) |
+| “胜出数11–12/12（组合基线按成功运行配对）”（§5.4） | 对Rossi、Wijayarathne、DO-MPAC，四族均为**12/12**；组合基线依次为**11/11、12/12、7/7、6/6**。 | [summary.json·paired](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/results_v2/confirm/summary.json) |
+| “失联比例不高于任一对照”（§5.4） | 必须排除真值参考：S3c、S3d所提方法为**0.02717、0.04014**，真值参考均为0。 | 同上，`summary` |
+| “去掉任何一项误差上升数倍至数十倍”（§5.5）；“硬组织上增大十余倍”（§4） | 移除部件后的RMSE比值范围为**1.13–323.42倍**。去保守刚度在软组织仅增加13.4%；中速硬组织为16.41倍，快速硬组织为3.86倍。 | 同上，消融统计 |
+| “S3c上两者相当”；“IMM优于单模型Kalman（一族相当）”（§5.5、§5.8） | S3c只能说**差异未显著，未证明等效**：IMM 0.685、KF 0.549 N；KF−IMM为−0.136 N，区间[−0.338, 0.013]，IMM仅胜5/12。其余三族支持IMM更优。 | 同上，`paired.T2m-stiff.Abl-KF` |
+| “相对全部……都显著更优”（§6等）；“确认集上未再出现失稳”（§5.7） | 前者应限定为**平均RMSE的逐项配对比较**；并非所有指标占优，例如S3c峰值30.77 N高于Wijayarathne代理29.94 N。后者只能确认没有记录到数值或位置发散，不能等同于稳定性证明。 | 同上，`summary`、`paired` |
+| “说明……因果预测仍是剩余瓶颈”；“说明……并不能兼得两条路线的长处”（§5.4） | 当前结果仅支持存在预测改进空间，以及**这个组合实现**表现较差；没有隔离实验确立唯一瓶颈，也不能推广为组合路线的一般结论。 | 同上；[run_v2.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/run_v2.py:42) |
+| “预测误差……0.14–0.57”（§3.5、§5.5）；历史“19条”“0.61→0.97”“4–6%”“2/12”（§5.7） | **指定证据文件中没有对应原始统计，无法据此核实，非判定数值错误。** 当前代码支持1 ms采样顺序修正，但不能单凭代码确认4%–6%的影响幅度。 | 指定结果文件；[common.py](E:/github_project/scan-impedance-update/experiments/motion_aware_scan/common.py:66) |

@@ -4,7 +4,7 @@ Updated 2026-10-30. This file records the current state and what the project doe
 
 ## 1. Start here
 
-- Read this file, then the relevant parts of [long-term requirements](long_term_requirements.md). When entering a research stage, read only the matching file in [research_workflow](research_workflow/). Check [failure review](research_failures_and_corrections.md) before repeating a judgment that failed before.
+- Read this file, then the relevant parts of [long-term requirements](long_term_requirements.md). When entering a research stage, read only the matching file in [research_workflow](research_workflow/). Check [failure review](research_failures_and_corrections.md) before repeating a judgment that failed before. Key decisions and their reasons are in [decision log](decision_log.md); raw Codex/ARIS prompts and outputs in [agent runs](agent_runs/).
 - Standing user preferences:
   - Report concrete numbers, tables and conclusions in the chat, not only file links.
   - State the quota cost before any large run; do not auto-resume large work.
