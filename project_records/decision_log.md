@@ -6,6 +6,12 @@
 
 ---
 
+**2026-10-31 · 研究现状纠偏（第三轮，Claude 独立完成）**
+- 触发：用户指出做偏、文献放置不对，要求对照 skill 自查后再推进。
+- 自查发现：(1) 路线二混入不处理组织运动的工作（Fu、Duan RA-L2022、Ning、Zakeri、Wang TASE），路线一混入离线标定的 AuSoScan，属于为显示"近年覆盖"而罗列（skill"把文献数量当成覆盖度"）；(2) "最接近的工作"点了五六篇，违背"围绕最近的一两篇强工作展开"；(3) 为满足 ARIS 流程完整性要求用户下载 2018 年 pHRI 论文（Li RA-L），偏离研究现状目的，且让用户把文献放到临时 ARIS 目录而非 `literature/manual_inbox/`。
+- 决定：路线二只保留确实处理运动的 F10、心脏 AOB、DOSMAC/DO-MPAC、Yuan、Yao、Piedra、Wu；路线一删 AuSoScan；Wang TASE 只在任务段作伺服滞后依据；最近邻收敛为 Rossi 与 Yuen（及 L05 的力换算做法），Wei、Piedra、DO-MPAC 作近年强工作一句交代；ARIS 中撤回 Li 2018，不再要求下载；此后用户下载一律放 `literature/manual_inbox/`。
+- 覆盖判断：两轮检索（临时检索含 OpenAlex/S2 前向引文；正式 run 31+13 条 Scholar 查询）与两轮核读后不再出现新的直接近邻；ARIS 覆盖审查的 CONTINUE 主要是流程项，不再为此继续扩查。
+
 **2026-10-31 · 研究现状改写（第二轮）**
 - 依据：ARIS 29 张卡与 Field Map（覆盖审查 CONTINUE，指出历史锚点、用户来源、真前向引文、标题级排除复筛等未完成）；Claude 精读 Wei、Lei、Xiao、Beber、Zakeri 等；Haninger ICRA2024 经 arXiv 原文核对（局部可观条件存在；MPC 中只在线修正静止点、刚度取离线值；表面不随时间运动）。
 - 决定：按 skill 阶段一重写初稿第一节——三条路线各沿时间线写到 2024–2026 代表作、先写做到什么再写前提与失效机制；新增"最接近的工作与区别"段（观测条件最近 Rossi，机制最近 Wei，力换算运动最近 Moreira 压头与 Yuen，动态恒力强对照 Piedra 与 DO-MPAC）；缺口限定在核读范围。Chen TII2025（手术路径形变跟踪、无接触力控制）不写入；Ebrahimi 只作外域机制记录。

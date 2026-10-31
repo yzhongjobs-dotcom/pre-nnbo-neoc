@@ -139,7 +139,6 @@ Samples were not selected by relevance to this idea. The ten below had relevant 
 |---|---|
 | R01 | [A DMPs-Based Framework for Robot Learning and Generalization of Humanlike Variable Impedance Skills](papers/reverse_analysis_samples/R01.pdf) · [text](extracted_text/reverse_analysis_samples/R01.txt) |
 | R03 | [Adaptive Parameter Estimation and Control Design for Robot Manipulators With Finite-Time Convergence](papers/reverse_analysis_samples/R03.pdf) · [text](extracted_text/reverse_analysis_samples/R03.txt) |
-| R05 | [Asymmetric Bimanual Control of Dual-Arm Exoskeletons for Human-Cooperative Manipulations](papers/reverse_analysis_samples/R05.pdf) · [text](extracted_text/reverse_analysis_samples/R05.txt) |
 | R11 | [Human-Like Adaptation of Force and Impedance in Stable and Unstable Interactions](papers/reverse_analysis_samples/R11.pdf) · [text](extracted_text/reverse_analysis_samples/R11.txt) |
 | R12 | [Impedance Learning for Human-Guided Robots in Contact With Unknown Environments](papers/field_papers/E28.pdf) · [text](extracted_text/field_papers/E28.txt) |
 | R13 | [Learning a Flexible Neural Energy Function With a Unique Minimum for Globally Stable and Accurate Demonstration Learning](papers/reverse_analysis_samples/R13.pdf) · [text](extracted_text/reverse_analysis_samples/R13.txt) |
@@ -197,9 +196,7 @@ IDs used in draft §1. Full texts are in `manual_inbox/` (user downloads, title-
 | R04 | Route 1, EKF contact parameters + MPC, local observability | Haninger et al., Differentiable Compliant Contact Primitives for Estimation and Model Predictive Control, ICRA 2024, 10.1109/ICRA57147.2024.10611406 (arXiv 2303.17476) |
 | L28 | Route 1, offline viscoelastic map + passive VIC (US) | Beber et al., A Passive Variable Impedance Control Strategy with Viscoelastic Parameters Estimation of Soft Tissues for Safe Ultrasonography, ICRA 2024 (`papers/beber.pdf`) |
 | A01 | Route 1, position-interface online stiffness + contact location (US) | Xiao et al., Optimizing Variable Admittance Control for Remote Ultrasound Scanning Under Uncertain Environment, IEEE Access 2025 |
-| A03 | Route 2, position-interface admittance with ~20 ms servo lag | Wang J. et al., Task Space Compliant Control and Six-Dimensional Force Regulation Toward Automated Robotic Ultrasound Imaging, TASE 2024 |
-| A04 | Route 2, force-only IRL contact actions | Ning et al., Inverse-Reinforcement-Learning-Based Robotic Ultrasound Active Compliance Control in Uncertain Environments, TIE 2024 |
-| R05 | Route 2, image-defined target force + robust sliding-mode force control | Zakeri et al., AI-Powered Robust Interaction Force Control of a Cardiac Ultrasound Robotic System, TIE 2025 |
+| A03 | Task paragraph: UR5e position-interface servo lag ~20 ms | Wang J. et al., Task Space Compliant Control and Six-Dimensional Force Regulation Toward Automated Robotic Ultrasound Imaging, TASE 2024 |
 | R01 | Route 3, RGB-D event repositioning | Jiang Z. et al., Precise Repositioning of Robotic Ultrasound: Improving Registration-Based Motion Compensation Using Ultrasound Confidence Optimization, TIM 2022 |
 | L15 | Route 3, US-image 6-DOF respiratory motion compensation | Lei et al., Robotic Respiratory Liver Motion Compensation for Stable Ultrasound Imaging of Small Lesions, IEEE Sensors J. 2025 |
 | A02 | Route 3, US-image motion estimation + one-step prediction | Qian et al., Breaking the Latency Barrier: Synergistic Perception and Control for High-Frequency 3D Ultrasound Servoing, ICRA 2026 |
