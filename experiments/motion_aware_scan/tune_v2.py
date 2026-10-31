@@ -20,7 +20,10 @@ N_RANDOM, N_LOCAL = 40, 20
 VARIANTS = ('Proposed-IMM', 'Proposed-KF', 'Proposed-IMMg', 'Proposed-KFg')
 
 
-def make(method, params):
+def make(method, params, p_scene=None):
+    if method == 'YuenType':
+        from comparators import YuenType
+        return YuenType(p_scene, **params)
     if method in VARIANTS:
         import variants
         return variants.build(method, dict(params))
@@ -43,6 +46,9 @@ def space(method, r):
 
 
 def perturb(method, params, r):
+    if method == 'YuenType':
+        import space_patch as SP
+        return SP.yuen_perturb(params, r)
     if method in VARIANTS:
         import variants
         base = {k: v for k, v in params.items() if k not in variants.DEFAULTS[method] and k != 'kgood_rule'}
@@ -88,7 +94,7 @@ def clamp(method, q, orig):
 def _eval(args):
     method, params, (fam, sid, p, T) = args
     try:
-        log, _ = common.run(make(method, params), p, T, sid)
+        log, _ = common.run(make(method, params, p), p, T, sid)
         m = common.task_metrics(log, 20.8)
         J = m['J'] if np.isfinite(m['J']) else 1e3
     except Exception as ex:
@@ -103,6 +109,8 @@ def evaluate(method, cands, pool, sc):
         rr = res[i*k:(i+1)*k]
         rows.append(dict(params=c, L=float(np.mean([x['L'] for x in rr])),
                          rmse=float(np.nanmean([x['rmse'] for x in rr]))))
+        if method == 'YuenType':
+            rows[-1]['n_errors'] = sum('err' in x for x in rr)
     return rows
 
 
@@ -121,8 +129,13 @@ def tune(method, pool):
     r2 = np.random.default_rng(888)
     rows += evaluate(method, [perturb(method, base, r2) for _ in range(N_LOCAL)], pool, sc)
     best = min(rows, key=lambda x: x['L'])
-    json.dump(dict(method=method, budget=len(rows), objective='mean log(1+J)', best=best, all=rows),
-              open(os.path.join(OUT, method+'.json'), 'w'), indent=1, default=str)
+    rec = dict(method=method, budget=len(rows), objective='mean log(1+J)', best=best, all=rows)
+    if method == 'YuenType':
+        rec.update(objective='mean log(1+min(J,1e3))', split='dev',
+                   scenes=[dict(family=f, sid=sid, T=T) for f, sid, _, T in sc],
+                   random_seed=777, local_seed=888, sensor=dict(f_s=30., tau_m=.03, sigma_m=.0001, seed=0),
+                   defaults=dict(C.YuenType.params))
+    json.dump(rec, open(os.path.join(OUT, method+'.json'), 'w'), indent=1, default=str)
     return best
 
 

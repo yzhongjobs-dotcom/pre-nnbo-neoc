@@ -35,6 +35,23 @@ HORIZONS = (8, 15, 25, 40)
 Q_OVER_R_BOUNDS = (1e3, 1e8)
 TAU_BOUNDS = (.04, 2.)
 
+# Yuen's 133 N/m nominal tissue stiffness through this task's stiff range.
+# K_P/K_I are position-interface PI gains, not the paper's torque gains.
+# Sensor privilege is fixed in YuenType and never sampled or perturbed.
+YUEN_BOUNDS = dict(k_h0=(100., 5e4), K_P=(0., 1.5), K_I=(2., 120.),
+                   q_scale=(1e-3, 1e3), refit_threshold=(3e-4, 5e-3))
+
+
+def yuen_perturb(params, r):
+    """Bounded stage-2 search; keep the sensor and integer harmonic count fixed/valid."""
+    q = dict(params)
+    for key, (lo, hi) in YUEN_BOUNDS.items():
+        v = q[key]*math.exp(r.normal(0, .3))
+        q[key] = float(np.clip(v, lo, hi))
+    if r.random() < .3:
+        q['harmonics'] = int(r.choice([1, 2, 3]))
+    return q
+
 
 def logu(r, lo, hi):
     return float(math.exp(r.uniform(math.log(lo), math.log(hi))))
@@ -64,6 +81,11 @@ def _mpc_space(r):
 
 def space(method, r):
     """Sample a comparator's task-adapted parameters using numpy Generator r."""
+    if method == 'YuenType':
+        q = {k: (float(r.uniform(lo, hi)) if k == 'K_P' else logu(r, lo, hi))
+             for k, (lo, hi) in YUEN_BOUNDS.items()}
+        q['harmonics'] = int(r.choice([1, 2, 3]))
+        return q
     if method == 'RossiType':
         return dict(K_I=logu(r, 2., 120.), lam=float(r.uniform(.95, .999)),
                     Q=logu(r, 1., 8.), A_E=logu(r, 2e-6, 1e-4),

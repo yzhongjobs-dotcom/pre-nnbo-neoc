@@ -10,6 +10,7 @@ Failures are counted separately; RMSE statistics are conditional on success and 
 retention is reported as loss fraction, longest loss and episode count.
 Env: SPLIT=test|replication (default test); METHOD_SET=v2 (tuned_v2) ; EXTRA=comma list of extra
 proposed variants registered in variants.py.
+Set METHODS=comma-separated method names to select comparators, including YuenType.
 Run: python -X utf8 run_v2.py
 """
 import json, math, os, time
@@ -25,6 +26,8 @@ RES = os.path.join(common.HERE, 'results_v2', SPLIT); os.makedirs(RES, exist_ok=
 TUNED = os.path.join(common.HERE, 'tuned_v2')
 F_EXC = 20.8
 METHODS = ['Proposed', 'RossiType', 'WijType', 'DOMPAC', 'RossiDOMPAC']
+if os.environ.get('METHODS'):
+    METHODS = [x.strip() for x in os.environ['METHODS'].split(',') if x.strip()]
 FINAL = os.environ.get('FINAL', 'Proposed-IMM')      # final method; 'Proposed' below refers to it
 ALT = 'Abl-IMM' if FINAL == 'Proposed-KF' else 'Abl-KF'
 ABL = ['Abl-polyFF', ALT, 'Abl-noProjection', 'Abl-noConservative', 'Abl-noFeedforward', 'Abl-noExcitation']
@@ -41,6 +44,9 @@ def final_params():
 
 def build(name, p_scene=None):
     import proposed as Pm, variants
+    if name == 'YuenType':
+        from comparators import YuenType
+        return YuenType(p_scene, **tuned(name))
     if name == 'Proposed':
         pol = variants.build(FINAL, final_params()); pol.name = 'Proposed'
         return pol

@@ -110,6 +110,14 @@ class MotionAwareIMM(proposed.MotionAware):
             raise ValueError('positive force filter bandwidth is required')
         fin = (F-decay*Fprev)/denom
         kref = self.k_good
+        g = self.params.get('kg_gamma', 0.)
+        if g and np.isfinite(kref) and np.isfinite(getattr(self, 'f_set', np.nan)):
+            # evaluate the measurement stiffness at the current operating point: for a stiffening contact the tangent
+            # stiffness scales as f^gamma (gamma set by the probe-face geometry); a gain identified at another force
+            # would otherwise drift out of the feed-forward band during a force excursion (property 4)
+            kref = kref*(max(F, .3)/self.f_set)**g
+        if self.params.get('oracle_meas') is True:
+            kref = max(float(o.log[j, 8]), 1.)       # diagnosis only: true tangent stiffness
         if not np.isfinite(kref) or kref <= 0:
             kref = self.kbar
         if not np.isfinite(kref) or kref <= 0:
@@ -117,6 +125,11 @@ class MotionAwareIMM(proposed.MotionAware):
         # noise is the inherited force-noise scale [N]; r_scale absorbs inversion,
         # encoder approximation and measurement correlations, not modeled exactly here.
         R = (self.params['noise']/kref)**2*self.motion_params['r_scale']
+        if self.params.get('gain_noise') and self._y_prev is not None and np.isfinite(getattr(self, 'kg_rel', np.nan)):
+            # a relative error delta in the conversion gain enters the increment as delta*(y_j - y_{j-1}) (the probe's
+            # own motion seen through the wrong gain): multiplicative, state-dependent measurement noise; its standard
+            # deviation is the gain's relative uncertainty times the probe increment
+            R += (self.kg_rel*(y-self._y_prev))**2
         # displacement-domain floor [m]: encoder interpolation, the (y-s) dln k term and contact-model error do
         # not shrink with stiffness, unlike force noise / k (r_floor = 0 reproduces the earlier model)
         R += self.r_floor**2
@@ -138,6 +151,8 @@ class MotionAwareIMM(proposed.MotionAware):
         self._fin_prev, self._y_prev = float(fin), y
         L = (self.ndel+0.5)*self.Tc
         s, sd = self.tracker.predict(L)
+        # command-direction velocity of the tracked motion (the feed-forward command is -d eta_p)
+        self.v_cmd_motion = -float(self.tracker.x[1]) if self.tracker.initialized else 0.
         self._motion_prediction = (None, s+self.tau*sd)
         # Before a first accepted stiffness, the base tuple path multiplies dq
         # by kbar but divides the final command by k_seek (different scales).

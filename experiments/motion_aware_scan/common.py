@@ -52,7 +52,7 @@ from numba import njit
 
 
 @njit(cache=True)
-def _build(log, j0, m, degree, ns, eb, afc, ndel, te, ye, tw):
+def _build(log, j0, m, degree, ns, eb, afc, ndel, te, ye, tw, enc):
     a = 1.-afc
     X = np.zeros((m, degree+1)); Y = np.zeros(m); Z = np.zeros(m)
     keep = np.zeros(m, np.bool_)
@@ -63,12 +63,20 @@ def _build(log, j0, m, degree, ns, eb, afc, ndel, te, ye, tw):
         keep[jj] = True
         yy = log[j, 2]
         tgt = log[j-ndel, 11]
+        y1 = log[j+1, 2]
+        ebn = eb**ns
         for mm in range(1, ns+1):
             # plant order per 1 ms sample: the force is sampled with the current position, then the
             # servo advances; sample mm-1 therefore sees the position after mm-1 ms of servo motion
             w = afc*a**(ns-mm)
             tau = (log[j, 0]+(mm-1)*1e-3-te)/tw
-            Y[jj] += w*(yy-ye)
+            if enc:
+                # measured endpoints y_j, y_{j+1}; only the intra-period shape uses the servo time constant, so a
+                # servo-lag or delay mismatch distorts Y far less than propagating the sent command through the model
+                fr = (1.-eb**(mm-1))/(1.-ebn) if ebn < 1. else (mm-1)/ns
+                Y[jj] += w*(log[j, 2]+fr*(y1-log[j, 2])-ye)
+            else:
+                Y[jj] += w*(yy-ye)
             for d in range(degree+1):
                 X[jj, d] += w*tau**d
             yy = tgt+(yy-tgt)*eb
@@ -76,7 +84,7 @@ def _build(log, j0, m, degree, ns, eb, afc, ndel, te, ye, tw):
     return X, Y, Z, keep
 
 
-def window_fit(log, n, nw, degree, noise, ns, eb, afc, ndel):
+def window_fit(log, n, nw, degree, noise, ns, eb, afc, ndel, enc=False):
     """Equation-error contact regression on the last nw control intervals.
 
     z_j = F[j+1]-a^ns F[j] (one-step inverse of the 30 Hz force filter) is regressed on
@@ -94,7 +102,7 @@ def window_fit(log, n, nw, degree, noise, ns, eb, afc, ndel):
         return out
     te, ye = log[n-1, 0], log[n-1, 2]
     tw = nw*ns*1e-3
-    X, Y, Z, keep = _build(log, j0, m, degree, ns, eb, afc, ndel, te, ye, tw)
+    X, Y, Z, keep = _build(log, j0, m, degree, ns, eb, afc, ndel, te, ye, tw, enc)
     X, Y, Z = X[keep], Y[keep], Z[keep]
     valid = int(keep.sum())
     out['valid'] = valid

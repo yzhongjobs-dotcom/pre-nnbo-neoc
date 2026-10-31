@@ -54,22 +54,32 @@ class MotionAware(common.DirectPolicy):
     def __init__(self, M1=None, D1=None, KPF1=None, ki=None, a_force=.25, f_exc=20.8,
                  nw=16, degree=3, noise=.04, c=2., rho_d=.02, chi2_max=4., rel_max=.25,
                  feedforward=True, conservative=True, excitation=True, v_app=.006, adaptive_exc=False,
-                 sector_lo=.5, kgood_rule='consistent', edge_rule='legacy', recovery=True, tag=None):
+                 sector_lo=.5, kgood_rule='consistent', edge_rule='legacy', recovery=True, follow_tau=0., ff_band=None, kg_avg=2., rel_meas=None, kg_gamma=0., gain_noise=False, meas_bound=None, meas_better=False, recontact=False, enc_y=False, oracle_meas=False, oracle_fb=False, tag=None):
         d = A1 if M1 is None else dict(M1=M1, D1=D1, KPF1=KPF1, ki=ki)
         self.params = dict(M1=d['M1'], D1=d['D1'], KPF1=d['KPF1'], ki=d['ki'] if ki is None else ki,
                            a_force=a_force, f_exc=f_exc, nw=nw, degree=degree, noise=noise, c=c,
                            rho_d=rho_d, chi2_max=chi2_max, rel_max=rel_max, feedforward=feedforward,
                            conservative=conservative, excitation=excitation, v_app=v_app,
                            adaptive_exc=adaptive_exc, sector_lo=sector_lo, kgood_rule=kgood_rule,
-                           edge_rule=edge_rule, recovery=recovery)
+                           edge_rule=edge_rule, recovery=recovery, follow_tau=follow_tau, ff_band=ff_band,
+                           kg_avg=kg_avg, rel_meas=rel_meas, kg_gamma=kg_gamma, gain_noise=gain_noise, meas_bound=meas_bound, meas_better=meas_better, recontact=recontact, enc_y=enc_y,
+                           oracle_meas=oracle_meas,
+                           oracle_fb=oracle_fb)
         if tag:
             self.name = tag
 
     # hooks overridden by the oracle
     def stiffness(self, o, n):
         p = self.params
+        if p.get('oracle_fb'):
+            self._stiffness_est(o, n)                  # keep the estimator (and k_good) running
+            return max(float(o.log[n-1, 8]), K_MIN), True   # diagnosis only: true stiffness for feedback
+        return self._stiffness_est(o, n)
+
+    def _stiffness_est(self, o, n):
+        p = self.params
         fit = common.window_fit(o.log, n, p['nw'], p['degree'], p['noise'], self.ns, self.eb,
-                                self.afc, self.ndel)
+                                self.afc, self.ndel, p['enc_y'])
         self.fit = fit
         if not np.isfinite(fit['k']) or fit['info'] <= 0:
             return self.kbar, False
@@ -77,10 +87,39 @@ class MotionAware(common.DirectPolicy):
         sig = 1.0/math.sqrt(fit['info'])            # info = ||Y_perp||^2/noise^2
         self.k_hat = k_hat; self.rel = sig/k_hat
         precise = sig <= p['rel_max']*k_hat
+        if precise:
+            self.k_check = k_hat                     # latest precise estimate, used only as a check
         consistent = fit['chi2'] <= p['chi2_max']
         # unbiased estimate for the open-loop channels (feed-forward/excitation); updated before the
         # feedback-stiffness choice so that every variant (incl. the ablation) shares this logic
-        if precise and (consistent or p['kgood_rule'] == 'precise'):
+        if p['kgood_rule'] == 'filter':
+            if precise and consistent:
+                self._filter_kgood(k_hat, sig/k_hat)
+        elif precise and (consistent or p['kgood_rule'] == 'precise'):
+            # the measurement channel has its own precision requirement (property 4: the feed-forward loop tolerates
+            # only about -17% error in the measurement stiffness), stricter than the feedback gate
+            ok_meas = p['rel_meas'] is None or sig <= p['rel_meas']*k_hat
+            if p['meas_bound'] is not None:
+                # property 1: bias from drift outside the subspace is |dk/k| <= ||r_perp||/(k||Y_perp||); the residual energy
+                # beyond the noise floor (c0 * dof * noise^2) bounds ||r_perp||, so the window's worst-case relative error is
+                # rel*(1 + sqrt(dof*max(0, chi2 - c0))); accept it for the measurement channel only if that stays inside
+                # the feed-forward band (ln 1.2, property 4)
+                dof = max(p['nw']-p['degree']-2, 1)
+                bound = (sig/k_hat)*(1.+math.sqrt(dof*max(0., fit['chi2']-p['meas_bound'])))
+                within = bound <= math.log(1.2)
+                # also accept when even the worst case of the new window is closer than the current gain's discrepancy
+                better = p['meas_better'] and np.isfinite(self.k_good) and bound < abs(math.log(k_hat/self.k_good))
+                ok_meas = ok_meas and (within or better)
+            if ok_meas:
+                self.k_good = k_hat
+                self.f_set = max(float(o.log[n-1, 5]), .3)    # force at which the measurement stiffness was identified
+                self.kg_rel = sig/k_hat                        # relative uncertainty of the measurement gain
+                if p.get('oracle_meas') == 'stale':
+                    self.k_good = max(float(o.log[n-1, 8]), 1.)   # diagnosis only: exact value, estimator timing
+        elif precise and p['kgood_rule'] == 'raise' and np.isfinite(self.k_good) and k_hat > self.k_good:
+            # measurement stiffness: under-estimation destabilises the feed-forward loop (property 4), so a
+            # precise window may raise it even when inconsistent (stiffness rising inside the window); it may
+            # only be lowered on a consistent window -- the same asymmetry as the feedback stiffness
             self.k_good = k_hat
         if not p['conservative']:
             return k_hat, True
@@ -100,6 +139,25 @@ class MotionAware(common.DirectPolicy):
             return max(k_hat, self.kbar), False
         return self.kbar, False                      # consistent but too little information: hold
 
+    def _filter_kgood(self, k_hat, rel):
+        """measurement stiffness to the precision the feed-forward band demands (property 4).
+        Scalar Kalman filter on log k over consistent windows: per-tick estimates come from windows overlapping by
+        N-1 samples, so each counts as 1/N of an independent window (variance rel^2 N); random-walk process noise
+        sets an averaging memory of kg_avg windows; an innovation beyond 3 sigma is a stiffness jump (ridge entry)
+        and resets the filter to the new window. The output is centred in the asymmetric stable band
+        [0.75, 1.2] of kappa_g: k_good = exp(log k) / sqrt(0.75*1.2)."""
+        N = self.params['nw']; z = math.log(k_hat); R = rel*rel*N
+        if not np.isfinite(self._lk):
+            self._lk, self._Pk = z, R
+        else:
+            Pp = self._Pk+R/(self.params['kg_avg']*N)**2
+            S = Pp+R; inn = z-self._lk
+            if inn*inn > 9.*S:
+                self._lk, self._Pk = z, R
+            else:
+                K = Pp/S; self._lk += K*inn; self._Pk = (1-K)*Pp
+        self.k_good = math.exp(self._lk)/math.sqrt(0.75*1.2)
+
     def drift_pred(self, o, n):
         """predicted equivalent force drift at the time this command acts."""
         fit = self.fit
@@ -117,7 +175,7 @@ class MotionAware(common.DirectPolicy):
         self.k_seek = 3e4                              # excitation scale before the first precise window
         self.exc_gain = 1.; self.rel = np.inf
         self.mode = 0; self.inband = 0
-        self.q0 = None; self.q_prev = None; self.x_prev = 0.
+        self.q0 = None; self.q_prev = None; self.x_prev = 0.; self.k_check = np.nan; self.ff_gain = 1.; self._lk = np.nan; self._Pk = np.nan; self.f_set = np.nan; self.kg_rel = np.nan
 
     def step(self, o):
         p = self.params
@@ -130,14 +188,26 @@ class MotionAware(common.DirectPolicy):
         # feed-forward and excitation and freeze k_bar while lost (k -> 0 leaves the FF loop's stable
         # range of k/k_ref, see ff_loop.py); False = none
         lost = p['recovery'] == 'gate' and F < .3
+        if self.mode == 0 and F >= .5:
+            self.y_contact = float(sent)                     # last command issued while in contact
         if self.mode == 0 and F < .3 and p['recovery'] is True:
             self.mode = 1; self.inband = 0; self.x_prev = 0.
+            # surface velocity at loss (command direction), from the motion tracker if present
+            self.v_follow = max(0., float(getattr(self, 'v_cmd_motion', 0.))); self.t_loss = t
         if self.mode == 1:                                   # lost: approach
             if F >= .5:
                 self.mode = 0; self.adm.reset(); self.q_prev = None; self.x_prev = 0.
             else:
                 self._trace(t, 1)
-                return sent+p['v_app']*self.Tc
+                v = p['v_app']
+                yc = getattr(self, 'y_contact', None)
+                if p['recontact'] and yc is not None and sent < yc:
+                    # return at the speed limit to the last command that was in contact, then approach slowly
+                    return min(sent+self.VMAX*self.Tc, yc)+v*self.Tc
+                if p['follow_tau'] > 0:
+                    # keep following the last estimated retraction, decaying, plus the approach speed
+                    v += self.v_follow*math.exp(-(t-self.t_loss)/p['follow_tau'])
+                return sent+min(v, self.VMAX)*self.Tc
         if not lost:
             k_bar, _ = self.stiffness(o, n)
             self.kbar = k_bar
@@ -152,6 +222,12 @@ class MotionAware(common.DirectPolicy):
                 if self.q_prev is not None:
                     k_un0 = self.k_good if np.isfinite(self.k_good) else self.kbar
                     dq = k_un0*(q[1]-self.q_prev)
+                    if p['ff_band'] is not None and np.isfinite(self.k_check) and np.isfinite(self.k_good):
+                        # property 4: the feed-forward loop gain scales with g (kappa_g - 1); keep g|kappa_g-1|
+                        # inside the stable band [lo, hi] using the latest precise estimate as kappa_g check
+                        lo, hi = p['ff_band']; r = self.k_check/self.k_good
+                        g = (hi-1.)/(r-1.) if r > hi else ((1.-lo)/(1.-r) if r < lo else 1.)
+                        self.ff_gain = g; dq *= g
                 self.q_prev = q[1]
                 q = None
             if q is not None:

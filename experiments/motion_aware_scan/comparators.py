@@ -2,6 +2,8 @@
 
 Only WijType reads privileged k_eff. All other observations are columns
 0 (time), 2 (encoder), 5 (filtered force), 11 (actually sent command).
+YuenType additionally reads encoder x (column 1) and a delayed privileged
+surface-position sensor; its class documents this information advantage.
 These are task adaptations, not reproductions of the papers' full robots.
 """
 import math
@@ -384,3 +386,161 @@ class RossiDOMPAC(DOMPAC):
 
     def _excitation(self, t):
         return self.A_E*math.sin(2*math.pi*self.f_exc*t)
+
+
+class YuenType(common.DirectPolicy):
+    """Route-3 privileged motion sensor, adapted to the position interface.
+
+    Yuen T-RO2010 (2),(12),(13), V supplies Fourier EKF and motion FF;
+    Cao TIM2025 (8)-(11) supplies residual-triggered refitting. This is a
+    task adaptation, not reproduction of the torque-controlled MCI. Here
+    velocity/acceleration FF becomes predicted-position increments and PI:
+      dy=(K_P*Delta e+K_I*e*Tc)/k_h0-Delta h_pred, e=FD-F.
+    Minus height is necessary because penetration=y+surface_height.
+    K_P is dimensionless, K_I is s^-1, k_h0 is N/m. They are not Yuen's
+    torque gains Kf,Kv; no exact gain equivalence is claimed. The space
+    includes his nominal ke=133 N/m and task-appropriate feedback scales.
+
+    Favorable assumptions: undeformed local surface is visible throughout
+    contact (Yuen stops updating), exact registration/latency, no occlusion
+    or contact deformation. p_scene is copied and used ONLY by the sensor's
+    surface() call; no stiffness, derivative, frequency or future truth is
+    read. Fixed sensor: 30 Hz, 30 ms, 0.1 mm Gaussian noise; seed 0 gives
+    common noise realizations across candidates. Acquisition k/fs is used
+    only after k/fs+tau_m<=current tick. Acquisition x is interpolated from
+    the available encoder prefix (not a future robot path).
+
+    EKF state [offset,a1,b1,...,am,bm,omega] uses rotating harmonic pairs,
+    equivalent to (13)'s amplitude/phase form. Internal positions are mm.
+    Q=q_scale*diag([.05 mm]^2,...,[.04 rad/s]^2)*dt, R=(.1 mm)^2;
+    random walks allow amplitude/phase/frequency changes. Frequency bounds
+    .1-2 Hz cover respiration to heart; .3 Hz is a fixed initial prior.
+    After 2 s, causal least-squares frequency-grid initialization uses up
+    to 5 s of arrived samples. Innovations above refit_threshold [m] reset
+    the EKF. Grid refits are spaced >=.5 s; intervening resets reanchor the
+    offset to the arrived measurement (Cao's measured-position fallback).
+    No pre-episode data or scene-truth initialization is supplied.
+
+    Target=t+(ndel+.5)*Tc+tau_a. From the latest acquisition stamp the
+    horizon is (ndel+.5)*Tc+tau_a+tau_m plus sample/tick age. Latency is
+    compensated once. Successive predictions include EKF corrections;
+    the first establishes an offset without a command jump. Incremental
+    PI starts from actually sent command, avoiding hidden position windup.
+    No stiffness adaptation, extra excitation or contact supervisor.
+    """
+    name = 'YuenType'
+    params = dict(k_h0=1500., K_P=.2, K_I=30., harmonics=2,
+                  q_scale=1., refit_threshold=1e-3)
+    f_s, tau_m, sigma_m = 30., .030, .0001
+
+    def __init__(self, p_scene=None, *, k_h0=1500., K_P=.2, K_I=30.,
+                 harmonics=2, q_scale=1., refit_threshold=1e-3):
+        _positive(k_h0=k_h0, K_I=K_I, q_scale=q_scale, refit_threshold=refit_threshold)
+        if not np.isfinite(K_P) or K_P < 0:
+            raise ValueError('K_P must be finite and nonnegative')
+        if isinstance(harmonics, bool) or harmonics not in (1, 2, 3):
+            raise ValueError('harmonics must be one of {1,2,3}')
+        self.params = dict(k_h0=k_h0, K_P=K_P, K_I=K_I, harmonics=int(harmonics),
+                           q_scale=q_scale, refit_threshold=refit_threshold)
+        self.__dict__.update(self.params)
+        self.p_scene = None if p_scene is None else np.array(p_scene, float, copy=True)
+
+    def reset(self, platform):
+        super().reset(platform)
+        if self.p_scene is None:
+            raise ValueError('YuenType requires p_scene for its simulated motion sensor')
+        self.rng = np.random.default_rng(0)
+        self.sample_index = 0; self.sensor_trace = []
+        self.state = None; self.sample_t = None
+        self.e_prev = self.pred_prev = None
+        self.last_grid = -np.inf; self.initial_fit = False; self.refits = 0
+        self.innovation = np.nan
+        d = 2*self.harmonics+2
+        self.H = np.zeros(d); self.H[0] = 1.; self.H[1:-1:2] = 1.
+        self.Qdiag = np.full(d, .05**2); self.Qdiag[-1] = .04**2
+        self.R = (self.sigma_m*1000)**2
+
+    def _covariance(self):
+        diag = np.full(len(self.H), 5.**2); diag[0] = self.R
+        diag[-1] = (2*math.pi*.3)**2
+        return np.diag(diag)
+
+    def _transition(self, dt):
+        z = self.state.copy(); A = np.eye(len(z))
+        for i in range(self.harmonics):
+            j = 1+2*i; angle = (i+1)*z[-1]*dt
+            c, s = math.cos(angle), math.sin(angle)
+            a, b = self.state[j:j+2]
+            z[j:j+2] = [c*a+s*b, -s*a+c*b]
+            A[j:j+2, j:j+2] = [[c, s], [-s, c]]
+            A[j:j+2, -1] = [(i+1)*dt*z[j+1], -(i+1)*dt*z[j]]
+        return z, A
+
+    def _refit(self, ts, measurement):
+        arrived = np.array([(r['sample_t'], r['z']*1000) for r in self.sensor_trace
+                            if r['sample_t'] >= ts-5.])
+        if ts-self.last_grid >= .5 and len(arrived) >= max(20, 4*self.harmonics+4):
+            tt, yy = arrived[:, 0]-ts, arrived[:, 1]; best = None
+            for freq in np.linspace(.1, 2., 48):
+                angles = 2*math.pi*freq*tt[:, None]*np.arange(1, self.harmonics+1)
+                X = np.column_stack((np.ones(len(tt)), np.cos(angles), np.sin(angles)))
+                reg = np.eye(X.shape[1])*.01; reg[0, 0] = 1e-8
+                coef = np.linalg.solve(X.T@X+reg, X.T@yy)
+                score = np.mean((X@coef-yy)**2)+.01*np.sum(coef[1:]**2)/len(tt)
+                if best is None or score < best[0]:
+                    best = score, freq, coef
+            _, freq, coef = best
+            self.state[0], self.state[-1] = coef[0], 2*math.pi*freq
+            self.state[1:-1:2] = coef[1:1+self.harmonics]
+            self.state[2:-1:2] = coef[1+self.harmonics:]
+            self.last_grid = ts
+        self.state[0] += measurement-float(self.H@self.state)
+        self.cov = self._covariance(); self.refits += 1
+
+    def _measure(self, ts, z):
+        z *= 1000.
+        if self.state is None:
+            self.state = np.zeros(len(self.H)); self.state[0] = z
+            self.state[-1] = 2*math.pi*.3
+            self.cov = self._covariance(); self.sample_t = ts
+            return
+        dt = ts-self.sample_t
+        self.state, A = self._transition(dt)
+        self.cov = A@self.cov@A.T+np.diag(self.Qdiag*self.q_scale*dt)
+        self.sample_t = ts
+        self.innovation = z-float(self.H@self.state)
+        if abs(self.innovation) > self.refit_threshold*1000 or (ts >= 2. and not self.initial_fit):
+            self._refit(ts, z)
+            if ts >= 2.: self.initial_fit = True
+        else:
+            ph = self.cov@self.H
+            gain = ph/(float(self.H@ph)+self.R)
+            self.state += gain*self.innovation
+            B = np.eye(len(gain))-np.outer(gain, self.H)
+            self.cov = B@self.cov@B.T+self.R*np.outer(gain, gain)
+        self.state[-1] = float(np.clip(self.state[-1], 2*math.pi*.1, 2*math.pi*2.))
+
+    def step(self, o):
+        row = o.log[o.n-1]
+        t, F, sent = (float(row[i]) for i in (0, 5, 11))
+        while self.sample_index/self.f_s+self.tau_m <= t+1e-12:
+            ts = self.sample_index/self.f_s
+            prefix = o.log[:o.n]
+            x = float(np.interp(ts, prefix[:, 0], prefix[:, 1]))
+            z = float(common.P.surface(x, ts, self.p_scene)[0])+self.sigma_m*self.rng.normal()
+            self.sensor_trace.append(dict(sample_t=ts, available_t=ts+self.tau_m,
+                                          used_t=t, x=x, z=z))
+            self._measure(ts, z)
+            self.sample_index += 1
+        target = t+(self.ndel+.5)*self.Tc+self.tau
+        pred = None if self.state is None else float(self.H@self._transition(target-self.sample_t)[0])/1000.
+        ff = 0. if pred is None or self.pred_prev is None else -(pred-self.pred_prev)
+        self.pred_prev = pred
+        e = common.FD-F
+        de = 0. if self.e_prev is None else e-self.e_prev
+        self.e_prev = e
+        self.trace.append(dict(t=t, sample_t=self.sample_t, target_t=target, prediction=pred,
+                               innovation_mm=self.innovation,
+                               frequency_hz=None if self.state is None else self.state[-1]/(2*math.pi),
+                               refits=self.refits))
+        return float(sent+(self.K_P*de+self.K_I*e*self.Tc)/self.k_h0+ff)
