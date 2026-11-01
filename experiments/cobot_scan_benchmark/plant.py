@@ -100,9 +100,10 @@ def footprint(xc,d,p):
 
 # state s: 0 t, 1 x_act, 2 y_act, 3 yc, 4 vyc, 5 I, 6 F_filt, 7 bias, 8 F1 (SLS), 9 fe_prev,
 #          10 d_prev, 11 y_ref, 12 tick counter, 13.. delay buffer (NB slots)
-NB=8; NS=13+NB
+NB=8; SENSOR0=13+NB; NS=SENSOR0+4
+# appended states: Ft filtered, Ft bias, My filtered, My bias
 # log columns per control tick
-LOGC=12   # t, x, y, Fn_true, Ft_true, F_filt, d, E_under, k_eff, D, KPF, y_cmd
+LOGC=16   # t, x, y, Fn_true, Ft_true, F_filt, d, E_under, k_eff, D, KPF, y_cmd; Ft_meas, My_meas, m1_true, My_true
 
 @njit(cache=True)
 def k_eff(x,d,p):
@@ -111,9 +112,11 @@ def k_eff(x,d,p):
     return (footprint(x,d+hd,p)[0]-footprint(x,d-hd,p)[0])/(2*hd)*1.4   # SLS instantaneous (1+alpha)
 
 @njit(cache=True)
-def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog,direct=False):
+def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog,direct=False,noise_extra=None):
     """advance nticks control periods (NC plant steps each) with gains g; returns new nlog
-    (negative on divergence). noise: (n,2) standard normals per 1 kHz F/T sample.
+    (negative on divergence). noise: (n,2) original standard normal stream.
+    noise_extra: independent (n,4) stream (Ft bias/noise, My bias/noise),
+    provided by episode at 1 kHz. Optional for legacy direct advance callers.
     direct=True: g[5] is the absolute position command (the policy runs its own
     controller); the command rate is limited to VMAX and the same delay/servo apply."""
     alpha=0.4; tauS=0.3; lam=0.3; ns=p[14]; v=p[5]
@@ -138,9 +141,15 @@ def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog,direct=False):
                 fn=0.; s[8]=0.
             strib=mu*(1.0+0.5*math.exp(-(v/0.004)**2))
             ft=-strib*fn*math.tanh(v/0.0005)-3.0*v*(1.0 if fn>0 else 0.)
+            my=(fn/fe if fe>1e-12 else 0.)*m1
             ft+=-(fn/fe if fe>1e-12 else 0.)*m1/R-fn*hx
             if it%NFT==0:
                 kk=min(it//NFT,noise.shape[0]-1)
+                if noise_extra is not None:
+                    s[SENSOR0+1]+=2e-4*ns*noise_extra[kk,0]
+                    s[SENSOR0+3]+=2e-4*(7.5e-4/0.08)*ns*noise_extra[kk,2]
+                    s[SENSOR0]+=afc*(ft+s[SENSOR0+1]+0.08*ns*noise_extra[kk,1]-s[SENSOR0])
+                    s[SENSOR0+2]+=afc*(my+s[SENSOR0+3]+7.5e-4*ns*noise_extra[kk,3]-s[SENSOR0+2])
                 s[7]+=2e-4*ns*noise[kk,0]
                 s[6]+=afc*(fn+s[7]+0.08*ns*noise[kk,1]-s[6])
             if j==0:
@@ -161,6 +170,8 @@ def advance(s,p,g,nticks,NC,ndel,tau_a,fc,VMAX,DT,noise,log,nlog,direct=False):
                     log[nlog,0]=t; log[nlog,1]=s[1]; log[nlog,2]=s[2]; log[nlog,3]=fn; log[nlog,4]=ft
                     log[nlog,5]=s[6]; log[nlog,6]=d; log[nlog,7]=modulus(s[1],p); log[nlog,8]=k_eff(s[1],d,p)
                     log[nlog,9]=D; log[nlog,10]=KPF; log[nlog,11]=s[13+ndel]
+                    log[nlog,12]=s[SENSOR0]; log[nlog,13]=s[SENSOR0+2]
+                    log[nlog,14]=m1; log[nlog,15]=my
                     nlog+=1
             yt=s[13]
             if tau_a>0: s[2]+=DT/tau_a*(yt-s[2])
@@ -182,7 +193,11 @@ def init_state(p,dt):
         if footprint(X0,mid,p)[0]>FD: hi=mid
         else: lo=mid
     h0=surface(X0,0.,p)[0]; y=0.5*(lo+hi)-h0
-    s=np.zeros(NS); s[1]=X0; s[2]=y; s[3]=y; s[6]=FD; s[9]=FD; s[10]=h0+y; s[11]=y; s[13:]=y
+    s=np.zeros(NS); s[1]=X0; s[2]=y; s[3]=y; s[6]=FD; s[9]=FD; s[10]=h0+y; s[11]=y; s[13:13+NB]=y
+    fe,m1,mu,a=footprint(X0,h0+y,p)
+    v=p[5]; st=mu*(1.+.5*math.exp(-(v/.004)**2))
+    s[SENSOR0]=-st*FD*math.tanh(v/.0005)-3.*v-FD*m1/max(fe,1e-12)/R-FD*surface(X0,0.,p)[2]
+    s[SENSOR0+2]=FD*m1/max(fe,1e-12)
     return s
 
 class Obs:
@@ -197,6 +212,10 @@ class Obs:
     def y(self): return self.log[:self.n,2]
     @property
     def y_cmd(self): return self.log[:self.n,11]
+    @property
+    def ft(self): return self.log[:self.n,12]
+    @property
+    def my(self): return self.log[:self.n,13]
     @property
     def x(self): return self.log[:self.n,1]
     # truth (oracle only)
@@ -215,10 +234,11 @@ def episode(p,policy,T=10.0,platform='PC125',seed=0,update=None,dt=5e-4):
     NC=int(round(pl['Tc']/dt)); nt=int(round(T/pl['Tc']))
     log=np.zeros((nt+2,LOGC)); s=init_state(np.asarray(p,float),dt); p=np.asarray(p,float)
     noise=np.random.default_rng(seed).standard_normal((int(T*1000)+10,2))
+    noise_extra=np.random.default_rng(seed+7919).standard_normal((int(T*1000)+10,4))
     args=(NC,int(pl['ndel']),float(pl['tau_a']),float(pl['fc']),float(pl['VMAX']),dt,noise)
     if not callable(policy):
         g=np.clip(_pad(policy),GMIN,GMAX)
-        n=advance(s,p,g,nt,*args,log,0)
+        n=advance(s,p,g,nt,*args,log,0,noise_extra=noise_extra)
         return None if n<0 else log[:n]
     policy.reset(pl)
     per=max(int(round((update or pl['Tc'])/pl['Tc'])),1); n=0
@@ -232,17 +252,19 @@ def episode(p,policy,T=10.0,platform='PC125',seed=0,update=None,dt=5e-4):
             x_,y_=s[1],s[2]; d_=surface(x_,s[0],p)[0]+y_
             log[n,:]=0.; log[n,0]=s[0]; log[n,1]=x_; log[n,2]=y_; log[n,5]=s[6]; log[n,6]=d_
             log[n,7]=modulus(x_,p); log[n,8]=k_eff(x_,d_,p); log[n,11]=s[13+nd]
-            F_seen=log[n,5]
+            log[n,12]=s[SENSOR0]; log[n,13]=s[SENSOR0+2]
+            F_seen=log[n,5]; Ft_seen=log[n,12]; My_seen=log[n,13]
             ycmd=float(policy(Obs(log,n+1)))
             if not np.isfinite(ycmd): ycmd=float(s[13+int(pl['ndel'])])   # hold (first call)
             g=np.array([1.,100.,0.,0.,0.,ycmd])
             n0=n
-            n=advance(s,p,g,min(per,nt-n),*args,log,n,True)
+            n=advance(s,p,g,min(per,nt-n),*args,log,n,True,noise_extra)
             if n<0: return None
+            log[n0,12]=Ft_seen; log[n0,13]=My_seen
             log[n0,5]=F_seen     # keep the logged force identical to what the controller consumed
         return log[:n]
     while n<nt:
         g=np.clip(_pad(policy(Obs(log,n))),GMIN,GMAX)
-        n=advance(s,p,g,min(per,nt-n),*args,log,n)
+        n=advance(s,p,g,min(per,nt-n),*args,log,n,noise_extra=noise_extra)
         if n<0: return None
     return log[:n]
