@@ -55,3 +55,23 @@ T3m: the >23 Hz bands carry ~44% of the final method's error variance (0.075/0.0
 Online-estimated R (minimum statistics of the second difference) with a 3x3 process-noise grid on the tuning seeds
 (190000+, 10 per family): best mean log(1+J) 0.737 vs final 0.605; larger maneuver noise destabilises the
 feed-forward loop (S2 22-28 N).
+
+## 4. Supervisory selection with scale-independent hysteresis, 50 per family (diagnosis cohort)
+
+Servo-exact monitoring signal (0.3 s), candidates {raw, 10, 6, 3 Hz}; switch only if (1+h) J_new < J_current;
+"asym": the return to the raw lead ignores the hysteresis. Mean per-scene RMSE difference to the final method with
+paired bootstrap 95% interval (4000), N. Raw tables: `p2_sel_confirm.txt`, `p2_sel_confirm_asym.txt`.
+
+| | S2 | T3m | soft push | stiff push | fast push |
+|---|---|---|---|---|---|
+| Final (median/mean) | 0.124/0.281 L2 | 0.151/0.157 | 0.077/0.078 | 0.283/2.305 r2 | 0.597/1.085 L16 |
+| h=1 | -0.167 [-0.293,-0.063] | -0.004 [-0.009,+0.002] | -0.006 [-0.007,-0.004] | -0.894 [-2.764,+0.074] | +0.149 [+0.074,+0.243] |
+| h=3 | -0.116 [-0.236,-0.021] (0.090/0.165 L1) | +0.005 [-0.001,+0.011] | -0.003 [-0.005,-0.001] | -0.000 | +0.023 [-0.002,+0.059] |
+| h=7 | never switches (= final) | | | | |
+| h=1 asym | -0.130 [-0.244,-0.043] | -0.005 [-0.009,-0.000] | -0.003 | -0.921 [-2.768,+0.005] | +1.275 [+0.020,+3.734] r1 |
+| h=2 asym | -0.130 [-0.247,-0.041] | +0.002 | -0.002 | -0.905 [-2.719,+0.004] | +0.060 [+0.011,+0.125] |
+| h=3 asym | +0.246 [-0.179,+0.997] r1 | +0.001 | -0.002 | -0.000 | +0.001 |
+
+Phase split on fast pushes (20 scenes, no hysteresis): the loss is in ramp-in (median 1.96 -> 2.74) and hold
+(0.50 -> 1.70) while the raw lead is selected 80-84% of those ticks: low-passed candidates still carry the ramp
+velocity right after the ramp (`p2_sel_phases.py`).

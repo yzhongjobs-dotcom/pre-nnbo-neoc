@@ -85,7 +85,11 @@ class Probe(variants.MotionAwareIMM):
                 st['buf'].append((n+h, pred.copy()))
                 while st['buf'] and st['buf'][0][0] <= n:
                     _, pp = st['buf'].pop(0); st['J'] = lam*st['J']+(1-lam)*(pp-z)**2
-            i = int(np.argmin(np.maximum(st['J'], st['Jf']) if self.fast_T and 'Jf' in st else st['J'])); self.sel_log = getattr(self, 'sel_log', np.zeros(len(self.cands)))
+            Jm = np.maximum(st['J'], st['Jf']) if self.fast_T and 'Jf' in st else st['J']
+            i = int(np.argmin(Jm))
+            if self.hyst and st.get('i') is not None and (1+self.hyst)*Jm[i] >= Jm[st['i']] and not (self.asym and i == 0):
+                i = st['i']   # scale-independent hysteresis (asym: the return to the raw lead is immediate)
+            self.sel_log = getattr(self, 'sel_log', np.zeros(len(self.cands)))
             self.sel_log[i] += 1; off = st.get('off', 0.)
             if self.bumpless and st.get('i') is not None and st['i'] != i: off += float(pred[st['i']]-pred[i])
             st['i'] = i; st['off'] = off*np.exp(-self.Tc/.05) if self.bumpless else 0.
@@ -114,10 +118,11 @@ class Probe(variants.MotionAwareIMM):
             s, _ = self.tracker.predict((self.ndel+.5)*self.Tc); r = (None, s); self._motion_prediction = r
         return r
 def mk(**kw):
-    pol = variants.build('Proposed-IMM', dict(F, **{k: v for k, v in kw.items() if k not in ('novel', 'notch', 'vel_lp', 'sched', 'cands', 'sel_T', 'bumpless', 'servo_crit', 'fast_T', 'force_crit', 'shrink_c', 'w_fc', 'w_T', 'w_floor', 'w_beta')})); pol.__class__ = Probe
-    pol.novel = kw.get('novel', False); pol.notch = kw.get('notch', 0.); pol.vel_lp = kw.get('vel_lp', 0.); pol.sched = kw.get('sched'); pol.cands = kw.get('cands', (np.inf, 10., 6., 3.)); pol.sel_T = kw.get('sel_T', .3); pol.bumpless = kw.get('bumpless', False); pol.servo_crit = kw.get('servo_crit', False); pol.fast_T = kw.get('fast_T', 0.); pol.force_crit = kw.get('force_crit', False); pol.shrink_c = kw.get('shrink_c', 1.); pol.w_fc = kw.get('w_fc', 3.); pol.w_T = kw.get('w_T', .03); pol.w_floor = kw.get('w_floor', 1.); pol.w_beta = kw.get('w_beta', 1.); pol.reset_hooks = True; return pol
+    pol = variants.build('Proposed-IMM', dict(F, **{k: v for k, v in kw.items() if k not in ('novel', 'notch', 'vel_lp', 'sched', 'cands', 'sel_T', 'bumpless', 'servo_crit', 'fast_T', 'force_crit', 'hyst', 'asym', 'shrink_c', 'w_fc', 'w_T', 'w_floor', 'w_beta')})); pol.__class__ = Probe
+    pol.novel = kw.get('novel', False); pol.notch = kw.get('notch', 0.); pol.vel_lp = kw.get('vel_lp', 0.); pol.sched = kw.get('sched'); pol.cands = kw.get('cands', (np.inf, 10., 6., 3.)); pol.sel_T = kw.get('sel_T', .3); pol.bumpless = kw.get('bumpless', False); pol.servo_crit = kw.get('servo_crit', False); pol.fast_T = kw.get('fast_T', 0.); pol.force_crit = kw.get('force_crit', False); pol.hyst = kw.get('hyst', 0.); pol.asym = kw.get('asym', False); pol.shrink_c = kw.get('shrink_c', 1.); pol.w_fc = kw.get('w_fc', 3.); pol.w_T = kw.get('w_T', .03); pol.w_floor = kw.get('w_floor', 1.); pol.w_beta = kw.get('w_beta', 1.); pol.reset_hooks = True; return pol
 CFG = {'Proposed': dict(), 'NoNoise': dict(), 'KPF0.5': dict(KPF1=.5), 'FF-noVel': dict(novel=True)}
-if len(sys.argv) > 1 and sys.argv[1] == 'force': CFG = {'Proposed': dict(), 'SelF0.3': dict(sched='select', servo_crit=True, force_crit=True), 'SelF0.1': dict(sched='select', servo_crit=True, force_crit=True, sel_T=.1)}
+if len(sys.argv) > 1 and sys.argv[1] == 'hyst': CFG = {'Proposed': dict(), 'SelH1': dict(sched='select', servo_crit=True, hyst=1.), 'SelH3': dict(sched='select', servo_crit=True, hyst=3.)}
+elif len(sys.argv) > 1 and sys.argv[1] == 'force': CFG = {'Proposed': dict(), 'SelF0.3': dict(sched='select', servo_crit=True, force_crit=True), 'SelF0.1': dict(sched='select', servo_crit=True, force_crit=True, sel_T=.1)}
 elif len(sys.argv) > 1 and sys.argv[1] == 'calib':
     q0, m0 = F['q_smooth'], F['q_maneuver']
     CFG = {'Proposed': dict(), 'R2': dict(r_scale=2.), 'R2-qm15': dict(r_scale=2., q_maneuver=15*m0), 'R2-qs15-qm15': dict(r_scale=2., q_smooth=15*q0, q_maneuver=15*m0), 'R2-qm100': dict(r_scale=2., q_maneuver=100*m0)}
