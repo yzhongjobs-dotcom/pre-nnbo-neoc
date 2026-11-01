@@ -1,0 +1,16 @@
+任务（P2 验证 V4b：按冲突分工的"直接运动前馈 + 残余滚动优化"架构）。项目 E:/github_project/scan-impedance-update（主目录不可写时在可写副本完成并交付补丁；只交付代码与汇总JSON/MD）。只新增 experiments/method_redesign/ 下文件；不改现有文件；不提交推送。科研质量第一：同信息、同调参预算（61次）、调参（190000+）与评价种子分离；不动 final 确认集（130000+）；如实报告。
+
+先读：research/optimal_impedance_question_and_methods.md §20.5–20.7（V1、V4失败机理与C1消融）、experiments/method_redesign/{v4_architecture.py, v4_evaluate.py, results/v4_architecture.md, v1_servo_id.py, p2_c1_ablation.py}、experiments/cobot_scan_benchmark/{candidate1_model.py, contact_update.py}、experiments/motion_aware_scan/{variants.py, proposed.py, cohort_eval.py, sweep.py}。
+
+已知：C1 的优势主要来自在线GN优化增益与参考（去掉GN：S2 0.088→0.748 N）；当前方法的运动前馈不可缺（S2去前馈1.051 N）；V4 失败因为让优化器承担全部运动补偿（IMM预测在128 ms外推进模型而失真）以及恢复/启动接口阻塞。
+
+V4b 设计（按此实现；实现细节可修正但须说明理由，不改设计意图）：
+1. 运动补偿通路＝当前方法的直接前馈：在同一策略内并行运行当前方法的力觉等效运动量测、量测增益 k_good 及其接受准则（b≤ln1.2）、IMM（FINAL参数）与 12 ms+τ̂_s 预测，得到每拍前馈增量 −Δη_p（换算用 k_good），直接加到发送的位置指令上（与当前方法完全相同的方式）。
+2. 残余通路＝原C1的GN滚动优化（保留其决策变量 D、K_PF、u_ff、代价、热启动与 iters 默认值），但它的预测模型中：(a) 把前馈在时域内的未来增量作为已知输入（按当前IMM预测的增量外推，或保守地取零增量并说明），不再让优化器重复补偿运动；(b) 漂移项只表示前馈之后的残余（C1自身的窗口漂移估计，由于实测位移已含前馈，自然成为残余）；(c) 执行器参数用V1在线辨识值。
+3. 恢复：失联时关闭前馈（当前方法规则），其余沿用C1恢复；重新接触后两条通路都重置。保证不会出现"运动预测从未启用"的阻塞（给出启用条件并统计）。
+4. 刚度：C1优化用其自身估计；前馈换算用 k_good（当前方法）。说明两者如何避免冲突。
+变体：V4b；V4b-noOpt（只有前馈通路+C1的先验增益规则，即去掉GN，用于分离优化的作用）；Proposed+V1；原C1+V1（=V4-noFF）。
+调参：只调新耦合引入的少量参数（≤61次评估），种子190000+每族10，目标同 tune_v2。
+评价：诊断集每族50 + sweep 两组剂量（每档20）。指标：每族RMSE中位/均值、失控、长失联、配对bootstrap（V4b−(Proposed+V1)、V4b−(C1+V1)，均值，95%区间）、计算时间P50/P99；并给出 S2 与推拉族中两条通路各自的贡献（V4b vs V4b-noOpt vs C1+V1）。
+写 results/v4b_architecture.{json,md}，结论如实；若失败，给出具体机理与下一步应改的一环。
+最终回复（中文、简洁）：补丁路径；主要指标表；结论；疑点。
