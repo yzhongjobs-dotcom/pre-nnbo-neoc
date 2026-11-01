@@ -1,0 +1,21 @@
+任务（方法重构第3步，控制层原型：估计感知的力域约束MPC）。项目 E:/github_project/scan-impedance-update（若主目录不可写，在可写副本中完成并交付补丁，像第2步那样）。先读 research/optimal_impedance_question_and_methods.md §18（含18.5、18.7）、research/paper_draft_zh.md 第三节（当前方法、性质2/4/7）、experiments/motion_aware_scan/{proposed.py,variants.py,imm.py,common.py,cohort_eval.py,theory_ltv.py,ff_loop.py,sweep.py}。只新增 experiments/method_redesign/ 下的文件；不改现有文件；不提交或推送。科研质量第一：对照同等调参预算、同等信息；不为让新方法赢设置条件；如实报告。
+
+动机（第2步结论）：已知未来运动的参考控制器（cohort_eval 'Oracle'）在运动族中远优于当前方法（S3c中位0.048对0.252 N，S3d 0.066对0.498 N）；当前控制层是“刚度归一化导纳A1/k̄ + IMM预测（12 ms外推+τ_s速度补偿）位置前馈”，峰值力无保证，快速推拉与高脊比仍有失控尾部。
+
+A. 控制器 experiments/method_redesign/mpc_controller.py
+- 复用当前最终方法（cohort_eval.FINAL 参数下的 variants.build('Proposed-IMM')）的全部估计部分：投影估计、保守k̄、量测增益k_good与接受准则（b≤ln1.2）、IMM运动跟踪、激励、接触丢失监督与恢复——只替换“反馈导纳+前馈”这一层为MPC（继承类或组合实现均可，保证除控制层外行为一致）。
+- MPC（每8 ms）：决策为未来H拍的位置指令增量（H在调参中选，候选10–25）；预测模型含一周期指令延迟、伺服一阶滞后τ_s=19 ms（周期精确离散）、30 Hz测力一阶滤波；接触力 f = k̂·(y − s) 的增量形式，其中 s 的未来轨迹取IMM合并估计在模型下的外推（均值；常加速度），k̂为量测增益（同当前前馈所用）。初始状态由已发送指令历史、编码器位置、滤波力与当前运动估计构成；以“滤波力实测−模型预测”的残差作为常值偏置（offset-free）进入预测。
+- 代价：Σ Q (f̂_filt,i − f_d)² + R (Δu_i)² + 终端项；用力单位书写使QP矩阵只依赖 k̂ 与 k̄ 的比值，可预计算/热启动。
+- 约束：|Δu| ≤ VMAX·Tc；峰值力约束 f_upper,i = k̄·(y_i − s_i) + 偏置 ≤ F_max（k̄ 为保守刚度上界；F_max 取 15 N，作为安全上限而非调参量）。用 OSQP（已安装）或自写小规模有效集法；报告每次求解时间。
+- 激励：与当前相同，在MPC输出之外按力幅叠加（以 k̂ 换算）。
+- 变体：MPC-U（无约束）、MPC-C（含约束）、MPC-oracle（同MPC-C，但 s 的未来轨迹与 k 用真值，诊断上限，只用于分析）。
+
+B. 鲁棒性检查（先于调参）：仿照 theory_ltv.py/ff_loop.py，对无约束MPC的线性化闭环（冻结IMM模式与稳态Kalman增益、冻结刚度），在 κ=k/k̄∈[0.5,2.14]、κ_g=k/k̂∈[0.82,1.18]、k∈[1e3,1e5]、模式概率μ∈{0,0.5,1} 的网格上计算谱半径；调参时只接受在全网格稳定的 (H,Q/R,终端权) 组合（这是把性质2/4的稳定要求作为设计约束，而不是事后检验）。报告网格结果。
+
+C. 调参与评价
+- 调参：种子190000+（每族10个，五族），预算至多61次评估（与当前方法相同），目标与 tune_v2 相同（log(1+min(J,1e3)) 的族平均）；只调MPC自身参数（H、Q/R、终端权重；其余沿用FINAL）。
+- 评价：诊断集 cohort('diag', 50)（每族50）与 sweep.py 的两组剂量（推拉斜坡、脊比；每档20，种子160000+/170000+），比较 Proposed（当前）、MPC-U、MPC-C、MPC-oracle、以及 Oracle（现有）与 DOMPAC（现有）。不要动 final 确认集（130000+）。
+- 指标：每族RMSE中位/均值、失控（峰值>50 N）与发散场景数、峰值力P99、失联比例与长失联（>0.5 s）场景数、配对bootstrap（MPC−Proposed，均值RMSE，95%区间，4000次）、单拍计算时间P50/P99（含QP）。
+- 结果写 experiments/method_redesign/results/step3_mpc.json 与 step3_mpc.md：设置、鲁棒网格、调参、指标表、结论（如实写出在哪些族更好/更差、为什么、MPC-oracle 相对 MPC-C 的差距说明瓶颈在预测还是在控制）。
+
+D. 最终回复（中文、简洁）：交付了哪些文件（或补丁路径）；鲁棒网格结论；主要指标表；你认为的主要局限或疑点。
