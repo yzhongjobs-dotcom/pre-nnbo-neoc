@@ -70,6 +70,7 @@ Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T
 
 ## 4. Next work, in order
 
+0. **Current (2026-11-01, after user correction):** resume from methods §20.4(1). Follow methods §21: contact model and projection estimator are upgraded as one object (window measurement model with stiffness varying along the path/depth; full variable projection + arrival-cost MHE; current projection is the special case). Order: identifiability (Fn/My/Ft, motion, friction, two sensor grades) → open-loop estimator replay → closed-loop interfaces one at a time (measurement gain, feedback bound, FF bandwidth from gain uncertainty) at 50/family. Keep V1; supervisory lead selection (h=3) frozen as candidate only. Items 1–4 below are older.
 1. N01–N04 done. Keep claims aligned with their originals (pages in field_state §6).
 2. Integrate verified points from the independent critique of draft §一–四; keep facts traceable to originals/evidence cards.
 3. Design-stage verdict: all baselines met (methods B3 completed afterwards). Simulation plan is in [methods §10](../research/optimal_impedance_question_and_methods.md#10-仿真验证方案2026-10-30待执行) (S1 estimation mechanism, S2 stiffness span, S3 main task, one ablation, timing; fresh test seeds; ~10–12 scenes per condition). After user go-ahead, implement the §三 method changes in the cobot benchmark and run the §四 validation (three existing tasks, Wijayarathne-type / TASE2018-type / DO-MPAC-type / static-surface-MHE comparators, oracle reference, one ablation section, timing), stating quota before large runs.
