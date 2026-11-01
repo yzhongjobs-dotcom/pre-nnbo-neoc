@@ -1,0 +1,20 @@
+任务（方法重构第3步续：升级运动预测模块）。项目 E:/github_project/scan-impedance-update（主目录不可写时在可写副本完成并交付补丁；结果文件只保留汇总JSON/MD，逐拍大文件不要放进补丁）。先读 research/optimal_impedance_question_and_methods.md §18.7–18.8（差距分解：同一控制结构给真实刚度与约30 ms真实运动预测即达0.07–0.10 N；硬组织推拉的差距几乎全在短时域运动预测），experiments/motion_aware_scan/{imm.py,variants.py,proposed.py,common.py,cohort_eval.py,sweep.py,ff_loop.py}，experiments/method_redesign/step3_gap_decomposition.py。只新增 experiments/method_redesign/ 下文件；不改现有文件；不提交推送。科研质量第一：同等调参/训练预算、同等信息，不为新方法设置有利条件；训练、选择、评价用不同种子；不动 final 确认集（130000+）。
+
+背景：前馈用 η_p(t)=η̂(t+12 ms)+τ_s·dη̂/dt(t+12 ms)，τ_s=19 ms，η 为由力经量测刚度换算的等效运动（准确刚度下 η=−s_eq+常数）。当前预测器是双常加速度模型 IMM（variants.MotionAwareIMM，参数在 cohort_eval.FINAL）。
+
+A. 开环预测器对比（experiments/method_redesign/step3b_predictors.py，结果 results/step3b_predictors.{json,md}）
+- 数据：当前最终方法闭环运行，记录控制器实际可见的量测序列 η_j（与前馈所用完全相同的构造）与真值（对象表面 surface(x,t) 及其导数，按与 Oracle 相同的方式计算目标 s(t+12ms)+τ_s·ṡ(t+12ms)）。训练种子 200000+（运动族与呼吸，数量足够训练小网络，例如每族100–200场景），验证/选参 190000+（每族10），评价诊断集 110000+（每族20）。
+- 候选（严格因果）：
+  P0 当前 IMM（FINAL 参数）；
+  P1 经典增强：三模型 IMM（静止/常加速度/常急动或 Singer 机动模型），过程噪声与切换概率在验证集选定（≤61次评估）；
+  P2 高斯过程回归（窗口内，平方指数+周期核，超参在训练集拟合后固定），给出均值与方差；
+  P3 学习型预测器：小型时序网络（1D 因果卷积或 GRU，参数量 ≤5e4），输入最近 0.5 s 的 η 序列（可加 k̂、σ_k、模式概率等控制器可见量），输出目标值与方差（高斯负对数似然训练），在训练集上训练、验证集早停与选型。为防止对仿真的平滑阶跃剖面过拟合，训练数据中加入多种运动剖面（smoothstep、余弦、线性斜坡、最小急动、不同频率与幅值的呼吸及其叠加），但**评价另设训练中未出现的剖面**（如梯形速度、双段推拉、频率突变的呼吸）作为分布外测试，如实报告。
+- 指标：目标值误差 RMSE、P95，按阶段分层（呼吸平稳段、推拉起始前50 ms、斜坡段、保持段、回撤段），分布外剖面单列；方差校准（1σ/2σ覆盖）；单次计算时间 P50/P99。
+
+B. 闭环接入（experiments/method_redesign/step3b_closed_loop.py，结果 results/step3b_closed_loop.{json,md}）
+- 选开环最好的1–2个候选，替换当前 IMM 的前馈预测（其余全部沿用 FINAL；若预测器给出方差，可按方差缩放前馈，但这一规则须由推导给出、不得在评价集上调）。
+- 评价：诊断集每族50 + sweep 两组剂量（推拉斜坡、脊比，每档20）。比较 Proposed、各新预测器版本，以及 step3_gap_decomposition 的 TrueK 与 Oracle+exc 作为参照。指标：每族RMSE中位/均值、失控（峰值>50 N）、长失联、配对 bootstrap（新−Proposed，均值，95%区间）、计算时间。
+- 前馈回路容许性：新预测器改变了前馈回路的增益与相位，重新做 κ_g 容许区间检查（与 ff_loop.py 同法；对学习型预测器用闭环仿真中人为缩放量测增益 ×0.75/0.82/1.18/1.25 的失控率来检验），说明是否仍与接受准则 b≤ln1.2 相容。
+- 写清结论：哪种预测器在哪些族、哪些阶段更好，代价（计算、分布外退化、容许区间变化），是否建议替换 IMM。
+
+C. 最终回复（中文、简洁）：交付文件或补丁路径；开环与闭环主要指标表；κ_g 容许性结论；主要局限与疑点。
