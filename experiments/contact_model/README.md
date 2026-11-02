@@ -14,6 +14,17 @@
 
 所有计算使用原对象，不修改参数来适配候选；未使用 final 确认集。窗口不是独立场景。本轮没有新候选的闭环性能结论。
 
+## 锚点论文痛点在本项目是否存在
+
+后续按用户明确的研究顺序补做需求对应及对象通道验证，见专项研究 §6。`check_paper_painpoints.py` 用原控制器和同噪声做摩擦参数敏感性验证；其 `--normal-state-diagnostic` 模式只在评分路径分解弹性力与动态参考增益，隐状态不提供给候选。
+
+```powershell
+python -X utf8 experiments/contact_model/check_paper_painpoints.py
+python -X utf8 experiments/contact_model/check_paper_painpoints.py --normal-state-diagnostic
+```
+
+结果是 `results/paper_painpoint_sensitivity.json` 与 `results/normal_contact_state_diagnostic.json`。前者检验当前仿真可表达的机制，后者定位静态逆模型的接触量混用；都不是新模型的闭环性能结果。当前不修改被控对象。
+
 ## 复现（仓库根目录，Windows）
 
 ```powershell
