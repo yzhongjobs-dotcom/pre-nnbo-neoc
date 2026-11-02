@@ -30,6 +30,10 @@ CONFIGS={
  'memory_patch_target_low':dict(spatial=True,memory=Memory(.2,.08),interface='target'),
  'memory_patch_target_high':dict(spatial=True,memory=Memory(.8,.6),interface='target'),
  'memory_patch_target_delay':dict(spatial=True,memory=Memory(.5,.2),interface='target',latency=.128)}
+CONFIGS.update({
+ 'static_patch_target':dict(spatial=True,memory=Memory(0.,.2),interface='target'),
+ 'memory_patch_target_posterior':dict(spatial=True,memory=Memory(.5,.2),interface='target',data_confidence=False),
+ 'memory_linear_hold_posterior':dict(spatial=False,memory=Memory(.5,.2),interface='gain',fallback='hold',data_confidence=False)})
 
 
 class Masked:

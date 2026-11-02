@@ -18,10 +18,11 @@ from dynamic_contact import ContactFit,Memory,Signals
 
 class ContactPolicy(ServoID):
     def __init__(self, spatial=False, memory=Memory(.5,.2), interface='gain', contact='foundation',
-                 latency=0.,update_ticks=16,**kw):
+                 latency=0.,update_ticks=16,fallback='baseline',data_confidence=True,**kw):
         super().__init__(**kw)
-        self.contact_args=dict(spatial=spatial,memory=memory,contact=contact)
+        self.contact_args=dict(spatial=spatial,memory=memory,contact=contact,data_confidence=data_confidence)
         self.interface,self.latency,self.update_ticks=interface,float(latency),int(update_ticks)
+        self.fallback=fallback
 
     def reset(self,platform):
         super().reset(platform)
@@ -30,6 +31,7 @@ class ContactPolicy(ServoID):
         self.accepted_fit=None;self.pending=None;self.model_ready=False
         self.fit_records=[];self.model_ticks=0;self.contact_ticks=0;self.model_current=False
         self.signal_n=None
+        self.baseline_good=float('nan')
 
     def step(self,o):
         n=o.n
@@ -44,10 +46,12 @@ class ContactPolicy(ServoID):
 
     def _stiffness_est(self,o,n):
         previous_good=self.k_good
+        if self.fallback=='baseline':self.k_good=self.baseline_good
         feedback=super()._stiffness_est(o,n)
+        if self.fallback=='baseline':self.baseline_good=self.k_good
         # Original projection updates feedback only. Model measurement gain has
         # its own residual, variance and acceptance score, not the old gate.
-        if self.model_ready:self.k_good=previous_good
+        if self.model_ready and self.fallback=='hold':self.k_good=previous_good
         now=float(o.log[n-1,0]);self.model_current=False
         if self.pending is not None and now>=self.pending[0]:
             self.accepted_fit=self.pending[1];self.pending=None
@@ -71,6 +75,7 @@ class ContactPolicy(ServoID):
             age=max(now-fit['time'],0.)/.128
             Q=np.diag([.12**2,.25**2,.04**2,.04**2] if self.model_fit.spatial else [.12**2])
             fit['cov']=fit['cov']+Q*age
+            fit['data_cov']=fit['data_cov']+Q*age
             signal=self.signals.rows[-1]
             pred=self.model_fit.predict(fit,signal[1],signal[4])
             if pred['risk']<=math.log(1.2) and 200.<=pred['k']<=3e5:

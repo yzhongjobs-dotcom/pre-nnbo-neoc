@@ -70,10 +70,11 @@ class ContactFit:
     operator. The reported covariance/risk is nominal, not a safety guarantee.
     """
     def __init__(self, memory=Memory(), spatial=False, contact='foundation', moment=False,
-                 arrival=True, noise=.04, max_nfev=20):
+                 arrival=True, noise=.04, max_nfev=20,data_confidence=True):
         self.memory, self.spatial, self.moment = memory, spatial, moment
         self.model = LinePatch(spatial) if contact=='line' else FinitePatch(Geometry(),spatial)
         self.arrival, self.noise, self.max_nfev = arrival, noise, max_nfev
+        self.data_confidence=data_confidence
         self.previous = None
 
     def surface_profile(self,theta,obs,T):
@@ -166,10 +167,22 @@ class ContactFit:
         chi=float(rr@rr/dof)
         # Includes residual inflation, still not model-bias coverage.
         cov*=max(1.,chi)
+        # Data information must be distinguished from regularisation. A prior
+        # can make a Hessian invertible without observing the control gain.
+        JD=opt.jac[:len(rr),:]
+        U,sv,Vt=np.linalg.svd(JD,full_matrices=False)
+        keep=sv>max(sv[0]*1e-8,1e-10)
+        V=Vt.T
+        data_cov=(V[:,keep]/sv[keep]**2)@V[:,keep].T*max(1.,chi)
+        data_null=V[:,~keep]
+        # First-order likelihood-profile displacement from the regularised
+        # estimate: exact for the scalar linear limit, only local otherwise.
+        shift=-(V[:,keep]/sv[keep])@(U[:,keep].T@rr)
         if self.arrival:self.previous=opt.x.copy(),cov,xe,obs['tend']
         result=dict(theta=th,cov=cov,xe=xe,chi2=chi,dof=dof,success=bool(opt.success),
                     residual_rms=float(np.sqrt(np.mean(rr**2))),elapsed=time.perf_counter()-tic,
-                    surface_beta=self.surface_profile(th,obs,T)[3])
+                    surface_beta=self.surface_profile(th,obs,T)[3],data_cov=data_cov,
+                    data_null=data_null,data_shift=shift,data_rank=int(keep.sum()))
         prediction=self.predict(result,xe,fe)
         result.update(prediction)
         return result
@@ -187,9 +200,15 @@ class ContactFit:
                 vals.append(float(self.model.response(x,dd,theta)[2]))
             grad[i]=(math.log(max(vals[0],1.))-math.log(max(vals[1],1.)))/(2*h)
         if len(th)>1:grad[2:]*=.01  # covariance uses local cm coordinates
-        rel=float(np.sqrt(max(grad@fit['cov']@grad,0.)))
-        risk=rel*(1+math.sqrt(fit['dof']*max(fit['chi2']-1.,0.)))
-        return dict(k=k0,elastic_k=ke,depth=d,relative_sd=rel,risk=risk)
+        C=fit['data_cov'] if self.data_confidence else fit['cov']
+        rel=float(np.sqrt(max(grad@C@grad,0.)))
+        unseen=bool(self.data_confidence and fit['data_null'].shape[1]>0 and
+                    np.linalg.norm(fit['data_null'].T@grad)>1e-4*max(np.linalg.norm(grad),1e-12))
+        bias=abs(float(grad@fit['data_shift'])) if self.data_confidence else 0.
+        risk=rel*(1+math.sqrt(fit['dof']*max(fit['chi2']-1.,0.)))+bias
+        if unseen:risk=float('inf')
+        return dict(k=k0,elastic_k=ke,depth=d,relative_sd=rel,risk=risk,unobserved_gain=unseen,
+                    regularization_log_shift=bias)
 
     def target_correction(self, fit, x, total_force, elastic_force, desired=4.):
         # A fast indentation change also changes the Maxwell branch, so the
