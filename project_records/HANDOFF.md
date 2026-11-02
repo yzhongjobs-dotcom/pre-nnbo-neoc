@@ -32,7 +32,7 @@
 
 ## 运行与规则
 
-- **环境：** Windows，`python -X utf8`，Python 3.10，numpy、scipy、numba，8 线程以上为宜。每族 50 的 5 个配置约 30 分钟本机 CPU。
+- **环境：** Windows，`python -X utf8`，Python 3.10，numpy、scipy、numba。
 - **同步：** 工作前 `git pull --rebase origin main`；每个完成的检查点运行 `python -X utf8 scripts/research_sync.py --message "research: <具体改动与目的>"`。不改写历史，不强推。
 - **记录：** Codex/ARIS 的任务书与最终输出存 [agent_runs](agent_runs/)，关键决定写入 [decision_log](decision_log.md)，科学推理放研究文档。不另建变更日志。
 - **保护：** `00_基线快照_2026-10-14/` 逐字节不动（`python -X utf8 literature/verify_materials.py`）。不翻译已有材料。
