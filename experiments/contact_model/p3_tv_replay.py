@@ -1,12 +1,11 @@
-"""Open-loop causal replay of the time-varying window estimator (tv_projection.py) against the final method.
+"""Open-loop causal replay of measurement-gain filters (tv_projection.py) against the final method.
 
-Closed-loop logs of the final method (diagnosis cohort, S2 / T3m / stiff push / fast push). At every tick: the
-final method's measurement gain k_good (recorded), the constant-window estimate (window average) and the
-time-varying estimate of the stiffness at the window end, each against the true tangent stiffness at the window
-end (log column 8). Reported per family: |ln(k/k_true)| median / p90 and the share outside ln 1.2 (the band the
-feed-forward loop tolerates), split into transition ticks (true |d ln k| over the window > 0.1) and the rest; and
-the acceptance rate of each estimate under its own relative-sd threshold (sd/k <= 0.26, the current rel_max) and
-chi2 <= 2.68 (current chi2_max). Run: python -X utf8 p3_tv_replay.py [N]
+Closed-loop logs of the final method (diagnosis cohort, S2 / T3m / stiff push / fast push). At every tick: the final
+method's measurement gain k_good (recorded), the constant-window estimate, and Kalman/IMM filters fed by every window,
+each against the true tangent stiffness (log column 8). Reported per family: |ln(k/k_true)| median / p90 and the share
+outside ln 1.2 (the band the feed-forward loop tolerates), split into transition ticks (true |d ln k| over the window
+> 0.1) and the rest. Window-end variance of tv_fit and spline_fit: p3_evidence_checks.py.
+Run: python -X utf8 p3_tv_replay.py [N]
 """
 import math
 import os
@@ -18,11 +17,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', 'motion_aware_scan'))
 sys.path.insert(0, os.path.join(HERE, '..', 'cobot_scan_benchmark'))
 import common, variants, cohort_eval as CE
-from tv_projection import tv_fit, spline_fit, GainFilter, GainIMM
+from tv_projection import tv_fit, GainFilter, GainIMM
 
 FAMS = ('S2', 'T3m', 'T2m-stiff', 'T2f-stiff')
 CHI, REL = CE.FINAL['chi2_max'], CE.FINAL['rel_max']
-NB = int(os.environ.get('NB', '3'))
 
 
 class Rec(variants.MotionAwareIMM):

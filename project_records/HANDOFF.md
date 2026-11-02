@@ -1,100 +1,41 @@
-# Handoff: rapid impedance updates under environmental change
+# 交接入口：运动且软硬不均组织上的位置接口恒力超声扫描
 
-Updated 2026-10-30. This file records the current state and what the project does next. The latest user request overrides it. Earlier checkpoint narratives were removed; recover them with `git show b7a3f91:project_records/HANDOFF.md`.
+更新于 2026-11-02（`git log -1 -- project_records/HANDOFF.md` 给出提交）。**用户最新消息优先于这里的一切。** 旧版交接内容：`git show c64be05:project_records/HANDOFF.md`。
 
-## 1. Start here
+## 现在的情况
 
-- Read this file, then the relevant parts of [long-term requirements](long_term_requirements.md). When entering a research stage, read only the matching file in [research_workflow](research_workflow/). Check [failure review](research_failures_and_corrections.md) before repeating a judgment that failed before. Key decisions and their reasons are in [decision log](decision_log.md); raw Codex/ARIS prompts and outputs in [agent runs](agent_runs/).
-- Standing user preferences:
-  - Report concrete numbers, tables and conclusions in the chat, not only file links.
-  - State the quota cost before any large run; do not auto-resume large work.
-  - No further simple-controller tuning or scenario expansion.
-  - The best-tuned fixed impedance is not a main baseline; fixed impedance uses the method's own lower/upper bounds.
-  - The simulation section follows top-paper form: 2–4 scenarios, a few representative comparators, one ablation, computation time.
-  - Real-robot experiments come later.
-  - New long-term constraints are written only after the user confirms them.
+- **任务：** 位置接口协作臂只用力和编码器，在运动、软硬不均的组织上保持恒定接触力。
+- **目标：** 把已胜过多个基线的 Proposed Method 优化到 T-RO/IJRR 水准，work 第一，方法与 story 同样重要。
+- **可靠主体：** 最终方法 `Proposed-IMMb` 加 V1 伺服在线辨识（V1 的失配恢复已验证）。
+- **未完成：** 用户要求的接触模型、数学投影/MHE、GN/MPC 架构和整体方法升级。V1 之后的候选（`3b81615`、`c64be05`）都未并入方法，论文初稿也未修改。
+- **最近的教训：** 反复出现“诊断出原因却不修原候选，转向下一机制”。开始前务必看第 3 步的偏差模式。
 
-**Current user scope (2026-10-30):** First assess and refine **research status → research question → proposed method**, using both rules and reference layers of `D:/桌面/科研经验总结/SKILL.md`. Do not advance to experiments before these are reviewed. The user supplied C10/C11/S04; all three are now archived and have accepted ARIS original-passage cards. This checkpoint adds scientific assessment and mechanism analysis, not controller changes or experimental evidence.
+## 阅读顺序
 
-**Related-work update in progress (2026-10-31, user request):** the user questioned that the closest works are old (Rossi 2016, Moreira 2014, Yuen 2010) and asked for 2022–2026 top-venue coverage via the formal ARIS flow, shared with Codex (`gpt-6.1-sol`, medium), done in rounds because of quota; literature is for related work, not all for simulation comparison. Formal run `recent-related-work-20261031` (RUN_ROOT `D:/pip_env/temp/scan_impedance_literature_20261031/aris_run`, stage PAPER_READING): 31 Scholar queries, 347 candidates, 42 admitted, 13 withdrawn at user request, 24 full texts + 5 arXiv. Round 1 read 13 papers (summary in [field state §7](../research/field_state.md); notes in `agent_runs/2026-10-31_read1/`). Key: Wei TMECH2025 assumes a static environment and does not close the control loop; Lei 2025 / Qian ICRA2026 observe motion from US images; Beber ICRA2024 uses an offline viscoelastic map. **Round 2 done (2026-10-31):** 29 Evidence Cards accepted, Field Map submitted, independent coverage review **CONTINUE**; draft §1 rewritten (routes traced to 2024–2026 representatives, closest works and mechanism distinctions, gap limited to the read scope) and revised after an independent Codex review against skill stage 1 (fixed Wei/Beber/Rossi boundaries, softened overgeneral claims, added AuSoScan, Fu, Duan, Yan). **Method redesign in progress (user-approved 2026-11-01):** replace dated modules with more effective and more novel ones (work first): finite-footprint cylinder Hertz contact with Fn/Ft/My observation (B0 / Wijayarathne-style), MHE with variable projection and motion prior, estimation-aware force-domain constrained MPC. Plan and lessons in `decision_log.md` (2026-11-01) and methods record §18. Step 1 done: normal-only nonlinear model adds little; moment-to-force ratio previews stiffness changes 10–20 mm ahead but depends on depth (needs footprint model); MHE/MPC feasible within 8 ms. Next: add Ft/My sensor outputs to the plant, then estimator prototypes (projection vs joint EKF vs MHE without/with preview). **Real-robot platform (user, 2026-10-31): RealMan RM65.** Official docs: joint/pose pass-through position commands, max 200 Hz, high-follow needs period <=10 ms; firmware force-position hybrid compensation; no documented joint-torque interface; RM65-6F F/T 200 N/7 N·m, ±0.5%FS (~±1 N). Before real experiments: identify servo lag (simulation assumes 19 ms + one 8 ms cycle), choose 5–10 ms cycle, measure force noise against the 4 N target (consider an external F/T). Draft §1 task paragraph now states the 10–30x stiffness span as a study setting (no in-vivo probe-contact data found; prior RUSS experiments ~7x) and limits the position-interface claim to UR/RealMan-type arms. **Round 3 (Claude only, 2026-10-31):** removed route members that do not address tissue motion, narrowed closest works to Rossi and Yuen (+L05), withdrew Li 2018 from ARIS; related work considered complete pending user confirmation, then move to the method section. User downloads go to `literature/manual_inbox/`.
+分层读，每步读完能回答对应问题再往下走。不要一开始就读 methods 全文（634 行）或 Git 全历史。
 
-**Acceptance round (2026-10-31):** Skill-based horizontal (anchors Pol, K16, Wij, L10, C03) and vertical review; added dose-response sweep (`sweep.py`; best median at every push speed and ratio >=10x, runaway tails at ramps <=0.15 s and ratio >=30x), three figures (`make_figures.py`, research/figures), rewritten title/abstract/contributions; independent Codex re-review: no data or figure errors, two framing defects fixed (coupling arises whenever the controlled probe is also the motion sensor and the gain has error; claims are a tolerance analysis plus empirical risk reduction, 3/50 -> 0/50, not a stability guarantee). Remaining: real robot.
+| 步 | 读什么 | 要能回答 | 约用时 |
+|---|---|---|---|
+| 1 | [handoff/01_要求与标准](handoff/01_要求与标准.md) | 用户的五条要求是什么？哪些历史方案已失效？有哪些待确认冲突？ | 短 |
+| 2 | Skill `top-researcher`：`README.md`、`references/stages/README.md`，再按当前阶段读 `workflow/03_method.md` 和 `references/stages/03_method.md` | 判据是什么？跨阶段闭环怎样检查？ | 中 |
+| 3 | [handoff/02_研究主线](handoff/02_研究主线.md)，并按其指引读 [论文初稿](../research/paper_draft_zh.md) §一至§四、§五.1、§五.3、§五.9 | 现状 → 问题 → 方法 → 证据这条线是什么？代码在哪？ | 中 |
+| 4 | [handoff/03_方法演进审计](handoff/03_方法演进审计.md) | 每项尝试实际做到哪一层？失败原因是什么？反复犯了哪些错？ | 中 |
+| 5 | [handoff/04_当前状态与待解决问题](handoff/04_当前状态与待解决问题.md) | 什么已验证、什么没研究透、什么可放下、当前要解决什么？ | 短 |
+| 6 | 只在需要时：[methods 记录](../research/optimal_impedance_question_and_methods.md) §16、§18–21；[B0 设计](../research/method_design.md) §3；[决策记录](decision_log.md)；[agent_runs](agent_runs/)；[实验索引](../experiments/experiment_index.md) | 原始推理与证据 | 按需 |
 
-**Current result (2026-10-31, tail-failure round):** Large untouched cohorts (50/family) exposed rare runaways (S3c 5/50 on the diag cohort) that the 6–12-scene sets had hidden. Oracle tests located them in the measurement-gain channel (biased accepted windows, chi2 in [1,3)). Two analysis-derived changes, no new tuned parameters: a property-1 bias bound gating the measurement gain (b <= ln 1.2) and encoder-endpoint displacement (robust to servo-lag/delay mismatch). Final method = tuned_v2/Proposed-IMMb.json. Confirm cohort (seeds 130000+): S3c 0/50 runaways; significantly better than Rossi, DO-MPAC, their combination and a new Yuen-type route-3 comparator (privileged motion sensor) in all five families, and than the true-stiffness Wij proxy in the four motion families (S2 tie). Robust to lag/delay/noise; limits: unknown force filter, faster servo, ridge >40x, S3d long single losses. ARIS survey narrowed novelty (F10, Cortesão/Dominici, Liang IMM exist); 8 full texts requested in literature/manual_fulltext_requests.md. Draft §一–六 rewritten; tables in experiments/motion_aware_scan/results_v2/tables_cohort.md; record in methods §16.
+读完后先向用户说明你的理解和下一步打算，再开始实质工作。本交接**不规定最终技术路线**。
 
-**Previous result (2026-10-30, skill self-check round):** The confirmed method (motion-invariant projection estimator + excitation; force-derived equivalent-motion measurement converted with the unbiased stiffness, IMM tracking and delay prediction as feed-forward; conservative-stiffness normalised admittance; contact supervisor) is unchanged. A usage-B self-check (Claude + independent Codex review) repaired three closure breaks, recorded in [methods §15](../research/optimal_impedance_question_and_methods.md): (1) literature/problem now include predictive physiological-motion compensation (M01–M03, full texts requested in literature/manual_fulltext_requests.md) and difficulty 4 (stiffness is the gain of the motion measurement); (2) new structural property: with exact measurement stiffness the feed-forward loop is open by construction, tolerated k/k_ref ≈ [0.75, 1.2] (common range, Kalman gain recomputed with the controller R) (`ff_loop.py`), which derives the two-stiffness split and FF shut-off at contact loss; rho_d capped to the screened range changes confirm RMSE by −3%..+11% (`consistency_check.py`); (3) matched checks (`mechanism_checks.py`): tracking+prediction is the main gain, IMM vs matched Kalman is condition-dependent (no general switching claim), normalisation mainly helps soft tissue, comparators with the same supervisor do not overturn any result. Second round (user: every component must answer a real problem and grow naturally from status/question): status rewritten around 'where the two kinds of information come from' (three routes + table), question shows failures first and grounds four difficulties; IMM grounded by `tracker_dilemma.py` (equivalent motion includes (y-s) dln k, switches between quiet and abrupt; single-bandwidth two-ends dilemma on soft pushes; IMM mode probability follows push events); measurement-noise-floor refinement tested and not adopted (`tracker_refine.py`). Third round: whole chain re-walked against the skill with M01–M03 full texts read (route 3 premises corrected, Cao TIM2025 added; problem states mechanism cause and dilemma forms; process history moved out of the draft; frozen-stiffness qualification on the FF-loop structure; S3 table shows longest single loss; A1 law and tuning J defined). Draft §一–六 updated. Remaining: real robot; read M01–M03; FF-loop stability under mode switching and time-varying stiffness; residual peaks on stiff pushes. Results: [tables](../experiments/motion_aware_scan/results_v2/tables.md).
+## 下一项决定属于谁
 
-## 2. Question and current method
+- **题内技术探索：** 接手者依据 skill 主动研究，大规模实现前先报告设计及理由。
+- **研究问题的实质修订、长期约束的变更、[01 第 6 节](handoff/01_要求与标准.md)的冲突：** 由用户决定。
 
-- **Parent question** ([research_question.md](../research/research_question.md)): when the environment changes during continuous robotic scanning of soft tissue, use new contact information to rapidly update impedance and improve actual contact force and motion.
-- **Refined question (user-confirmed 2026-10-22):** in constant-force ultrasound scanning of moving, heterogeneous tissue with only contact force and probe position available, tissue motion and local stiffness change are confounded in the contact force. The method must separate them online, using stiffness for impedance adjustment and drift for reference compensation.
-- **B0** ([method](../research/method_design.md), [appendix](../research/technical_appendix.txt), [proofs](../research/theoretical_proofs.txt)) remains the revisable starting point. The current C1 is a reduced implementation, not complete B0.
-- **C1, current focus.** It runs on the cobot benchmark: [controller](../experiments/cobot_scan_benchmark/contact_update.py), [results](../experiments/cobot_scan_benchmark/contact_update_results/README.md); equations and the local identifiability condition are in [methods §2.7](../research/optimal_impedance_question_and_methods.md). It has three parts:
-  - a windowed regression that profiles a cubic force-drift polynomial out of the stiffness estimate;
-  - a 128 ms OCP over D, K_PF and u_ff, run with three Gauss-Newton iterations every 8 ms;
-  - stiffness-based contact recovery with command-state compensation.
+## 运行与规则
 
-  Admittance K is fixed at 0. "Drift" is an equivalent contact-force drift that also absorbs viscoelastic relaxation; it is not a recovered physical surface position.
-- **C2 is set aside at the user's request** ("先不管c2"). It is a residual MLP distilled from a true-stiffness teacher (DAgger, CMA-ES). Keep its artifacts; do not present it as a coequal main claim.
-- **Assessment from the 2026-10-26 user conversation ([transcript](../conversation_transcript_2026-10-26.txt) [059]–[065]):**
-  - C1's method design already has the technical organization and completeness of related top-journal methods.
-  - What is not established is its advantage and contribution: it still lacks fair closest-prior comparisons, the key gain ablation, and real-robot evidence.
-  - The three simulation tasks are sufficient.
-
-## 3. Current evidence (seed-7200, 40 scenes per task)
-
-Force RMSE in N, for T1 stiffness change / T2 push–retract soft / T2 stiff / T3 combined scan:
-
-| Method | T1 | T2 soft | T2 stiff | T3 |
-|---|---|---|---|---|
-| C1 repaired | 0.087 | 0.068 | 0.291 | 0.142 |
-| C1 v2 (before repair) | 0.060 | 0.057 | 1.372 | 0.147 |
-| C2 | 0.083 | 0.143 | 0.493 | 0.210 |
-| EtR-A | 0.107 | 0.147 | 0.551 | 0.230 |
-| Haninger (damping-rule adaptation) | 0.122 | 0.178 | 0.433 | 0.273 |
-| Jin MS | 0.117 | 0.265 | 1.268 | 0.285 |
-| Xue nominal (adaptation) | 0.276 | 0.383 | 3.414 | 0.511 |
-
-- **Effect of the repair on the 20 stiff T2 scenes:**
-  - low-contact scenes (force below 0.5 N) fall from 6 to 0;
-  - the worst sampled peak falls from 22.23 to 6.78 N;
-  - two-event recovery rises from 80% to 100%.
-
-  Restoring the old estimator gives 0.531 N, so the estimator change contributes.
-- **Costs:** T1 RMSE worsens and its worst peak rises from 5.33 to 7.58 N. The T3 change is not statistically resolved.
-- **Fairness limit:** the C1 repair used T2 development data, while the baselines keep their earlier T3-selected settings. This is not an equally retuned ranking.
-- **Ablation (C1 v2, T3):** gains only gives 0.489 N against 0.147 N for the full method. This establishes a benefit of enabling reference compensation over that gains-only instance; it does not isolate the gain-optimization increment with the same reference channel.
-- **"Near-optimal" is unsupported:** local OCP reference gaps reach a maximum of 198.96%.
-- **Timing:** software P99 is 0.501 / 0.628 / 0.368 ms (T1/T2/T3). Physical communication is excluded, so this is not real-time certification.
-- **Sources:** the final Chinese sections are [paper overview](../research/paper_draft_zh.md) and [simulation section](../research/paper_experiments_final_zh.md); closest-prior differences are in [methods §2.8](../research/optimal_impedance_question_and_methods.md).
-
-## 4. Next work, in order
-
-0. **Current (2026-11-01, after user correction):** resume from methods §20.4(1). Follow methods §21: contact model and projection estimator are upgraded as one object (window measurement model with stiffness varying along the path/depth; full variable projection + arrival-cost MHE; current projection is the special case). Order: identifiability (Fn/My/Ft, motion, friction, two sensor grades) → open-loop estimator replay → closed-loop interfaces one at a time (measurement gain, feedback bound, FF bandwidth from gain uncertainty) at 50/family. Keep V1; supervisory lead selection (h=3) frozen as candidate only. Items 1–4 below are older.
-1. N01–N04 done. Keep claims aligned with their originals (pages in field_state §6).
-2. Integrate verified points from the independent critique of draft §一–四; keep facts traceable to originals/evidence cards.
-3. Design-stage verdict: all baselines met (methods B3 completed afterwards). Simulation plan is in [methods §10](../research/optimal_impedance_question_and_methods.md#10-仿真验证方案2026-10-30待执行) (S1 estimation mechanism, S2 stiffness span, S3 main task, one ablation, timing; fresh test seeds; ~10–12 scenes per condition). After user go-ahead, implement the §三 method changes in the cobot benchmark and run the §四 validation (three existing tasks, Wijayarathne-type / TASE2018-type / DO-MPAC-type / static-surface-MHE comparators, oracle reference, one ablation section, timing), stating quota before large runs.
-4. Unproven items to keep explicit: variable-gain and recovery-switching stability, exact scaling under viscoelastic/HC nonlinearity and saturation, physical motion recovery (not claimed), real-robot evidence.
-
-## 5. Where things are
-
-| Need | Location |
-|---|---|
-| Field state and related-work scope | [field_state.md](../research/field_state.md), [related_work_scope_and_coverage.md](../research/related_work_scope_and_coverage.md) |
-| Methods, C1/C2 specification, closest-prior comparison | [optimal_impedance_question_and_methods.md](../research/optimal_impedance_question_and_methods.md) |
-| How top papers form methods and run experiments | [reverse analysis](../research/independent_reverse_analysis_of_top_journal_methods.md), [simulation setup analysis](../research/simulation_setup_reverse_analysis.md), [transferable mechanisms](../research/transferable_mechanisms.md) |
-| Literature | [literature index](../literature/literature_index.md): 106 archived unique PDFs, 109 usage records; supplied2018 inbox PDF not yet archived |
-| Experiments | [experiment index](../experiments/experiment_index.md), [cobot benchmark](../experiments/cobot_scan_benchmark/README.md) |
-
-## 6. Rules and recovery
-
-- Preserve `00_基线快照_2026-10-14/` byte for byte. File check: `python -X utf8 literature/verify_materials.py`.
-- Early B0 and 2D experiment directories, plus superseded drafts, were removed from the working tree on 2026-10-26. Recover them from Git `b7a3f91`. Their lessons are in the experiment index and the failure review.
-- **ARIS checkpoint2026-10-30:** same run/root/source policy.32 query attempts (27 complete, five historical failures),221 candidate/local/alias records,27 accepted selected-passage cards;106 unique PDFs/109 usage records. Counts are not core citations or coverage certificates.
-- C10 is torque-executed explicit force/moment control with moving-phantom evidence; C11 is pre-calibrated geometry/model and image target-force regulation; S04 TAFAC is known-reference velocity/acceleration/control-cycle compensation, online2025-12-06. All are at their appropriate capability layer. C11 formula direction and S04 first-order delay-proof limits are explicit.
-- [Fresh independent review](../literature/aris_coverage_review.json) request`13f969fbc87348f8adb511c7fbc5ddea` returned **CONTINUE**, accepted via an actual completed native-child transcript (no Hook claim). It identifies the2018 source gap and does not claim all221 records independently cleared. Controller is **QUERY_PLANNING** with that gap; no formal download batch is currently pending. The exact mirrored candidate map saysSUFFICIENT because that was the reviewed candidate; the adverse review did not accept the landscape.
-- C10/C11/S04 download requests are closed. [Current manual checklist](../literature/manual_fulltext_requests.md) requests only the2018 original. No need to redownload completed files or fill JSON. No scientific-core ARIS pipeline was started.
-- Assessment derivations explain current C1 only: projection information/error relationship; linearized gain/reference/servo transfer; ideal frozen-gain conditionD>M*k_i. They do not certify actual delayed variable-gain/switching execution. B0 proof text was not independently certified in this checkpoint.
-- A prior premature gain diagnostic was stopped before this checkpoint; no new experimental results were added. Its diagnostic files are outside the project working tree, not part of the present evidence. Do not resume it automatically.
-
-- After each completed checkpoint, run `python -X utf8 scripts/research_sync.py --message "research: ..."`. Never force-push.
+- **环境：** Windows，`python -X utf8`，Python 3.10，numpy、scipy、numba，8 线程以上为宜。每族 50 的 5 个配置约 30 分钟本机 CPU。
+- **同步：** 工作前 `git pull --rebase origin main`；每个完成的检查点运行 `python -X utf8 scripts/research_sync.py --message "research: <具体改动与目的>"`。不改写历史，不强推。
+- **记录：** Codex/ARIS 的任务书与最终输出存 [agent_runs](agent_runs/)，关键决定写入 [decision_log](decision_log.md)，科学推理放研究文档。不另建变更日志。
+- **保护：** `00_基线快照_2026-10-14/` 逐字节不动（`python -X utf8 literature/verify_materials.py`）。不翻译已有材料。
+- **实验目录：** [motion_aware_scan](../experiments/motion_aware_scan/README.md)（最终方法）、[method_redesign](../experiments/method_redesign/)（11-01 的 P1、P2）、[contact_model](../experiments/contact_model/)（11-01 傍晚起）、[cobot_scan_benchmark](../experiments/cobot_scan_benchmark/README.md)（对象与 C1）。
+- **文献：** 索引 [literature_index](../literature/literature_index.md)；ARIS 运行 `recent-related-work-20261031`（RUN_ROOT `D:/pip_env/temp/scan_impedance_literature_20261031/aris_run`，机器本地）；当前没有待下载文献（[清单](../literature/manual_fulltext_requests.md)）；用户下载件放 `literature/manual_inbox/`。
+- **更早的实验和文档：** 早期 B0/二维实验已移出工作区，用 `git show b7a3f91:<路径>` 恢复。

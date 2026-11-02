@@ -1,6 +1,17 @@
 # Experiment index
 
-## Current
+## Current (2026-11-02)
+
+Read `project_records/HANDOFF.md` first; `project_records/handoff/03_方法演进审计.md` maps each method attempt to its code, results and commit.
+
+| Directory | Use | Boundary |
+|---|---|---|
+| [motion_aware_scan](motion_aware_scan/README.md) | Final method `Proposed-IMMb`, comparators, confirmation cohort (130000+), sweeps, robustness, tables for the draft | Basis of the paper draft |
+| [method_redesign](method_redesign/) | 2026-11-01 work: estimators E0–E4, constrained MPC, predictors, P1 attribution, V1 servo identification, V3/V4/V4b, feed-forward lead diagnosis | Diagnosis cohort (110000+); V1 is the only adopted result |
+| [contact_model](contact_model/) | 2026-11-01 evening: path modulus map prototype, time-varying windows, moment gradient check, measurement-gain fusion candidate | Candidates only; nothing adopted |
+| [cobot_scan_benchmark](cobot_scan_benchmark/README.md) | Plant, scenarios, older C1/C2 controllers and comparators | Sections below are the older C1 context |
+
+## Older C1 context
 
 [Cobot scan benchmark](cobot_scan_benchmark/README.md): synthetic PC125 normal-axis plant (8 ms outer loop, 8 ms transport delay, 19 ms servo, 1 kHz force with 30 Hz low-pass and 0.08 N noise). It holds the current C1 and C2 implementations, repaired field baselines and the seed-7200 three-task evidence.
 
