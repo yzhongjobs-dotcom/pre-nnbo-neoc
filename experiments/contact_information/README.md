@@ -10,6 +10,20 @@
 
 ## 有限且有目的的证据
 
+**共享运动与动态响应候选（最新）：** 具体设计/推导/正负结果见[研究正文](../../research/shared_contact_response.md)。`structured_memory.py`用同一局部运动作用弹性和记忆，`dynamic_compliance.py`实现时变逆、作用时域信息及历史/噪声传播，`response_policy.py`接入原控制器并模拟32 ms识别发布延迟。首版、历史重构、观测方差三轮共10次闭环，均未形成可采纳的通用改进；严重历史版负结果保留。没有改变对象、原20.8 Hz或反馈/IMM参数。
+
+```powershell
+python -X utf8 experiments/contact_information/verify_response.py
+python -X utf8 experiments/contact_information/check_response_results.py
+# 重做闭环时用新标签；保存七通道输入以供无真值前缀重放。
+python -X utf8 experiments/contact_information/run_response.py --label response_reproduced
+python -X utf8 experiments/contact_information/run_response.py --models shared_history --label history_reproduced
+python -X utf8 experiments/contact_information/run_response.py --models shared_history_uncertain --label uncertainty_reproduced
+# audit_response.py当前默认主标签为含同自由度对照的v2，拒绝覆盖。
+```
+
+主数据：`shared_response_v1.json`、`shared_response_history_v2.json`、`shared_response_uncertainty_v3.json`及对应测量NPZ；`shared_response_same_input_matched_v2.json`为同输入主对照（包含同四个干扰参数的自由表示），未加该对照的旧回放也保留。每个模型信息、目标状态、因果发布和计时边界见正文。源码新增兼容分支之后，前期源码哈希不等同当前文件；`check_response_results.py`对v1与v3代表回合仅给测量前缀，指令逐点重现，未以当前哈希冒称原文件逐字节未变。协方差是局部条件参考，不是初态/模型误差或真实闭环的认证。
+
 **Rossi机制条件与新诊断（最新）：** 研究正文[主动激励§8–9](../../research/active_excitation.md)说明12个闭环（4个精确复现、8个干预）及动态响应信息计算的目的、结果和边界。8.3766 Hz名义等波动频率候选、有界位置偏移及过零更新均无一致收益；不采纳，不当作完成了科研创新。等指令幅度对照的改善不单独作为通用策略。对象、原有效候选和反馈/IMM参数未修改。
 
 ```powershell
