@@ -6,7 +6,27 @@
 
 当前较强实例：原20.8 Hz、小幅探测；32拍一阶时变增益、四次漂移、无速率项；原反馈/IMM/恢复不变。原探测纳入可行集后，其名义当前增益信息优于所搜周期 Fourier 候选。保留原探测是比较结果，不是预设必须替换。
 
+继续接触模型的最新证据见[正文 §8–10](../../research/first_module_information.md)：已实现端点/移动参考曲率、正参数局部 SLS、相同指数漂移消融与12个定向闭环实例。曲率筛选只在硬组织带来很小差值；SLS改善该实例的条件预测，标量增益接入却使闭环变差。尚未采纳，下一项仍是动态接触观测的物理/信息闭合，不能用这些结果裁决整条接触路线。
+
 ## 有限且有目的的证据
+
+本次接触细化的代码：`contact_jet.py`（局部曲率及端点功能量），`curved_policy.py`（原精简候选回退），`memory_contact.py`（解析SLS卷积、未知表面/初值剖面及正参数约束），`memory_policy.py`（只验证探测实部增益的有限接口，尚无动态逆），`curvature_probe.py`（原预算下的曲率信息设计）。这些估计源均无对象导入；运行器使用原有测量屏蔽器。
+
+```powershell
+python -X utf8 experiments/contact_information/verify_contact_jet.py
+python -X utf8 experiments/contact_information/verify_memory_contact.py
+python -X utf8 experiments/contact_information/audit_refinement.py
+# 已有 lean_input 文件会保留；freeze 只生成缺少的精简候选输入。
+python -X utf8 experiments/contact_information/run_refinement.py freeze
+python -X utf8 experiments/contact_information/run_refinement.py replay --label contact_jet_reproduced
+python -X utf8 experiments/contact_information/run_refinement.py replay --label contact_memory_reproduced --models lean drift_040 memoryc_040
+python -X utf8 experiments/contact_information/run_refinement.py closed --label contact_curvature_closed_reproduced
+python -X utf8 experiments/contact_information/run_refinement.py memory_closed --label contact_memory_closed_reproduced
+```
+
+本次原始结果按迭代分开保留：`contact_jet_replay_v1`/`contact_jet_replay_centered_v2`、`contact_curvature_closed_v1`；`contact_memory_replay_v1`/`contact_memory_constrained_v2`/`contact_memory_drift_ablation_v3`、`contact_memory_gain_closed_v1`；`curvature_probe_design_v1`。预测评分的未来编码器是给定条件，未来力隐藏；不是在线运动预测。重叠窗口不作为独立重复。`contact_refinement_audit`汇总完整性、数值核验和记忆闭环 v1 的继承描述字段纠正。
+
+以下为上一轮联合优化的已完成证据，仍保留：
 
 - joint_pilot_v1：指令预算/增大幅值的首轮正负结果；联合方案反而变差。
 - joint_response_pilot_v2：物理响应预算及长常数窗/去速率/探测单改/联合对照；两个原场景。
