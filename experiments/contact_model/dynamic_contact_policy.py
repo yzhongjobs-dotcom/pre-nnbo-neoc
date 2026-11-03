@@ -19,12 +19,14 @@ from dynamic_contact import ContactFit,Memory,Signals
 class ContactPolicy(ServoID):
     def __init__(self, spatial=False, memory=Memory(.5,.2), interface='gain', contact='foundation',
                  latency=0.,update_ticks=16,fallback='baseline',data_confidence=True,blocks=4,
-                 validate_next=False,**kw):
+                 validate_next=False,stable_jacobian=False,propagate_contact=False,**kw):
         super().__init__(**kw)
-        self.contact_args=dict(spatial=spatial,memory=memory,contact=contact,data_confidence=data_confidence,blocks=blocks)
+        self.contact_args=dict(spatial=spatial,memory=memory,contact=contact,data_confidence=data_confidence,
+                               blocks=blocks,stable_jacobian=stable_jacobian)
         self.interface,self.latency,self.update_ticks=interface,float(latency),int(update_ticks)
         self.fallback=fallback
         self.validate_next=bool(validate_next)
+        self.propagate_contact=bool(propagate_contact)
 
     def reset(self,platform):
         super().reset(platform)
@@ -35,6 +37,7 @@ class ContactPolicy(ServoID):
         self.signal_n=None
         self.baseline_good=float('nan')
         self.contact_rejections=[];self.contact_trace=[]
+        self.observation_variances=[];self.unobserved_corrections=0;self.current_fit=None
 
     def step(self,o):
         n=o.n
@@ -56,7 +59,7 @@ class ContactPolicy(ServoID):
         # Original projection updates feedback only. Model measurement gain has
         # its own residual, variance and acceptance score, not the old gate.
         if self.model_ready and self.fallback=='hold':self.k_good=previous_good
-        now=float(o.log[n-1,0]);self.model_current=False
+        now=float(o.log[n-1,0]);self.model_current=False;self.current_fit=None
         if self.pending is not None and now>=self.pending[0]:
             self.accepted_fit=self.pending[1];self.pending=None
         if n>=64 and n%self.update_ticks==0:
@@ -95,25 +98,43 @@ class ContactPolicy(ServoID):
             if pred['risk']<=math.log(1.2) and 200.<=pred['k']<=3e5:
                 self.k_good=pred['k'];self.kg_rel=pred['relative_sd']
                 self.model_current=True;self.model_ready=True;self.model_ticks+=1
+                self.current_fit=fit;self.current_prediction=pred
         self.contact_ticks+=1
         self.contact_trace.append([now,self.baseline_good,self.k_good,int(self.model_current)])
         return feedback
 
     def drift_pred(self,o,n):
-        if self.interface!='target' or not self.model_current or len(self.signals.rows)<2:
+        if not self.model_current or len(self.signals.rows)<2 or (self.interface!='target' and not self.propagate_contact):
             return super().drift_pred(o,n)
         if self._motion_n==n:return self._motion_prediction
-        oldn=self._motion_n;self._motion_n=n
         current,previous=self.signals.rows[-1],self.signals.rows[-2]
+        parameter_variance=0.
+        if self.interface=='target':
+            if self.propagate_contact:
+                increment=self.model_fit.correction_increment(self.current_fit,current,previous)
+                if increment['unobserved']:
+                    self.unobserved_corrections+=1;self.model_ticks-=1;self.model_current=False
+                    self.k_good=self.baseline_good
+                    return super().drift_pred(o,n)
+                dc=increment['increment'];parameter_variance=increment['variance']+increment['bias']**2
+            else:
+                c=self.model_fit.target_correction(self.accepted_fit,current[1],current[3],current[4])
+                p=self.model_fit.target_correction(self.accepted_fit,previous[1],previous[3],previous[4])
+                dc=c-p
+        else:
+            dc=(current[3]-previous[3])/self.k_good
+            parameter_variance=dc**2*(self.current_prediction['relative_sd']**2+
+                                     self.current_prediction['regularization_log_shift']**2)
+        oldn=self._motion_n;self._motion_n=n
         if self._fin_prev is None or oldn!=n-1:
             self.Z=0.;self.tracker.reset(0.);self.q_prev=None
         else:
-            c=self.model_fit.target_correction(self.accepted_fit,current[1],current[3],current[4])
-            p=self.model_fit.target_correction(self.accepted_fit,previous[1],previous[3],previous[4])
             # Both corrections use the SAME current model, avoiding artificial
             # level jumps when parameters are updated.
-            self.Z+=(c-p)-(current[2]-previous[2])
-            self.tracker.R=max((self.params['noise']/self.k_good)**2*self.motion_params['r_scale'],1e-20)
+            self.Z+=dc-(current[2]-previous[2])
+            force_variance=(self.params['noise']/self.k_good)**2*self.motion_params['r_scale']
+            self.tracker.R=max(force_variance+parameter_variance,1e-20)
+            self.observation_variances.append([parameter_variance,force_variance])
             self.tracker.update(self.Z)
         self._fin_prev,self._y_prev=current[3],current[2]
         L=(self.ndel+.5)*self.Tc;s,sd=self.tracker.predict(L)

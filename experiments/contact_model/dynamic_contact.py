@@ -71,11 +71,13 @@ class ContactFit:
     operator. The reported covariance/risk is nominal, not a safety guarantee.
     """
     def __init__(self, memory=Memory(), spatial=False, contact='foundation', moment=False,
-                 arrival=True, noise=.04, max_nfev=20,data_confidence=True,blocks=4):
+                 arrival=True, noise=.04, max_nfev=20,data_confidence=True,blocks=4,
+                 stable_jacobian=False):
         self.memory, self.spatial, self.moment = memory, spatial, moment
         self.model = LinePatch(spatial) if contact=='line' else FinitePatch(Geometry(),spatial)
         self.arrival, self.noise, self.max_nfev = arrival, noise, max_nfev
         self.data_confidence=data_confidence
+        self.stable_jacobian=bool(stable_jacobian)
         self.previous = None
         self.blocks=int(blocks);self.history=[]
         self.retired_information=None;self.retired_vector=None
@@ -93,10 +95,12 @@ class ContactFit:
         _,_,ke=self.model.response(x,d,theta)
         A=T@(ke[:,None]*B);u=T@(ke*(y-d))
         beta=np.linalg.lstsq(A,u,rcond=1e-8)[0]
-        for _ in range(7):
+        for _ in range(12 if self.stable_jacobian else 7):
             dep=np.maximum(y-B@beta,1e-9)
             pred,_,kp=self.model.response(x,dep,theta)
             r=T@(pred-Fe);J=-T@(kp[:,None]*B)
+            if self.stable_jacobian:
+                J=-T@((kp*(y-B@beta>1e-9))[:,None]*B)
             change=np.linalg.lstsq(J,-r,rcond=1e-8)[0]
             old=float(r@r)
             for scale in (1.,.5,.25,.125):
@@ -106,7 +110,7 @@ class ContactFit:
                 if float(new@new)<=old:
                     beta=candidate;break
             else:break
-            if np.linalg.norm(scale*change)<1e-9:break
+            if np.linalg.norm(scale*change)<(1e-12 if self.stable_jacobian else 1e-9):break
         dep=np.maximum(y-B@beta,1e-9)
         pred,moment,kp=self.model.response(x,dep,theta)
         _,rank=project(T@(kp[:,None]*B),np.zeros(len(y)))
@@ -199,9 +203,15 @@ class ContactFit:
             rr=np.r_[rr,data_arrival(z)]
             if self.spatial:rr=np.r_[rr,z[1]/3.,(z[3]-1.5)/5.]
             return rr
+        def stable_derivative(z):
+            # Absolute steps in declared coordinates (log coefficients, cm).
+            # Machine-scale steps amplify the inner profile solve tolerance.
+            h=1e-4;eye=np.eye(len(z))
+            return np.column_stack([(residual(z+h*e)-residual(z-h*e))/(2*h) for e in eye])
         best=None
         for st in starts:
             opt=least_squares(residual,np.clip(st,low+1e-6,high-1e-6),bounds=(low,high),max_nfev=self.max_nfev,
+                              jac=stable_derivative if self.stable_jacobian else '2-point',
                               ftol=3e-4,xtol=3e-4,gtol=3e-4,x_scale='jac')
             val=float(opt.fun@opt.fun)
             if best is None or val<best[0]:best=(val,opt)
@@ -291,6 +301,40 @@ class ContactFit:
         d=self.model.inverse(x,max(elastic_force,.02),fit['theta'])
         dt=self.model.inverse(x,target,fit['theta'])
         return float(d-dt)
+
+    def correction_gradient(self,fit,x,total_force,elastic_force,desired=4.):
+        """Implicit derivative of the ACTUAL correction in covariance coordinates.
+
+        For a valid inverse root, d_theta=-Phi_theta/Phi_d. Holding a root
+        fixed in the partial force derivative avoids repeatedly differentiating
+        an iterative inverse solver. This is local sensitivity, not a global
+        confidence set or coverage of the assumed memory/geometry parameters.
+        """
+        th=fit['theta'];fe=max(elastic_force,.02)
+        target=max(fe+(desired-total_force)/(1+self.memory.alpha),.02)
+        d0=float(self.model.inverse(x,fe,th));dt=float(self.model.inverse(x,target,th))
+        k0=float(self.model.response(x,d0,th)[2]);kt=float(self.model.response(x,dt,th)[2])
+        g=np.empty(len(th))
+        for j in range(len(th)):
+            h=1e-4 if j<2 else 1e-6
+            tp,tm=th.copy(),th.copy();tp[j]+=h;tm[j]-=h
+            f0p=self.model.response(x,d0,tp,stiffness=False)[0]
+            f0m=self.model.response(x,d0,tm,stiffness=False)[0]
+            ftp=self.model.response(x,dt,tp,stiffness=False)[0]
+            ftm=self.model.response(x,dt,tm,stiffness=False)[0]
+            g[j]=-(f0p-f0m)/(2*h*max(k0,1.))+(ftp-ftm)/(2*h*max(kt,1.))
+        if len(th)>1:g[2:]*=.01
+        return d0-dt,g
+
+    def correction_increment(self,fit,current,previous):
+        c,gc=self.correction_gradient(fit,current[1],current[3],current[4])
+        p,gp=self.correction_gradient(fit,previous[1],previous[3],previous[4])
+        g=gc-gp;C=fit['data_cov'];null=fit['data_null']
+        # A one-picometre absolute derivative floor recognises numerical zero;
+        # it is far below measured displacement resolution, not a gain gate.
+        unseen=bool(null.shape[1] and np.linalg.norm(null.T@g)>max(1e-4*np.linalg.norm(g),1e-12))
+        variance=max(float(g@C@g),0.);bias=abs(float(g@fit['data_shift']))
+        return dict(increment=float(c-p),variance=variance,bias=bias,unobserved=unseen,gradient=g)
 
 
 class Signals:

@@ -43,6 +43,13 @@ CONFIGS.update({
  'memory_patch_checked_target':dict(spatial=True,memory=Memory(.5,.2),interface='target',validate_next=True),
  'static_patch_checked_target':dict(spatial=True,memory=Memory(0.,.2),interface='target',validate_next=True),
  'memory_line_checked_target':dict(spatial=True,memory=Memory(.5,.2),interface='target',contact='line',validate_next=True)})
+for old,new in [('memory_linear_checked','linear_stable_gain'),
+                ('memory_patch_checked_gain','patch_stable_gain'),
+                ('memory_patch_checked_target','patch_stable_target'),
+                ('static_patch_checked_target','static_patch_stable_target'),
+                ('memory_line_checked_target','line_stable_target')]:
+    CONFIGS[new]=dict(CONFIGS[old],stable_jacobian=True)
+    CONFIGS[new+'_uncertainty']=dict(CONFIGS[new],propagate_contact=True)
 
 
 class Masked:
@@ -71,10 +78,15 @@ def episode(job):
             record['scoring_next_window_force_rmse']=float(np.sqrt(np.mean((log[use,3]-common.FD)**2)))
             record['scoring_next_window_peak']=float(log[use,3].max())
     times=[r['elapsed'] for r in records if 'elapsed'in r]
+    variances=np.asarray(getattr(pol,'observation_variances',[]))
     return dict(model=name,family=fam,sid=sid,metrics=metrics,
                 elapsed=time.perf_counter()-tic,model_ticks=getattr(pol,'model_ticks',0),
                 contact_ticks=getattr(pol,'contact_ticks',0),fits=records,
                 contact_rejections=getattr(pol,'contact_rejections',[]),
+                unobserved_corrections=getattr(pol,'unobserved_corrections',0),
+                parameter_to_force_variance_P50_P90=(np.percentile(variances[:,0]/variances[:,1],[50,90]).tolist()
+                                                       if len(variances) else None),
+                call_ms_P50_P90_P99=(np.percentile(pol.t_call,[50,90,99])*1000).tolist(),
                 fit_ms_P50_P90=(np.percentile(times,[50,90])*1000).tolist() if times else None)
 
 
