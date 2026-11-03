@@ -35,7 +35,7 @@ class MeasuredOnly:
 
 
 def episode(job):
-    name,scene,wave,scale=job;fam,sid,p,T=scene
+    name,scene,wave,scale,noise_offset,lag_scale=job;fam,sid,p,T=scene
     args=dict(single_model=False,**CE.FINAL)
     if name=='baseline':pol=ServoID(**args)
     elif name=='amplitude_only':pol=JointPolicy(wave=None,new_fit=False,amplitude_scale=scale,**args)
@@ -45,7 +45,8 @@ def episode(job):
     elif name=='joint_lean':pol=JointPolicy(wave=wave,new_fit=True,rate=False,amplitude_scale=scale,**args)
     else:pol=JointPolicy(wave=wave if name in ('probe_only','joint') else None,
         new_fit=name in ('fit_only','joint'),amplitude_scale=scale if name in ('probe_only','joint') else 1.,**args)
-    tic=time.perf_counter();log,_=common.run(MeasuredOnly(pol),p,T,sid)
+    platform=dict(common.P.PLATFORMS['PC125']);platform['tau_a']*=lag_scale
+    tic=time.perf_counter();log,_=common.run(MeasuredOnly(pol),p,T,sid+noise_offset,platform=platform)
     metrics=common.task_metrics(log,20.8)
     mask=log[:,0]>=1.5;t=log[mask,0];f=log[mask,3]
     frequencies=[20.8]
@@ -61,17 +62,22 @@ def episode(job):
         i=int(np.argmin(abs(log[:,0]-f['time'])));f['scoring_reference_k']=float(log[i,8])
         ahead=(log[:,0]>f['time'])&(log[:,0]<=f['time']+.128)
         if np.any(ahead):f['scoring_next_force_rmse']=float(np.sqrt(np.mean((log[ahead,3]-4.)**2)))
-    return dict(model=name,family=fam,sid=sid,metrics=metrics,elapsed=time.perf_counter()-tic,
+    return dict(model=name,family=fam,sid=sid,noise_sid=sid+noise_offset,metrics=metrics,elapsed=time.perf_counter()-tic,
+                servo_id_last=pol.id_hist[-1] if pol.id_hist else None,
                 fits=fits,used=getattr(pol,'used',0),
                 call_ms_P50_P90_P99=np.percentile(calls,[50,90,99]).tolist(),
                 probe_records=getattr(pol,'probe_records',[]))
 
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--models',nargs='+',default=['baseline','amplitude_only','probe_only','fit_only','joint'])
+    ap=argparse.ArgumentParser();ap.add_argument('--models',nargs='+',
+        choices=['baseline','amplitude_only','probe_only','fit_only','joint','long_constant','varying_no_rate','matched_gate_short','joint_lean'],
+        default=['baseline','amplitude_only','probe_only','fit_only','joint'])
     ap.add_argument('--families',nargs='+',default=['S2','T3m']);ap.add_argument('--workers',type=int,default=2)
     ap.add_argument('--probe-budget',choices=['command','response'],default='command')
     ap.add_argument('--include-original',action='store_true')
+    ap.add_argument('--noise-offset',type=int,default=0)
+    ap.add_argument('--servo-lag-scale',type=float,default=1.)
     ap.add_argument('--label',default='joint_pilot_v1');args=ap.parse_args()
     physical=args.probe_budget=='response'
     probe=optimize_probe(n=32,rate=True,physical_force_budget=physical);sigma=.04;target=math.log(1.2)
@@ -80,18 +86,29 @@ def main():
         reference=sine_information(n=32,rate=True)[0]
         probe['original_sine_information']=reference;probe['periodic_information']=probe['information']
         if reference>=probe['information']:
-            probe.update(wave=None,selected_kind='original_sine',information=reference)
+            periodic=dict(probe)
+            probe.update(wave=None,selected_kind='original_sine',information=reference,
+                         selected_frequency=20.8,rms=1/math.sqrt(2),peak=1.,
+                         max_slew=2*math.sin(math.pi*20.8*.008),fourier=None,scale=1.,
+                         predicted_force_rms=probe['reference_force_rms'],periodic_candidate=periodic)
     # Minimal scale for nominal endpoint precision; upper limit 2 is a declared
     # probe budget, NOT a guarantee on actual force excursions.
     scale=1. if physical else min(2.,max(1.,sigma/(target*np.sqrt(probe['information'])*CE.FINAL['a_force'])))
     scenes=[s for s in CE.cohort('diag',1) if s[0] in args.families]
-    jobs=[(name,scene,probe['wave'],scale) for scene in scenes for name in args.models]
+    jobs=[(name,scene,probe['wave'],scale,args.noise_offset,args.servo_lag_scale) for scene in scenes for name in args.models]
     hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),HERE/'local_contact.py',HERE/'joint_policy.py']}
+    inherited=[HERE.parent/'motion_aware_scan'/name for name in
+               ('common.py','proposed.py','variants.py','imm.py','cohort_eval.py','scenes_v2.py','tuned_v2/Proposed-IMMb.json')]
+    inherited.extend([HERE.parent/'method_redesign'/'v1_servo_id.py',HERE.parent/'cobot_scan_benchmark'/'plant.py'])
     result=dict(protocol=dict(scientific_questions=['current gain during material transition','movement/material confounding'],
         families=args.families,scenarios_per_family=1,models=args.models,expected_rows=len(jobs),
         information_window=32,source_sha256=hashes,amplitude_scale=scale,probe=probe,
+        inherited_source_sha256={str(p.relative_to(HERE.parent)):hashlib.sha256(p.read_bytes()).hexdigest() for p in inherited},
+        inherited_controller_parameters=CE.FINAL,timing_excludes_first_second=True,
         probe_budget=args.probe_budget,
         original_probe_is_feasible_candidate=args.include_original,
+        noise_seed_offset=args.noise_offset,physical_scenes_unchanged_by_noise_offset=True,
+        servo_lag_scale=args.servo_lag_scale,controller_servo_initialization='nominal PC125',
         truth_for_scoring_only=True,tuning=False,plant_changed=False,final_used=False,
         computational_delay_simulated=False),rows=[])
     out=HERE/'results'/(args.label+'.json');out.parent.mkdir(exist_ok=True)

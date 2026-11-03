@@ -8,6 +8,7 @@ hidden from prediction. Windows are trajectory diagnostics, not independent n.
 import hashlib
 import json
 import math
+import argparse
 import sys
 from pathlib import Path
 import numpy as np
@@ -19,6 +20,7 @@ import common,cohort_eval as CE
 
 
 def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--label',default='identical_replay_v1');args=ap.parse_args()
     rows=[];inputs={}
     for fam in ('S2','T3m','T2m-stiff'):
         path=next((HERE.parent/'contact_model'/'results').glob(f'finite_patch_input_{fam}_*.npz'))
@@ -62,7 +64,7 @@ def main():
     out=dict(protocol=dict(input_hashes=inputs,all_models_same_measurements=True,truth_for_scoring_only=True,
                            window_stride=16,windows_independent=False,tuning=False,final_used=False),
              predicted_information=information,summary=summaries,rows=rows)
-    target=HERE/'results'/'identical_replay_v1.json'
+    target=HERE/'results'/(args.label+'.json')
     if target.exists():raise ValueError('preserve existing replay')
     target.write_text(json.dumps(out,indent=2),encoding='utf8')
     print('information',information)

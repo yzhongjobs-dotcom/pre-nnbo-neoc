@@ -1,11 +1,12 @@
 # Experiment index
 
-## Current (2026-11-02)
+## Current (2026-11-03)
 
 Read `project_records/HANDOFF.md` first; `project_records/handoff/03_方法演进审计.md` maps each method attempt to its code, results and commit.
 
 | Directory | Use | Boundary |
 |---|---|---|
+| [contact_information](contact_information/README.md) | Joint first-module work: constrained probe information, endpoint/nonstationary gain fitting, same-input replay and small causal closed-loop comparisons | Preliminary candidate; original probe retained by comparison; no adoption or confirmation-cohort use |
 | [motion_aware_scan](motion_aware_scan/README.md) | Final method `Proposed-IMMb`, comparators, confirmation cohort (130000+), sweeps, robustness, tables for the draft | Basis of the paper draft |
 | [method_redesign](method_redesign/) | 2026-11-01 work: estimators E0–E4, constrained MPC, predictors, P1 attribution, V1 servo identification, V3/V4/V4b, feed-forward lead diagnosis | Diagnosis cohort (110000+); V1 is the only adopted result |
 | [contact_model](contact_model/) | 2026-11-01 evening: path modulus map prototype, time-varying windows, moment gradient check, measurement-gain fusion candidate | Candidates only; nothing adopted |
