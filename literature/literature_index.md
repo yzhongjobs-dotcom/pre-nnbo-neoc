@@ -1,5 +1,11 @@
 # Literature index
 
+## Excitation mechanism resource added 2026-11-03
+
+| ID | Original and extracted text | Reading scope and role |
+|---|---|---|
+| EX01 | [Huang et al., T-RO2025, 10.1109/TRO.2025.3543296](papers/method_transfer/Huang2025_excitation.pdf) · [text](extracted_text/method_transfer/Huang2025_excitation.txt) | User-supplied full text; core constraint-handling/TLBO method, experiment chain and limits read; Algorithm 1/PDF6 and Table XV/PDF16 visually checked. Transfer resource only, not an adopted contact algorithm or reproduced robot/payload result. See [study §6](../research/active_excitation.md). |
+
 This directory retains original papers, extracted texts, sources and actual reading scopes for subsequent research. Use field-state sources, method-transfer references and independent top-venue samples separately. Downloading/extraction is neither full reading nor theoretical reproduction.
 
 ## Usage and sources

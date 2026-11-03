@@ -10,6 +10,19 @@
 
 ## 有限且有目的的证据
 
+**原激励的任务价值（最新）：** `audit_probe_information.py`在冻结测量中核对探测支持的信息，恢复实际探测指令并逐点验证原控制指令；`probe_value_intervention.py`保持有效精简估计器，只有启动后半幅/关闭两个干预；`adaptive_probe_check.py`检验已有调幅及精度对齐/双控制需求修正。原有效候选未更改、未采纳新波形或自适应版本。科学推理及12个定向闭环的正负结果见[主动激励§7](../../research/active_excitation.md)。
+
+```powershell
+python -X utf8 experiments/contact_information/verify_probe_value.py
+# 重做时使用新标签，保留原始输出；重叠窗口不是独立重复。
+python -X utf8 experiments/contact_information/audit_probe_information.py --recorded-probe --label probe_information_reproduced
+python -X utf8 experiments/contact_information/probe_value_intervention.py --label probe_value_reproduced
+python -X utf8 experiments/contact_information/adaptive_probe_check.py --label adaptive_alignment_reproduced
+python -X utf8 experiments/contact_information/adaptive_probe_check.py --sources both --label adaptive_demands_reproduced
+```
+
+主结果是 `probe_information_actual_command_v2`、`probe_value_intervention_v2`、`adaptive_probe_alignment_v1`和`adaptive_probe_two_demands_v2`，汇总/核验为`probe_value_checkpoint`。`probe_information_audit_v1`使用理想载频包络作初查，v2修正为实际输入响应；干预v1的逐字节共启动核验失败，保留但不用作主配对证据，v2改用相同原算术路径并核验通过。所有结果均未改对象；关激励只在共同启动后，不代表全程无辨识。
+
 本次接触细化的代码：`contact_jet.py`（局部曲率及端点功能量），`curved_policy.py`（原精简候选回退），`memory_contact.py`（解析SLS卷积、未知表面/初值剖面及正参数约束），`memory_policy.py`（只验证探测实部增益的有限接口，尚无动态逆），`curvature_probe.py`（原预算下的曲率信息设计）。这些估计源均无对象导入；运行器使用原有测量屏蔽器。
 
 ```powershell
