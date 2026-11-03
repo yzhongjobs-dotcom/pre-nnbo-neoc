@@ -14,6 +14,7 @@ import time
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.signal import lfilter
+from scipy.stats import chi2 as chi2_distribution
 from finite_patch_model import FinitePatch, Geometry
 from line_patch_model import LinePatch
 
@@ -70,12 +71,14 @@ class ContactFit:
     operator. The reported covariance/risk is nominal, not a safety guarantee.
     """
     def __init__(self, memory=Memory(), spatial=False, contact='foundation', moment=False,
-                 arrival=True, noise=.04, max_nfev=20,data_confidence=True):
+                 arrival=True, noise=.04, max_nfev=20,data_confidence=True,blocks=4):
         self.memory, self.spatial, self.moment = memory, spatial, moment
         self.model = LinePatch(spatial) if contact=='line' else FinitePatch(Geometry(),spatial)
         self.arrival, self.noise, self.max_nfev = arrival, noise, max_nfev
         self.data_confidence=data_confidence
         self.previous = None
+        self.blocks=int(blocks);self.history=[]
+        self.retired_information=None;self.retired_vector=None
 
     def surface_profile(self,theta,obs,T):
         """Profile smooth surface motion with the ORIGINAL forward force law.
@@ -120,6 +123,11 @@ class ContactFit:
         high=np.array([math.log(1e11),math.log(60),6.,6.]) if self.spatial else np.array([math.log(1e11)])
         starts=[np.array([lc,math.log(3.),-.7,1.4]),np.array([lc,-math.log(3.),-.7,1.4])] if self.spatial else [np.array([lc])]
         prior=None; precision=None
+        if self.history and obs['tend']-self.history[-1]['tend']>.3:
+            self.history=[];self.retired_information=None;self.retired_vector=None
+        self.history.append(obs)
+        leaving=self.history.pop(0) if len(self.history)>self.blocks else None
+        warm=None
         if self.arrival and self.previous is not None:
             prior,cov,oldx,oldt=self.previous; prior=prior.copy()
             if self.spatial: prior[2]+=(oldx-xe)/.01
@@ -128,30 +136,68 @@ class ContactFit:
             # Reopen a local patch after both old edges are outside support.
             if self.spatial and prior[2]+prior[3] < -3.:
                 prior[1:]=(0.,.5,1.4); cov=np.diag([max(cov[0,0],.3**2),9.,16.,16.])
+                self.retired_information=None;self.retired_vector=None
             ev,V=np.linalg.eigh(cov);precision=(V/np.sqrt(np.maximum(ev,1e-7)))@V.T
             starts=[prior,*starts]
+            warm=prior.copy()
+            if self.blocks>1:
+                # Raw blocks are explicitly in the likelihood. Do not reuse
+                # their posterior as another arrival cost (double counting).
+                prior=None;precision=None
         T=self.memory.operator(len(F))
-        N=np.column_stack([np.ones(len(F)),obs['ft'],F])
         def physical(z):
             return np.array([z[0],z[1],xe+.01*z[2],.01*z[3]]) if self.spatial else np.array([z[0]])
-        def components(z):
-            th=physical(z); d=self.model.inverse(x,Fe,th)
-            reconstructed,_,_=self.model.response(x,d,th)
-            r,elastic_prediction,me,_,rank=self.surface_profile(th,obs,T)
+        def one_block(z,b):
+            bx,bF,bFe=(b[k] for k in ('x','f','fe'));bFe=np.maximum(bFe,.02)
+            bt=self.memory.operator(len(bF));th=physical(z);d=self.model.inverse(bx,bFe,th)
+            reconstructed,_,_=self.model.response(bx,d,th)
+            r,elastic_prediction,me,_,rank=self.surface_profile(th,b,bt)
             # Inverse solvers have a declared finite indentation domain. A
             # saturated inverse is NOT a valid root; enforce the original force
             # equation so the optimiser cannot exploit a flat clipped depth.
-            root_res=T@(reconstructed-Fe)/self.noise
+            root_res=bt@(reconstructed-bFe)/self.noise
             rr=np.r_[r/self.noise,root_res]
             if self.moment:
-                predicted=(F+r)/np.maximum(elastic_prediction,.02)*me
-                rm,_=project(N,obs['my']-predicted)
+                N=np.column_stack([np.ones(len(bF)),b['ft'],bF])
+                predicted=(bF+r)/np.maximum(elastic_prediction,.02)*me
+                rm,_=project(N,b['my']-predicted)
                 rr=np.r_[rr,rm/.001]
             return rr,rank
+        def components(z):
+            parts=[one_block(z,b) for b in self.history]
+            return np.concatenate([p[0] for p in parts]),sum(p[1] for p in parts)
+        # Only a retired disjoint window enters the arrival information. The
+        # information is maintained in GLOBAL cm coordinates for the boundary.
+        npar=len(starts[0]);offset=np.zeros(npar)
+        if self.spatial:offset[2]=xe/.01
+        if self.retired_information is None:
+            self.retired_information=np.zeros((npar,npar));self.retired_vector=np.zeros(npar)
+        if self.blocks>1 and self.arrival:
+            if np.any(self.retired_information):
+                L=self.retired_information;mu=np.linalg.pinv(L,rcond=1e-10)@self.retired_vector
+                dt=max((obs['tend']-(self.previous[3] if self.previous else obs['tend']))/.128,1.)
+                Q=np.diag([.12**2,.25**2,.04**2,.04**2] if self.spatial else [.12**2])*dt
+                propagated=L-L@np.linalg.solve(np.linalg.inv(Q)+L,L)
+                self.retired_information=(propagated+propagated.T)/2
+                self.retired_vector=self.retired_information@mu
+            if leaving is not None:
+                z0=warm if warm is not None else starts[0]
+                r0,_=one_block(z0,leaving);J=np.empty((len(r0),npar))
+                for j in range(npar):
+                    h=1e-4;zp,zm=z0.copy(),z0.copy();zp[j]+=h;zm[j]-=h
+                    J[:,j]=(one_block(zp,leaving)[0]-one_block(zm,leaving)[0])/(2*h)
+                self.retired_information+=J.T@J
+                self.retired_vector+=J.T@(J@(z0+offset)-r0)
+        ev,V=np.linalg.eigh(self.retired_information)
+        keep_arrival=ev>max(float(ev.max())*1e-10,1e-10)
+        LA=np.sqrt(ev[keep_arrival])[:,None]*V[:,keep_arrival].T
+        target_arrival=(V[:,keep_arrival].T@self.retired_vector)/np.sqrt(ev[keep_arrival])
+        def data_arrival(z):return LA@(z+offset)-target_arrival
         def residual(z):
             rr,_=components(z)
             if prior is not None:return np.r_[rr,precision@(z-prior)]
-            if self.spatial:return np.r_[rr,z[1]/3.,(z[3]-1.5)/5.]
+            rr=np.r_[rr,data_arrival(z)]
+            if self.spatial:rr=np.r_[rr,z[1]/3.,(z[3]-1.5)/5.]
             return rr
         best=None
         for st in starts:
@@ -159,17 +205,24 @@ class ContactFit:
                               ftol=3e-4,xtol=3e-4,gtol=3e-4,x_scale='jac')
             val=float(opt.fun@opt.fun)
             if best is None or val<best[0]:best=(val,opt)
+            # Once a warm start converges at the nominal data noise floor,
+            # additional starts are not needed to force a lower training loss.
+            if warm is not None and opt.success:
+                rd,nr=components(opt.x);nu=max(sum(len(b['f']) for b in self.history)-nr-npar,1)
+                if float(rd@rd)<=nu:break
         _,opt=best; th=physical(opt.x);rr,nuisance_rank=components(opt.x)
         H=opt.jac.T@opt.jac;cov=np.linalg.pinv(H,rcond=1e-10)
         # Root-consistency equations are constraints, not extra noisy samples.
-        nobs=len(F)*(2 if self.moment else 1)
+        nobs=sum(len(b['f']) for b in self.history)*(2 if self.moment else 1)
         dof=max(nobs-nuisance_rank-len(opt.x),1)
         chi=float(rr@rr/dof)
         # Includes residual inflation, still not model-bias coverage.
         cov*=max(1.,chi)
         # Data information must be distinguished from regularisation. A prior
         # can make a Hessian invertible without observing the control gain.
-        JD=opt.jac[:len(rr),:]
+        extra=data_arrival(opt.x) if prior is None else np.empty(0)
+        JD=opt.jac[:len(rr)+len(extra),:]
+        r_evidence=np.r_[rr,extra]
         U,sv,Vt=np.linalg.svd(JD,full_matrices=False)
         keep=sv>max(sv[0]*1e-8,1e-10)
         V=Vt.T
@@ -177,12 +230,13 @@ class ContactFit:
         data_null=V[:,~keep]
         # First-order likelihood-profile displacement from the regularised
         # estimate: exact for the scalar linear limit, only local otherwise.
-        shift=-(V[:,keep]/sv[keep])@(U[:,keep].T@rr)
+        shift=-(V[:,keep]/sv[keep])@(U[:,keep].T@r_evidence)
         if self.arrival:self.previous=opt.x.copy(),cov,xe,obs['tend']
         result=dict(theta=th,cov=cov,xe=xe,chi2=chi,dof=dof,success=bool(opt.success),
                     residual_rms=float(np.sqrt(np.mean(rr**2))),elapsed=time.perf_counter()-tic,
                     surface_beta=self.surface_profile(th,obs,T)[3],data_cov=data_cov,
-                    data_null=data_null,data_shift=shift,data_rank=int(keep.sum()))
+                    data_null=data_null,data_shift=shift,data_rank=int(keep.sum()),
+                    raw_blocks=len(self.history),arrival_rank=int(keep_arrival.sum()))
         prediction=self.predict(result,xe,fe)
         result.update(prediction)
         return result
@@ -209,6 +263,26 @@ class ContactFit:
         if unseen:risk=float('inf')
         return dict(k=k0,elastic_k=ke,depth=d,relative_sd=rel,risk=risk,unobserved_gain=unseen,
                     regularization_log_shift=bias)
+
+    def validate_contact(self, fit, obs, probability=.99):
+        """Test a previously fitted contact law on the NEXT disjoint block.
+
+        Contact parameters are frozen; only the unknown surface motion is
+        profiled anew. Thus this is conditional contact validation, not a
+        surface-motion forecast. The chi-square threshold is nominal: colored
+        noise, model bias and weak excitation prevent a safety interpretation.
+        """
+        T=self.memory.operator(len(obs['f']))
+        r,_,_,_,rank=self.surface_profile(fit['theta'],obs,T)
+        dof=max(len(r)-rank,1)
+        score=float(r@r/self.noise**2)
+        threshold=float(chi2_distribution.ppf(probability,dof))
+        reconstructed=self.model.response(obs['x'],self.model.inverse(obs['x'],obs['fe'],fit['theta']),
+                                          fit['theta'],stiffness=False)[0]
+        root_error=float(np.max(np.abs(reconstructed-obs['fe'])))
+        return dict(valid=bool(np.isfinite(score) and score<=threshold and root_error<self.noise),
+                    score=score,threshold=threshold,dof=dof,root_error=root_error,
+                    force_rms=float(np.sqrt(np.mean(r*r))))
 
     def target_correction(self, fit, x, total_force, elastic_force, desired=4.):
         # A fast indentation change also changes the Maxwell branch, so the

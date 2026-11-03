@@ -8,6 +8,7 @@ import json
 import math
 import sys
 import time
+import hashlib
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
@@ -34,12 +35,21 @@ CONFIGS.update({
  'static_patch_target':dict(spatial=True,memory=Memory(0.,.2),interface='target'),
  'memory_patch_target_posterior':dict(spatial=True,memory=Memory(.5,.2),interface='target',data_confidence=False),
  'memory_linear_hold_posterior':dict(spatial=False,memory=Memory(.5,.2),interface='gain',fallback='hold',data_confidence=False)})
+CONFIGS.update({
+ 'memory_linear_checked':dict(spatial=False,memory=Memory(.5,.2),interface='gain',validate_next=True),
+ 'memory_patch_checked_gain':dict(spatial=True,memory=Memory(.5,.2),interface='gain',validate_next=True),
+ 'memory_patch_checked_target':dict(spatial=True,memory=Memory(.5,.2),interface='target',validate_next=True),
+ 'static_patch_checked_target':dict(spatial=True,memory=Memory(0.,.2),interface='target',validate_next=True),
+ 'memory_line_checked_target':dict(spatial=True,memory=Memory(.5,.2),interface='target',contact='line',validate_next=True)})
 
 
 class Masked:
     direct=True
     def __init__(self,inner):self.inner=inner
-    def reset(self,p):self.inner.reset(p)
+    def reset(self,p):
+        # Controller receives its nominal calibration, never a changed plant's
+        # actual servo/filter parameters. V1 may identify servo lag from data.
+        self.inner.reset(dict(common.P.PLATFORMS['PC125']))
     def __call__(self,o):
         x=o.log[:o.n].copy();x[:,[3,4,6,7,8,14,15]]=np.nan
         return self.inner(common.P.Obs(x,o.n))
@@ -55,6 +65,7 @@ def episode(job):
     return dict(model=name,family=fam,sid=sid,metrics=metrics,
                 elapsed=time.perf_counter()-tic,model_ticks=getattr(pol,'model_ticks',0),
                 contact_ticks=getattr(pol,'contact_ticks',0),fits=records,
+                contact_rejections=getattr(pol,'contact_rejections',[]),
                 fit_ms_P50_P90=(np.percentile(times,[50,90])*1000).tolist() if times else None)
 
 
@@ -66,6 +77,9 @@ def main():
     cohort=[s for s in CE.cohort('diag',args.scenes) if s[0]in args.families]
     jobs=[(name,s) for s in cohort for name in args.models]
     rows=[]
+    hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
+            [Path(__file__),HERE/'dynamic_contact.py',HERE/'dynamic_contact_policy.py',
+             HERE/'finite_patch_model.py',HERE/'line_patch_model.py']}
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         for row in pool.map(episode,jobs,chunksize=1):
             rows.append(row);m=row['metrics']
@@ -73,7 +87,9 @@ def main():
                   'model ticks',row['model_ticks'],flush=True)
             out=dict(protocol=dict(cohort='diag',scenes_per_family=args.scenes,models=args.models,
                                    truth_masked=True,tuning=False,plant_changed=False,final_used=False,
-                                   wall_time_included_as_plant_delay=False),rows=rows)
+                                   wall_time_included_as_plant_delay=False,
+                                   expected_rows=len(jobs),source_sha256=hashes,
+                                   controller_calibration='nominal PC125'),rows=rows)
             (HERE/'results'/(args.label+'.json')).write_text(json.dumps(out,indent=2,default=float),encoding='utf-8')
     for fam in args.families:
         for name in args.models:

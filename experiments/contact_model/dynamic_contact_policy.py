@@ -18,11 +18,13 @@ from dynamic_contact import ContactFit,Memory,Signals
 
 class ContactPolicy(ServoID):
     def __init__(self, spatial=False, memory=Memory(.5,.2), interface='gain', contact='foundation',
-                 latency=0.,update_ticks=16,fallback='baseline',data_confidence=True,**kw):
+                 latency=0.,update_ticks=16,fallback='baseline',data_confidence=True,blocks=4,
+                 validate_next=False,**kw):
         super().__init__(**kw)
-        self.contact_args=dict(spatial=spatial,memory=memory,contact=contact,data_confidence=data_confidence)
+        self.contact_args=dict(spatial=spatial,memory=memory,contact=contact,data_confidence=data_confidence,blocks=blocks)
         self.interface,self.latency,self.update_ticks=interface,float(latency),int(update_ticks)
         self.fallback=fallback
+        self.validate_next=bool(validate_next)
 
     def reset(self,platform):
         super().reset(platform)
@@ -32,6 +34,7 @@ class ContactPolicy(ServoID):
         self.fit_records=[];self.model_ticks=0;self.contact_ticks=0;self.model_current=False
         self.signal_n=None
         self.baseline_good=float('nan')
+        self.contact_rejections=[];self.contact_trace=[]
 
     def step(self,o):
         n=o.n
@@ -42,6 +45,7 @@ class ContactPolicy(ServoID):
         if o.log[n-1,5]<.3:
             self.accepted_fit=None;self.pending=None;self.model_ready=False
             self.model_fit.previous=None
+            self.model_fit.history=[];self.model_fit.retired_information=None;self.model_fit.retired_vector=None
         return super().step(o)
 
     def _stiffness_est(self,o,n):
@@ -60,10 +64,19 @@ class ContactPolicy(ServoID):
             if obs is not None:
                 hint=self.k_hat if np.isfinite(self.k_hat) and self.k_hat>0 else self.kbar
                 try:
+                    validation=None
+                    if self.validate_next and self.accepted_fit is not None:
+                        validation=self.model_fit.validate_contact(self.accepted_fit,obs)
+                        if not validation['valid']:
+                            self.contact_rejections.append(dict(time=now,**validation))
+                            self.accepted_fit=None;self.pending=None;self.model_ready=False
+                            self.model_fit.previous=None;self.model_fit.history=[]
+                            self.model_fit.retired_information=None;self.model_fit.retired_vector=None
                     fit=self.model_fit.fit(obs,hint)
                     fit['time']=now
                     record={k:(v.tolist() if isinstance(v,np.ndarray) else v) for k,v in fit.items()}
                     record.update(time=now,accepted_at_fit=fit['risk']<=math.log(1.2))
+                    if validation is not None:record['previous_contact_validation']=validation
                     self.fit_records.append(record)
                     if fit['risk']<=math.log(1.2) and 200.<=fit['k']<=3e5:
                         if self.latency>0:self.pending=(now+self.latency,fit)
@@ -82,6 +95,7 @@ class ContactPolicy(ServoID):
                 self.k_good=pred['k'];self.kg_rel=pred['relative_sd']
                 self.model_current=True;self.model_ready=True;self.model_ticks+=1
         self.contact_ticks+=1
+        self.contact_trace.append([now,self.baseline_good,self.k_good,int(self.model_current)])
         return feedback
 
     def drift_pred(self,o,n):

@@ -12,7 +12,19 @@
 - `finite_patch_line_v5.json`：E3 柱面近似在同接口的稀疏初筛，与 v4 的采样协议不同，不直接排名。
 - v0/v1/v2/v3 保留了被修正的实例，科学解释见专项研究 §4，不能挑其中最优结果作为最终方法。
 
-所有计算使用原对象，不修改参数来适配候选；未使用 final 确认集。窗口不是独立场景。本轮没有新候选的闭环性能结论。
+所有计算使用原对象，不修改参数来适配候选；未使用 final 确认集。窗口不是独立场景。以上为初轮静态研究；后续动态候选闭环见下。
+
+## 动态一致候选及闭环（未采纳）
+
+`dynamic_contact.py` 分离弹性关系和局部松弛假设，直接拟合前向力；`dynamic_contact_policy.py` 比较量测增益和目标力压入修正接口，保留原方法独立回退。四个不重叠短窗共享接触参数，每窗独立表面运动；退出窗口只计入一次到达信息。`validate_next` 只在后续新窗口检验旧接触参数，残差小不代表弱激励下模型必然正确。原对象、反馈、IMM、激励和原调参不变。
+
+```powershell
+python -X utf8 experiments/contact_model/run_dynamic_contact.py --verify-only
+python -X utf8 experiments/contact_model/audit_dynamic_contact.py
+python -X utf8 experiments/contact_model/run_dynamic_closed_loop.py --scenes 1 --workers 2 --families S2 T2m-stiff --models memory_linear_checked memory_patch_checked_gain memory_patch_checked_target --label dynamic_contact_checked_smoke_reproduced
+```
+
+`dynamic_contact_replay_v1/v2` 保留错误目标/逆根饱和的失败实例，`v3` 修为前向力后才是当前方程。`dynamic_contact_closed_loop_smoke`、`smoke_v2` 是已修的回退/先验置信度实例；`smoke_v3` 六条和 `smoke_v3_completion` 两条合成完整两场景记录；`dynamic_contact_checked_smoke_v4` 是下一短窗检验后的六条。旧实例精确源码可从 Git 检查点恢复，不用新代码冒充逐位复现旧轨迹。v4 起记录源码哈希。所有同步求解结果均未把墙钟耗时计入对象延迟，不能声称实时或实际部署成功。
 
 ## 锚点论文痛点在本项目是否存在
 
