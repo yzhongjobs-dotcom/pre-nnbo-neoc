@@ -50,6 +50,7 @@ for old,new in [('memory_linear_checked','linear_stable_gain'),
                 ('memory_line_checked_target','line_stable_target')]:
     CONFIGS[new]=dict(CONFIGS[old],stable_jacobian=True)
     CONFIGS[new+'_uncertainty']=dict(CONFIGS[new],propagate_contact=True)
+    CONFIGS[new+'_level']=dict(CONFIGS[new],propagate_contact=True,uncertainty_domain='level')
 
 
 class Masked:

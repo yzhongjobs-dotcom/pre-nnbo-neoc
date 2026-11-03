@@ -28,6 +28,16 @@ def main():
     rng=np.random.default_rng(73601)
     sampled=expected*np.exp(-rng.normal(0.,np.sqrt(var),100000))
     empirical=float(np.var(sampled));assert abs(empirical/result['variance']-1)<.02
+    # Shared contact parameters across a sequence create correlated errors.
+    # Covariance of the cumulative observation uses the SUM of Jacobians,
+    # not a per-increment variance and not a sum of independent variances.
+    forces=np.linspace(4.,4.8,9);increments=np.diff(forces)/(1.5*k)
+    accumulated=float(forces[-1]-forces[0])/(1.5*k)
+    sequence_sample=accumulated*np.exp(-rng.normal(0.,np.sqrt(var),100000))
+    level_variance=accumulated**2*var
+    assert abs(float(np.var(sequence_sample))/level_variance-1)<.02
+    wrong_independent_variance=float(np.sum(increments**2)*var)
+    assert abs(level_variance/wrong_independent_variance-8)<1e-10
     rows=[]
     for contact in ('foundation','line'):
         model=ContactFit(spatial=True,contact=contact)
@@ -48,6 +58,10 @@ def main():
     out=dict(scalar=dict(increment=expected,propagated_variance=result['variance'],
                          empirical_variance=empirical,null_space_and_zero_increment_checks=True),
              nonlinear_gradient_checks=rows)
+    out['shared_parameter_sequence']=dict(level_variance=level_variance,
+        empirical_variance=float(np.var(sequence_sample)),
+        independent_increment_sum=wrong_independent_variance,
+        missed_correlation_factor=level_variance/wrong_independent_variance)
     path=Path(__file__).resolve().parent/'results'/'contact_functional_audit.json'
     path.write_text(json.dumps(out,indent=2),encoding='utf8');print(json.dumps(out,indent=2))
 

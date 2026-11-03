@@ -272,7 +272,7 @@ class ContactFit:
         risk=rel*(1+math.sqrt(fit['dof']*max(fit['chi2']-1.,0.)))+bias
         if unseen:risk=float('inf')
         return dict(k=k0,elastic_k=ke,depth=d,relative_sd=rel,risk=risk,unobserved_gain=unseen,
-                    regularization_log_shift=bias)
+                    regularization_log_shift=bias,gain_gradient=grad)
 
     def validate_contact(self, fit, obs, probability=.99):
         """Test a previously fitted contact law on the NEXT disjoint block.
@@ -329,12 +329,17 @@ class ContactFit:
     def correction_increment(self,fit,current,previous):
         c,gc=self.correction_gradient(fit,current[1],current[3],current[4])
         p,gp=self.correction_gradient(fit,previous[1],previous[3],previous[4])
-        g=gc-gp;C=fit['data_cov'];null=fit['data_null']
+        g=gc-gp
+        return dict(increment=float(c-p),gradient_current=gc,gradient_previous=gp,
+                    **self.functional_uncertainty(fit,g))
+
+    def functional_uncertainty(self,fit,g):
+        C=fit['data_cov'];null=fit['data_null']
         # A one-picometre absolute derivative floor recognises numerical zero;
         # it is far below measured displacement resolution, not a gain gate.
         unseen=bool(null.shape[1] and np.linalg.norm(null.T@g)>max(1e-4*np.linalg.norm(g),1e-12))
         variance=max(float(g@C@g),0.);bias=abs(float(g@fit['data_shift']))
-        return dict(increment=float(c-p),variance=variance,bias=bias,unobserved=unseen,gradient=g)
+        return dict(variance=variance,bias=bias,unobserved=unseen,gradient=g)
 
 
 class Signals:

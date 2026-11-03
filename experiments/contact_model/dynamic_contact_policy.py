@@ -19,7 +19,8 @@ from dynamic_contact import ContactFit,Memory,Signals
 class ContactPolicy(ServoID):
     def __init__(self, spatial=False, memory=Memory(.5,.2), interface='gain', contact='foundation',
                  latency=0.,update_ticks=16,fallback='baseline',data_confidence=True,blocks=4,
-                 validate_next=False,stable_jacobian=False,propagate_contact=False,**kw):
+                 validate_next=False,stable_jacobian=False,propagate_contact=False,
+                 uncertainty_domain='increment',**kw):
         super().__init__(**kw)
         self.contact_args=dict(spatial=spatial,memory=memory,contact=contact,data_confidence=data_confidence,
                                blocks=blocks,stable_jacobian=stable_jacobian)
@@ -27,6 +28,8 @@ class ContactPolicy(ServoID):
         self.fallback=fallback
         self.validate_next=bool(validate_next)
         self.propagate_contact=bool(propagate_contact)
+        if uncertainty_domain not in ('increment','level'):raise ValueError('uncertainty_domain')
+        self.uncertainty_domain=uncertainty_domain
 
     def reset(self,platform):
         super().reset(platform)
@@ -38,6 +41,8 @@ class ContactPolicy(ServoID):
         self.baseline_good=float('nan')
         self.contact_rejections=[];self.contact_trace=[]
         self.observation_variances=[];self.unobserved_corrections=0;self.current_fit=None
+        self.last_contact_motion_n=None;self.observation_fit_time=None;self.observation_anchor=None
+        self.anchor_gradient=None;self.cumulative_gradient=None
 
     def step(self,o):
         n=o.n
@@ -108,10 +113,20 @@ class ContactPolicy(ServoID):
             return super().drift_pred(o,n)
         if self._motion_n==n:return self._motion_prediction
         current,previous=self.signals.rows[-1],self.signals.rows[-2]
+        if self.propagate_contact and self.uncertainty_domain=='level':
+            if self.observation_fit_time!=self.current_fit['time'] or self.last_contact_motion_n!=n-1:
+                self.observation_fit_time=self.current_fit['time'];self.observation_anchor=previous.copy()
+                self.cumulative_gradient=np.zeros(len(self.current_fit['theta']))
+                if self.interface=='target':
+                    self.anchor_gradient=self.model_fit.correction_gradient(self.current_fit,previous[1],previous[3],previous[4])[1]
         parameter_variance=0.
         if self.interface=='target':
             if self.propagate_contact:
                 increment=self.model_fit.correction_increment(self.current_fit,current,previous)
+                if self.uncertainty_domain=='level':
+                    level=self.model_fit.functional_uncertainty(self.current_fit,
+                                                               increment['gradient_current']-self.anchor_gradient)
+                    increment.update(level)
                 if increment['unobserved']:
                     self.unobserved_corrections+=1;self.model_ticks-=1;self.model_current=False
                     self.k_good=self.baseline_good
@@ -123,8 +138,18 @@ class ContactPolicy(ServoID):
                 dc=c-p
         else:
             dc=(current[3]-previous[3])/self.k_good
-            parameter_variance=dc**2*(self.current_prediction['relative_sd']**2+
-                                     self.current_prediction['regularization_log_shift']**2)
+            if self.uncertainty_domain=='level':
+                self.cumulative_gradient-=dc*self.current_prediction['gain_gradient']
+                stats=self.model_fit.functional_uncertainty(self.current_fit,self.cumulative_gradient)
+                if stats['unobserved']:
+                    self.unobserved_corrections+=1;self.model_ticks-=1;self.model_current=False
+                    self.k_good=self.baseline_good
+                    return super().drift_pred(o,n)
+                parameter_variance=stats['variance']+stats['bias']**2
+            else:
+                parameter_variance=dc**2*(self.current_prediction['relative_sd']**2+
+                                         self.current_prediction['regularization_log_shift']**2)
+        self.last_contact_motion_n=n
         oldn=self._motion_n;self._motion_n=n
         if self._fin_prev is None or oldn!=n-1:
             self.Z=0.;self.tracker.reset(0.);self.q_prev=None
