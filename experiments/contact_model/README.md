@@ -26,6 +26,20 @@ python -X utf8 experiments/contact_model/run_dynamic_closed_loop.py --scenes 1 -
 
 `dynamic_contact_replay_v1/v2` 保留错误目标/逆根饱和的失败实例，`v3` 修为前向力后才是当前方程。`dynamic_contact_closed_loop_smoke`、`smoke_v2` 是已修的回退/先验置信度实例；`smoke_v3` 六条和 `smoke_v3_completion` 两条合成完整两场景记录；`dynamic_contact_checked_smoke_v4` 是下一短窗检验后的六条。旧实例精确源码可从 Git 检查点恢复，不用新代码冒充逐位复现旧轨迹。v4 起记录源码哈希。所有同步求解结果均未把墙钟耗时计入对象延迟，不能声称实时或实际部署成功。
 
+后续证据：`dynamic_contact_five_family_v5` 暴露数值与非线性观测不确定性缺口；`functional_smoke_v6_checked` 显示单拍方差接入失败；`level_smoke_v7` 修为累计量；`level_remaining_v8` 与 `level_static_v8` 补齐五族和预声明松弛敏感性。最终一致汇总是 `dynamic_contact_five_family_summary.json`，没有选择各版本最好结果。`functional_smoke_v6` 是自检触发后停止的未完成实例，不参与汇总。各批次的完整名称以 `results/` 中 `dynamic_contact_` 前缀为准。
+
+```powershell
+python -X utf8 experiments/contact_model/audit_contact_roots.py
+python -X utf8 experiments/contact_model/audit_contact_conditioning.py --stable-only
+python -X utf8 experiments/contact_model/audit_contact_functionals.py
+python -X utf8 experiments/contact_model/run_dynamic_closed_loop.py --scenes 1 --workers 2 --families S2 T2m-stiff --models baseline patch_stable_target patch_stable_target_level line_stable_target_level patch_stable_gain_level linear_stable_gain_level --label dynamic_contact_level_smoke_reproduced
+python -X utf8 experiments/contact_model/run_dynamic_closed_loop.py --scenes 1 --workers 2 --families T3m T2m-soft T2f-stiff --models patch_stable_target_level static_patch_stable_target_level line_stable_target_level --label dynamic_contact_level_remaining_reproduced
+python -X utf8 experiments/contact_model/run_dynamic_closed_loop.py --scenes 1 --workers 2 --families S2 T2m-stiff --models static_patch_stable_target_level patch_stable_target_level_low patch_stable_target_level_high --label dynamic_contact_level_static_reproduced
+python -X utf8 experiments/contact_model/summarize_dynamic_contact.py
+```
+
+汇总读取已保存的原批次（重跑标签保护原结果），核对完整条数、接触模型源码一致性与重复基线逐值相同。`stable_jacobian` 控制剖面导数；`propagate_contact`、`uncertainty_domain` 区分不加参数方差、单拍方差与累计方差。SLS α/τ 是模型假设，未声称在线识别；不是从对象读入。最新版动态/静态/柱面均无一致任务优势，详见专项 §7.10；本轮法向闭环不能裁决未完成的动态压力矩/空间预瞄路线。
+
 ## 锚点论文痛点在本项目是否存在
 
 后续按用户明确的研究顺序补做需求对应及对象通道验证，见专项研究 §6。`check_paper_painpoints.py` 用原控制器和同噪声做摩擦参数敏感性验证；其 `--normal-state-diagnostic` 模式只在评分路径分解弹性力与动态参考增益，隐状态不提供给候选。

@@ -51,6 +51,8 @@ for old,new in [('memory_linear_checked','linear_stable_gain'),
     CONFIGS[new]=dict(CONFIGS[old],stable_jacobian=True)
     CONFIGS[new+'_uncertainty']=dict(CONFIGS[new],propagate_contact=True)
     CONFIGS[new+'_level']=dict(CONFIGS[new],propagate_contact=True,uncertainty_domain='level')
+CONFIGS['patch_stable_target_level_low']=dict(CONFIGS['patch_stable_target_level'],memory=Memory(.2,.08))
+CONFIGS['patch_stable_target_level_high']=dict(CONFIGS['patch_stable_target_level'],memory=Memory(.8,.6))
 
 
 class Masked:
