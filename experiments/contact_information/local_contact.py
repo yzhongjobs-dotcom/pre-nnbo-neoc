@@ -43,7 +43,7 @@ def design(measured,nw=16,tau=.019,fc=30.):
     return B,U,z
 
 
-def fit(measured,nw=16,tau=.019,fc=30.,noise=.04,rate=True,constant=False):
+def fit(measured,nw=16,tau=.019,fc=30.,noise=.04,rate=True,constant=False,return_aux=False):
     data=design(measured,nw,tau,fc)
     if data is None:return None
     B,U,z=data
@@ -60,9 +60,13 @@ def fit(measured,nw=16,tau=.019,fc=30.,noise=.04,rate=True,constant=False):
     chi=float(r@r/(dof*noise**2));cov*=max(1.,chi)
     sd=float(np.sqrt(cov[0,0]));k=float(coef[0])
     risk=sd/max(k,1.)*(1+math.sqrt(dof*max(chi-1.,0.)))
-    return dict(k=k,sigma=sd,relative_sd=sd/max(k,1.),risk=risk,chi2=chi,dof=dof,
+    result=dict(k=k,sigma=sd,relative_sd=sd/max(k,1.),risk=risk,chi2=chi,dof=dof,
                 coefficients=coef,cov=cov,valid=len(z),start_gain=float(coef[0] if constant else coef[0]-coef[1]),
                 residual_rms=float(np.sqrt(np.mean(r*r))),condition=float(s[0]/s[-1]))
+    if return_aux:
+        result.update(beta=np.linalg.lstsq(B,z-U@coef,rcond=1e-10)[0],
+                      te=float(measured[-1,0]),ye=float(measured[-1,2]),tw=nw*.008)
+    return result
 
 
 def periodic_encoder(wave,tau=.019,delay=1):
@@ -94,6 +98,17 @@ def sine_reference_rms(frequency=20.8,tau=.019):
     frac=-np.expm1(-np.arange(8)*.001/tau)/(1-rho)
     A=G*(1+frac*(np.exp(1j*w)-1))
     return float(np.sqrt(np.mean(abs(A)**2)/2))
+
+
+def sine_information(frequency=20.8,n=32,tau=.019,fc=30.,rate=True):
+    rho=math.exp(-.008/tau);w=2*np.pi*frequency*.008
+    G=(1-rho)*np.exp(-1j*w)/(np.exp(1j*w)-rho);values=[]
+    for phase in np.linspace(0,2*np.pi,128,endpoint=False):
+        y=np.imag(G*np.exp(1j*(w*np.arange(n+1)+phase)))
+        B,U=features(np.arange(n)*.008,y[:-1],y[1:],n*.008,y[-1],n*.008,tau,fc)
+        N=np.column_stack([B,U[:,1:] if rate else U[:,1:2]])
+        p=residualize(N,U[:,0]);values.append(float(p@p))
+    return min(values),values
 
 
 def conditional_information(wave,tau=.019,fc=30.,rate=True):

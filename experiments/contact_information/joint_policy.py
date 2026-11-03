@@ -13,10 +13,12 @@ from local_contact import fit
 
 
 class JointPolicy(ServoID):
-    def __init__(self,wave=None,new_fit=True,rate=True,constant=False,information_window=32,amplitude_scale=1.,warm=1.,**kw):
+    def __init__(self,wave=None,new_fit=True,rate=True,constant=False,information_window=32,amplitude_scale=1.,warm=1.,replace_value='new',**kw):
         super().__init__(**kw);self.wave=None if wave is None else np.asarray(wave)
         self.new_fit=bool(new_fit);self.rate=bool(rate)
         self.constant=bool(constant)
+        if replace_value not in ('new','short'):raise ValueError('replace_value')
+        self.replace_value=replace_value
         self.information_window=int(information_window);self.amplitude_scale=float(amplitude_scale);self.warm=float(warm)
 
     def reset(self,platform):
@@ -37,7 +39,8 @@ class JointPolicy(ServoID):
         self.contact_fits.append(dict(time=float(o.log[n-1,0]),accepted=accepted,
             elapsed=time.perf_counter()-tic,**{k:(v.tolist() if isinstance(v,np.ndarray) else v) for k,v in r.items()}))
         if accepted:
-            self.k_good=r['k'];self.kg_rel=r['relative_sd'];self.used+=1
+            self.k_good=r['k'] if self.replace_value=='new' else self.k_hat
+            self.kg_rel=r['relative_sd'];self.used+=1
         return feedback
 
     def step(self,o):
