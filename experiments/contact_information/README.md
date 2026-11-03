@@ -10,6 +10,17 @@
 
 ## 有限且有目的的证据
 
+**Rossi机制条件与新诊断（最新）：** 研究正文[主动激励§8–9](../../research/active_excitation.md)说明12个闭环（4个精确复现、8个干预）及动态响应信息计算的目的、结果和边界。8.3766 Hz名义等波动频率候选、有界位置偏移及过零更新均无一致收益；不采纳，不当作完成了科研创新。等指令幅度对照的改善不单独作为通用策略。对象、原有效候选和反馈/IMM参数未修改。
+
+```powershell
+# 以下生成器使用固定主标签，已有结果会拒绝覆盖；复现应更换标签和原始输入名。
+python -X utf8 experiments/contact_information/verify_excitation_mechanisms.py
+# 机制核查/纯设计：probe_coordinate_audit.py、response_band_information.py
+# 闭环：frequency_probe_study.py、bounded_probe_study.py
+```
+
+主数据：`frequency_probe_v1.json`、`bounded_probe_v1.json`及各七通道`*_input_*_v1.npz`；精确重放及独立恒等式、偏移有界望远镜求和、前缀测量因果性和同模型协方差核验在`excitation_mechanism_checkpoint.json`。`probe_coordinate_audit_v1.json`是已知指令的分解，不能直接当作物理危害；`response_band_information_v1.json`是假定松弛时间已知的条件信息，不是真实覆盖率或闭环收益。换频率只在共同1 s启动后，有界偏移在共同1.32 s后；所有候选从原名义伺服出发，用因果V1更新，控制器不读取隐藏对象参数。
+
 **原激励的任务价值（最新）：** `audit_probe_information.py`在冻结测量中核对探测支持的信息，恢复实际探测指令并逐点验证原控制指令；`probe_value_intervention.py`保持有效精简估计器，只有启动后半幅/关闭两个干预；`adaptive_probe_check.py`检验已有调幅及精度对齐/双控制需求修正。原有效候选未更改、未采纳新波形或自适应版本。科学推理及12个定向闭环的正负结果见[主动激励§7](../../research/active_excitation.md)。
 
 ```powershell
