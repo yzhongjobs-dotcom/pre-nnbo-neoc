@@ -4,7 +4,7 @@
 
 核心文件：local_contact.py 为纯测量接口的滤波对齐回归和数据无关探测优化；joint_policy.py 将合格的当前增益接入原控制器，并维护独立原增益流；run_joint.py 负责真值屏蔽、固定场景与评分。只有评分读取参考刚度和真实力，且在回合结束后添加。
 
-当前较强实例：原20.8 Hz、小幅探测；32拍一阶时变增益、四次漂移、无速率项；原反馈/IMM/恢复不变。原探测纳入可行集后，其名义当前增益信息优于所搜周期 Fourier 候选。保留原探测是比较结果，不是预设必须替换。
+当前较强实例：原20.8 Hz、小幅探测；32拍一阶时变增益、四次漂移、无速率项；原反馈/IMM/恢复不变。保留原探测只因尚未得到经公平检验的替代，不代表原探测最优。
 
 继续接触模型的最新证据见[正文 §8–10](../../research/first_module_information.md)：已实现端点/移动参考曲率、正参数局部 SLS、相同指数漂移消融与12个定向闭环实例。曲率筛选只在硬组织带来很小差值；SLS改善该实例的条件预测，标量增益接入却使闭环变差。尚未采纳，下一项仍是动态接触观测的物理/信息闭合，不能用这些结果裁决整条接触路线。
 
@@ -24,31 +24,20 @@ python -X utf8 experiments/contact_information/run_response.py --models shared_h
 
 主数据：`shared_response_v1.json`、`shared_response_history_v2.json`、`shared_response_uncertainty_v3.json`及对应测量NPZ；`shared_response_same_input_matched_v2.json`为同输入主对照（包含同四个干扰参数的自由表示），未加该对照的旧回放也保留。每个模型信息、目标状态、因果发布和计时边界见正文。源码新增兼容分支之后，前期源码哈希不等同当前文件；`check_response_results.py`对v1与v3代表回合仅给测量前缀，指令逐点重现，未以当前哈希冒称原文件逐字节未变。协方差是局部条件参考，不是初态/模型误差或真实闭环的认证。
 
-**Rossi机制条件与新诊断（最新）：** 研究正文[主动激励§8–9](../../research/active_excitation.md)说明12个闭环（4个精确复现、8个干预）及动态响应信息计算的目的、结果和边界。8.3766 Hz名义等波动频率候选、有界位置偏移及过零更新均无一致收益；不采纳，不当作完成了科研创新。等指令幅度对照的改善不单独作为通用策略。对象、原有效候选和反馈/IMM参数未修改。
+**已移除的激励实验：** 降频、等幅对照、有界偏移、过零更新、自适应调幅、指令预算波形和曲率探测设计已移出工作区（Git `dd2884a` 可恢复）。2026-11-03复核：波形比较只抽192个候选、没有真正优化，主实验无相位自由度、最高31.25 Hz，且峰值约束不利于多频；换激励时反馈刚度仍用为20.8 Hz配的16拍窗口；候选一律沿用基线参数、未重新调参；目标只算名义方差；每族仅1个开发实例，没有快速推拉。这些结果不能说明正弦更好，也不能否定激励优化路线。保留 `response_band_information.py` 这一固定设计计算，尚未复核。
 
-```powershell
-# 以下生成器使用固定主标签，已有结果会拒绝覆盖；复现应更换标签和原始输入名。
-python -X utf8 experiments/contact_information/verify_excitation_mechanisms.py
-# 机制核查/纯设计：probe_coordinate_audit.py、response_band_information.py
-# 闭环：frequency_probe_study.py、bounded_probe_study.py
-```
-
-主数据：`frequency_probe_v1.json`、`bounded_probe_v1.json`及各七通道`*_input_*_v1.npz`；精确重放及独立恒等式、偏移有界望远镜求和、前缀测量因果性和同模型协方差核验在`excitation_mechanism_checkpoint.json`。`probe_coordinate_audit_v1.json`是已知指令的分解，不能直接当作物理危害；`response_band_information_v1.json`是假定松弛时间已知的条件信息，不是真实覆盖率或闭环收益。换频率只在共同1 s启动后，有界偏移在共同1.32 s后；所有候选从原名义伺服出发，用因果V1更新，控制器不读取隐藏对象参数。
-
-**原激励的任务价值（最新）：** `audit_probe_information.py`在冻结测量中核对探测支持的信息，恢复实际探测指令并逐点验证原控制指令；`probe_value_intervention.py`保持有效精简估计器，只有启动后半幅/关闭两个干预；`adaptive_probe_check.py`检验已有调幅及精度对齐/双控制需求修正。原有效候选未更改、未采纳新波形或自适应版本。科学推理及12个定向闭环的正负结果见[主动激励§7](../../research/active_excitation.md)。
+**原激励的任务价值：** `audit_probe_information.py`在冻结测量中核对探测支持的信息，恢复实际探测指令并逐点验证原控制指令；`probe_value_intervention.py`保持精简估计器，只有启动后半幅/关闭两个干预。科学推理见[主动激励§7](../../research/active_excitation.md)。这些只是单实例诊断。
 
 ```powershell
 python -X utf8 experiments/contact_information/verify_probe_value.py
 # 重做时使用新标签，保留原始输出；重叠窗口不是独立重复。
 python -X utf8 experiments/contact_information/audit_probe_information.py --recorded-probe --label probe_information_reproduced
 python -X utf8 experiments/contact_information/probe_value_intervention.py --label probe_value_reproduced
-python -X utf8 experiments/contact_information/adaptive_probe_check.py --label adaptive_alignment_reproduced
-python -X utf8 experiments/contact_information/adaptive_probe_check.py --sources both --label adaptive_demands_reproduced
 ```
 
-主结果是 `probe_information_actual_command_v2`、`probe_value_intervention_v2`、`adaptive_probe_alignment_v1`和`adaptive_probe_two_demands_v2`，汇总/核验为`probe_value_checkpoint`。`probe_information_audit_v1`使用理想载频包络作初查，v2修正为实际输入响应；干预v1的逐字节共启动核验失败，保留但不用作主配对证据，v2改用相同原算术路径并核验通过。所有结果均未改对象；关激励只在共同启动后，不代表全程无辨识。
+主结果是 `probe_information_actual_command_v2`、`probe_value_intervention_v2`，汇总/核验为`probe_value_checkpoint`。关激励只在共同启动后，不代表全程无辨识。
 
-本次接触细化的代码：`contact_jet.py`（局部曲率及端点功能量），`curved_policy.py`（原精简候选回退），`memory_contact.py`（解析SLS卷积、未知表面/初值剖面及正参数约束），`memory_policy.py`（只验证探测实部增益的有限接口，尚无动态逆），`curvature_probe.py`（原预算下的曲率信息设计）。这些估计源均无对象导入；运行器使用原有测量屏蔽器。
+本次接触细化的代码：`contact_jet.py`（局部曲率及端点功能量），`curved_policy.py`（原精简候选回退），`memory_contact.py`（解析SLS卷积、未知表面/初值剖面及正参数约束），`memory_policy.py`（只验证探测实部增益的有限接口，尚无动态逆）。这些估计源均无对象导入；运行器使用原有测量屏蔽器。
 
 ```powershell
 python -X utf8 experiments/contact_information/verify_contact_jet.py
@@ -62,11 +51,11 @@ python -X utf8 experiments/contact_information/run_refinement.py closed --label 
 python -X utf8 experiments/contact_information/run_refinement.py memory_closed --label contact_memory_closed_reproduced
 ```
 
-本次原始结果按迭代分开保留：`contact_jet_replay_v1`/`contact_jet_replay_centered_v2`、`contact_curvature_closed_v1`；`contact_memory_replay_v1`/`contact_memory_constrained_v2`/`contact_memory_drift_ablation_v3`、`contact_memory_gain_closed_v1`；`curvature_probe_design_v1`。预测评分的未来编码器是给定条件，未来力隐藏；不是在线运动预测。重叠窗口不作为独立重复。`contact_refinement_audit`汇总完整性、数值核验和记忆闭环 v1 的继承描述字段纠正。
+本次原始结果按迭代分开保留：`contact_jet_replay_v1`/`contact_jet_replay_centered_v2`、`contact_curvature_closed_v1`；`contact_memory_replay_v1`/`contact_memory_constrained_v2`/`contact_memory_drift_ablation_v3`、`contact_memory_gain_closed_v1`。预测评分的未来编码器是给定条件，未来力隐藏；不是在线运动预测。重叠窗口不作为独立重复。`contact_refinement_audit`汇总完整性、数值核验和记忆闭环 v1 的继承描述字段纠正。
 
 以下为上一轮联合优化的已完成证据，仍保留：
 
-- joint_pilot_v1：指令预算/增大幅值的首轮正负结果；联合方案反而变差。
+- joint_response_pilot_v2 的“仅新探测”“联合”两列不作为新探测无效的证据，原因见上。
 - joint_response_pilot_v2：物理响应预算及长常数窗/去速率/探测单改/联合对照；两个原场景。
 - joint_abrupt_motion_v3：只增加一个硬组织骤变运动实例，检查长窗边界。
 - identical_replay_v1：同一冻结测量，分离估计表示与闭环数据变化；日志瞬时参考只评分，不称最优控制量。

@@ -1,4 +1,4 @@
-"""Small, purpose-linked evidence chain; preserve every negative pilot."""
+"""Small, purpose-linked evidence chain for the lean estimator candidate."""
 import json
 from pathlib import Path
 
@@ -23,19 +23,19 @@ def compact(r):
 
 
 def main():
-    labels=['joint_pilot_v1','joint_response_pilot_v2','joint_abrupt_motion_v3','joint_value_attribution_v4','joint_noise_pair_v5','joint_lag_pair_v6']
-    data={n:read(n) for n in labels};v2=data[labels[1]];v4=data[labels[3]];rows=[]
+    labels=['joint_response_pilot_v2','joint_abrupt_motion_v3','joint_value_attribution_v4','joint_noise_pair_v5','joint_lag_pair_v6']
+    data={n:read(n) for n in labels};v2=data[labels[0]];v4=data[labels[2]];rows=[]
     assert v4['protocol']['probe']['selected_kind']=='original_sine'
     for family in ('S2','T3m'):
         a=find(v2,family,'varying_no_rate');b=find(v4,family,'joint_lean')
         assert a['metrics']==b['metrics'],'the selected original probe must reproduce the lean estimator'
         rows.append(dict(question='material transition' if family=='S2' else 'movement/material confounding',
                          baseline=compact(find(v2,family,'baseline')),candidate=compact(b)))
-    stress=data[labels[2]]
+    stress=data[labels[1]]
     rows.append(dict(question='abrupt motion boundary',baseline=compact(find(stress,'T2m-stiff','baseline')),
                      candidate=compact(find(stress,'T2m-stiff','varying_no_rate'))))
-    for label,question in [(labels[4],'same physical S2, changed sensor noise realization'),
-                           (labels[5],'same physical S2, 50 percent unknown servo-lag increase')]:
+    for label,question in [(labels[3],'same physical S2, changed sensor noise realization'),
+                           (labels[4],'same physical S2, 50 percent unknown servo-lag increase')]:
         rows.append(dict(question=question,baseline=compact(find(data[label],'S2','baseline')),
                          candidate=compact(find(data[label],'S2','joint_lean'))))
     result=dict(protocol=dict(input_files=labels,diagnosis_only=True,uniform_large_cohort_requirement=False,
@@ -44,7 +44,6 @@ def main():
                 paired_evidence=rows,
                 ablations=[compact(r) for r in v2['rows']],
                 selection_value_diagnostic=[compact(r) for r in v4['rows']],
-                negative_command_budget_pilot=[compact(r) for r in data[labels[0]]['rows']],
                 limitations=['small reused development cases, not independent confirmation',
                              'conditional covariance does not cover structural bias or closed-loop endogeneity',
                              'no full constitutive identification or hard real-time guarantee',

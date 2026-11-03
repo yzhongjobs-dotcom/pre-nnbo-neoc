@@ -78,7 +78,7 @@ def main():
     ap.add_argument('--include-original',action='store_true')
     ap.add_argument('--noise-offset',type=int,default=0)
     ap.add_argument('--servo-lag-scale',type=float,default=1.)
-    ap.add_argument('--label',default='joint_pilot_v1');args=ap.parse_args()
+    ap.add_argument('--label',required=True);args=ap.parse_args()
     physical=args.probe_budget=='response'
     probe=optimize_probe(n=32,rate=True,physical_force_budget=physical);sigma=.04;target=math.log(1.2)
     probe['selected_kind']='periodic_fourier'

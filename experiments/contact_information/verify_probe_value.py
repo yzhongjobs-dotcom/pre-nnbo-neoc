@@ -39,25 +39,18 @@ def main():
     assert all(0 < r['probe_fraction'] <= 1+1e-8 for r in audit['rows'])
     assert all(r['max_command_error'] == 0 for r in audit['protocol']['replayed_traces'].values())
     intervention = json.loads((OUT/'probe_value_intervention_v2.json').read_text())
-    aligned = json.loads((OUT/'adaptive_probe_alignment_v1.json').read_text())
-    both = json.loads((OUT/'adaptive_probe_two_demands_v2.json').read_text())
-    for result in (intervention, aligned, both):
-        assert len(result['rows']) == result['protocol']['expected_rows']
+    assert len(intervention['rows']) == intervention['protocol']['expected_rows']
     assert intervention['verified_common_startup_and_exact_baseline']
-    assert all(r['startup_exactly_matches_frozen_baseline'] for r in aligned['rows']+both['rows'])
     summary = [dict(family=r['family'], mechanism='fixed_'+str(r['amplitude_scale_after_startup']),
                     rmse=r['metrics']['rmse'], peak=r['metrics']['peak'], accepted=r['accepted_updates'])
                for r in intervention['rows']]
-    summary += [dict(family=r['family'], mechanism='adaptive_'+r['precision_source'],
-                     rmse=r['metrics']['rmse'], peak=r['metrics']['peak'], accepted=r['accepted_updates'])
-                for r in aligned['rows']+both['rows']]
     result = dict(algebra=checks, valid_inputs_and_conditional_information_order=True,
-                  exact_causal_command_replay=True, complete_closed_loop_rows=12, summary=summary,
+                  exact_causal_command_replay=True, complete_closed_loop_rows=len(intervention['rows']), summary=summary,
                   timing_is_python_prototype_not_real_time_certification=True,
                   source_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
-                       (Path(__file__), HERE/'audit_probe_information.py', HERE/'probe_value_intervention.py', HERE/'adaptive_probe_check.py')})
+                       (Path(__file__), HERE/'audit_probe_information.py', HERE/'probe_value_intervention.py')})
     (OUT/'probe_value_checkpoint.json').write_text(json.dumps(result, indent=2), encoding='utf8')
-    print('probe-value verification passed: exact replay, information algebra and 12 paired rows')
+    print('probe-value verification passed: exact replay, information algebra and', len(intervention['rows']), 'paired rows')
 
 
 if __name__ == '__main__':
