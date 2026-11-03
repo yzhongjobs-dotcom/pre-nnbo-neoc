@@ -1,0 +1,1 @@
+Codex 第 2 轮的最终报告见 experiments/conditional_linear_contact/results/final_report.md（运行时 -o 输出和任务书被清除，本文件及 prompt 文件由发起者恢复）。验收发现参数串扰和接受门越界，结论以 research/conditional_linear_contact.md 为准。第 1 轮：文件系统权限阻塞后在 worktree 重跑，实现错误，只跑 2 场景，结果作废。
