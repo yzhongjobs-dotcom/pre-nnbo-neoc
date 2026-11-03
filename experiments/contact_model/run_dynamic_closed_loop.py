@@ -36,7 +36,9 @@ CONFIGS.update({
  'memory_patch_target_posterior':dict(spatial=True,memory=Memory(.5,.2),interface='target',data_confidence=False),
  'memory_linear_hold_posterior':dict(spatial=False,memory=Memory(.5,.2),interface='gain',fallback='hold',data_confidence=False)})
 CONFIGS.update({
+ 'static_linear_checked':dict(spatial=False,memory=Memory(0.,.2),interface='gain',validate_next=True),
  'memory_linear_checked':dict(spatial=False,memory=Memory(.5,.2),interface='gain',validate_next=True),
+ 'memory_linear_checked_target':dict(spatial=False,memory=Memory(.5,.2),interface='target',validate_next=True),
  'memory_patch_checked_gain':dict(spatial=True,memory=Memory(.5,.2),interface='gain',validate_next=True),
  'memory_patch_checked_target':dict(spatial=True,memory=Memory(.5,.2),interface='target',validate_next=True),
  'static_patch_checked_target':dict(spatial=True,memory=Memory(0.,.2),interface='target',validate_next=True),
@@ -61,6 +63,13 @@ def episode(job):
     tic=time.perf_counter();log,_=common.run(Masked(pol),p,T,sid)
     metrics=common.task_metrics(log,20.8)
     records=getattr(pol,'fit_records',[])
+    # All truth-dependent task/gain attribution occurs AFTER the episode.
+    # These scoring fields are never returned through the observation wrapper.
+    for record in records:
+        use=(log[:,0]>record['time'])&(log[:,0]<=record['time']+.128)
+        if np.any(use):
+            record['scoring_next_window_force_rmse']=float(np.sqrt(np.mean((log[use,3]-common.FD)**2)))
+            record['scoring_next_window_peak']=float(log[use,3].max())
     times=[r['elapsed'] for r in records if 'elapsed'in r]
     return dict(model=name,family=fam,sid=sid,metrics=metrics,
                 elapsed=time.perf_counter()-tic,model_ticks=getattr(pol,'model_ticks',0),
@@ -89,6 +98,8 @@ def main():
                                    truth_masked=True,tuning=False,plant_changed=False,final_used=False,
                                    wall_time_included_as_plant_delay=False,
                                    expected_rows=len(jobs),source_sha256=hashes,
+                                   configs={n:({k:(vars(v) if isinstance(v,Memory) else v) for k,v in CONFIGS[n].items()}
+                                               if CONFIGS[n] else None) for n in args.models},
                                    controller_calibration='nominal PC125'),rows=rows)
             (HERE/'results'/(args.label+'.json')).write_text(json.dumps(out,indent=2,default=float),encoding='utf-8')
     for fam in args.families:

@@ -75,10 +75,11 @@ class ContactPolicy(ServoID):
                     fit=self.model_fit.fit(obs,hint)
                     fit['time']=now
                     record={k:(v.tolist() if isinstance(v,np.ndarray) else v) for k,v in fit.items()}
-                    record.update(time=now,accepted_at_fit=fit['risk']<=math.log(1.2))
+                    acceptable=fit['success'] and fit['risk']<=math.log(1.2) and 200.<=fit['k']<=3e5
+                    record.update(time=now,accepted_at_fit=bool(acceptable))
                     if validation is not None:record['previous_contact_validation']=validation
                     self.fit_records.append(record)
-                    if fit['risk']<=math.log(1.2) and 200.<=fit['k']<=3e5:
+                    if acceptable:
                         if self.latency>0:self.pending=(now+self.latency,fit)
                         else:self.accepted_fit=fit
                 except (ValueError,np.linalg.LinAlgError,FloatingPointError) as ex:

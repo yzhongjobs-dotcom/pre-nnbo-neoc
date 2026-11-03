@@ -65,6 +65,8 @@ class FinitePatch:
         d = np.clip((f/np.exp(theta[0]))**(1/self.g.exponent), 1e-7, .06)
         for _ in range(16):
             fe, _, k = self.response(x, d, theta)
+            if np.all(np.abs(fe-f)<=1e-13*np.maximum(f,1.)):
+                break
             step = (fe-f)/np.maximum(k, 1.)
             d = np.clip(d-np.clip(step, -.6*d, .6*d), 1e-8, .08)
         return d

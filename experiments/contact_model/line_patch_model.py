@@ -29,6 +29,8 @@ class LinePatch(FinitePatch):
         d = np.maximum(np.asarray(d, float), 0.)
         a = np.clip(np.sqrt(self.g.radius*d), 1e-8, .08)
         for _ in range(12):
+            if np.all(np.abs(self.depth_of_a(a)-d)<=1e-16):
+                break
             h = (self.depth_of_a(a)-d)/np.maximum(self.depth_derivative(a), 1e-5)
             a = np.clip(a-np.clip(h, -.5*a, .5*a), 1e-9, .08)
         return a
@@ -60,6 +62,8 @@ class LinePatch(FinitePatch):
         a = np.clip(np.sqrt(f/np.exp(theta[0])), 1e-8, .08)
         for _ in range(16):
             ff, _, da = self._at_a(x, a, theta)
+            if np.all(np.abs(ff-f)<=1e-13*np.maximum(f,1.)):
+                break
             h = (ff-f)/np.maximum(da, 1e-6)
             a = np.clip(a-np.clip(h, -.6*a, .6*a), 1e-9, .08)
         return self.depth_of_a(a)

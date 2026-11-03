@@ -80,7 +80,7 @@ class ContactFit:
         self.blocks=int(blocks);self.history=[]
         self.retired_information=None;self.retired_vector=None
 
-    def surface_profile(self,theta,obs,T):
+    def surface_profile(self,theta,obs,T,depth_init=None):
         """Profile smooth surface motion with the ORIGINAL forward force law.
 
         The inverse law is an initializer, never the final statistical objective.
@@ -89,7 +89,7 @@ class ContactFit:
         """
         x,y,Fe,B=(obs[k] for k in ('x','y','fe','B'))
         Fe=np.maximum(Fe,.02)
-        d=self.model.inverse(x,Fe,theta)
+        d=self.model.inverse(x,Fe,theta) if depth_init is None else depth_init
         _,_,ke=self.model.response(x,d,theta)
         A=T@(ke[:,None]*B);u=T@(ke*(y-d))
         beta=np.linalg.lstsq(A,u,rcond=1e-8)[0]
@@ -151,7 +151,7 @@ class ContactFit:
             bx,bF,bFe=(b[k] for k in ('x','f','fe'));bFe=np.maximum(bFe,.02)
             bt=self.memory.operator(len(bF));th=physical(z);d=self.model.inverse(bx,bFe,th)
             reconstructed,_,_=self.model.response(bx,d,th)
-            r,elastic_prediction,me,_,rank=self.surface_profile(th,b,bt)
+            r,elastic_prediction,me,_,rank=self.surface_profile(th,b,bt,depth_init=d)
             # Inverse solvers have a declared finite indentation domain. A
             # saturated inverse is NOT a valid root; enforce the original force
             # equation so the optimiser cannot exploit a flat clipped depth.
