@@ -87,9 +87,11 @@ def classify(log, trace, sc):
     while on > 0 and F[on] > 6:
         on -= 1
     rise = float(t[pk]-t[on])
-    if not np.isfinite(g[on]):
+    if not np.isfinite(g[:pk+1]).any():
         return dict(kind='never_acquired', t_on=float(t[on]), rise=rise)
-    if (F[(t > t[on]-.5) & (t <= t[on])] < .5).any():
+    if not np.isfinite(g[on]):
+        return dict(kind='acquired_during_runaway', t_on=float(t[on]), rise=rise)
+    if (t[on] > .5) and (F[(t > t[on]-.5) & (t <= t[on])] < .5).any():
         return dict(kind='after_contact_loss', t_on=float(t[on]), rise=rise)
     kt = log[on, 8]
     return dict(kind='fast_event' if rise <= .15 else 'slow_divergence', t_on=float(t[on]), rise=rise,

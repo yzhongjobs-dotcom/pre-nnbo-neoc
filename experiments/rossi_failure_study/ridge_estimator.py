@@ -19,21 +19,25 @@ MIN_TICKS = 8     # half a projection window; a shorter run has too few probe cy
 class RidgeProjection:
     name = 'Ridge'
 
-    def __init__(self, nw=32, order=4, fc=14., memory=False, sigma_scale=1., chi_scale=1.):
+    def __init__(self, nw=32, order=4, fc=14., memory=False, sigma_scale=1., chi_scale=1., alpha=None, tau=None, gamma=0., lam=0.):
         self.nw = int(nw); self.order = int(order); self.fc = float(fc); self.memory = bool(memory)
         self.sigma_scale = float(sigma_scale); self.chi_scale = float(chi_scale)
+        self.alpha = POP_ALPHA if alpha is None else np.asarray(alpha, float); self.tau = POP_TAU if tau is None else np.asarray(tau, float)
+        self.gamma = float(gamma); self.lam = float(lam); self.k_ref = None
 
     def reset(self, policy):
         # The window grows from MIN_TICKS after contact or start, as the projection's does: no estimate must wait for a full window.
         self.rho = (2*math.sin(math.pi*self.fc*policy.Tc))**(-2*self.order)
         self.matrices = {}
         self.fit = _fit_record(degree=0, tw=self.nw*policy.Tc)
-        self.private = None; self.count = 0; self.dof = max(self.nw-self.order-2, 1)
+        self.private = None; self.count = 0; self.dof = max(self.nw-self.order-2, 1); self.k_ref = None
+        self.Tc = policy.Tc; self.w0 = 2*math.pi*float(policy.params.get('f_exc', 20.8))
         if self.memory:
-            f0 = float(policy.params.get('f_exc', 20.8))
-            z = np.exp(-1j*2*math.pi*f0*policy.Tc); self.e = np.exp(-policy.Tc/POP_TAU)
-            self.mag = abs(1+np.sum(POP_ALPHA*(1-z)/(1-self.e*z)))
-            self.state = np.zeros(3); self.y_prev = None; self.y_ref = None; self.y_out = None
+            z = np.exp(-1j*self.w0*policy.Tc); self.e = np.exp(-policy.Tc/self.tau)
+            self.b = self.tau/policy.Tc*(1-self.e)      # exact for motion linear within a tick
+            self.mag = abs(1+np.sum(self.alpha*self.b*(1-z)/(1-self.e*z)))
+            self.state = np.zeros(len(self.tau))
+        self.y_prev = None; self.y_ref = None; self.y_out = None
 
     def _matrix(self, m):
         if m not in self.matrices:
@@ -43,19 +47,30 @@ class RidgeProjection:
         return self.matrices[m]
 
     def _log(self, o, n):
-        if not self.memory:
+        if not self.memory and not self.lam:
             return o.log
         if self.private is None:
             self.private = np.zeros((4096, o.log.shape[1]))
         for j in range(self.count, n):
-            row = o.log[j].copy(); y = float(row[2])
+            row = o.log[j].copy(); y = float(row[2]); dy = 0.
             if self.y_prev is None:
                 self.y_prev = y; self.y_ref = y; self.y_out = y
             else:
-                self.state = self.e*self.state+POP_ALPHA*(y-self.y_prev)
-                self.y_prev = y
-                self.y_out = self.y_ref+((y-self.y_ref)+float(np.sum(self.state)))/self.mag
-            row[2] = self.y_out; self.private[j] = row
+                dy = y-self.y_prev; self.y_prev = y
+                if self.memory:
+                    self.state = self.e*self.state+self.alpha*self.b*dy
+                    self.y_out = self.y_ref+((y-self.y_ref)+float(np.sum(self.state)))/self.mag
+                else:
+                    self.y_out = y
+            out = self.y_out
+            if self.lam and self.k_ref:
+                # Hunt-Crossley rate term, F = k d (1 + lam d'): the response leads motion by tau = lam F/k, normalised at the probe frequency
+                kt = self.k_ref
+                for _ in range(2):      # k_ref is the magnitude at the probe frequency, tau needs the elastic tangent
+                    tau = self.lam*max(float(row[5]), .3)/kt; kt = self.k_ref/math.sqrt(1+(self.w0*tau)**2)
+                out = out+tau*dy/self.Tc
+                out = self.y_ref+(out-self.y_ref)/math.sqrt(1+(self.w0*tau)**2)
+            row[2] = out; self.private[j] = row
         self.count = n
         return self.private[:n]
 
@@ -67,6 +82,9 @@ class RidgeProjection:
             return np.nan, np.inf, np.inf
         te, ye = log[n-1, 0], log[n-1, 2]
         _, Y, z, keep = common._build(log, j0, m, 0, policy.ns, policy.eb, policy.afc, policy.ndel, te, ye, nw*policy.ns*1e-3, p['enc_y'])
+        if self.gamma:
+            # static stiffening, k = k_end (F/F_end)^gamma, so the estimate is the gain at the window end
+            F = np.maximum(log[j0:j0+m, 5], .3); Y = Y*(F/F[-1])**self.gamma
         broken = np.flatnonzero(~keep)
         if len(broken):
             Y, z = Y[broken[-1]+1:], z[broken[-1]+1:]    # only the unbroken contact run ending now
@@ -83,5 +101,7 @@ class RidgeProjection:
         chi = self.chi_scale*float(res@(M@res))/p['noise']**2/dof
         self.dof = dof
         k = _clip_k(k)
+        if np.isfinite(k) and sigma <= .25*k:
+            self.k_ref = k
         self.fit = _fit_record(k, sigma, chi, degree=0, tw=nw*policy.Tc); self.fit['te'] = float(log[n-1, 0])
         return k, sigma, chi

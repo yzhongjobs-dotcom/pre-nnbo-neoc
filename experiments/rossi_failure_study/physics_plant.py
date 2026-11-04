@@ -42,9 +42,12 @@ def _lookup(g, dx, xi):
 
 
 @njit(cache=True)
-def _fe(xc, d, ln_e, dx):
+def _fe(xc, d, ln_e, dx, law=0.):
+    """Elastic force. law = 0: finite footprint; law = p > 0: uniform power law pi L E d_r^(1-p) d^p / 4, with p = 1 the AuSoScan cylinder."""
     if d <= 0:
         return 0.
+    if law > 0:
+        return math.pi*L/4*math.exp(_lookup(ln_e, dx, xc-X0))*.01**(1.-law)*d**law
     a = halfwidth(d); out = 0.
     for i in range(1, NQ+1):
         th = i*math.pi/(NQ+1)
@@ -57,7 +60,7 @@ def _fe(xc, d, ln_e, dx):
 @njit(cache=True)
 def _tick(s, buf, cmd, c, ln_e, h_s, dx, u, fext, act, rip, alpha, tau, sig, noise, kk, log, nlog, direct_log):
     """Advance one 8 ms control period at 2 kHz."""
-    m, cb, kb, kr, lam, beta, v_scan, tau_a, afc, ns, ndel_f, r_c, r_low, r_inst, vmax = c
+    m, cb, kb, kr, lam, beta, v_scan, tau_a, afc, ns, ndel_f, r_c, r_low, r_inst, vmax, law = c
     dt = 5e-4; ndel = int(ndel_f); Tc = .008
     ei = np.exp(-dt/tau); gi = np.exp(-dt/(2*tau))
     prev = buf[ndel]
@@ -82,7 +85,7 @@ def _tick(s, buf, cmd, c, ln_e, h_s, dx, u, fext, act, rip, alpha, tau, sig, noi
         if base > 0:
             d = max(d, 1e-9)
             for _ in range(3):
-                fe = _fe(s[1], d, ln_e, dx)*mod
+                fe = _fe(s[1], d, ln_e, dx, law)*mod
                 qs = 0.
                 for i in range(3):
                     qs += s[9+i]*ei[i]+alpha[i]*(fe-s[7])*gi[i]
@@ -91,7 +94,7 @@ def _tick(s, buf, cmd, c, ln_e, h_s, dx, u, fext, act, rip, alpha, tau, sig, noi
                 res = d-(base-F/kr)
                 slope = 1.+(kt_guess+lam/dt*max(F, 0.))/kr
                 d = max(d-res/slope, 1e-9)
-            fe = _fe(s[1], d, ln_e, dx)*mod
+            fe = _fe(s[1], d, ln_e, dx, law)*mod
             for i in range(3):
                 s[9+i] = s[9+i]*ei[i]+alpha[i]*(fe-s[7])*gi[i]
             dd = (d-s[8])/dt
@@ -108,7 +111,7 @@ def _tick(s, buf, cmd, c, ln_e, h_s, dx, u, fext, act, rip, alpha, tau, sig, noi
         if j == 0 and nlog < log.shape[0]:
             if base > 0:
                 hd = 2e-6
-                ke = (_fe(s[1], d+hd, ln_e, dx)-_fe(s[1], max(d-hd, 1e-9), ln_e, dx))/(2*hd)*mod
+                ke = (_fe(s[1], d+hd, ln_e, dx, law)-_fe(s[1], max(d-hd, 1e-9), ln_e, dx, law))/(2*hd)*mod
             else:
                 ke = 0.
             s[15] = ke*r_inst if ke > 0 else s[15]
@@ -133,7 +136,7 @@ def _constants(sc, pl):
         return 1.+float(np.sum(alpha*(w*tau)**2/(1+(w*tau)**2)))
     afc = 1.-math.exp(-2*math.pi*pl['fc']*1e-3)
     return np.array([sc['m'], sc['c'], sc['k'], sc['kr'], sc['lam'], sc['beta'], sc['v'], pl['tau_a'], afc, sc.get('noise_scale', 1.),
-                     float(pl['ndel']), ratio(2*math.pi*20.8), ratio(2*math.pi), 1.+float(np.sum(alpha)), pl['VMAX']])
+                     float(pl['ndel']), ratio(2*math.pi*20.8), ratio(2*math.pi), 1.+float(np.sum(alpha)), pl['VMAX'], float(sc.get('law', 0.))])
 
 
 def _init(sc, pl):
@@ -142,7 +145,7 @@ def _init(sc, pl):
     x0 = 0.
     for _ in range(60):
         mid = .5*(lo+hi)
-        if _fe(X0, mid, sc['ln_e'], sc['dx']) > FD:
+        if _fe(X0, mid, sc['ln_e'], sc['dx'], float(sc.get('law', 0.))) > FD:
             hi = mid
         else:
             lo = mid

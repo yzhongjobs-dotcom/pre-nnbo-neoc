@@ -34,12 +34,12 @@ DELTA = 3.
 
 def memory_response(y, Tc=.008, f0=20.8):
     """y through G(s) = (1 + sum alpha tau s/(1 + tau s))/G(j w0) magnitude, phase kept: the force the probe motion produces, per unit k."""
-    z = np.exp(-1j*2*math.pi*f0*Tc); e_ = np.exp(-Tc/POP_TAU)
-    mag = abs(1+np.sum(POP_ALPHA*(1-z)/(1-e_*z)))      # response of the discrete filter used below
+    z = np.exp(-1j*2*math.pi*f0*Tc); e_ = np.exp(-Tc/POP_TAU); b_ = POP_TAU/Tc*(1-e_)
+    mag = abs(1+np.sum(POP_ALPHA*b_*(1-z)/(1-e_*z)))      # response of the discrete filter used below
     out = y.astype(float).copy()-y[0]
     total = out.copy()
     for a, t in zip(POP_ALPHA, POP_TAU):
-        e = math.exp(-Tc/t); b = [a, -a]; den = [1, -e]
+        e = math.exp(-Tc/t); r = t/Tc*(1-e); b = [a*r, -a*r]; den = [1, -e]
         total = total+signal.lfilter(b, den, out)
     return y[0]+total/mag
 
