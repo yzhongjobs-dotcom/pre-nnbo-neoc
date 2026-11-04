@@ -4,6 +4,7 @@ Centring uses the stable band of the repository's filter rule, k_good = k/sqrt(.
 """
 import json
 import math
+import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from failure_replay import Measured, cell_scene
 from ridge_estimator import RidgeProjection
 
 HERE = Path(__file__).resolve().parent
-BASE = 401000
+BASE = int(os.environ.get('EVAL_BASE', 401000))
 N_EVAL = 10
 CENTRE = 1./math.sqrt(.75*1.2)
 
