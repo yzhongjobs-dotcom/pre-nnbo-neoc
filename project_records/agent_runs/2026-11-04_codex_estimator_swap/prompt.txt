@@ -1,0 +1,40 @@
+你在项目仓库工作，全程中文。不要提交、推送，不要动 project_records/ 下任何文件，不要改被控对象 physics_plant.py 和 scenes.py，不要访问旧确认集。工作目录 experiments/rossi_failure_study/。可用 15 进程。
+
+## 研究问题（只回答这一个）
+刚度估计模块该用 Rossi 的频率分离还是多项式投影作为主线？比较必须是：**同一个控制器、同一组控制参数，只换刚度估计器**。不要比较 Rossi 自己的积分力控整套，不要引入 lean、p5 候选、局部线性或其他新方法。不要预设谁更好。
+
+先读 physics_plant.py、scenes.py、estimators.py、failure_replay.py、sweeps.py，以及 ../motion_aware_scan/proposed.py、variants.py、common.py、comparators.py 和 ../method_redesign/v1_servo_id.py。之前的 closed_loop.py 已被删除，因为它把控制结构差异混进了比较。
+
+## 1. 统一控制器 estimator_swap.py
+实现一个继承 ServoID 的类 SwapPolicy，它只有一处可替换：一个估计器对象，每拍返回 (k, sigma, chi)。反馈刚度 k_bar、量测增益 k_good 的规则逐句沿用 MotionAware._stiffness_est（默认分支 kgood_rule='consistent'、conservative=True、meas_bound=1.0；dof 由估计器提供）。运动 IMM、导纳、前馈、激励、恢复监督完全继承，不改一行。三个估计器接口相同：
+- Projection：包装 common.window_fit，可调 nw、degree、sigma_scale、chi_scale。
+- BandPass（Rossi 原文的做法）：力和位移经相同的带通（Butterworth，order、half 带宽可调，中心频率等于控制器激励频率），再做折扣 EWRLS（memory 可调）。位移用 comparators._MatchedDisplacement。sigma、chi 从 EWRLS 的累计量和滤波器噪声增益计算，并有可调 sigma_scale、chi_scale。
+- R2（旧对照的二阶峰值带通）：iirpeak(f0,Q)，Q、memory、sigma_scale、chi_scale 可调。
+**必须写回归测试 test_swap.py：Projection 取 nw=16、degree=3、scale=1 时，与 ServoID 在同一场景、同一噪声下逐拍命令完全相等（最大差 0）。** 不相等不得继续。控制器只读测量列，真值只用于评分（用 failure_replay.Measured）。Measured 用标称平台 reset。
+
+## 2. 公共控制参数：两组，避免偏向某估计器
+控制参数指 a_force、f_exc、c、rho_d、D1、q_smooth、q_maneuver、p_stay、r_scale；gate 参数 rel_max、chi2_max 也属于控制器公共规则。
+- C_neutral（主结果）：把量测和反馈都换成真值增益（oracle_meas、oracle_fb），激励固定 f_exc=20.8、a_force=FINAL 值，用默认+40随机+20局部共 61 次调 c 以外的控制参数（D1、q_smooth、q_maneuver、p_stay、r_scale、rho_d），目标同下。c、rel_max、chi2_max 取 FINAL。这组与估计器无关。
+- C_projection（对照）：同目标、同预算，用 Projection（16 拍三次）调全部控制参数（含 f_exc、a_force、c、rel_max、chi2_max）。它偏向投影，用来检验结论是否依赖控制参数来源。
+目标：逐场景 log(1+min(J,1000)) 的均值，J 来自 common.task_metrics。调参种子 base=340000，CELLS 为 7 种工况×3 档组织加 rib、combo，每格 3 场景（用 failure_replay.cell_scene）。
+
+## 3. 估计器自身参数：相同预算
+在每组公共控制参数下，三个估计器各自只调自身参数，都用默认+20随机+9局部共 30 次，种子和目标同上；其他参数一律不动。搜索范围写明，最优点顶到边界要报告，并扩大范围再调一次（额外次数明说）。范围要足够大，不能偏向任一方：Projection nw 12–40、degree 2–5；BandPass order {1,2,3,4}、half 2–12 Hz、memory .03–1 s；R2 Q 1–12、memory .05–2 s；scale .2–5。
+
+## 4. 主评估（新种子 base=380000）
+三个估计器和真值增益参考，每组公共控制参数下，每格 15 场景，方法间场景和噪声配对。报告：RMSE 中位/均值、失控（峰值>50N 或发散）、长失联（>.5s）、事件窗口 RMSE、纹波、调用 P50/P99。按工况×组织、以及分组（静止；平滑=breath+shift_slow；快速推拉；震颤；惊跳+咳嗽；肋骨；综合）和软中硬汇总。给 BandPass−Projection、R2−Projection 的场景配对 bootstrap 95% 区间，场景为单位。同时记录每个估计器在**自己的闭环里**的 ln(k_hat/k) 误差（第 8 列真值，仅评分），按同样分组给 P50、P90，以及被接受窗口中超出 ln1.2 的比例和接受率。
+
+## 5. 条件扫描（同样三个估计器，只用 C_neutral，base=390000，每条件每格 8 场景）
+在 breath、shift_fast、flinch、cough 的 mid/hard 及 rib、combo 上：严重度 .25/.5/2；组织窄带干扰 tremor_f=16、20.8、26、40（tremor_amp=2e-5）；工具脉动 ripple_amp=5e-6，ripple_f=20.8；伺服滞后 ×.6、×1.5（对象变，控制器从标称出发）；噪声 ×2；kr=3e4。给同样统计和 BandPass−Projection 配对区间。
+
+## 6. 离线归因（修改已有文件后重跑）
+修改 failure_replay.py、select_filters.py、estimators.py、sweeps.py：只保留 R2、Butterworth 带通、Kaiser 带通和投影族，移除 local_linear 和闭环部分；重跑 select_filters.py（base 310000）和 failure_replay.py（base 320000，每格 12），结果写回 results/。
+
+## 7. 报告 estimator_swap/report.md，脚本可一键复现
+必须如实回答，数字来自原始 rows，并写复算校验：
+1. 闭环中 BandPass 与 Projection 谁更好，在哪些工况，差异是否显著；结论在两组控制参数下是否一致。
+2. 旧 R2 在闭环里比 BandPass 差多少：旧“带通不行”的结论是否来自滤波器。
+3. 离线估计差异和闭环差异是否一致，真值增益参考能带来多少，估计器究竟影响中位还是尾部。
+4. 任何异常（某方法尾部明显差、参数顶边界、真值参考反而更差）都要复跑具体场景查明原因，不要只列出；分清是方法问题、实现问题、门限尺度问题还是仿真问题。
+5. 主线判断的依据，分别列出支持 Rossi 和支持投影的数字证据，以及不确定之处。不要提出新方法，不要美化。
+所有结论区分实测和推断。最后输出 report.md 的要点摘要。实现完成前先跑小规模冒烟，确认无错再跑全量。不要提前结束，除非遇到无法绕过的技术阻塞；闭环表现差不是停止理由。

@@ -1,0 +1,13 @@
+只做独立审查，不要修改、创建或删除任何文件，不要运行耗时超过几分钟的任务，不要提交。全程中文。
+
+目录 experiments/rossi_failure_study/ 是新写的实验：判断 Rossi 频率分离在真实超声滑动扫描中是否失效、原因是什么、是否影响闭环恒力控制。
+请逐行审查 physics_plant.py、scenes.py、estimators.py、failure_replay.py、closed_loop.py。可以写临时脚本放到系统临时目录并运行小测试来核实你的判断。
+
+重点找实质错误，并给出具体行号、后果和最小复现：
+1. physics_plant.py：物理方程、符号、积分顺序、串联柔度牛顿迭代、Prony 递推、身体反作用、传感器采样、日志列是否与注释一致；episode 与 replay 是否一致；评分真值（第 8 列）在串联柔度和 Prony 下是否正确；时间对齐（力样本、编码器、指令）是否与旧 cobot_scan_benchmark/plant.py 的约定一致。
+2. scenes.py：是否有任何量让某一种估计器（多项式或带通）占便宜；事件、呼吸、肋骨的实现是否与注释一致；种子是否独立。
+3. estimators.py：matched_displacement 与力通道是否真正匹配；_bp 的 FIR 设计（零直流、归一化）；rossi 的折扣求和是否等价 EWRLS；projection、local_linear 是否调用正确；是否无意使用未来数据。
+4. failure_replay.py：四类误差分解（slow_leak、in_band、tracking、noise）的反事实是否成立；零相位滤波只用于离线分析是否会污染结论；分组是否合理；有无把真值漏给估计器。
+5. closed_loop.py：BandPassProposed 与原 MotionAware._stiffness_est 的规则是否真正对应（读 experiments/motion_aware_scan/proposed.py）；调参预算对各方法是否公平，搜索范围是否偏向某方法；RossiLoop 是否符合原文式 (11) 的思想；评分是否一致；oracle 是否合理；种子有无交叉。
+
+结论按严重程度排序：会改变结论的错误、可能影响的问题、次要问题。没有发现问题的部分也明确说明。不要泛泛而谈，不要提出新研究方向。
