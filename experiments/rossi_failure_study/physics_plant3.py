@@ -51,21 +51,28 @@ def _rib_weight(x, ribs):
 
 
 @njit(cache=True)
+def _hard(delta, v, invh, cap):
+    """Pressure and tangent of a cover over bone. It hardens as the cover is used up until its stiffness per area reaches that of the rib and
+    cage spread over the probe, then continues linearly, so the probe on bone is bounded by arm and rib in series and the law has no singularity."""
+    if invh <= 0.:
+        return v*delta, v
+    uc = 1.-math.sqrt(v/cap) if cap > v else 0.
+    u = delta*invh
+    if u <= uc:
+        return v*delta/(1.-u), v/(1.-u)**2
+    dc = uc/invh
+    return v*dc/(1.-uc)+cap*(delta-dc), cap
+
+
+@njit(cache=True)
 def _local(x, delta, c, qfield, efield, ribs):
     q = _lookup(qfield, c[3], x-c[4]); e = _lookup(efield, c[3], x-c[4])
     w, h = _rib_weight(x, ribs)
     if c[8] > 0.:
         w = 1.; h = c[8]
-    factor = 1.
-    if w > 0.:
-        h /= w
-        if delta >= h:
-            return 1.e30, 1.e30, h
-        factor = 1./(1.-delta/h)**2
-    p = (q if c[5] == 0. else e)*delta
-    if w > 0.:
-        p /= 1.-delta/h
-    return p, (q if c[5] == 0. else e)*factor, h if w > 0. else math.inf
+    v = q if c[5] == 0. else e
+    p, stiffness = _hard(delta, v, w/h, c[13] if c[5] == 0. else c[14])
+    return p, stiffness, h/w if w > 0. else math.inf
 
 
 @njit(cache=True)
@@ -112,16 +119,12 @@ def _section(xc, d, theta, vc, c, qfield, efield, ribs):
                     if c[12] > 0.:
                         p = 0.; stiffness = 0.; h = math.inf
                         for transverse in range(int(c[17])):
-                            jj = 18+3*transverse
+                            jj = 18+4*transverse
                             invh = c[jj+2]
                             if invh > 0.:
                                 h = min(h, 1./invh)
-                            den = 1.-delta*invh
-                            if den <= 0.:
-                                p = 1.e30; stiffness = 1.e30
-                                break
-                            p += delta*c[jj if c[5] == 0. else jj+1]/den
-                            stiffness += c[jj if c[5] == 0. else jj+1]/den**2
+                            pi, si = _hard(delta, c[jj if c[5] == 0. else jj+1], invh, c[jj+3]*(c[13] if c[5] == 0. else c[14]))
+                            p += pi; stiffness += si
                     else:
                         p, stiffness, h = _local(pos, delta, c, qfield, efield, ribs)
                     hmin = min(hmin, h)
@@ -177,11 +180,11 @@ def _contact(xc, d, theta, vc, c, qfield, efield, ribs):
             # Equal cover depths have identical rational pressure factors.
             invh = w/h; group = num
             for previous in range(num):
-                if short[18+3*previous+2] == invh:
+                if short[18+4*previous+2] == invh:
                     group = previous
                     break
-            jj = 18+3*group
-            short[jj] += weight*q; short[jj+1] += weight*e; short[jj+2] = invh
+            jj = 18+4*group
+            short[jj] += weight*q; short[jj+1] += weight*e; short[jj+2] = invh; short[jj+3] += weight
             if group == num:
                 num += 1
     short[17] = num
@@ -202,8 +205,9 @@ def _geometry(sc):
     base = np.array([g['length'], g['width'], g['radius'], sc['dx'], sc['field_x0'],
                      float(sc['contact_law'] == 'halfspace'), float(sc['slide'] == 'short'),
                      sc['surface_radius'], sc['cover'] if sc.get('full_cover') else 0.,
-                     sc['k1'], sc['k2'], float(sc['asymmetry'] and sc['mu_k'] > 0.), 0., 0., 0., 0., 0., 0.])
-    return np.r_[base, np.zeros(12*int(math.ceil(g['width']/.001)))]
+                     sc['k1'], sc['k2'], float(sc['asymmetry'] and sc['mu_k'] > 0.), 0.,
+                     sc.get('k_rib', 1.e12)/(g['length']*g['width']), sc.get('k_rib', 1.e12)/(1.1*math.sqrt(g['length']*g['width'])), 0., 0., 0.])
+    return np.r_[base, np.zeros(16*int(math.ceil(g['width']/.001)))]
 
 
 def solve_depth(sc, force, x=None, theta=0.):
@@ -275,27 +279,6 @@ def hemisphere(sc, d, radius=.01):
 
 
 @njit(cache=True)
-def _rib_share(xc, d, theta, geom, ribs):
-    """Share of the load carried through bone. The rib and cage then deflect in series with the arm."""
-    if len(ribs) == 0:
-        return 0.
-    curvature = .5/geom[2]+.5/geom[7]
-    lo, hi = _bounds(d, theta, curvature, geom[0])
-    if hi <= lo:
-        return 0.
-    total = 0.; bone = 0.
-    for i in range(16):
-        xi = lo+(i+.5)*(hi-lo)/16.
-        delta = max(d-curvature*xi*xi-xi*math.tan(theta), 0.)
-        for j in range(4):
-            eta = (j+.5)/4.*geom[1]-.5*geom[1]
-            w, h = _rib_weight(xc+(xi if geom[6] == 0. else eta), ribs)
-            p = delta/max(1.-delta*w/h, .05) if w > 0. else delta
-            total += p; bone += w*p
-    return bone/total if total > 0. else 0.
-
-
-@njit(cache=True)
 def _friction(fn, vc, length, c, geom):
     mu = c[13]+(c[14]-c[13])*math.exp(-(vc/c[15])**2)
     span = length if geom[6] == 0. else geom[1]
@@ -342,7 +325,7 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             ct = math.cos(theta); st = math.sin(theta)
             h = _lookup(hs, geom[3], xc-geom[4])
             base = s[2]+s[3]+h+rip[it]
-            cnn = 1./c[3]+c[19]*_rib_share(xc, d, theta, geom, ribs)
+            cnn = 1./c[3]
             # The residual is monotone in d. Past the local cover the force is unbounded, so keep a bracket: the compliance in
             # series with the bone then sets the depth, and a probe sliding onto a thin rib stays well posed.
             below = -math.inf; above = math.inf; back = .0002
@@ -438,7 +421,7 @@ def _constants(sc, pl):
     lp = pl['fc'] if sc.get('sensor_lp') in (None, False) else (100. if sc['sensor_lp'] is True else float(sc['sensor_lp']))
     return np.array([sc['m'], sc['c'], sc['k'], sc['kr'], calibration(sc), pl['tau_a'],
                      1.-math.exp(-2.*math.pi*lp*.001), sc['noise_scale'], pl['ndel'], 0., 0., 0., pl['VMAX'],
-                     sc['mu_k'], sc['mu_s'], sc['v_s'], sc['v_e'], sc['k_d'], sc.get('act_gain', 0.), 1./sc.get('k_rib', math.inf), 0., sc['theta0'],
+                     sc['mu_k'], sc['mu_s'], sc['v_s'], sc['v_e'], sc['k_d'], sc.get('act_gain', 0.), 0., 0., sc['theta0'],
                      float(sc['tracking']), sc['K_t'], sc['m_t'], sc['zeta_t'], C[0, 1], sc['surface_radius'],
                      sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc'])])
 
@@ -455,11 +438,15 @@ def _init(sc, pl):
         x = target
     z = sc['u'][0]+(sc['fext'][0]-fax)/sc['k']
     h = np.interp(x, sc['field_x0']+np.arange(len(sc['h_s']))*sc['dx'], sc['h_s'])
-    share = _rib_share(x, d, theta, _geometry(sc), sc['ribs'])/sc.get('k_rib', math.inf)
-    y = d/math.cos(theta)-z-h+(C[0, 0]+share)*fax+C[0, 1]*ftax
+    y = d/math.cos(theta)-z-h+C[0, 0]*fax+C[0, 1]*ftax
     s = np.zeros(NS); s[1] = xs; s[2] = y; s[3] = z; s[5] = fax
     s[7] = x; s[9] = f; s[13] = d; s[14] = f
     s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = f*cop; s[22] = d
+    gap = float(sc.get('start_gap', 0.))
+    if gap > 0.:
+        # starts free of the tissue, above the surface by gap
+        y = float(sc['u'][0]+h*0.-gap-sc['h_s_at_start'] if 'h_s_at_start' in sc else sc['u'][0]-h-gap)
+        s[2] = y; s[3] = sc['u'][0]; s[5] = 0.; s[9] = 0.; s[13] = -gap; s[14] = 0.; s[16] = 0.; s[19] = 0.; s[21] = 0.; s[22] = -gap
     return s, np.full(int(pl['ndel'])+1, y)
 
 

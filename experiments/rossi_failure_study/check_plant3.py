@@ -18,7 +18,7 @@ OUT = HERE/'results'/'plant3_checks.json'
 
 def uniform(law='foundation', probe='convex', q=1.1e6, E=17.e3, cover=None, T=6., **overrides):
     o = dict(contact_law=law, probe=probe, field_sigma=0., force=8., slide='long', phi_hc=5., surface_amp=0.,
-             mu=0., k_d=0., pose_error=0., asymmetry=False, alpha_scale=1., tau_scale=1., rho=0., kr=1.e5, K_t=2.e4, accel=.1)
+             mu=0., k_d=0., pose_error=0., asymmetry=False, alpha_scale=1., tau_scale=1., rho=0., kr=1.e5, K_t=2.e4, accel=.1, k_rib=1.e12)
     if cover is not None:
         o.update(cover=cover, full_cover=True)
     o.update(overrides)
@@ -231,11 +231,12 @@ def scene_physics():
                 sc = S.cell_scene3('rib', 'rib', 'nominal', 2, T=3., overrides=dict(force=12., probe=probe, contact_law=law, slide='long', cover=cover, pose_error=3., speed=.03, accel=.1))
                 s0, _ = P._init(sc, P.PLATFORM)
                 log = P.replay(sc, np.full(375, s0[2]))
-                thin.append(dict(law=law, probe=probe, cover_mm=cover*1000., finite=log is not None, peak_N=None if log is None else float(log[:, 3].max())))
+                bound = 1.5/(1./sc['kr']+1./sc['k_rib'])     # arm and rib in series, with the soft part alongside
+                thin.append(dict(law=law, probe=probe, cover_mm=cover*1000., finite=log is not None, peak_N=None if log is None else float(log[:, 3].max()), max_K_over_limit=None if log is None else float(log[:, 21].max()/bound)))
     within = {}
     for tissue in S.TISSUES:
         for regime in ('nominal', 'curved'):
-            for name, values in (('probe', ('convex', 'linear')), ('force', (4., 8., 12.)), ('slide', ('long', 'short')), ('law', ('foundation', 'halfspace')), ('phi', (0., 5., 15., 30.)), ('cover', (.007, .018, .032))):
+            for name, values in (('probe', ('convex', 'linear')), ('force', (4., 8., 12.)), ('slide', ('long', 'short')), ('law', ('foundation', 'halfspace')), ('phi', (7., 11., 17., 23.)), ('dyn', ('hc', 'power', 'kb')), ('cover', (.007, .018, .032))):
                 c = Counter(S._level(name, values, cond, tissue, S.REGIMES.index(regime), i) for cond in S.CONDITIONS for i in range(4))
                 within[f'{tissue}/{regime}/{name}'] = len(set(c.values())) == 1 and len(c) == len(values)
     return dict(passed=bool(pose and gain > 1.5 and all(r['finite'] for r in thin) and all(within.values())), pose_sign=pose,
@@ -288,7 +289,7 @@ def quadrature_accuracy(cover=.004):
     for law in ('foundation', 'halfspace'):
         for slide in ('long', 'short'):
             for probe in ('convex', 'linear'):
-                sc = S.cell_scene3('rib', 'rib', i=2, overrides=dict(contact_law=law, slide=slide, probe=probe, cover=cover))
+                sc = S.cell_scene3('rib', 'rib', i=2, overrides=dict(contact_law=law, slide=slide, probe=probe, cover=cover, k_rib=1.e12))
                 x = sc['ribs'][1, 0]+.003
                 theta = math.radians(3.)
                 d = P.solve_depth(sc, 12., x, theta)

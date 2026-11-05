@@ -7,6 +7,7 @@ import math
 import zlib
 
 import numpy as np
+from scipy.optimize import nnls
 
 DX = .0005
 X0 = .42
@@ -19,6 +20,36 @@ PROBES = {
     'linear': dict(length=.04843, width=.01156, radius=math.inf),
 }
 ACT_GAIN = 2.      # fully activated abdomen is about three times the relaxed one (Remus: q 3.4-4.6 against 1.0-1.8)
+
+
+def _dynamic_response(kind, phase_deg, rng):
+    """Three laws that give the same total phase at the probe frequency by different physics, so the truth is not one candidate's form.
+
+    hc     the nominal memory, the rest of the phase from the Hunt-Crossley rate term
+    power  weak power law over .3-100 Hz, three branches, no rate term
+    kb     one Kelvin-Boltzmann branch near the probe frequency, no rate term
+    Returns alpha, tau, phi_hc in degrees.
+    """
+    w = 2.*np.pi*20.8; target = math.tan(math.radians(phase_deg))
+    if kind == 'hc':
+        alpha = np.array([.35]*3); tau = np.array([.008, .08, .8])
+        m = 1.+np.sum(alpha*1j*w*tau/(1.+1j*w*tau))
+        return alpha, tau, math.degrees(math.atan(max(target*m.real-m.imag, 0.)))
+    if kind == 'kb':
+        tau = float(rng.uniform(.005, .012)); h = 1j*w*tau/(1.+1j*w*tau)
+        alpha = target/(h.imag-target*h.real)
+        return np.array([alpha, 0., 0.]), np.array([tau, .08, .8]), 0.
+    tau = np.array([.003, .03, .3])
+    f = np.geomspace(.3, 100., 60); s = 2j*np.pi*f
+    A = np.array([s*t/(1.+s*t) for t in tau]).T; h = 1j*w*tau/(1.+1j*w*tau)
+    best = None
+    for beta in np.arange(.02, .46, .01):
+        G = (f/.3)**beta*np.exp(.5j*beta*np.pi*(1.-np.exp(-f/.3))); wt = 1./np.abs(G)
+        a, _ = nnls(np.r_[(A.real.T*wt).T, (A.imag.T*wt).T], np.r_[(G.real-1.)*wt, G.imag*wt])
+        gap = abs(float(np.angle(1.+np.sum(a*h)))-math.radians(phase_deg))
+        if best is None or gap < best[0]:
+            best = (gap, a)
+    return best[1], tau, 0.
 
 
 def _smooth(x):
@@ -89,7 +120,9 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     force = float(o.get('force', _level('force', (4., 8., 12.), cond, tissue, code, i)))
     slide = str(o.get('slide', _level('slide', ('long', 'short'), cond, tissue, code, i)))
     law = str(o.get('contact_law', _level('law', ('foundation', 'halfspace'), cond, tissue, code, i)))
-    phi_hc = float(o.get('phi_hc', _level('phi', (0., 5., 15., 30.), cond, tissue, code, i)))
+    # Total phase at the probe frequency, from about the nominal memory alone to the upper evidence (22.5 degrees, liver MRE).
+    total_phase = float(o.get('phase', _level('phi', (7., 11., 17., 23.), cond, tissue, code, i)))
+    dynamics = str(o.get('dynamics', _level('dyn', ('hc', 'power', 'kb'), cond, tissue, code, i)))
     cover = float(o.get('cover', _level('cover', (.007, .018, .032), cond, tissue, code, i)))
     quantile = float(rng.uniform())
     q0 = (3.4e6+1.2e6*quantile) if tissue == 'active' else (1.e6+.8e6*quantile)
@@ -179,8 +212,7 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
               k_rib=float(o.get('k_rib', _log_uniform(rng, 1.e4, 4.5e4))),    # whole cage about 9 N/mm to a single rib about 45 N/mm
               events=events, event_info=event_info,
               motion_components=components, breath_pp=breath_pp, breath_period=breath_period,
-              alpha=np.array([.35]*3)*float(o.get('alpha_scale', rng.uniform(.5, 1.5))),
-              tau=np.array([.008, .08, .8])*float(o.get('tau_scale', _log_uniform(rng, .3, 3.))), phi_hc=phi_hc,
+              phase=total_phase, dynamics=dynamics,
               m=m, c=2.*float(o.get('zeta', rng.uniform(.25, .5)))*m*2.*np.pi*freq, k=k,
               kr=float(o.get('kr', _log_uniform(rng, 5.e4, 2.e5))), K_t=float(o.get('K_t', _log_uniform(rng, 5.e3, 5.e4))),
               rho=float(o.get('rho', rng.uniform(-.3, .3))),
@@ -190,6 +222,9 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
               asymmetry=bool(o.get('asymmetry', True)), l_tool=float(o.get('l_tool', .15)),
               noise_scale=float(o.get('noise_scale', 1.)), sensor_lp=o.get('sensor_lp', None),
               sensor_sigma=float(o.get('sensor_sigma', .1 if o.get('sensor_lp') else .08)))
+    sc['alpha'], sc['tau'], sc['phi_hc'] = _dynamic_response(dynamics, total_phase, rng)
+    if 'phi_hc' in o:         # direct setting for checks and sensitivity: nominal memory, given rate phase
+        sc['alpha'] = np.array([.35]*3)*float(o.get('alpha_scale', 1.)); sc['tau'] = np.array([.008, .08, .8])*float(o.get('tau_scale', 1.)); sc['phi_hc'] = float(o['phi_hc']); sc['dynamics'] = 'hc'
     if not abs(sc['rho']) < 1. or min(sc['kr'], sc['K_t'], *sc['tau']) <= 0.:
         raise ValueError('Compliance must be positive definite and time constants positive')
     return sc

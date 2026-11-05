@@ -42,7 +42,7 @@ def main():
                 q = [r for r in rows if r['name'] == name and r['tissue'] == tissue and r['force'] == force]
                 ok = [r for r in q if not r['failed']]
                 med = lambda k: float(np.nanmedian([r[k] for r in ok])) if ok else float('nan')
-                print(f"{name:5s} {tissue:7s} {force:3.0f} {len(q):3d} | {sum(r['failed'] or r['peak'] > 50 for r in q)} {sum(r['long_loss'] for r in q)} | {med('mean_err'):+.3f} {med('mean_axis_err'):+.3f} | {med('rmse'):.3f} | {math.exp(med('est_re')):.3f} {math.exp(med('est_abs')):.3f} | {med('phi')*deg:5.1f} {med('phi_true')*deg:5.1f} | {med('accept'):.2f} | {med('call_p50'):.0f} {med('call_p99'):.0f} | k {med('k_true')/1e3:.2f} d {med('depth')*1e3:.1f}")
+                print(f"{name:5s} {tissue:7s} {force:3.0f} {len(q):3d} | {sum(r['failed'] or r['peak'] > 50 for r in q)} {sum(r['long_loss'] for r in q)} | {med('mean_err'):+.3f} {med('mean_normal_err'):+.3f} | {med('rmse'):.3f} | {math.exp(med('est_re')):.3f} {math.exp(med('est_abs')):.3f} | {med('phi')*deg:5.1f} {med('phi_true')*deg:5.1f} | {med('accept'):.2f} | {med('call_p50'):.0f} {med('call_p99'):.0f} | k {med('k_true')/1e3:.2f} d {med('depth')*1e3:.1f}")
     print('\nby law, probe, phi: RMSE median and fails, all names and tissues')
     for name in ('L', 'P5:L', 'H', 'P5:H'):
         for law in ('foundation', 'halfspace'):

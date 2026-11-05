@@ -40,9 +40,10 @@ class SwapPolicy(ServoID):
         k_hat = min(max(k_est, 200.), 3e5)
         sig = float(sig_est)
         self.k_hat = k_hat; self.rel = sig/k_hat
-        # Dividing sig by the window's own k_hat makes the gate pass high estimates, a selection bias. The prior gain removes it.
-        k_ref = self.k_good if self.gate_on_prior and np.isfinite(self.k_good) else k_hat
-        precise = sig <= p['rel_max']*k_ref
+        # Dividing sig by the window's own k_hat makes the gate pass high estimates, a selection bias. The prior gain removes it,
+        # except when the window shows the prior well below it: a low gain is the unstable side and must be able to recover.
+        k_ref = max(self.k_good, .5*k_hat) if self.gate_on_prior and np.isfinite(self.k_good) else k_hat
+        precise = sig <= p['rel_max']*k_ref and (not self.gate_on_prior or k_est > 200.)      # an estimate at the floor is no measurement
         if precise:
             self.k_check = k_hat
         consistent = chi_est <= p['chi2_max']
