@@ -640,7 +640,7 @@ def _run(sc, seed, sensor, platform, commands=None, policy=None, diagnostic=Fals
             log[n, [0, 1, 2, 5, 11, 12, 13]] = [s[0], s[1], s[2], s[5], buf[-1], s[19], s[21]]
             obs = Obs(log, n+1)
             if diagnostic and n > 0:
-                obs.truth_k = float(log[n-1, 21]); obs.truth_re = float(log[n-1, 20])
+                obs.truth_k = float(log[n-1, 21]); obs.truth_re = float(log[n-1, 20]); obs.truth_k1 = float(log[n-1, 9]); obs.truth_body = float(log[n-1, 4])
             command = float(policy(obs))
         else:
             command = float(commands[j])
