@@ -21,6 +21,10 @@ class ForceSensing:
     """
     def __init__(self, pol, mass, delay_ms):
         self.pol = pol; self.mass = mass; self.delay = max(delay_ms, 0.); self.step = pol.step; self.reset_inner = pol.reset
+        if self.delay > 0. and hasattr(pol, '_identify'):
+            # Servo identification pairs the encoder with unshifted sent commands.
+            identify = pol._identify
+            pol._identify = lambda log, n: identify(self.raw_log, n)
 
     def reset(self, platform):
         self.reset_inner(platform)
@@ -30,6 +34,8 @@ class ForceSensing:
 
     def __call__(self, o):
         p = self.pol; n = o.n; eb = self.eb; tau = self.tau; log = o.log
+        if self.delay > 0.:
+            self.raw_log = log.copy()
         lag = min(int(self.delay), 2); frac = self.delay-lag
         for j in range(self.done, n):
             i = j-1-p.ndel
