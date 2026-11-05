@@ -1,0 +1,69 @@
+你在项目仓库工作，全程中文。工作目录 experiments/rossi_failure_study/。不要提交推送，不要动 project_records/，不要改 physics_plant.py、scenes.py（scenes.py 只允许在 base 字典加一项 'relaxed': 3e3）、estimators.py、ridge_estimator.py、contact_compare.py。只实现和冒烟，不要跑全量比较，全量由 Claude 验收后运行。可用 15 进程。
+
+研究目的：只做接触模型选型。候选针对的物理过程（滑动摩擦、切向柔顺、力投影、压力不对称、速度变化）当前对象没有。按下面规格扩展对象，并按原文形式公平实现候选。不要偷懒简化任一候选，不要提出规格外的方法。原文核查见 project_records/agent_runs/2026-11-04_codex_contact_physics_audit/final.md。
+
+## 1. 对象 physics_plant2.py（从 physics_plant.py 复制后扩展，API 相同：episode、replay、_init、PLATFORM）
+
+新增状态：接触点切向位置 x_c、速度 v_c；伺服端 x_s（现有一阶伺服，指令来自 sc['xcmd']，1 kHz 数组，已含速度规划；原 v_scan 不再用）。
+
+切向动力学（每 .5 ms，摩擦用半隐式，避免刚性发散）：
+  m_t a = K_t (x_s - x_c) + D_t (v_s - v_c) - F_t,  D_t = 2 zeta_t sqrt(K_t m_t)
+摩擦（同时含 AuSoScan 和 T-RO 的项，是物理超集）：
+  a0 = halfwidth(d); a1 = max(a0 - k1 |v_c|, .2 a0); a2 = a0 + k2 |v_c|
+  F_t = [mu_k + (mu_s - mu_k) exp(-(v_c/v_s)^2)] F_n tanh(v_c/v_e) [1 + (2 nu - 1) 3 a0^2/(10 R^2)] + k_d v_c + f_b
+  f_b = 4 F_n (a2 - a1) sign(v_c)/(3 pi R)    （AuSoScan 式 16 在 a<<R 下的闭式；在注释写推导）
+法向：
+  压力不对称（AuSoScan 式 11、14）：有限足迹积分时，运动前方半宽取 a2，后方取 a1，每半用 xi = a_i cos(th)，权重 (pi/(NQ+1)) sin^2(th) a0 a_i。v=0 时必须与原 _fe 数值相同。
+  接触角 theta = theta0 + c_slope atan(dh/dx)（工具轴与表面法向夹角，dh/dx 由 h_s 差分）
+  法向压入 d_n = base cos(theta)，base 含 y_tool 和身体 z、h
+  y_tool = y_enc + r - F_axis/k_r + xi_c F_t/K_t     （切向力经末端交叉柔顺引起法向位移，编码器看不到）
+  F_n = (f_e + sum q_i)(1 + lam d_n')，F_n >= 0，F_n = 0 时 F_t = 0
+  F_axis = F_n cos(theta) + F_t sin(theta)   （传感器轴向力）
+  F_x = F_t cos(theta) - F_n sin(theta)      （传感器切向力）
+  M_y = F_n (a2 - a1)/2 + F_t l_tool         （l_tool = .15 m，日志用）
+身体反作用用 F_n cos(theta)。注意隐式求解 d 时 F_axis、F_t 都依赖 d，用现有迭代框架处理并保证收敛。
+传感器：F_axis 走现有的 30 Hz 滤波、偏置游走、噪声（列 5）；F_x 用独立噪声流、同滤波和同噪声水平（列 12）；M_y 噪声 .08*7.5e-4/.08 量级（列 13）。列 1 是编码器 x（伺服端 x_s，不含切向柔顺变形）。列 3 是真值 F_n（任务评分用它）。列 8、9、10 含义不变（沿工具轴的增益，k 乘 cos^2(theta) 近似可忽略则注释说明）。LOGC 增到 20：16 v_c，17 theta，18 F_axis 真值，19 F_t 真值。
+
+回归要求（check_plant2.py，必须通过并打印）：所有新参数置零（mu=0、k_d=0、k1=k2=0、theta0=c_slope=0、xi_c=0、K_t 很大）且 xcmd 为匀速时，与 physics_plant.py 同场景同噪声同命令 replay，列 3、5、8 最大差 < 1e-6（写明实际差）。物理校验并打印：匀速滑动时 F_t/F_n 与设定一致；换向时 F_x 跳变约 2 mu F；v 从 0 起步时有 stick-slip（给定 mu_s>mu_k、低 K_t 时）；F_axis - F_n 约 F_t sin(theta)；v=.03 时压力不对称造成的力变化与式 (14) 比值一致；数值不发散（2 kHz）。
+
+## 2. 场景 scenes2.py：make2(cond, tissue, regime, rng, ...) 调 scenes.make，再加扫描物理。参数现在定死，看到候选胜负后不得修改：
+
+每场景抽样（来源见审查报告）：mu_k U(.1,.45)；mu_s = mu_k (1+U(0,.5))；v_s U(.002,.01)；v_e .0005；k_d U(0,13)；nu .45；k1 = .001 g，k2 = .003 g，g = 10^U(0,1)；theta0 N(0, 2.9 度)；c_slope U(.2,.6)；K_t 10^U(3.7,4.7)；m_t U(1,3)；zeta_t U(.3,.7)；xi_c U(-.3,.3)。
+工况 regime：
+  nominal  匀速 v U(.005,.03)
+  stop_go  v_max U(.01,.06)，加速度 U(.1,1) m/s^2，2–3 次停顿，每次 .2–.8 s
+  reversal v U(.01,.04)，1–2 次换向，加速度 U(.1,1)
+  curved   匀速 U(.005,.03)，|theta0| U(5,15) 度随机符号，c_slope 1
+  rate     匀速，alpha [.05,.05,.05]，lam U(1,3)
+  memory   匀速，alpha [.6,.6,.6]，lam .1
+场景长度保证模量场覆盖实际行程。rng 用 np.random.default_rng([base, code, i, regime_code])，与 cell_scene 的编码方式一致。CELLS2 = S.CELLS 加 (rest,breath,shift_slow,flinch)×relaxed，共 27 格。
+
+## 3. 候选 contact_candidates.py
+
+宿主：contact_compare.ModelPolicy 的结构（RidgeProjection nw=24,order=4,fc=14,sigma_scale=.796,chi_scale=.551，k_good 居中，首次获取规则），控制参数 C_neutral（results/tuning.json）。观测包装：只暴露列 0,1,2,5,11,12,13。不得读真值列。
+
+各候选共用的在线信息：
+- 探测相位 phi：对窗口 Y 和其正交量 Yq（Y 的离散微分除以探测角频率，同样过 M）解 2×2 最小二乘，k_c, q；窗口被接受时更新 phi = atan(q/k_c) 的指数平均（记忆 2 s），初值 0，限幅 [0, .5] rad。所有动态候选都只用这一个量辨识自己的唯一参数，保证信息相同。
+- 滑动速度 v_hat：列 1 差分。
+- 摩擦辨识（只有声明用切向力的候选用）：用列 12 F_x 和列 5 做慢 RLS（记忆 2 s，只在 |v_hat| > 2 mm/s 时更新）。
+
+候选（每个都用于两个通道：回归量 Y 和力到运动换算 Z；Z 的增量形式 Z += dc - dy）：
+  L   线性：dc = dF/k
+  W   弱幂律：beta = 2 phi/pi，限幅 [0,.3]。三分支 POP_TAU，alpha_i = POP_ALPHA_i * beta/.1；y 过归一化记忆滤波，Z 用其逆（离散系数 b = tau/Tc (1-e)，两通道一致）
+  S   SLS（Kelvin-Boltzmann，Moreira 最终选用）：tau = .05，alpha 由 phi 反解（使该分支在探测频率的相位等于 phi），其余同 W
+  H   Hunt-Crossley：tau_h = tan(phi)/omega 全归因于速率项，即 B 由相位在线辨识（Haddadi 2012 的在线思路）；Y 加超前项 tau_h dY/dt 并归一化；Z 对 dc 加一阶滞后 tau_h；n = 1.26，故 Z 中 k(F) = k_good (F/f_set)^.206；不得把 F 放进回归量
+  Hz  T-RO 法向：Hertz 球切线 k(F) = k_good (F/f_set)^(1/3) 只进 Z；回归量线性
+  AS  AuSoScan：法向 Z 线性；滑动修正 m(v) = 1 + (k2 - k1)|v_hat|/(2 sqrt(R d0))，d0 由式 13 用当前 k 换算（E* = 4k/(pi L)），k1,k2 取表 I；预测滑动力变化 dF_v = F_slow dm 从 dF 中扣除后再换算；摩擦 f_AS = mu_hat F_slow s(v_hat) + 4 F_slow (k1+k2) v_hat/(3 pi R)，耦合见下
+  TR  T-RO 全模型：Z 同 Hz；摩擦 f_TR = mu_hat F_slow [1+(2nu-1) 3 a^2/(10R^2)] s(v_hat) + k_d_hat v_hat，mu_hat、k_d_hat 由 RLS 辨识，a = sqrt(R d0)，耦合见下
+  LF  线性 + 实测切向力：f = F_x - mu_hat F_slow s(v_hat) 的去均值量（不用模型）
+  WF、WA、WT  W 分别加 LF、AS、TR 的滑动部分
+耦合：有摩擦项的候选用 dF_c = c_hat df 从 dF 中扣除后再进 Z 和回归的 z（z 用同样滤波权重）。df 只含速度决定的部分（F_slow 用 1 s 低通，避免与 dF 共线）。c_hat 由 RLS 估计：dF - k dy 对 df 回归，只在 |df| 超过其噪声 3 倍时更新，记忆 3 s，限幅 [-.5,.5]，初值 0。这一步同时吸收 theta 投影和 xi_c 交叉柔顺。s(v) = tanh(v/.002)。
+另加基线 P5：S.estimator('Projection', nw=16, degree=5, sigma_scale=.796, chi_scale=.551)，不居中、不用获取规则，线性 Z。
+
+回归要求（test_candidates.py，必须通过）：L 在 physics_plant2 的零新物理设置下，与 contact_compare 的 elastic 在 physics_plant 上命令逐拍差 < 1e-6；phi 恒为 0 时 W、S、H 退化为 L（数值差 < 1e-6，gamma 项相应关闭后比较）；各候选不读真值列（用 NaN 屏蔽真值列后仍能运行且结果不变）。每个候选写一个单场景机制检查：
+  phi 在 memory 和 rate 工况下的估计值与对象真值相位的比较；AS、TR 的 mu_hat 与设定值比较；c_hat 在 curved 工况换向时与 tan(theta)+xi_c k/K_t 的比较。打印结果，不达标要说明原因，不要掩盖。
+
+## 4. contact_select.py：python contact_select.py matrix 跑全量（你只跑 --smoke：每工况每候选 2 场景，确认不崩）。全量：12 个候选 × 6 工况 × CELLS2 × 3 场景，种子 base=420000，方法间同场景同噪声。输出 results/contact_select.json，打印每工况每候选的 L、RMSE 中位/P90、事件 RMSE、失控、长失联，相对 L 的配对 bootstrap 区间，并另加按 F_n 与按 F_axis 两种力误差。指标函数复用 S._metric。
+
+## 5. 最后输出
+实际实现与规格的每处偏差（没有就写没有）；check_plant2.py 和 test_candidates.py 的完整输出；机制检查数字；每个候选单次调用耗时。不要写结论，不要跑全量。闭环表现差不是停止理由；不要提前结束，除非遇到无法绕过的技术阻塞。

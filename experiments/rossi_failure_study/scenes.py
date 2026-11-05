@@ -53,7 +53,7 @@ def make(cond, tissue, rng, T=10., v=None, breath=None, overrides=None):
     t = np.arange(int(T/DT_DRIVE)+2)*DT_DRIVE
     speed = float(v if v is not None else rng.uniform(.01, .03))
     length = speed*T+.1
-    base = {'soft': 1.0e4, 'mid': 8e4, 'hard': 5e5, 'mixed': 1.5e4}[tissue]*math.exp(rng.normal(0, .2))
+    base = {'soft': 1.0e4, 'mid': 8e4, 'hard': 5e5, 'mixed': 1.5e4, 'relaxed': 7e3}[tissue]*math.exp(rng.normal(0, .2))
     ln_e = math.log(base)+_field(rng, length, rng.uniform(.01, .03), o.get('field_sigma', .2))
     h_s = _field(rng, length, rng.uniform(.03, .06), rng.uniform(.0003, .002))
     h_s = h_s-h_s[0]
