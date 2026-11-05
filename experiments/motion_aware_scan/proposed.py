@@ -182,7 +182,7 @@ class MotionAware(common.DirectPolicy):
         n, log = o.n, o.log
         F, t = log[n-1, 5], log[n-1, 0]
         sent = log[n-1, 11]
-        e = FD-F
+        e = getattr(self, 'force_set', FD)-F
         # contact supervision
         # recovery: True = full supervisor (approach mode); 'gate' = only switch off the motion
         # feed-forward and excitation and freeze k_bar while lost (k -> 0 leaves the FF loop's stable

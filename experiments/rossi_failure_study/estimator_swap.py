@@ -14,6 +14,7 @@ from estimators import ProjectionEstimator, BandPassEstimator, R2Estimator
 class SwapPolicy(ServoID):
     """ServoID whose sole policy-level replacement is ``estimator``."""
     name = 'SwapPolicy'
+    gate_on_prior = False
 
     def __init__(self, estimator, **kwargs):
         kwargs.setdefault('kgood_rule', 'consistent')
@@ -39,7 +40,9 @@ class SwapPolicy(ServoID):
         k_hat = min(max(k_est, 200.), 3e5)
         sig = float(sig_est)
         self.k_hat = k_hat; self.rel = sig/k_hat
-        precise = sig <= p['rel_max']*k_hat
+        # Dividing sig by the window's own k_hat makes the gate pass high estimates, a selection bias. The prior gain removes it.
+        k_ref = self.k_good if self.gate_on_prior and np.isfinite(self.k_good) else k_hat
+        precise = sig <= p['rel_max']*k_ref
         if precise:
             self.k_check = k_hat
         consistent = chi_est <= p['chi2_max']
@@ -49,10 +52,10 @@ class SwapPolicy(ServoID):
             if precise and consistent:
                 self._filter_kgood(k_hat, sig/k_hat)
         elif precise and (consistent or p['kgood_rule'] == 'precise'):
-            ok_meas = p['rel_meas'] is None or sig <= p['rel_meas']*k_hat
+            ok_meas = p['rel_meas'] is None or sig <= p['rel_meas']*k_ref
             if p['meas_bound'] is not None:
                 dof = self.estimator.dof
-                bound = (sig/k_hat)*(1.+math.sqrt(dof*max(0., chi_est-p['meas_bound'])))
+                bound = (sig/k_ref)*(1.+math.sqrt(dof*max(0., chi_est-p['meas_bound'])))
                 within = bound <= math.log(1.2)
                 better = p['meas_better'] and np.isfinite(self.k_good) and bound < abs(math.log(k_hat/self.k_good))
                 ok_meas = ok_meas and (within or better)

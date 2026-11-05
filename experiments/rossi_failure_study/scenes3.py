@@ -99,7 +99,7 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     hetero = np.exp(_field(rng, grid, float(rng.uniform(.01, .03)), float(o.get('field_sigma', .2))))
     if tissue == 'mixed':
         for center in np.linspace(grid[0]+.04, grid[-1]-.04, 4):
-            hetero *= np.exp(math.log(float(rng.uniform(5., 30.)))*np.exp(-.5*((grid-center)/.006)**2))
+            hetero *= np.exp(math.log(float(rng.uniform(2., 8.)))*np.exp(-.5*((grid-center)/.006)**2))      # inclusion in soft tissue; bone is the rib cells
     qscale = float(o.get('q_scale', 1.))
     qfield, efield = q0*qscale*hetero, E0*qscale*hetero
     ribs = []
@@ -108,7 +108,8 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     if tissue == 'rib' or cond in ('rib', 'combo'):
         center = grid[0]+start_rib
         while center < grid[-1]:
-            width = float(rng.uniform(.010, .020)); edge = float(rng.uniform(.001, .004))
+            # the cover spreads the bone's influence at the surface over about its own thickness
+            width = float(rng.uniform(.010, .020)); edge = cover*float(rng.uniform(.5, 1.))
             ribs.append((center, width, edge, cover))
             center += width+rib_gap
     radius_s = float(o.get('surface_radius', rng.uniform(.15, .5))) if regime.startswith('curved') else math.inf

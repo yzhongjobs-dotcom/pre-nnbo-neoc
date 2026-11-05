@@ -117,7 +117,7 @@ class Preprocess:
                     self.st = own.e_y*self.st+own.a_y*own.b_y*dy
                     self.y_out = self.y0+((y-self.y0)+float(np.sum(self.st)))/own.mag_y
                 elif kind in HC:
-                    self.y_out = self.y0+((y-self.y0)+own.tau_h*dy/TC)/math.sqrt(1+(OMEGA*own.tau_h)**2)
+                    self.y_out = self.y0+((y-self.y0)+own.tau_h*dy/TC)/own.mag_h
                 else:
                     self.y_out = y
             row[2] = self.y_out
@@ -180,7 +180,11 @@ class CandidatePolicy(ModelPolicy):
             self.zalpha = None; self.q = np.zeros(0); self.r_c = 1.
 
     def set_memory(self, phi):
-        self.phi = phi; self.tau_h = math.tan(phi)/OMEGA if self.kind in HC else 0.
+        self.phi = phi; self.tau_h = 0.; self.mag_h = 1.
+        if self.kind in HC:
+            diff = (1.-np.exp(-1j*OMEGA*TC))/TC        # the backward difference, not j omega
+            t = math.tan(phi); self.tau_h = t/max(diff.imag-t*diff.real, 1.)
+            self.mag_h = abs(1.+self.tau_h*diff)
         if self.kind in MEMORY:
             a, tau = memory_from_phase(self.kind, phi)
             e, b, h = branch(tau)
@@ -220,7 +224,8 @@ class CandidatePolicy(ModelPolicy):
             s = math.tanh(v/.002); fx = float(o.log[j-1, 12]) if j > 1 else float('nan')
             k = self.k_good if np.isfinite(self.k_good) else None
             d0 = self.fslow/k if k else None
-            a = math.sqrt(R*d0) if d0 and d0 > 0 else None
+            Rp = getattr(self, 'R_probe', R)       # probe geometry is known to the Method
+            a = math.sqrt(Rp*d0) if d0 and d0 > 0 else None
             if abs(v) > .002 and np.isfinite(fx) and self.fslow > .5:
                 x = np.array([self.fslow*s, v if kind in ('TR', 'WT', 'HT') else 0.])
                 P = self.P/math.exp(-TC/2.)
@@ -232,11 +237,11 @@ class CandidatePolicy(ModelPolicy):
                 lim = .95*math.sqrt(self.P[0, 0]*self.P[1, 1]); self.P[0, 1] = self.P[1, 0] = min(max(self.P[0, 1], -lim), lim)
             pressure = 0.
             if kind in ('AS', 'WA', 'HA'):
-                fv = self.mu_hat*self.fslow*s+4*self.fslow*(K1+K2)*v/(3*math.pi*R)
+                fv = self.mu_hat*self.fslow*s+4*self.fslow*(K1+K2)*v/(3*math.pi*Rp)
                 if a:
                     pressure = self.fslow*(K2-K1)*abs(v)/(2*a)
             elif kind in ('TR', 'WT', 'HT'):
-                fv = self.mu_hat*self.fslow*(1+(2*NU-1)*3*(a or 0.)**2/(10*R*R))*s+self.kd_hat*v
+                fv = self.mu_hat*self.fslow*(1+(2*NU-1)*3*(a or 0.)**2/(10*Rp*Rp))*s+self.kd_hat*v
             else:
                 # measured tangential force without the part that only follows the contact force
                 fv = (fx-self.mu_hat*s*(F-self.fslow)) if np.isfinite(fx) else 0.
@@ -290,7 +295,7 @@ class CandidatePolicy(ModelPolicy):
             dc = dF/kc
         if self.kind in HC:
             a = self.tau_h/TC
-            dc = (dc*math.sqrt(1+(OMEGA*self.tau_h)**2)+a*self.dc_prev)/(1+a); self.dc_prev = dc
+            dc = (dc*self.mag_h+a*self.dc_prev)/(1+a); self.dc_prev = dc
         self.Zd += dc-dy; self.Z = self.Zd
         return self.Zd
 

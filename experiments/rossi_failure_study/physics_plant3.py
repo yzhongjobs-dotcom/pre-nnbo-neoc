@@ -222,15 +222,16 @@ def solve_depth(sc, force, x=None, theta=0.):
         if hi > 1.:
             raise ValueError('no equilibrium within one metre')
     d = .5*(lo+hi)
-    for _ in range(60):
+    for iteration in range(200):
         f, k, _, _, _ = value(d)
-        if abs(f-force) < 1.e-10 or hi-lo < 1.e-13:
+        if abs(f-force) < 1.e-9 or hi-lo < 1.e-12:
             return d
         if f > force:
             hi = d
         else:
             lo = d
-        candidate = d-(f-force)/k if k > 0. else math.inf
+        # Near a thin cover the force is steep on one side, so Newton alone creeps; every third step halves the bracket.
+        candidate = d-(f-force)/k if k > 0. and iteration % 3 != 2 else math.inf
         d = candidate if lo < candidate < hi else .5*(lo+hi)
     raise RuntimeError('equilibrium solve did not converge')
 
