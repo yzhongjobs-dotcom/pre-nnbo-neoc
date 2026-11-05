@@ -1,0 +1,79 @@
+任务：用真实实验数据逐项核查当前接触仿真环境，给出证据和修改建议。这一步只分析，不改仿真，不跑 Method，不做接触模型选型。
+
+## 先读
+
+- literature/manual_inbox/contact_real_data/docs/README.md、USForce_README.md、Dahmani_README.txt
+- experiments/rossi_failure_study/physics_plant3.py、scenes3.py、check_curve3.py
+- research/scan_scene_evidence.md、research/contact_model_selection.md（“独立的参考环境”一节）
+
+## 要分析的数据（都在 literature/manual_inbox/contact_real_data/）
+
+已有：
+- static/Data Sheet 1.CSV（Remus S1：每位受试者、每个部位的多项式拟合，含 rangeMin、rangeMean、rangeMax 行）；static/Data Sheet 3.PDF（曲线图）。半球压头 r = 10 mm，进给 5 mm/s。
+- static/Acquisition informations.tab（Dahmani：真实超声探头压明胶仿体，0–7 mm，6 次采集，0 mm 处力已约 6 N，需弄清这个偏置；模量和探头规格在没下载到的其他 tab 里）。
+- dynamic/cyclic_relaxation_corona_radiata.csv、cyclic_relaxation_visual_cortex.csv（Greiner，人脑离体，循环加载和松弛）。
+- dynamic/repository_test_indentation.xlsx（Callera，先查清是什么组织、时间基和单位）。
+- dynamic/Rheometer data.zip（解压到临时目录读取，不要解压进仓库。查清是否对应 Neumann 的脊髓数据）。
+- scanning/USForce_episode_000000.parquet、USForce_info.json、USForce_episodes.jsonl（机器人扫描，UR，30 FPS，只有 1 个 episode）。
+- 仓库已有：Beber Fig. 2 矢量曲线（experiments/rossi_failure_study/beber_fig2.py，literature/papers/beber.pdf）。
+
+没有拿到：MULTIS、Neumann 的 DMA 和循环文件、Boyer 全文（只有摘要）、Remus S4。不要去下载它们，如实写明缺失及其影响。可以 pip install pyarrow 读 parquet。不要下载其他数据。
+
+## 纪律（最重要）
+
+- 不要把其他组织的参数当成人体腹部参数。脑、脊髓、胰腺、明胶、仿体的数值不能直接进仿真；它们只能说明机制的形式（例如松弛是单时间常数还是跨数量级、滞回是否存在、速率依赖强弱、是否有预调节效应），并且要写明适用边界。
+- 没有直接实测的量，用物理推导或合理假设处理，并明确标为假设。不要强求。
+- 不要为了复杂而加模型或场景。不要为了某个候选方法的表现提建议，不要参考任何方法的比较结果。
+- 原始数字和推断分开写。每个结论写明数据来源和计算方法。查不清单位或含义就写查不清，不要猜。
+
+## 要回答的问题
+
+### 静态
+1. 用 Remus S1 的逐人逐部位拟合：
+   - 人与人、部位之间的离散程度（在 4、8、12 N 或相应压深下的切线刚度和力—深度指数）。
+   - scenes3.py 现在用的是均值曲线（R1–R5，A1–A5），按分位数选区。这低估了多少个体差异？应如何抽样？
+   - 拟合在 0–5 mm 是否可信（对照 S3）。physics_plant3.probe_curve 在 5 mm 以下把材料状态保持不变，这个处理是否合理。
+   - 哪些部位与超声扫描相关，R6（后侧）是否应作为单独情况。
+2. Dahmani：
+   - 解释 0 mm 处约 6 N 的偏置（预载？接触零点？传感器零漂？）。去掉偏置后，力—压入曲线的形状、指数、切线、6 次采集的离散和噪声是多少。
+   - 这是真实探头几何上唯一的力—压入数据。没有明胶模量和探头规格时，它能检验 probe_curve 的哪些假设（曲线形状？），不能检验哪些（绝对刚度）？如实写。
+3. 综合判断：现在用 γ = .5 到 1 表示几何迁移，这个范围与现有证据是否相符，是否有依据收窄。
+
+### 动态
+4. 对每个动态数据集，先搞清组织、加载方式、时间基、应变幅值、单位。然后提取能说明机制形式的量：
+   - 松弛：归一化松弛曲线的形状，是单指数还是跨多个时间量级（在对数时间上的斜率），松弛比。
+   - 循环：滞回能量比随幅值和速率的变化，预调节（前几圈是否变化）。
+   - 速率依赖：如果有多速率数据，力或模量随速率的斜率（幂律指数）。
+   - 能否由松弛曲线估计 1–20 Hz 的相位？数据带宽够不够？不够就写不够。
+5. 用同一协议跑当前仿真的三种动态机制（hc、power、kb，见 scenes3._dynamic_response，可直接调用 physics_plant3 的 replay，或者写解析计算），比较无量纲形状（归一化松弛、回线能量比、相位随频率的趋势），不比绝对值。判断：
+   - 当前三种机制的形状范围是否覆盖实测的形状。
+   - 有没有明显不符的（例如真实组织松弛跨数量级，而某机制只有单一时间常数；或相位随频率的趋势不符）。
+   - 总相位 7–23° 的范围是否与证据相符。Boyer 只有摘要，只能作边界。
+6. 判断 HC 速率项 F = (fe + Σq)(1 + λḋ) 在这些数据里有没有依据，还是形式上可有可无。不要预设答案。
+
+### 扫描任务
+7. USForce：
+   - 查清 state 的单位、坐标系和力的符号（数据卡没写，从数值推断并标明是推断）。力为什么开头是 0。
+   - 算探头速度、加速度、接触力（幅值和分布）、姿态变化率、沿探头轴向的位移速度。30 FPS 的限制要写明，不能分辨 20.8 Hz。
+   - 只有 1 个 episode，能说明什么、不能说明什么。如果需要更多 episode，写明能改变什么判断，不要下载。
+8. 对照 scenes3.py 的任务设置（速度 1–60 mm/s、加速度 .05–.5 m/s²、力档 4/8/12 N、停顿、换向、姿态误差、体表起伏、呼吸、心动、突发运动）。逐项判断：有证据支持、与证据不符、还是缺证据的假设。
+
+### 机制清单
+9. 逐项列 physics_plant3.py 和 scenes3.py 里的物理机制和参数，给出：证据来源和等级（人体在体实测 / 离体 / 动物 / 仿体 / 规格 / 假设），判断（保留 / 修改 / 只作敏感性 / 删除），理由。至少覆盖：探头几何、接触迁移、静态曲线、空间不均匀场、肋骨和覆盖层、k_rib、肌肉收缩增益、记忆和速率机制、摩擦、切向柔顺、机械臂柔顺、身体支撑动力学、噪声和测量链、控制周期和延迟。
+10. 自洽检查：有没有机制之间互相矛盾、单位错误、或代码与文档不符的地方（读代码核对，例如 _measured 映射后速率项和记忆是否仍然自洽，肌肉收缩增益与活化曲线 A1–A5 是否一致，k_rib 上限的换算）。
+
+## 输出
+
+- 分析脚本：experiments/rossi_failure_study/real_data_audit.py（可复现，从 manual_inbox 读原始数据，不把原始数据复制进仓库）。结果写 experiments/rossi_failure_study/results/real_data_audit.json，只存派生的汇总数字。需要的图放临时目录，不进仓库。
+- 报告：project_records/agent_runs/2026-11-05_codex_real_data_audit/final.md，中文，简洁，直接给表和数字：
+  1. 每个数据集：是什么，能用来约束什么，不能用来约束什么。
+  2. 静态、动态、扫描三部分的核查结果。
+  3. 机制清单表（第 9 问）。
+  4. 自洽问题清单（第 10 问），写明文件和行号。
+  5. 修改建议清单：每条写改什么、依据、预期影响、是否必要。按重要性排序，只列确实必要的。不要写实现代码。
+  6. 拿不准、需要我判断的点。
+
+## 其他纪律
+
+- 不改 physics_plant3.py、scenes3.py、method3.py 或其他已有文件，只新建上面两个输出文件和报告。不提交，不推送。
+- 写中文文件时不要把中文经 PowerShell 管道或 here-string 传给 python，用文件编辑工具或 Git Bash，写完读回确认没有乱码。
