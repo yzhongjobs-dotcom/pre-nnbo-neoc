@@ -1,6 +1,7 @@
 """Finite-footprint foundation / halfspace plant; no Method dependency.
 
 SI units. Log columns 0:20 retain plant2 meanings; column 7 is E*, never q.
+Column 5 is the sensor reading, including the force that accelerates the probe; column 18 is the true axial contact force.
 Columns 20:26: Re(K*), |K*|, phase (rad), contact length, pressure centre,
 minimum local cover (infinity off bone). K* includes robot series compliance,
 but excludes support motion, actuator and sensor transfer functions.
@@ -11,7 +12,7 @@ from numba import njit
 from scipy.interpolate import PchipInterpolator
 
 PLATFORM = dict(Tc=.008, ndel=1, tau_a=.019, fc=30., VMAX=.25)
-LOGC, NS = 26, 23
+LOGC, NS = 26, 37
 GX, GW = np.polynomial.legendre.leggauss(4)
 BX, BW = np.polynomial.legendre.leggauss(8)
 
@@ -456,7 +457,8 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
                 fn = max((fe+qsum)*rate, 0.)
                 ft = _friction(fn, vc, length, c, geom)
                 fax = fn*ct+ft*st; ftax = ft*ct-fn*st
-                residual = d-(base-fax*cnn-c[26]*ftax)*ct
+                # the arm carries the contact force and the force accelerating the probe
+                residual = d-(base-(fax+c[33]*s[24])*cnn-c[26]*ftax)*ct
                 if residual > 0.:
                     above = d
                 else:
@@ -493,8 +495,17 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
         if int(round(t/dt)) % 2 == 0:
             k = min(kk, len(noise)-1); ns = c[7]
             s[6] += 2.e-4*ns*noise[k, 0]; s[18] += 2.e-4*ns*noise[k, 2]
+            # The sensor sits between arm and probe, so it reads the contact force plus the force accelerating the probe (Beber eq. 3-4).
+            # The servo model has a velocity jump at each command step, which no real probe follows, so acceleration is taken over one control period.
+            velocity = (buf[0]-s[2])/c[5]
+            s[24] = (velocity-s[29])/(Tc if Tc > 0. else .008)
+            s[29:36] = s[30:37].copy(); s[36] = velocity
+            s[28] = s[27]; s[27] = s[26]; s[26] = s[25]; s[25] = fax+c[33]*s[24]
+            # time offset of the force stream against the encoder, fractions of a sample by interpolation
+            lag = int(c[34]); frac = c[34]-lag
+            sensed = (1.-frac)*s[25+lag]+frac*s[25+min(lag+1, 3)]
             s[20] += 2.e-4*(7.5e-4/.08)*ns*noise[k, 4]
-            s[5] += c[6]*(fax+s[6]+c[30]*ns*noise[k, 1]-s[5])
+            s[5] += c[6]*(sensed+s[6]+c[30]*ns*noise[k, 1]-s[5])
             s[19] += c[6]*(ftax+s[18]+c[30]*ns*noise[k, 3]-s[19])
             s[21] += c[6]*(fn*cop+ft*c[29]+s[20]+7.5e-4*(c[30]/.08)*ns*noise[k, 5]-s[21])
             kk += 1
@@ -536,7 +547,7 @@ def _constants(sc, pl):
                      1.-math.exp(-2.*math.pi*lp*.001), sc['noise_scale'], pl['ndel'], 0., 0., 0., pl['VMAX'],
                      sc['mu_k'], sc['mu_s'], sc['v_s'], sc['v_e'], sc['k_d'], 0., 0., 0., sc['theta0'],
                      float(sc['tracking']), sc['K_t'], sc['m_t'], sc['zeta_t'], C[0, 1], sc['surface_radius'],
-                     sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc'])])
+                     sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc']), sc.get('tool_mass', 0.), float(sc.get('sensor_delay_ms', 0))])
 
 
 def _init(sc, pl):
@@ -554,12 +565,12 @@ def _init(sc, pl):
     y = d/math.cos(theta)-z-h+C[0, 0]*fax+C[0, 1]*ftax
     s = np.zeros(NS); s[1] = xs; s[2] = y; s[3] = z; s[5] = fax
     s[7] = x; s[9] = f; s[13] = d; s[14] = f
-    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = f*cop; s[22] = d
+    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = f*cop; s[22] = d; s[25:29] = fax
     gap = float(sc.get('start_gap', 0.))
     if gap > 0.:
         # starts free of the tissue, above the surface by gap
         y = float(sc['u'][0]+h*0.-gap-sc['h_s_at_start'] if 'h_s_at_start' in sc else sc['u'][0]-h-gap)
-        s[2] = y; s[3] = sc['u'][0]; s[5] = 0.; s[9] = 0.; s[13] = -gap; s[14] = 0.; s[16] = 0.; s[19] = 0.; s[21] = 0.; s[22] = -gap
+        s[2] = y; s[3] = sc['u'][0]; s[5] = 0.; s[9] = 0.; s[13] = -gap; s[14] = 0.; s[16] = 0.; s[19] = 0.; s[21] = 0.; s[22] = -gap; s[25:29] = 0.
     return s, np.full(int(pl['ndel'])+1, y)
 
 
@@ -588,6 +599,10 @@ def _noise(rng, n, sensor):
 
 def _run(sc, seed, sensor, platform, commands=None, policy=None, diagnostic=False):
     pl = dict(PLATFORM if platform is None else platform)
+    # The plant runs on the true system; the policy is told only what calibration can give it.
+    calibrated = dict(pl)
+    if 'tau_a_true' in sc and platform is None:
+        pl['tau_a'] = sc['tau_a_true']; calibrated['tau_a'] = sc['tau_a_hat']
     if abs(pl['Tc']/.0005-round(pl['Tc']/.0005)) > 1.e-8:
         raise ValueError('Tc must be an integer multiple of 0.5 ms')
     nt = int(round(sc['T']/pl['Tc'])) if commands is None else len(commands)
@@ -599,7 +614,7 @@ def _run(sc, seed, sensor, platform, commands=None, policy=None, diagnostic=Fals
     log = np.zeros((int(round(nt*pl['Tc']/log_dt))+2, LOGC)); s, buf = _init(sc, pl); c = _constants(sc, pl)
     geom = _geometry(sc); noise = _noise(np.random.default_rng(seed), int(sc['T']*1000.)+10, sensor)
     if policy is not None:
-        policy.reset(pl)
+        policy.reset(calibrated)
     n = 0; kk = 0
     for j in range(nt):
         seen = s[5]

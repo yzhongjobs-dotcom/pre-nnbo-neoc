@@ -78,7 +78,7 @@ def sampling():
 
 def clean_scene(law='foundation', probe='convex', **overrides):
     o = dict(contact_law=law, probe=probe, slide='long', field_sigma=0., surface_amp=0.,
-             pose_error=0., mu=0., k_d=0., rho=0., asymmetry=False, region='R1', subject='P01', phi_hc=0., alpha_scale=0.)
+             pose_error=0., mu=0., k_d=0., rho=0., asymmetry=False, region='R1', subject='P01', phi_hc=0., alpha_scale=0., tool_mass=0., sensor_delay_ms=0., delay_error=0., tau_a_true=.019, tau_error=0.)
     o.update(overrides)
     return S.cell_scene3('rest', 'relaxed', T=.1, overrides=o)
 

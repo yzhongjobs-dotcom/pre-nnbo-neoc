@@ -18,7 +18,7 @@ OUT = HERE/'results'/'plant3_checks.json'
 
 def uniform(law='foundation', probe='convex', q=1.1e6, E=17.e3, cover=None, T=6., **overrides):
     o = dict(contact_law=law, probe=probe, field_sigma=0., force=8., slide='long', phi_hc=5., surface_amp=0.,
-             mu=0., k_d=0., pose_error=0., asymmetry=False, alpha_scale=1., tau_scale=1., rho=0., kr=1.e5, K_t=2.e4, accel=.1, k_rib=1.e12, no_curve=True)
+             mu=0., k_d=0., pose_error=0., asymmetry=False, alpha_scale=1., tau_scale=1., rho=0., kr=1.e5, K_t=2.e4, accel=.1, k_rib=1.e12, no_curve=True, tool_mass=0., mass_error=0., tau_error=0., tau_a_true=.019, sensor_delay_ms=0., delay_error=0.)
     if cover is not None:
         o.update(cover=cover, full_cover=True)
     o.update(overrides)

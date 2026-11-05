@@ -249,6 +249,14 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     sc['alpha'], sc['tau'], sc['phi_hc'] = _dynamic_response(dynamics, total_phase, rng)
     sc['region'] = region
     sc['subject'] = subject
+    # The true system, and what calibration gives the Method. Ranges are assumptions; no measurement for this robot is available.
+    sc['tool_mass'] = float(o.get('tool_mass', rng.uniform(.15, .45)))        # probe, holder and cable beyond the sensor
+    sc['tool_mass_hat'] = sc['tool_mass']*(1.+float(o.get('mass_error', rng.uniform(-.05, .05))))
+    sc['tau_a_true'] = float(o.get('tau_a_true', rng.uniform(.015, .025)))
+    sc['tau_a_hat'] = sc['tau_a_true']*(1.+float(o.get('tau_error', rng.uniform(-.05, .05))))
+    # A sine in free air calibrates mass and force time offset together: the reading is m a, its phase the offset.
+    sc['sensor_delay_ms'] = float(o.get('sensor_delay_ms', rng.uniform(0., 2.)))
+    sc['sensor_delay_hat'] = sc['sensor_delay_ms']+float(o.get('delay_error', rng.uniform(-.25, .25)))
     if tissue == 'active':
         sc['act'][:] = 0.
     if not o.get('no_curve', False):

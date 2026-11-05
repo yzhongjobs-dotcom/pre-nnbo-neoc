@@ -14,8 +14,49 @@ GATE_ON_PRIOR = True
 FF_JUMP = 1.5        # the Method's rule that opens the feed-forward when the gain is plainly stale; without it a thin-cover rib crossing runs away
 
 
+class ForceSensing:
+    """What a real wrist sensor stage does before the Method sees the data (Piedra 2026 section 3): aligns force and encoder, removes the force accelerating the probe.
+
+    Uses only calibrated values (probe mass, servo lag, force time offset), the encoder, the commands and the known force filter.
+    """
+    def __init__(self, pol, mass, delay_ms):
+        self.pol = pol; self.mass = mass; self.delay = max(delay_ms, 0.); self.step = pol.step; self.reset_inner = pol.reset
+
+    def reset(self, platform):
+        self.reset_inner(platform)
+        # the calibrated lag, not the Method's online servo estimate, which has a different job
+        self.tau = platform['tau_a']; self.eb = math.exp(-1.e-3/self.tau)
+        self.x = 0.; self.v = np.zeros(8); self.a = np.zeros(4); self.done = 0; self.comp = np.zeros(4096)
+
+    def __call__(self, o):
+        p = self.pol; n = o.n; eb = self.eb; tau = self.tau; log = o.log
+        lag = min(int(self.delay), 2); frac = self.delay-lag
+        for j in range(self.done, n):
+            i = j-1-p.ndel
+            if i >= 0:
+                c = log[i, 11]; y0 = log[j-1, 2]
+                for m in range(p.ns):
+                    yy = c+(y0-c)*eb**m
+                    v = (c-yy)/tau
+                    self.a[1:] = self.a[:-1]; self.a[0] = (v-self.v[0])/(p.ns*1.e-3)     # over one control period, as the probe moves
+                    self.v[:-1] = self.v[1:]; self.v[-1] = v
+                    self.x += p.afc*(self.mass*((1.-frac)*self.a[lag]+frac*self.a[lag+1])-self.x)
+            self.comp[j] = self.x
+        self.done = n
+        log[:n, 5] -= self.comp[:n]
+        if self.delay > 0. and n > 1:
+            # the force is older than the encoder sample, so compare it with the position at the same moment
+            shift = self.delay*1.e-3/p.Tc
+            y = log[:n, 2].copy()
+            log[1:n, 2] = y[1:]-shift*(y[1:]-y[:-1])
+        return self.step(o)
+
+
 def build(name, sc, overrides=None):
     pol = C.build(name, overrides)
+    if sc.get('tool_mass', 0.) > 0. or sc.get('sensor_delay_ms', 0.) > 0.:
+        sensing = ForceSensing(pol, sc.get('tool_mass_hat', 0.), sc.get('sensor_delay_hat', 0.))
+        pol.step = sensing; pol.reset = sensing.reset
     pol.force_set = float(sc['FD'])
     pol.gate_on_prior = GATE_ON_PRIOR
     pol.params['ff_jump'] = FF_JUMP
