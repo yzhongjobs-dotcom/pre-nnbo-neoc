@@ -323,6 +323,7 @@ def quadrature_accuracy(cover=.004):
                     full = curvature*(g[0]*.5)**2+abs(b)*g[0]*.5
                     scale = 1.1/math.sqrt(g[1]*span)
                     f = 1.2*scale*f if d <= full else scale*(f+.2*section(full)[0])
+                f *= g[20]; k *= g[20]      # the overall factor (scale and equilibrium share) the plant applies after the integral
                 actual = P._contact(x, d, theta, 0., g, sc['q_field'], sc['E_field'], sc['ribs'], 0.)      # the integral itself, before the slope contact() reports
                 error = max(abs(actual[0]/f-1.), abs(actual[1]/k-1.))
                 rows.append(dict(law=law, slide=slide, probe=probe, cover_mm=cover*1000., relative_force_tangent_error=error,
