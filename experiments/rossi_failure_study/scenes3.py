@@ -19,6 +19,11 @@ PROBES = {
     'convex': dict(length=.069, width=.017, radius=.060),
     'linear': dict(length=.04843, width=.01156, radius=math.inf),
 }
+# Remus 2024 Table 4: mean force-depth polynomials on the r = 10 mm hemisphere, N and mm, descending powers. R relaxed, A activated.
+REMUS = {'R1': [8.684e-03, 2.462e-01, 0.], 'R2': [-2.937e-06, 2.590e-04, 2.479e-03, 2.163e-01, 0.], 'R3': [8.604e-03, 1.260e-01, 0.],
+         'R4': [5.279e-03, 1.859e-01, 0.], 'R5': [5.359e-06, 1.710e-04, 3.677e-03, 1.740e-01, 0.],
+         'A1': [3.456e-02, 3.556e-01, 0.], 'A2': [-1.119e-05, -6.415e-04, 4.969e-02, 5.176e-02, 4.619e-01, 0.],
+         'A3': [9.067e-06, -5.547e-04, 1.047e-02, -2.882e-02, 3.835e-01, 0.], 'A4': [-3.641e-04, 2.890e-02, 4.072e-01, 0.], 'A5': [2.864e-02, 3.068e-01, 0.]}
 ACT_GAIN = 2.      # fully activated abdomen is about three times the relaxed one (Remus: q 3.4-4.6 against 1.0-1.8)
 
 
@@ -32,7 +37,8 @@ def _dynamic_response(kind, phase_deg, rng):
     """
     w = 2.*np.pi*20.8; target = math.tan(math.radians(phase_deg))
     if kind == 'hc':
-        alpha = np.array([.35]*3); tau = np.array([.008, .08, .8])
+        # slow relaxation varies widely between sources: none visible on Beber's phantom during a 10 s hold, about sevenfold in Moreira's ex vivo tissue
+        alpha = np.array([.35, .35, .35])*np.array([1., 1., 1.])*np.array([1., float(rng.uniform(.1, 1.)), float(rng.uniform(.1, 1.))]); tau = np.array([.008, .08, .8])
         m = 1.+np.sum(alpha*1j*w*tau/(1.+1j*w*tau))
         return alpha, tau, math.degrees(math.atan(max(target*m.real-m.imag, 0.)))
     if kind == 'kb':
@@ -127,6 +133,7 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     quantile = float(rng.uniform())
     q0 = (3.4e6+1.2e6*quantile) if tissue == 'active' else (1.e6+.8e6*quantile)
     E0 = (54.e3+18.e3*quantile) if tissue == 'active' else (15.e3+16.e3*quantile)
+    region = str(o.get('region', ('A' if tissue == 'active' else 'R')+str(1+int(quantile*5))))
     length = float(xcmd.max()-X0+.08)
     grid = X0+np.arange(int(math.ceil(length/DX))+1)*DX
     hetero = np.exp(_field(rng, grid, float(rng.uniform(.01, .03)), float(o.get('field_sigma', .2))))
@@ -223,10 +230,16 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
               noise_scale=float(o.get('noise_scale', 1.)), sensor_lp=o.get('sensor_lp', None),
               sensor_sigma=float(o.get('sensor_sigma', .1 if o.get('sensor_lp') else .08)))
     sc['alpha'], sc['tau'], sc['phi_hc'] = _dynamic_response(dynamics, total_phase, rng)
+    sc['region'] = region
+    if not o.get('no_curve', False):
+        sc['remus_poly'] = np.array(REMUS[region]); sc['transfer_gamma'] = .5 if law == 'halfspace' else 1.
     if 'phi_hc' in o:         # direct setting for checks and sensitivity: nominal memory, given rate phase
         sc['alpha'] = np.array([.35]*3)*float(o.get('alpha_scale', 1.)); sc['tau'] = np.array([.008, .08, .8])*float(o.get('tau_scale', 1.)); sc['phi_hc'] = float(o['phi_hc']); sc['dynamics'] = 'hc'
     if not abs(sc['rho']) < 1. or min(sc['kr'], sc['K_t'], *sc['tau']) <= 0.:
         raise ValueError('Compliance must be positive definite and time constants positive')
+    if 'remus_poly' in sc:
+        import physics_plant3 as P
+        P.attach_curve(sc)
     return sc
 
 

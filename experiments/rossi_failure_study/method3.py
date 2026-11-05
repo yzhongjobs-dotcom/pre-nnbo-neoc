@@ -11,12 +11,14 @@ import common
 
 TOL_F, FMIN, F_OVER = .5, .5, 3.
 GATE_ON_PRIOR = True
+FF_JUMP = 1.5        # the Method's rule that opens the feed-forward when the gain is plainly stale; without it a thin-cover rib crossing runs away
 
 
-def build(name, sc):
-    pol = C.build(name)
+def build(name, sc, overrides=None):
+    pol = C.build(name, overrides)
     pol.force_set = float(sc['FD'])
     pol.gate_on_prior = GATE_ON_PRIOR
+    pol.params['ff_jump'] = FF_JUMP
     pol.R_probe = sc['geometry']['radius'] if math.isfinite(sc['geometry']['radius']) else 1.e3
     return pol
 
@@ -62,7 +64,8 @@ def metric(log, pol, sc, f_exc=20.8):
                 good.append(math.log(kh/log[j, 20])); good_abs.append(math.log(kh/log[j, 21]))
     return dict(J=min(J, 1000.), rmse=float(np.sqrt(np.mean(e**2))), normal_rmse=float(np.sqrt(np.mean(normal**2))),
                 mean_err=float(np.mean(e)), mean_normal_err=float(np.mean(normal)),
-                peak=float(f.max()), osc=float(np.sqrt(np.mean(rest**2))), ripple=float(np.hypot(*coef)/math.sqrt(2)),
+                peak=float(f.max()), peak_normal=float(log[warm, 3].max()), over_band=float(np.mean(f > fd+F_OVER)*(t[-1]-1.)), over_15=float(np.mean(f > 15.)*(t[-1]-1.)),
+                over_36=bool(f.max() > 36.5), loss_time=float(np.mean(loss)*(t[-1]-1.)), osc=float(np.sqrt(np.mean(rest**2))), ripple=float(np.hypot(*coef)/math.sqrt(2)),
                 long_loss=bool(longest*.008 > .5), failed=False, event_rmse=float(np.sqrt(np.mean((F[em]-fd)**2))) if em.sum() else np.nan,
                 call_p50=float(np.percentile(calls, 50)), call_p99=float(np.percentile(calls, 99)), accept=float(np.mean([x[4] for x in trace])) if trace else 0.,
                 est_re=float(np.median(good)) if good else np.nan, est_abs=float(np.median(good_abs)) if good_abs else np.nan,

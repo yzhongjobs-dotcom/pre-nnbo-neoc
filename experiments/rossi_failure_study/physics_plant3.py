@@ -159,7 +159,31 @@ def _contact_integral(xc, d, theta, vc, c, qfield, efield, ribs):
 
 
 @njit(cache=True)
+def _measured(f, k, c):
+    """Monotone map from the reference force to the force the measured indentation curve gives on this probe; pose, ribs and field act through f."""
+    n = int(c[16])
+    if n == 0 or f >= 1.e20:
+        return f, k
+    i0 = int(c[15])
+    ref = c[i0:i0+n]; val = c[i0+n:i0+2*n]; slope = c[i0+2*n:i0+3*n]
+    if f <= ref[0]:
+        return f*val[0]/ref[0], k*val[0]/ref[0]
+    if f >= ref[n-1]:
+        return val[n-1]+slope[n-1]*(f-ref[n-1]), k*slope[n-1]
+    j = int(np.searchsorted(ref, f))-1
+    w = (f-ref[j])/(ref[j+1]-ref[j])
+    return val[j]*(1.-w)+val[j+1]*w, k*(slope[j]*(1.-w)+slope[j+1]*w)
+
+
+@njit(cache=True)
 def _contact(xc, d, theta, vc, c, qfield, efield, ribs):
+    f, k, cop, length, h = _reference(xc, d, theta, vc, c, qfield, efield, ribs)
+    f, k = _measured(f, k, c)
+    return f, k, cop, length, h
+
+
+@njit(cache=True)
+def _reference(xc, d, theta, vc, c, qfield, efield, ribs):
     if c[6] == 0.:
         return _contact_integral(xc, d, theta, vc, c, qfield, efield, ribs)
     # Transverse field samples are reused at every depth quadrature point.
@@ -207,7 +231,54 @@ def _geometry(sc):
                      sc['surface_radius'], sc['cover'] if sc.get('full_cover') else 0.,
                      sc['k1'], sc['k2'], float(sc['asymmetry'] and sc['mu_k'] > 0.), 0.,
                      sc.get('k_rib', 1.e12)/(g['length']*g['width']), sc.get('k_rib', 1.e12)/(1.1*math.sqrt(g['length']*g['width'])), 0., 0., 0.])
-    return np.r_[base, np.zeros(16*int(math.ceil(g['width']/.001)))]
+    out = np.r_[base, np.zeros(16*int(math.ceil(g['width']/.001)))]
+    table = sc.get('curve_table')
+    if table is not None:
+        # the rib limit applies to the force after the map
+        out[13] /= table[2][-1]; out[14] /= table[2][-1]
+        out[15] = len(out); out[16] = len(table[0])
+        out = np.r_[out, table[0], table[1], table[2]]
+    return out
+
+
+REMUS_R = .010        # hemisphere radius of the measured curves, m
+
+
+def _hemisphere_area(delta):
+    d = np.minimum(delta, REMUS_R)
+    return np.pi*(2.*REMUS_R*d-d*d)
+
+
+def probe_curve(poly, geometry, gamma, depths):
+    """Force on the probe from a measured force-depth polynomial on the r = 10 mm hemisphere (Remus Table 4, N and mm, descending powers).
+
+    Equal strain s = depth/sqrt(area) means equal material state; at equal s the tangent scales with contact area as area^gamma, .5 for a
+    half-space, where stiffness follows sqrt(A), and 1 for a thin layer, where it follows A. Geometry alone therefore sets the shape on the probe.
+    """
+    L, W, R = geometry['length'], geometry['width'], geometry['radius']
+    a = np.full_like(depths, L/2.) if math.isinf(R) else np.minimum(np.sqrt(2.*R*depths), L/2.)
+    area = W*2.*a
+    s = depths/np.sqrt(area)
+    dh = np.geomspace(1.e-5, .05, 4000)
+    sh = dh/np.sqrt(_hemisphere_area(dh))
+    # Below about 5 mm the fitted polynomial keeps a finite slope while the contact area vanishes, an artefact of the fit and the toe region, so the material state is held there.
+    delta = np.maximum(np.interp(s, sh, dh), .005)
+    k_h = np.polyval(np.polyder(poly), delta*1000.)*1000.     # N/m
+    k = k_h*(area/_hemisphere_area(delta))**gamma
+    force = np.r_[0., np.cumsum(.5*(k[1:]+k[:-1])*np.diff(depths))]
+    return force, k
+
+
+def attach_curve(sc):
+    """Table from the plant's reference force to the measured force for this scene's probe and transfer assumption."""
+    g = sc['geometry']
+    ref = dict(sc, ribs=np.empty((0, 4)), full_cover=False, surface_radius=math.inf, asymmetry=False, q_field=np.full(2, sc['q_base']),
+               E_field=np.full(2, sc['E_base']), dx=1., field_x0=0., curve_table=None)
+    depths = np.geomspace(1.e-5, .06, 240)
+    force, k = probe_curve(sc['remus_poly'], g, sc['transfer_gamma'], depths)
+    fr = np.array([contact(ref, d, 0.)[0] for d in depths]); kr_ = np.array([contact(ref, d, 0.)[1] for d in depths])
+    keep = np.r_[True, np.diff(fr) > 0.]
+    sc['curve_table'] = (fr[keep], force[keep], (k/np.maximum(kr_, 1.e-9))[keep])
 
 
 def solve_depth(sc, force, x=None, theta=0.):
@@ -492,7 +563,10 @@ def _run(sc, seed, sensor, platform, commands=None, policy=None):
         seen = s[5]
         if policy is not None:
             log[n, [0, 1, 2, 5, 11, 12, 13]] = [s[0], s[1], s[2], s[5], buf[-1], s[19], s[21]]
-            command = float(policy(Obs(log, n+1)))
+            obs = Obs(log, n+1)
+            if n > 0:
+                obs.truth_k = float(log[n-1, 21]); obs.truth_re = float(log[n-1, 20])
+            command = float(policy(obs))
         else:
             command = float(commands[j])
         if not np.isfinite(command):

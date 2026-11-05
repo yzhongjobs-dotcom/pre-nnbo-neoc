@@ -300,8 +300,8 @@ class CandidatePolicy(ModelPolicy):
         return self.Zd
 
 
-def build(name):
-    p = dict(S.FINAL_C); p.update(CTL)
+def build(name, overrides=None):
+    p = dict(S.FINAL_C); p.update(CTL); p.update(overrides or {})
     if name.startswith('P5:'):
         kind = name[3:]
         pol = CandidatePolicy(kind, ContactProjection(kind), single_model=False, **p)

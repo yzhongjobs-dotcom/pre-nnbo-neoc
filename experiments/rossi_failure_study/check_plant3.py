@@ -18,7 +18,7 @@ OUT = HERE/'results'/'plant3_checks.json'
 
 def uniform(law='foundation', probe='convex', q=1.1e6, E=17.e3, cover=None, T=6., **overrides):
     o = dict(contact_law=law, probe=probe, field_sigma=0., force=8., slide='long', phi_hc=5., surface_amp=0.,
-             mu=0., k_d=0., pose_error=0., asymmetry=False, alpha_scale=1., tau_scale=1., rho=0., kr=1.e5, K_t=2.e4, accel=.1, k_rib=1.e12)
+             mu=0., k_d=0., pose_error=0., asymmetry=False, alpha_scale=1., tau_scale=1., rho=0., kr=1.e5, K_t=2.e4, accel=.1, k_rib=1.e12, no_curve=True)
     if cover is not None:
         o.update(cover=cover, full_cover=True)
     o.update(overrides)
@@ -289,7 +289,7 @@ def quadrature_accuracy(cover=.004):
     for law in ('foundation', 'halfspace'):
         for slide in ('long', 'short'):
             for probe in ('convex', 'linear'):
-                sc = S.cell_scene3('rib', 'rib', i=2, overrides=dict(contact_law=law, slide=slide, probe=probe, cover=cover, k_rib=1.e12))
+                sc = S.cell_scene3('rib', 'rib', i=2, overrides=dict(contact_law=law, slide=slide, probe=probe, cover=cover, k_rib=1.e12, no_curve=True))
                 x = sc['ribs'][1, 0]+.003
                 theta = math.radians(3.)
                 d = P.solve_depth(sc, 12., x, theta)
