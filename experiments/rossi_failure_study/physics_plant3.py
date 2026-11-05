@@ -12,7 +12,7 @@ from numba import njit
 from scipy.interpolate import PchipInterpolator
 
 PLATFORM = dict(Tc=.008, ndel=1, tau_a=.019, fc=30., VMAX=.25)
-LOGC, NS = 26, 37
+LOGC, NS, BRANCHES = 26, 45, 8      # the memory states are the last BRANCHES entries of the state
 GX, GW = np.polynomial.legendre.leggauss(4)
 BX, BW = np.polynomial.legendre.leggauss(8)
 
@@ -245,13 +245,13 @@ def _geometry(sc):
                      sc['surface_radius'], sc['cover'] if sc.get('full_cover') else 0.,
                      sc['k1'], sc['k2'], float(sc['asymmetry'] and sc['mu_k'] > 0.), 0.,
                      sc.get('k_rib', 1.e12)/(g['length']*g['width']), sc.get('k_rib', 1.e12)/(1.1*math.sqrt(g['length']*g['width'])), 0., 0., 0.,
-                     sc['q_base'], sc['E_base'], sc.get('q_scale', 1.), 0., sc.get('k_rib', 1.e12), 0., 0., 0.])
+                     sc['q_base'], sc['E_base'], sc.get('q_scale', 1.)*sc.get('equilibrium', 1.), 0., sc.get('k_rib', 1.e12), 0., 0., 0.])
     out = np.r_[base, np.zeros(16*int(math.ceil(g['width']/.001)))]
     table = sc.get('curve_table')
     if table is not None:
         active = sc.get('active_table', table)
         # the rib limit applies to the force after the map, at the steepest slope of either curve
-        steepest = max(float(np.max(table[2])), float(np.max(active[2])))*sc.get('q_scale', 1.)
+        steepest = max(float(np.max(table[2])), float(np.max(active[2])))*sc.get('q_scale', 1.)*sc.get('equilibrium', 1.)
         out[13] /= steepest; out[14] /= steepest
         out[15] = len(out); out[16] = len(table[0])
         out = np.r_[out, table[0], table[1], table[2]]
@@ -311,7 +311,7 @@ def attach_curve(sc):
     """Table from the plant's reference force to the measured force for this scene's probe and transfer assumption."""
     g = sc['geometry']
     ref = dict(sc, ribs=np.empty((0, 4)), full_cover=False, surface_radius=math.inf, asymmetry=False, q_field=np.ones(2),
-               E_field=np.ones(2), dx=1., field_x0=0., curve_table=None, active_table=None, q_scale=1.)
+               E_field=np.ones(2), dx=1., field_x0=0., curve_table=None, active_table=None, q_scale=1., equilibrium=1.)
     depths = np.geomspace(1.e-6, .10, 400)
     fr = np.array([contact(ref, d, 0.)[0] for d in depths])
     fine = np.geomspace(1.e-8, .10, 4000)
@@ -364,7 +364,7 @@ def compliance(sc):
 def calibration(sc):
     # A fixed, zero-slide normal reference on the uniform soft tissue: independent of FD, position, ribs and scan regime.
     ref = dict(sc, ribs=np.empty((0, 4)), full_cover=False, surface_radius=math.inf, asymmetry=False, q_field=np.ones(2),
-               E_field=np.ones(2), dx=1., field_x0=0., q_scale=1.)
+               E_field=np.ones(2), dx=1., field_x0=0., q_scale=1., equilibrium=1.)
     d = solve_depth(ref, 8., 0.)
     k = contact(ref, d, 0.)[1]
     return math.tan(math.radians(sc['phi_hc']))*k/(2.*math.pi*20.8*8.)
@@ -452,7 +452,7 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
                     d = .5*(d+below) if math.isfinite(below) else d-back
                     back *= 2.
                     continue
-                qsum = np.sum(s[10:13]*ei+weights*(fe-s[9]))
+                qsum = np.sum(s[37:45]*ei+weights*(fe-s[9]))
                 rate = 1.+c[4]*(3.*d-4.*s[13]+s[22])/(2.*dt)
                 fn = max((fe+qsum)*rate, 0.)
                 ft = _friction(fn, vc, length, c, geom)
@@ -480,13 +480,13 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
         if fe >= 1.e20 and math.isfinite(below):
             d = below
             fe, ke, cop, length, cover = _contact(xc, d, theta, vc, geom, qfield, efield, ribs, activation)
-        s[10:13] = s[10:13]*ei+weights*(fe-s[9])
+        s[37:45] = s[37:45]*ei+weights*(fe-s[9])
         normal_velocity = (3.*d-4.*s[13]+s[22])/(2.*dt)
         hc_factor = max(1.+c[4]*normal_velocity, 0.)
-        hereditary_force = fe+np.sum(s[10:13])
+        hereditary_force = fe+np.sum(s[37:45])
         fn = max(hereditary_force*hc_factor, 0.)
         if length == 0.:
-            s[10:13] = 0.; fn = 0.
+            s[37:45] = 0.; fn = 0.
         ft = _friction(fn, vc, length, c, geom)
         fax = fn*ct+ft*st; ftax = ft*ct-fn*st
         s[22] = s[13]
@@ -517,7 +517,7 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             tangent = ke*hc_factor if fn > 0. else 0.
             kc = complex(tangent, w*c[4]*max(hereditary_force, 0.)) if fn > 0. else 0.j
             kl = tangent; ki = tangent*(1.+np.sum(alpha))
-            for q in range(3):
+            for q in range(len(alpha)):
                 z = complex(0., w*tau[q]); kc += tangent*alpha[q]*z/(1.+z)
                 z = complex(0., 2.*math.pi*tau[q]); kl += tangent*alpha[q]*(z/(1.+z)).real
             friction_slope = _friction(1., vc, length, c, geom)-c[17]*vc
@@ -540,6 +540,16 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
     return nlog, kk
 
 
+def memory_arrays(sc):
+    """Branch weights, time constants and the memory left at the start per unit of elastic force, always BRANCHES long; unused branches have no weight."""
+    alpha = np.zeros(BRANCHES); tau = np.ones(BRANCHES); load = np.zeros(BRANCHES)
+    n = len(sc['alpha'])
+    alpha[:n] = sc['alpha']; tau[:n] = sc['tau']
+    if 'memory_start' in sc:
+        load[:n] = sc['memory_start']
+    return alpha, tau, load
+
+
 def _constants(sc, pl):
     C = compliance(sc)
     lp = pl['fc'] if sc.get('sensor_lp') in (None, False) else (100. if sc['sensor_lp'] is True else float(sc['sensor_lp']))
@@ -554,8 +564,11 @@ def _init(sc, pl):
     xs = float(sc['xcmd'][0]); x = xs; C = compliance(sc)
     for _ in range(12):
         theta = sc['theta0']+(not sc['tracking'])*math.atan((x-sc['surface_center'])/sc['surface_radius'])
-        d = solve_depth(sc, sc['FD'], x, theta); f, ke, cop, _, _ = contact(sc, d, x, theta)
-        fax = f*math.cos(theta); ftax = -f*math.sin(theta)
+        # The scene opens at the desired force, some time after the probe arrived: what is left of the loading sits in the slow memory, the rest has crept into depth.
+        load = memory_arrays(sc)[2]
+        d = solve_depth(sc, sc['FD']/(1.+float(np.sum(load))), x, theta); f, ke, cop, _, _ = contact(sc, d, x, theta)
+        total = f*(1.+float(np.sum(load)))
+        fax = total*math.cos(theta); ftax = -total*math.sin(theta)
         target = xs-C[0, 1]*fax-C[1, 1]*ftax
         if abs(target-x) < 1.e-12:
             break
@@ -564,13 +577,14 @@ def _init(sc, pl):
     h = np.interp(x, sc['field_x0']+np.arange(len(sc['h_s']))*sc['dx'], sc['h_s'])
     y = d/math.cos(theta)-z-h+C[0, 0]*fax+C[0, 1]*ftax
     s = np.zeros(NS); s[1] = xs; s[2] = y; s[3] = z; s[5] = fax
-    s[7] = x; s[9] = f; s[13] = d; s[14] = f
-    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = f*cop; s[22] = d; s[25:29] = fax
+    s[7] = x; s[9] = f; s[13] = d; s[14] = total
+    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = total*cop; s[22] = d; s[25:29] = fax
+    s[37:45] = f*load
     gap = float(sc.get('start_gap', 0.))
     if gap > 0.:
         # starts free of the tissue, above the surface by gap
         y = float(sc['u'][0]+h*0.-gap-sc['h_s_at_start'] if 'h_s_at_start' in sc else sc['u'][0]-h-gap)
-        s[2] = y; s[3] = sc['u'][0]; s[5] = 0.; s[9] = 0.; s[13] = -gap; s[14] = 0.; s[16] = 0.; s[19] = 0.; s[21] = 0.; s[22] = -gap; s[25:29] = 0.
+        s[2] = y; s[3] = sc['u'][0]; s[5] = 0.; s[9] = 0.; s[13] = -gap; s[14] = 0.; s[16] = 0.; s[19] = 0.; s[21] = 0.; s[22] = -gap; s[25:29] = 0.; s[37:45] = 0.
     return s, np.full(int(pl['ndel'])+1, y)
 
 
@@ -612,6 +626,7 @@ def _run(sc, seed, sensor, platform, commands=None, policy=None, diagnostic=Fals
     if log_dt < .0005 or abs(log_dt/.0005-round(log_dt/.0005)) > 1.e-8 or abs(pl['Tc']/log_dt-round(pl['Tc']/log_dt)) > 1.e-8:
         raise ValueError('log_dt must divide Tc and be a multiple of 0.5 ms')
     log = np.zeros((int(round(nt*pl['Tc']/log_dt))+2, LOGC)); s, buf = _init(sc, pl); c = _constants(sc, pl)
+    alpha, tau, _ = memory_arrays(sc)
     geom = _geometry(sc); noise = _noise(np.random.default_rng(seed), int(sc['T']*1000.)+10, sensor)
     if policy is not None:
         policy.reset(calibrated)
@@ -630,7 +645,7 @@ def _run(sc, seed, sensor, platform, commands=None, policy=None, diagnostic=Fals
             command = float(buf[-1])
         n0 = n
         n, kk = _tick(s, buf, command, c, geom, sc['q_field'], sc['E_field'], sc['ribs'], sc['h_s'],
-                      sc['xcmd'], sc['u'], sc['fext'], sc['act'], sc['rip'], sc['alpha'], sc['tau'],
+                      sc['xcmd'], sc['u'], sc['fext'], sc['act'], sc['rip'], alpha, tau,
                       noise, kk, log, n)
         if n < 0:
             return None

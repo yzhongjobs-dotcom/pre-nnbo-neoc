@@ -414,8 +414,8 @@ def phases():
     w = 2.*np.pi*20.8
     a = 1.-math.exp(-2.*np.pi*P.PLATFORM['fc']*.001)
     sensor = a/(1.-(1.-a)*np.exp(-1j*w*.001))
-    for kind in ('hc', 'power', 'kb'):
-        for phase in (7., 11., 17., 23.):
+    for kind in S.SHAPES+('hc', 'power', 'kb'):
+        for phase in S.PHASES:
             sc = clean_scene()
             sc['alpha'], sc['tau'], sc['phi_hc'] = S._dynamic_response(kind, phase, np.random.default_rng(71))
             P.attach_curve(sc)

@@ -75,7 +75,7 @@ def job(a):
     case, change = a
     c, t, g, i = case; spec = dict(CHANGES[change])
     unc = spec.pop('uncompensated', False)
-    sc = S3.cell_scene3(c, t, g, i, base=492000, overrides=dict(force=8., dynamics='power', phase=11., **spec))
+    sc = S3.cell_scene3(c, t, g, i, base=492000, overrides=dict(force=8., dynamics='neural_white', phase=14., **spec))
     pol = M.build('L', sc)
     if unc:
         pol.step = pol.step.step; pol.reset = type(pol).reset.__get__(pol)

@@ -24,6 +24,9 @@ PROBES = {
 }
 REMUS_S1 = json.loads((Path(__file__).with_name('remus_s1.json')).read_text(encoding='utf-8'))
 REMUS = {key: value['rangeMean']['coeff'] for key, value in REMUS_S1.items()}
+DYNAMIC = json.loads((Path(__file__).with_name('dynamic_truth.json')).read_text(encoding='utf-8'))
+SHAPES = ('neural_white', 'neural_grey', 'viscous')
+PHASES = (8., 14., 21., 28.)
 
 
 def sample_curves(rng, tissue, overrides):
@@ -39,14 +42,34 @@ def sample_curves(rng, tissue, overrides):
     return state+number, subject, REMUS_S1[state+number][subject], REMUS_S1['A'+number][subject]
 
 
-def _dynamic_response(kind, phase_deg, rng):
-    """Three laws that give the same total phase at the probe frequency by different physics, so the truth is not one candidate's form.
+def _measured_response(kind, phase_deg, rng, slow_scale=None):
+    """The default truth, identified rather than chosen: shape from the Neumann records, phase from the stratum, amount of slow memory varying as it does between their specimens. See derive_dynamic_truth.py."""
+    table = DYNAMIC['shapes'][kind]; low = int(math.floor(phase_deg)); top = min(low+1, 40); frac = phase_deg-low
+    alpha = (1.-frac)*np.array(table[str(low)]['alpha'])+frac*np.array(table[str(top)]['alpha'])
+    tau = np.array(DYNAMIC['tau']); w = 2.*np.pi*20.8
+    slow = tau >= .4
+    # Across the Neumann specimens the force falls by 12-26 percent from 1 s to 10 s, which this factor spans; the fit sits at the upper end. No abdominal measurement exists.
+    alpha[slow] *= float(np.exp(rng.uniform(math.log(.4), math.log(1.2)))) if slow_scale is None else slow_scale
+    h = 1j*w*tau/(1.+1j*w*tau)
+    lo, hi = .1, 10.
+    for _ in range(50):
+        m = .5*(lo+hi); a = alpha.copy(); a[~slow] *= m
+        if math.degrees(np.angle(1.+np.sum(a*h))) < phase_deg:
+            lo = m
+        else:
+            hi = m
+    alpha[~slow] *= m
+    return alpha, tau, 0.
 
-    hc     the nominal memory, the rest of the phase from the Hunt-Crossley rate term
-    power  weak power law over .3-100 Hz, three branches, no rate term
-    kb     one Kelvin-Boltzmann branch near the probe frequency, no rate term
-    Returns alpha, tau, phi_hc in degrees.
+
+def _dynamic_response(kind, phase_deg, rng, slow_scale=None):
+    """Returns alpha, tau, phi_hc in degrees for one mechanism at a given total phase at the probe frequency.
+
+    neural_white, neural_grey, viscous   identified or evidenced shapes, the default
+    hc, power, kb   earlier hand-chosen laws, each the twin of one candidate (H, W, S). The Neumann records reject hc and kb; kept only for explicit sensitivity runs.
     """
+    if kind in DYNAMIC['shapes']:
+        return _measured_response(kind, phase_deg, rng, slow_scale)
     w = 2.*np.pi*20.8; target = math.tan(math.radians(phase_deg))
     if kind == 'hc':
         # Exploratory parameters, not identified abdominal relaxation constants.
@@ -144,9 +167,9 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     force = float(o.get('force', _level('force', (4., 8., 12.), cond, tissue, code, i)))
     slide = str(o.get('slide', _level('slide', ('long', 'short'), cond, tissue, code, i)))
     law = str(o.get('contact_law', _level('law', ('foundation', 'halfspace'), cond, tissue, code, i)))
-    # Exploratory bare-material phase, not a measured abdominal range.
-    total_phase = float(o.get('phase', _level('phi', (7., 11., 17., 23.), cond, tissue, code, i)))
-    dynamics = str(o.get('dynamics', _level('dyn', ('hc', 'power', 'kb'), cond, tissue, code, i)))
+    # Bare-material phase at the probe frequency. No abdominal contact measurement exists: 8 is near skin and pancreas, 14-21 human liver by MR elastography, 28 spinal cord by indentation.
+    total_phase = float(o.get('phase', _level('phi', PHASES, cond, tissue, code, i)))
+    dynamics = str(o.get('dynamics', _level('dyn', SHAPES, cond, tissue, code, i)))
     cover = float(o.get('cover', _level('cover', (.007, .018, .032), cond, tissue, code, i)))
     region, subject, curve, active_curve = sample_curves(rng, tissue, o)
     q0, E0 = 1.4e6, 23.e3     # reference units; absolute forces come from S1
@@ -246,7 +269,12 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
               asymmetry=bool(o.get('asymmetry', True)), l_tool=float(o.get('l_tool', .15)),
               noise_scale=float(o.get('noise_scale', 1.)), sensor_lp=o.get('sensor_lp', None),
               sensor_sigma=float(o.get('sensor_sigma', .1 if o.get('sensor_lp') else .08)))
-    sc['alpha'], sc['tau'], sc['phi_hc'] = _dynamic_response(dynamics, total_phase, rng)
+    sc['alpha'], sc['tau'], sc['phi_hc'] = _dynamic_response(dynamics, total_phase, rng, o.get('slow_scale'))
+    if dynamics in DYNAMIC['shapes']:
+        # The measured curve is the response at its own loading rate, near .3 Hz, so the equilibrium lies below it. At the start of a scene the probe arrived some time ago.
+        sc['equilibrium'] = 1./abs(1.+np.sum(sc['alpha']*2j*np.pi*.3*sc['tau']/(1.+2j*np.pi*.3*sc['tau'])))
+        ramp, wait = float(o.get('load_ramp', rng.uniform(1., 5.))), float(o.get('load_wait', _log_uniform(rng, 2., 60.)))
+        sc['memory_start'] = sc['alpha']*sc['tau']/ramp*(1.-np.exp(-ramp/sc['tau']))*np.exp(-wait/sc['tau'])
     sc['region'] = region
     sc['subject'] = subject
     # The true system, and what calibration gives the Method. Ranges are assumptions; no measurement for this robot is available.
@@ -265,6 +293,7 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
         sc['transfer_gamma'] = .5 if law == 'halfspace' else 1.
     if 'phi_hc' in o:         # direct setting for checks and sensitivity: nominal memory, given rate phase
         sc['alpha'] = np.array([.35]*3)*float(o.get('alpha_scale', 1.)); sc['tau'] = np.array([.008, .08, .8])*float(o.get('tau_scale', 1.)); sc['phi_hc'] = float(o['phi_hc']); sc['dynamics'] = 'hc'
+        sc.pop('equilibrium', None); sc.pop('memory_start', None)
     if not abs(sc['rho']) < 1. or min(sc['kr'], sc['K_t'], *sc['tau']) <= 0.:
         raise ValueError('Compliance must be positive definite and time constants positive')
     if 'remus_poly' in sc:

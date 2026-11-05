@@ -13,7 +13,7 @@ import scenes3 as S3
 HERE = Path(__file__).resolve().parent
 NAMES = ('L', 'P5:L', 'H', 'P5:H')
 BASE = dict(pose_error=0., mu=.1, rho=0., accel=.1, speed=.01, k_d=2., kr=1.e5, K_t=2.e4, surface_amp=.0003, field_sigma=0., force=8.,
-            contact_law='foundation', probe='linear', slide='short', phase=11., dynamics='hc')
+            contact_law='foundation', probe='linear', slide='short', phase=14., dynamics='neural_white')
 JUMP_T = 4.
 CASES = {'up x3': dict(ratio=3.), 'up x10': dict(ratio=10.), 'down /3': dict(ratio=1/3), 'down /10': dict(ratio=.1),
          'first contact soft': dict(gap=.004, tissue='relaxed'), 'first contact stiff': dict(gap=.004, tissue='active'), 'recontact': dict(pull=.012, tissue='relaxed')}

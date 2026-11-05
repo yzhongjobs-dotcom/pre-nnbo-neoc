@@ -1,6 +1,6 @@
 # 接触模型选型（模块一）
 
-**这份结果基于修正前的对象，待在新对象上复核，不作定论。** 修正前用的是均值曲线，A2 曲线错误（25 mm 处 460 N，实测 29.51 N），`q_scale` 无效。
+**这份结果基于修正前的对象，待在新对象上复核，不作定论。** 其中动态部分用的是预先指定的 HC、弱幂律、KB 真值，分别与 H、W、S 同构，已被替换。 修正前用的是均值曲线，A2 曲线错误（25 mm 处 460 N，实测 29.51 N），`q_scale` 无效。
 
 2026-11-05，Method 研发阶段的选型，不是最终论文实验。全部结果来自仿真。复现：`experiments/rossi_failure_study/` 下 `check_curve3.py`、`failure_causes.py`、`select3.py`、`select3_check.py`、`select3_tune.py`。
 
