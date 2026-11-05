@@ -54,18 +54,19 @@ def measurement():
         extra = amplitude(log[m, 0], log[m, 5]-base[m, 5])
         y = amplitude(log[m, 0], log[m, 2])
         # the inertial force through the 30 Hz filter
-        a = 1.-math.exp(-2.*math.pi*P3.PLATFORM['fc']*.001); filt = a/(1.-(1.-a)*np.exp(-1j*W*.001))*np.sinc(20.8*.008)     # filter and averaging over one period
+        a = 1.-math.exp(-2.*math.pi*P3.PLATFORM['fc']*.001); filt = a/(1.-(1.-a)*np.exp(-1j*W*.001))     # the sensor filter
         # the compensator run on the same log
         class Stub:
             step = staticmethod(lambda o: 0.); reset = staticmethod(lambda pl: None)
-            ndel = P3.PLATFORM['ndel']; ns = 8; afc = a; tau = .019; eb = math.exp(-1.e-3/.019)
+            ndel = P3.PLATFORM['ndel']; ns = 8; afc = a; tau = .019; eb = math.exp(-1.e-3/.019); Tc = .008
         comp = M.ForceSensing(Stub, mass, 0.); comp.reset(dict(P3.PLATFORM, tau_a=.019))
         class O:
             pass
         o = O(); o.n = len(log); o.log = log.copy()
         comp(o)
         left = amplitude(log[m, 0], o.log[m, 5]-base[m, 5])
-        rows.append(dict(mass_kg=mass, y_amp_um=abs(y)*1e6, inertial_N=abs(extra), expected_mw2y_N=mass*W*W*abs(y), ratio=abs(extra)/(mass*W*W*abs(y)*abs(filt)),
+        r = extra/(-mass*W*W*y*filt)
+        rows.append(dict(mass_kg=mass, y_amp_um=abs(y)*1e6, inertial_N=abs(extra), expected_mw2y_N=mass*W*W*abs(y), ratio=abs(r), phase_deg=math.degrees(np.angle(r)),
                          after_compensation_N=abs(left), remaining_fraction=abs(left)/abs(extra),
                          apparent_stiffness_N_mm=mass*W*W/1e3, contact_change_um=float(np.max(np.abs(log[m, 6]-base[m, 6])))*1e6))
     return rows
@@ -86,9 +87,9 @@ def job(a):
 
 def main():
     out = dict(measurement=measurement())
-    print('open loop: probe mass, y amplitude um, inertial reading N, against m w2 y through the filter, left after compensation N, fraction, apparent stiffness N/mm, change in contact depth um')
+    print('open loop: probe mass, y amplitude um, inertial reading N, against -m w2 y through the filter (ratio, phase deg), left after compensation N, fraction, apparent stiffness N/mm, change in contact depth um')
     for r in out['measurement']:
-        print(' ', r['mass_kg'], round(r['y_amp_um'], 1), round(r['inertial_N'], 3), round(r['ratio'], 3), round(r['after_compensation_N'], 4), round(r['remaining_fraction'], 3), round(r['apparent_stiffness_N_mm'], 2), round(r['contact_change_um'], 2))
+        print(' ', r['mass_kg'], round(r['y_amp_um'], 1), round(r['inertial_N'], 3), round(r['ratio'], 3), round(r['phase_deg'], 1), round(r['after_compensation_N'], 4), round(r['remaining_fraction'], 3), round(r['apparent_stiffness_N_mm'], 2), round(r['contact_change_um'], 2))
     jobs = [(c, n) for c in CASES for n in CHANGES]
     with ProcessPoolExecutor(max_workers=15) as ex:
         rows = list(ex.map(job, jobs, chunksize=1))

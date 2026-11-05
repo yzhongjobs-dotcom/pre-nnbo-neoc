@@ -28,25 +28,29 @@ class ForceSensing:
 
     def reset(self, platform):
         self.reset_inner(platform)
-        # the calibrated lag, not the Method's online servo estimate, which has a different job
-        self.tau = platform['tau_a']; self.eb = math.exp(-1.e-3/self.tau)
-        self.x = 0.; self.v = np.zeros(8); self.a = np.zeros(4); self.done = 0; self.comp = np.zeros(4096)
+        # the calibrated actuator (lag and fast pole), not the Method's online servo estimate, which has a different job
+        self.t2 = P3.ACTUATOR_T2; self.t1 = platform['tau_a']-self.t2
+        self.y = None; self.vel = 0.; self.x = 0.; self.a = np.zeros(4); self.done = 0; self.comp = np.zeros(4096)
 
     def __call__(self, o):
-        p = self.pol; n = o.n; eb = self.eb; tau = self.tau; log = o.log
+        p = self.pol; n = o.n; log = o.log
         if self.delay > 0.:
             self.raw_log = log.copy()
         lag = min(int(self.delay), 2); frac = self.delay-lag
+        dt = .0005; nsub = int(round(p.Tc/dt)); t1, t2 = self.t1, self.t2
         for j in range(self.done, n):
+            if self.y is None:
+                self.y = float(log[j, 2])
             i = j-1-p.ndel
-            if i >= 0:
-                c = log[i, 11]; y0 = log[j-1, 2]
-                for m in range(p.ns):
-                    yy = c+(y0-c)*eb**m
-                    v = (c-yy)/tau
-                    self.a[1:] = self.a[:-1]; self.a[0] = (v-self.v[0])/(p.ns*1.e-3)     # over one control period, as the probe moves
-                    self.v[:-1] = self.v[1:]; self.v[-1] = v
-                    self.x += p.afc*(self.mass*((1.-frac)*self.a[lag]+frac*self.a[lag+1])-self.x)
+            if j > 0:
+                # the same model the axis follows, driven by the sent commands from the first encoder reading
+                applied = log[i, 11] if i >= 0 else self.y
+                for k in range(nsub):
+                    acc = (applied-self.y-(t1+t2)*self.vel)/(t1*t2)
+                    if k % 2 == 0:
+                        self.a[1:] = self.a[:-1]; self.a[0] = acc
+                        self.x += p.afc*(self.mass*((1.-frac)*self.a[lag]+frac*self.a[lag+1])-self.x)
+                    self.vel += dt*acc; self.y += dt*self.vel
             self.comp[j] = self.x
         self.done = n
         log[:n, 5] -= self.comp[:n]
@@ -58,8 +62,11 @@ class ForceSensing:
         return self.step(o)
 
 
+TRACKER = dict(r_scale=1., q_maneuver=3.335)     # chosen with equal budgets in select4.py and d_compare.py
+
+
 def build(name, sc, overrides=None):
-    pol = C.build(name, overrides)
+    pol = C.build(name, dict(TRACKER, **(overrides or {})))
     if sc.get('tool_mass', 0.) > 0. or sc.get('sensor_delay_ms', 0.) > 0.:
         sensing = ForceSensing(pol, sc.get('tool_mass_hat', 0.), sc.get('sensor_delay_hat', 0.))
         pol.step = sensing; pol.reset = sensing.reset

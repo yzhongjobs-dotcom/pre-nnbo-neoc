@@ -12,7 +12,8 @@ from numba import njit
 from scipy.interpolate import PchipInterpolator
 
 PLATFORM = dict(Tc=.008, ndel=1, tau_a=.019, fc=30., VMAX=.25)
-LOGC, NS, BRANCHES = 26, 45, 8      # the memory states are the last BRANCHES entries of the state
+ACTUATOR_T2 = .002     # fast pole of the axis, an assumption (axis bandwidth about 80 Hz); no measurement for this robot
+LOGC, NS, BRANCHES = 26, 47, 8      # memory states 37:45; 46 the probe's axial velocity (45 unused)
 GX, GW = np.polynomial.legendre.leggauss(4)
 BX, BW = np.polynomial.legendre.leggauss(8)
 
@@ -417,12 +418,16 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
           alpha, tau, noise, kk, log, nlog):
     dt = .0005; Tc = c[31]; ndel = len(buf)-1
     cmd = min(max(cmd, buf[-1]-c[12]*Tc), buf[-1]+c[12]*Tc)
+    # The axis follows each held setpoint with two poles, so its velocity is continuous and the probe acceleration, which the sensor
+    # reads with the contact force, is that of the same motion. The poles sum to the lag, keeping the low-frequency response.
+    t2 = c[35]; t1 = c[5]-t2; nsub = int(round(Tc/dt))
     for j in range(ndel):
         buf[j] = buf[j+1]
     buf[-1] = cmd
     ei = np.exp(-dt/tau); weights = alpha*tau/dt*(1.-ei)
-    for j in range(int(round(Tc/dt))):
+    for j in range(nsub):
         t = s[0]; it = min(int(round(t/dt))//2, len(u)-2); fr = (t-it*.001)/.001
+        s[24] = (buf[0]-s[2]-(t1+t2)*s[46])/(t1*t2)
         uu = u[it]*(1.-fr)+u[it+1]*fr; ud = (u[it+1]-u[it])*1000.
         activation = min(1., max(0., act[it]*(1.-fr)+act[it+1]*fr))
         oldxs = s[1]
@@ -496,10 +501,6 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             k = min(kk, len(noise)-1); ns = c[7]
             s[6] += 2.e-4*ns*noise[k, 0]; s[18] += 2.e-4*ns*noise[k, 2]
             # The sensor sits between arm and probe, so it reads the contact force plus the force accelerating the probe (Beber eq. 3-4).
-            # The servo model has a velocity jump at each command step, which no real probe follows, so acceleration is taken over one control period.
-            velocity = (buf[0]-s[2])/c[5]
-            s[24] = (velocity-s[29])/(Tc if Tc > 0. else .008)
-            s[29:36] = s[30:37].copy(); s[36] = velocity
             s[28] = s[27]; s[27] = s[26]; s[26] = s[25]; s[25] = fax+c[33]*s[24]
             # time offset of the force stream against the encoder, fractions of a sample by interpolation
             lag = int(c[34]); frac = c[34]-lag
@@ -534,7 +535,7 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             log[nlog, 20] = kt.real; log[nlog, 21] = abs(kt); log[nlog, 22] = math.atan2(kt.imag, kt.real)
             log[nlog, 23] = length; log[nlog, 24] = cop; log[nlog, 25] = cover
             nlog += 1
-        s[2] += (1.-math.exp(-dt/c[5]))*(buf[0]-s[2]); s[0] = t+dt
+        s[46] += dt*s[24]; s[2] += dt*s[46]; s[0] = t+dt
         if not math.isfinite(fn) or fn > 5.e3 or abs(s[2]) > .5:
             return -nlog, kk
     return nlog, kk
@@ -557,7 +558,7 @@ def _constants(sc, pl):
                      1.-math.exp(-2.*math.pi*lp*.001), sc['noise_scale'], pl['ndel'], 0., 0., 0., pl['VMAX'],
                      sc['mu_k'], sc['mu_s'], sc['v_s'], sc['v_e'], sc['k_d'], 0., 0., 0., sc['theta0'],
                      float(sc['tracking']), sc['K_t'], sc['m_t'], sc['zeta_t'], C[0, 1], sc['surface_radius'],
-                     sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc']), sc.get('tool_mass', 0.), float(sc.get('sensor_delay_ms', 0))])
+                     sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc']), sc.get('tool_mass', 0.), float(sc.get('sensor_delay_ms', 0)), ACTUATOR_T2])
 
 
 def _init(sc, pl):
@@ -578,13 +579,13 @@ def _init(sc, pl):
     y = d/math.cos(theta)-z-h+C[0, 0]*fax+C[0, 1]*ftax
     s = np.zeros(NS); s[1] = xs; s[2] = y; s[3] = z; s[5] = fax
     s[7] = x; s[9] = f; s[13] = d; s[14] = total
-    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = total*cop; s[22] = d; s[25:29] = fax
+    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = total*cop; s[22] = d; s[25:29] = fax; s[45] = y; s[46] = 0.
     s[37:45] = f*load
     gap = float(sc.get('start_gap', 0.))
     if gap > 0.:
         # starts free of the tissue, above the surface by gap
         y = float(sc['u'][0]+h*0.-gap-sc['h_s_at_start'] if 'h_s_at_start' in sc else sc['u'][0]-h-gap)
-        s[2] = y; s[3] = sc['u'][0]; s[5] = 0.; s[9] = 0.; s[13] = -gap; s[14] = 0.; s[16] = 0.; s[19] = 0.; s[21] = 0.; s[22] = -gap; s[25:29] = 0.; s[37:45] = 0.
+        s[2] = y; s[3] = sc['u'][0]; s[5] = 0.; s[9] = 0.; s[13] = -gap; s[14] = 0.; s[16] = 0.; s[19] = 0.; s[21] = 0.; s[22] = -gap; s[25:29] = 0.; s[37:45] = 0.; s[45] = y; s[46] = 0.
     return s, np.full(int(pl['ndel'])+1, y)
 
 
@@ -617,6 +618,8 @@ def _run(sc, seed, sensor, platform, commands=None, policy=None, diagnostic=Fals
     calibrated = dict(pl)
     if 'tau_a_true' in sc and platform is None:
         pl['tau_a'] = sc['tau_a_true']; calibrated['tau_a'] = sc['tau_a_hat']
+    if pl['tau_a']-ACTUATOR_T2 <= 0.:
+        raise ValueError('Lag too short for the actuator model')
     if abs(pl['Tc']/.0005-round(pl['Tc']/.0005)) > 1.e-8:
         raise ValueError('Tc must be an integer multiple of 0.5 ms')
     nt = int(round(sc['T']/pl['Tc'])) if commands is None else len(commands)
