@@ -5,6 +5,9 @@ scene. Discrete factors are balanced within each tissue and regime, and results 
 """
 import math
 import zlib
+import json
+from pathlib import Path
+from functools import lru_cache
 
 import numpy as np
 from scipy.optimize import nnls
@@ -19,12 +22,21 @@ PROBES = {
     'convex': dict(length=.069, width=.017, radius=.060),
     'linear': dict(length=.04843, width=.01156, radius=math.inf),
 }
-# Remus 2024 Table 4: mean force-depth polynomials on the r = 10 mm hemisphere, N and mm, descending powers. R relaxed, A activated.
-REMUS = {'R1': [8.684e-03, 2.462e-01, 0.], 'R2': [-2.937e-06, 2.590e-04, 2.479e-03, 2.163e-01, 0.], 'R3': [8.604e-03, 1.260e-01, 0.],
-         'R4': [5.279e-03, 1.859e-01, 0.], 'R5': [5.359e-06, 1.710e-04, 3.677e-03, 1.740e-01, 0.],
-         'A1': [3.456e-02, 3.556e-01, 0.], 'A2': [-1.119e-05, -6.415e-04, 4.969e-02, 5.176e-02, 4.619e-01, 0.],
-         'A3': [9.067e-06, -5.547e-04, 1.047e-02, -2.882e-02, 3.835e-01, 0.], 'A4': [-3.641e-04, 2.890e-02, 4.072e-01, 0.], 'A5': [2.864e-02, 3.068e-01, 0.]}
-ACT_GAIN = 2.      # fully activated abdomen is about three times the relaxed one (Remus: q 3.4-4.6 against 1.0-1.8)
+REMUS_S1 = json.loads((Path(__file__).with_name('remus_s1.json')).read_text(encoding='utf-8'))
+REMUS = {key: value['rangeMean']['coeff'] for key, value in REMUS_S1.items()}
+
+
+def sample_curves(rng, tissue, overrides):
+    region = str(overrides.get('region', 'R'+str(int(rng.integers(1, 6)))))
+    number = region[1:]
+    if region not in REMUS_S1:
+        raise ValueError(region)
+    paired = sorted(set(REMUS_S1['R'+number]) & set(REMUS_S1['A'+number]) - {'rangeMean'})
+    subject = str(overrides.get('subject', rng.choice(paired)))
+    if subject not in paired:
+        raise ValueError('A relaxed/active subject pair is required: '+subject)
+    state = 'A' if tissue == 'active' or region.startswith('A') else 'R'
+    return state+number, subject, REMUS_S1[state+number][subject], REMUS_S1['A'+number][subject]
 
 
 def _dynamic_response(kind, phase_deg, rng):
@@ -37,7 +49,7 @@ def _dynamic_response(kind, phase_deg, rng):
     """
     w = 2.*np.pi*20.8; target = math.tan(math.radians(phase_deg))
     if kind == 'hc':
-        # slow relaxation varies widely between sources: none visible on Beber's phantom during a 10 s hold, about sevenfold in Moreira's ex vivo tissue
+        # Exploratory parameters, not identified abdominal relaxation constants.
         alpha = np.array([.35, .35, .35])*np.array([1., 1., 1.])*np.array([1., float(rng.uniform(.1, 1.)), float(rng.uniform(.1, 1.))]); tau = np.array([.008, .08, .8])
         m = 1.+np.sum(alpha*1j*w*tau/(1.+1j*w*tau))
         return alpha, tau, math.degrees(math.atan(max(target*m.real-m.imag, 0.)))
@@ -45,6 +57,12 @@ def _dynamic_response(kind, phase_deg, rng):
         tau = float(rng.uniform(.005, .012)); h = 1j*w*tau/(1.+1j*w*tau)
         alpha = target/(h.imag-target*h.real)
         return np.array([alpha, 0., 0.]), np.array([tau, .08, .8]), 0.
+    return _power_response(float(phase_deg))
+
+
+@lru_cache(maxsize=32)
+def _power_response(phase_deg):
+    w = 2.*np.pi*20.8
     tau = np.array([.003, .03, .3])
     f = np.geomspace(.3, 100., 60); s = 2j*np.pi*f
     A = np.array([s*t/(1.+s*t) for t in tau]).T; h = 1j*w*tau/(1.+1j*w*tau)
@@ -126,22 +144,21 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     force = float(o.get('force', _level('force', (4., 8., 12.), cond, tissue, code, i)))
     slide = str(o.get('slide', _level('slide', ('long', 'short'), cond, tissue, code, i)))
     law = str(o.get('contact_law', _level('law', ('foundation', 'halfspace'), cond, tissue, code, i)))
-    # Total phase at the probe frequency, from about the nominal memory alone to the upper evidence (22.5 degrees, liver MRE).
+    # Exploratory bare-material phase, not a measured abdominal range.
     total_phase = float(o.get('phase', _level('phi', (7., 11., 17., 23.), cond, tissue, code, i)))
     dynamics = str(o.get('dynamics', _level('dyn', ('hc', 'power', 'kb'), cond, tissue, code, i)))
     cover = float(o.get('cover', _level('cover', (.007, .018, .032), cond, tissue, code, i)))
-    quantile = float(rng.uniform())
-    q0 = (3.4e6+1.2e6*quantile) if tissue == 'active' else (1.e6+.8e6*quantile)
-    E0 = (54.e3+18.e3*quantile) if tissue == 'active' else (15.e3+16.e3*quantile)
-    region = str(o.get('region', ('A' if tissue == 'active' else 'R')+str(1+int(quantile*5))))
+    region, subject, curve, active_curve = sample_curves(rng, tissue, o)
+    q0, E0 = 1.4e6, 23.e3     # reference units; absolute forces come from S1
     length = float(xcmd.max()-X0+.08)
     grid = X0+np.arange(int(math.ceil(length/DX))+1)*DX
     hetero = np.exp(_field(rng, grid, float(rng.uniform(.01, .03)), float(o.get('field_sigma', .2))))
+    hetero /= hetero.mean()         # the field holds relative variation only; absolute force comes from the measured curve
     if tissue == 'mixed':
         for center in np.linspace(grid[0]+.04, grid[-1]-.04, 4):
             hetero *= np.exp(math.log(float(rng.uniform(2., 8.)))*np.exp(-.5*((grid-center)/.006)**2))      # inclusion in soft tissue; bone is the rib cells
     qscale = float(o.get('q_scale', 1.))
-    qfield, efield = q0*qscale*hetero, E0*qscale*hetero
+    qfield, efield = hetero.copy(), hetero.copy()
     ribs = []
     rib_gap = float(o.get('rib_gap', rng.uniform(.006, .019)))
     start_rib = float(rng.uniform(.04, .09))
@@ -210,12 +227,12 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
               probe=probe_name, geometry=probe, FD=force, contact_law=law,
               slide=slide, xcmd=xcmd, v=speed, accel=accel, pauses=pauses,
               field_x0=X0, dx=DX, q_field=qfield, E_field=efield, h_s=h_s,
-              q_base=q0*qscale, E_base=E0*qscale, quantile=quantile, ribs=np.array(ribs, float).reshape(-1, 4),
+              q_base=q0, E_base=E0, q_scale=qscale, ribs=np.array(ribs, float).reshape(-1, 4),
               cover=cover, rib_gap=rib_gap, full_cover=bool(o.get('full_cover', False)),
               surface_radius=radius_s, surface_center=center_s,
               tracking=regime != 'curved_untracked', theta0=math.radians(pose),
               u=u, fext=fext, act=np.zeros(len(t)) if regime == 'external' else act,
-              act_gain=float(o.get('act_gain', 0. if tissue == 'active' else ACT_GAIN)), rip=np.zeros(len(t)),
+              rip=np.zeros(len(t)),
               k_rib=float(o.get('k_rib', _log_uniform(rng, 1.e4, 4.5e4))),    # whole cage about 9 N/mm to a single rib about 45 N/mm
               events=events, event_info=event_info,
               motion_components=components, breath_pp=breath_pp, breath_period=breath_period,
@@ -231,8 +248,13 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
               sensor_sigma=float(o.get('sensor_sigma', .1 if o.get('sensor_lp') else .08)))
     sc['alpha'], sc['tau'], sc['phi_hc'] = _dynamic_response(dynamics, total_phase, rng)
     sc['region'] = region
+    sc['subject'] = subject
+    if tissue == 'active':
+        sc['act'][:] = 0.
     if not o.get('no_curve', False):
-        sc['remus_poly'] = np.array(REMUS[region]); sc['transfer_gamma'] = .5 if law == 'halfspace' else 1.
+        sc['remus_poly'] = np.array(curve['coeff']); sc['fit_max_mm'] = curve['fitMaxDispl']
+        sc['active_poly'] = np.array(active_curve['coeff']); sc['active_fit_max_mm'] = active_curve['fitMaxDispl']
+        sc['transfer_gamma'] = .5 if law == 'halfspace' else 1.
     if 'phi_hc' in o:         # direct setting for checks and sensitivity: nominal memory, given rate phase
         sc['alpha'] = np.array([.35]*3)*float(o.get('alpha_scale', 1.)); sc['tau'] = np.array([.008, .08, .8])*float(o.get('tau_scale', 1.)); sc['phi_hc'] = float(o['phi_hc']); sc['dynamics'] = 'hc'
     if not abs(sc['rho']) < 1. or min(sc['kr'], sc['K_t'], *sc['tau']) <= 0.:

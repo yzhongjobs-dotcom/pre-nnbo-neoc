@@ -9,7 +9,7 @@ import method3 as M
 import scenes3 as S3
 
 HERE = Path(__file__).resolve().parent
-NAMES = ('L', 'H', 'P5:L', 'P5:H')
+NAMES = ('L',)        # validity of the scenes only, not a comparison
 
 
 def _job(a):

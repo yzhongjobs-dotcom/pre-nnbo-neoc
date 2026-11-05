@@ -1,0 +1,1 @@
+Stopped by the user partway: the specification went too far. No report was produced. Its partial edits were reviewed by hand and only the parts agreed with the user were kept; see project_records/decision_log.md.

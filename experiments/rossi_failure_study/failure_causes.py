@@ -59,7 +59,7 @@ def _job(a):
     platform = dict(P3.PLATFORM)
     if 'vmax' in spec:
         platform['VMAX'] = spec['vmax']
-    log = P3.episode(sc, pol, 200+i, platform=platform)
+    log = P3.episode(sc, pol, 200+i, platform=platform, diagnostic='oracle' in spec)
     m = M.metric(log, pol, sc)
     tr = np.array(pol.accept_trace) if pol.accept_trace else np.zeros((0, 5))
     lag = np.nan

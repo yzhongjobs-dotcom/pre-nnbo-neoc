@@ -23,7 +23,7 @@ def uniform(law='foundation', probe='convex', q=1.1e6, E=17.e3, cover=None, T=6.
         o.update(cover=cover, full_cover=True)
     o.update(overrides)
     sc = S.cell_scene3('rest', 'relaxed', T=T, overrides=o)
-    sc['q_field'][:] = q; sc['E_field'][:] = E; sc['q_base'] = q; sc['E_base'] = E
+    sc['q_field'][:] = 1.; sc['E_field'][:] = 1.; sc['q_base'] = q; sc['E_base'] = E
     sc['xcmd'][:] = sc['xcmd'][0]
     return sc
 
@@ -305,7 +305,7 @@ def quadrature_accuracy(cover=.004):
                     wt = xw[:, None]*yw[None, :]
                     delta = depth-curvature*xi**2-b*xi
                     pos = x+(xi if slide == 'long' else eta)
-                    q = np.interp(pos, grid, sc['q_field']); e = np.interp(pos, grid, sc['E_field'])
+                    q = sc['q_base']*np.interp(pos, grid, sc['q_field']); e = sc['E_base']*np.interp(pos, grid, sc['E_field'])
                     w = np.zeros_like(pos)
                     for center, width, edge, _ in sc['ribs']:
                         a = np.clip((width*.5+edge*.5-abs(pos-center))/edge, 0., 1.)
@@ -323,7 +323,7 @@ def quadrature_accuracy(cover=.004):
                     full = curvature*(g[0]*.5)**2+abs(b)*g[0]*.5
                     scale = 1.1/math.sqrt(g[1]*span)
                     f = 1.2*scale*f if d <= full else scale*(f+.2*section(full)[0])
-                actual = P.contact(sc, d, x, theta)
+                actual = P._contact(x, d, theta, 0., g, sc['q_field'], sc['E_field'], sc['ribs'], 0.)      # the integral itself, before the slope contact() reports
                 error = max(abs(actual[0]/f-1.), abs(actual[1]/k-1.))
                 rows.append(dict(law=law, slide=slide, probe=probe, cover_mm=cover*1000., relative_force_tangent_error=error,
                                  force_N=actual[0], reference_force_N=f, tangent_N_m=actual[1], reference_tangent_N_m=k,
@@ -380,6 +380,85 @@ def timing():
                 repeats=3, simulation_seconds=1., nominal_passed=all(r['passed'] for r in rows if r['scene'] == 'nominal'))
 
 
+def realdata_interfaces():
+    from check_curve3 import clean_scene
+    ratios = []; bones = []; activation = []; derivative = []
+    for law in ('foundation', 'halfspace'):
+        for probe in S.PROBES:
+            scenes = [clean_scene(law, probe, q_scale=q) for q in (.5, 1., 2.)]
+            forces = [P.contact(sc, .01, 0.)[0] for sc in scenes]
+            ratios.append(dict(law=law, probe=probe, ratios=[f/forces[1] for f in forces]))
+            sc = clean_scene(law, probe, cover=.007, full_cover=True, k_rib=10000.)
+            soft = dict(sc, full_cover=False)
+            for d in (.001, .006, .01, .03):
+                ends = [P.contact(sc, d, 0., activation=a) for a in (0., 1.)]
+                for a in (0., .4, 1.):
+                    f, k, _, _, _ = P.contact(sc, d, 0., activation=a)
+                    fs, ks, _, _, _ = P.contact(soft, d, 0., activation=a)
+                    eps = 1.e-8
+                    fd = (P.contact(sc, d+eps, 0., activation=a)[0]-P.contact(sc, d-eps, 0., activation=a)[0])/(2.*eps)
+                    derivative.append(abs(k/fd-1.))
+                    bones.append(dict(law=law, probe=probe, depth_mm=d*1000., activation=a,
+                        tangent_N_m=k, bound_N_m=ks+sc['k_rib'], ratio=k/(ks+sc['k_rib'])))
+                    activation.append(abs(f-((1.-a)*ends[0][0]+a*ends[1][0])))
+    scaling_error = max(abs(r['ratios'][i]-expected) for r in ratios for i, expected in enumerate((.5, 1., 2.)))
+    return dict(passed=scaling_error < 1.e-9 and max(r['ratio'] for r in bones) <= 1.+1.e-9 and max(activation) < 1.e-9 and max(derivative) < .005,
+        q_scale=ratios, scaling_absolute_error=scaling_error, rib= bones,
+        max_activation_interpolation_error_N=max(activation),
+        max_rib_central_difference_relative_error=max(derivative))
+
+
+def phases():
+    from check_curve3 import clean_scene
+    rows = []
+    w = 2.*np.pi*20.8
+    a = 1.-math.exp(-2.*np.pi*P.PLATFORM['fc']*.001)
+    sensor = a/(1.-(1.-a)*np.exp(-1j*w*.001))
+    for kind in ('hc', 'power', 'kb'):
+        for phase in (7., 11., 17., 23.):
+            sc = clean_scene()
+            sc['alpha'], sc['tau'], sc['phi_hc'] = S._dynamic_response(kind, phase, np.random.default_rng(71))
+            P.attach_curve(sc)
+            d = P.solve_depth(sc, 8., 0.); k = P.contact(sc, d, 0.)[1]
+            memory = 1.+np.sum(sc['alpha']*1j*w*sc['tau']/(1.+1j*w*sc['tau']))
+            bare = k*memory+1j*w*P.calibration(sc)*8.
+            local = P.complex_gain(sc, k, 8.)
+            rows.append(dict(kind=kind, target_deg=phase, bare_deg=float(np.degrees(np.angle(bare))),
+                local_deg=float(np.degrees(np.angle(local))), after_IIR_deg=float(np.degrees(np.angle(local*sensor))),
+                error_deg=float(np.degrees(np.angle(bare)))-phase, tau_s=sc['tau'].tolist()))
+    return dict(passed=max(abs(r['error_deg']) for r in rows) < .5, rows=rows,
+                sensor_phase_deg=float(np.degrees(np.angle(sensor))), target='bare material at equilibrium 8 N; no support, actuator, or ZOH included')
+
+
+def noise_and_truth():
+    rows = []
+    for sigma in (.08, .18):
+        sc = uniform(T=12., sensor_sigma=sigma, alpha_scale=0., phi_hc=0.)
+        s, _ = P._init(sc, P.PLATFORM)
+        log = P.replay(sc, np.full(1500, s[2]), seed=20261105, sensor=True, platform=dict(P.PLATFORM, log_dt=.001))
+        keep = log[:, 0] > 1.
+        error = log[keep, 5]-log[keep, 18]
+        moment = log[keep, 13]
+        a = 1.-math.exp(-2.*np.pi*P.PLATFORM['fc']*.001)
+        expected = sigma*math.sqrt(a/(2.-a))
+        rows.append(dict(input_white_sigma_N=sigma, output_sd_N=float(np.std(error)),
+            output_moment_sd_Nm=float(np.std(moment)), theoretical_white_output_sd_N=expected,
+            relative_error=float(abs(np.std(error)/expected-1.))))
+    class Spy:
+        def reset(self, pl):
+            self.flags = []; self.masked = True
+        def __call__(self, obs):
+            self.flags.append(hasattr(obs, 'truth_k') or hasattr(obs, 'truth_re'))
+            self.masked &= bool(np.all(np.isnan(obs.log[:, 20:26])))
+            return obs.y[-1]
+    sc = uniform(T=.08)
+    default, diagnostic = Spy(), Spy()
+    P.episode(sc, default, 0); P.episode(sc, diagnostic, 0, diagnostic=True)
+    masked = not any(default.flags) and any(diagnostic.flags) and default.masked and diagnostic.masked
+    return dict(passed=masked and all(r['relative_error'] < .1 for r in rows), rows=rows,
+        default_has_truth=any(default.flags), diagnostic_has_truth=any(diagnostic.flags), truth_columns_masked=default.masked and diagnostic.masked)
+
+
 def main():
     start = time.perf_counter()
     protected = ['physics_plant.py', 'physics_plant2.py', 'scenes.py', 'scenes2.py', 'contact_candidates.py']
@@ -387,7 +466,8 @@ def main():
     output = {}
     for name, fun in [('static', static_table), ('remus', remus), ('open_loop', open_loop),
                       ('continuity', continuity), ('pose_friction_compliance', pose_and_dissipation),
-                      ('quadrature_accuracy', all_quadrature), ('scene_physics', scene_physics)]:
+                      ('quadrature_accuracy', all_quadrature), ('scene_physics', scene_physics),
+                      ('realdata_interfaces', realdata_interfaces), ('phases', phases), ('noise_truth', noise_and_truth)]:
         output[name] = fun(); print(name, output[name]['passed'], flush=True)
     output['trajectories'], output['balance_reproducibility'] = trajectories_and_balance()
     print('trajectories', output['trajectories']['passed'], flush=True)

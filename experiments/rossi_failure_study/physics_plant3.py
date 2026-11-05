@@ -8,6 +8,7 @@ but excludes support motion, actuator and sensor transfer functions.
 import math
 import numpy as np
 from numba import njit
+from scipy.interpolate import PchipInterpolator
 
 PLATFORM = dict(Tc=.008, ndel=1, tau_a=.019, fc=30., VMAX=.25)
 LOGC, NS = 26, 23
@@ -66,7 +67,7 @@ def _hard(delta, v, invh, cap):
 
 @njit(cache=True)
 def _local(x, delta, c, qfield, efield, ribs):
-    q = _lookup(qfield, c[3], x-c[4]); e = _lookup(efield, c[3], x-c[4])
+    q = c[18]*_lookup(qfield, c[3], x-c[4]); e = c[19]*_lookup(efield, c[3], x-c[4])
     w, h = _rib_weight(x, ribs)
     if c[8] > 0.:
         w = 1.; h = c[8]
@@ -119,7 +120,7 @@ def _section(xc, d, theta, vc, c, qfield, efield, ribs):
                     if c[12] > 0.:
                         p = 0.; stiffness = 0.; h = math.inf
                         for transverse in range(int(c[17])):
-                            jj = 18+4*transverse
+                            jj = 26+4*transverse
                             invh = c[jj+2]
                             if invh > 0.:
                                 h = min(h, 1./invh)
@@ -159,27 +160,34 @@ def _contact_integral(xc, d, theta, vc, c, qfield, efield, ribs):
 
 
 @njit(cache=True)
-def _measured(f, k, c):
+def _measured(f, k, c, active=False):
     """Monotone map from the reference force to the force the measured indentation curve gives on this probe; pose, ribs and field act through f."""
     n = int(c[16])
     if n == 0 or f >= 1.e20:
         return f, k
-    i0 = int(c[15])
+    i0 = int(c[24] if active else c[15])
     ref = c[i0:i0+n]; val = c[i0+n:i0+2*n]; slope = c[i0+2*n:i0+3*n]
     if f <= ref[0]:
-        return f*val[0]/ref[0], k*val[0]/ref[0]
+        return val[0]+(f-ref[0])*slope[0], k*slope[0]
     if f >= ref[n-1]:
         return val[n-1]+slope[n-1]*(f-ref[n-1]), k*slope[n-1]
     j = int(np.searchsorted(ref, f))-1
     w = (f-ref[j])/(ref[j+1]-ref[j])
-    return val[j]*(1.-w)+val[j+1]*w, k*(slope[j]*(1.-w)+slope[j+1]*w)
+    h = ref[j+1]-ref[j]
+    a = 2.*val[j]-2.*val[j+1]+h*(slope[j]+slope[j+1])
+    b = -3.*val[j]+3.*val[j+1]-h*(2.*slope[j]+slope[j+1])
+    value = ((a*w+b)*w+h*slope[j])*w+val[j]
+    tangent = (3.*a*w*w+2.*b*w)/h+slope[j]
+    return value, k*tangent
 
 
 @njit(cache=True)
-def _contact(xc, d, theta, vc, c, qfield, efield, ribs):
+def _contact(xc, d, theta, vc, c, qfield, efield, ribs, activation=0.):
     f, k, cop, length, h = _reference(xc, d, theta, vc, c, qfield, efield, ribs)
+    # the muscle moves the force between the same person's relaxed and activated curves; the activation time course is an assumption
+    fa, ka = _measured(f, k, c, True)
     f, k = _measured(f, k, c)
-    return f, k, cop, length, h
+    return c[20]*((1.-activation)*f+activation*fa), c[20]*((1.-activation)*k+activation*ka), cop, length, h
 
 
 @njit(cache=True)
@@ -204,20 +212,25 @@ def _reference(xc, d, theta, vc, c, qfield, efield, ribs):
             # Equal cover depths have identical rational pressure factors.
             invh = w/h; group = num
             for previous in range(num):
-                if short[18+4*previous+2] == invh:
+                if short[26+4*previous+2] == invh:
                     group = previous
                     break
-            jj = 18+4*group
-            short[jj] += weight*q; short[jj+1] += weight*e; short[jj+2] = invh; short[jj+3] += weight
+            jj = 26+4*group
+            short[jj] += weight*q*c[18]; short[jj+1] += weight*e*c[19]; short[jj+2] = invh; short[jj+3] += weight
             if group == num:
                 num += 1
     short[17] = num
     return _contact_integral(xc, d, theta, vc, short, qfield, efield, ribs)
 
 
-def contact(sc, d, x=None, theta=0., velocity=0.):
-    return _contact(float(sc['xcmd'][0] if x is None else x), float(d), float(theta), float(velocity),
-                    _geometry(sc), sc['q_field'], sc['E_field'], sc['ribs'])
+def contact(sc, d, x=None, theta=0., velocity=0., activation=0.):
+    args = (float(sc['xcmd'][0] if x is None else x), float(d), float(theta), float(velocity), _geometry(sc), sc['q_field'], sc['E_field'], sc['ribs'], float(activation))
+    f, k, cop, length, h = _contact(*args)
+    if sc['contact_law'] == 'halfspace':
+        # on a convex face over a cover the closed-form force only approximates the integral of k; its slope is the tangent
+        eps = 1.e-7
+        k = (_contact(args[0], args[1]+eps, *args[2:])[0]-_contact(args[0], max(args[1]-eps, 0.), *args[2:])[0])/(args[1]+eps-max(args[1]-eps, 0.))
+    return f, k, cop, length, h
 
 
 def _geometry(sc):
@@ -230,14 +243,21 @@ def _geometry(sc):
                      float(sc['contact_law'] == 'halfspace'), float(sc['slide'] == 'short'),
                      sc['surface_radius'], sc['cover'] if sc.get('full_cover') else 0.,
                      sc['k1'], sc['k2'], float(sc['asymmetry'] and sc['mu_k'] > 0.), 0.,
-                     sc.get('k_rib', 1.e12)/(g['length']*g['width']), sc.get('k_rib', 1.e12)/(1.1*math.sqrt(g['length']*g['width'])), 0., 0., 0.])
+                     sc.get('k_rib', 1.e12)/(g['length']*g['width']), sc.get('k_rib', 1.e12)/(1.1*math.sqrt(g['length']*g['width'])), 0., 0., 0.,
+                     sc['q_base'], sc['E_base'], sc.get('q_scale', 1.), 0., sc.get('k_rib', 1.e12), 0., 0., 0.])
     out = np.r_[base, np.zeros(16*int(math.ceil(g['width']/.001)))]
     table = sc.get('curve_table')
     if table is not None:
-        # the rib limit applies to the force after the map
-        out[13] /= table[2][-1]; out[14] /= table[2][-1]
+        active = sc.get('active_table', table)
+        # the rib limit applies to the force after the map, at the steepest slope of either curve
+        steepest = max(float(np.max(table[2])), float(np.max(active[2])))*sc.get('q_scale', 1.)
+        out[13] /= steepest; out[14] /= steepest
         out[15] = len(out); out[16] = len(table[0])
         out = np.r_[out, table[0], table[1], table[2]]
+        out[24] = len(out)
+        out = np.r_[out, active[0], active[1], active[2]]
+    if min(out[13], out[14], out[20], out[22]) <= 0.:
+        raise ValueError('Nonpositive contact scale or cap')
     return out
 
 
@@ -249,7 +269,19 @@ def _hemisphere_area(delta):
     return np.pi*(2.*REMUS_R*d-d*d)
 
 
-def probe_curve(poly, geometry, gamma, depths):
+def positive_domain(poly, fit_max_mm):
+    """The rising stretch of a fitted curve that holds the 5 mm reference; outside it the curve continues along its end tangent."""
+    roots = np.roots(np.polyder(poly))
+    breaks = [0.]+sorted(float(r.real) for r in roots if abs(r.imag) < 1.e-8 and 0. < r.real < fit_max_mm)+[fit_max_mm]
+    intervals = [(a, b) for a, b in zip(breaks[:-1], breaks[1:]) if np.polyval(np.polyder(poly), .5*(a+b)) > 0.]
+    valid = [(a, b) for a, b in intervals if a < min(5., fit_max_mm) <= b]
+    if len(valid) != 1:
+        raise ValueError('No positive tangent interval containing the regularization point')
+    a, b = valid[0]
+    return a+1.e-6 if a > 0. else 0., b-1.e-6 if b < fit_max_mm else b
+
+
+def probe_curve(poly, geometry, gamma, depths, fit_max_mm=None):
     """Force on the probe from a measured force-depth polynomial on the r = 10 mm hemisphere (Remus Table 4, N and mm, descending powers).
 
     Equal strain s = depth/sqrt(area) means equal material state; at equal s the tangent scales with contact area as area^gamma, .5 for a
@@ -261,10 +293,15 @@ def probe_curve(poly, geometry, gamma, depths):
     s = depths/np.sqrt(area)
     dh = np.geomspace(1.e-5, .05, 4000)
     sh = dh/np.sqrt(_hemisphere_area(dh))
-    # Below about 5 mm the fitted polynomial keeps a finite slope while the contact area vanishes, an artefact of the fit and the toe region, so the material state is held there.
+    # The 5 mm material-state floor is a regularization assumption, not a measured threshold.
     delta = np.maximum(np.interp(s, sh, dh), .005)
-    k_h = np.polyval(np.polyder(poly), delta*1000.)*1000.     # N/m
+    if fit_max_mm is None:
+        raise ValueError('fitMaxDispl is required for measured curves')
+    lower, upper = positive_domain(poly, fit_max_mm)
+    k_h = np.polyval(np.polyder(poly), np.clip(delta*1000., lower, upper))*1000.
     k = k_h*(area/_hemisphere_area(delta))**gamma
+    if not np.all(np.isfinite(k)) or np.any(k <= 0.):
+        raise ValueError('Nonpositive transferred tangent')
     force = np.r_[0., np.cumsum(.5*(k[1:]+k[:-1])*np.diff(depths))]
     return force, k
 
@@ -272,13 +309,20 @@ def probe_curve(poly, geometry, gamma, depths):
 def attach_curve(sc):
     """Table from the plant's reference force to the measured force for this scene's probe and transfer assumption."""
     g = sc['geometry']
-    ref = dict(sc, ribs=np.empty((0, 4)), full_cover=False, surface_radius=math.inf, asymmetry=False, q_field=np.full(2, sc['q_base']),
-               E_field=np.full(2, sc['E_base']), dx=1., field_x0=0., curve_table=None)
-    depths = np.geomspace(1.e-5, .06, 240)
-    force, k = probe_curve(sc['remus_poly'], g, sc['transfer_gamma'], depths)
-    fr = np.array([contact(ref, d, 0.)[0] for d in depths]); kr_ = np.array([contact(ref, d, 0.)[1] for d in depths])
-    keep = np.r_[True, np.diff(fr) > 0.]
-    sc['curve_table'] = (fr[keep], force[keep], (k/np.maximum(kr_, 1.e-9))[keep])
+    ref = dict(sc, ribs=np.empty((0, 4)), full_cover=False, surface_radius=math.inf, asymmetry=False, q_field=np.ones(2),
+               E_field=np.ones(2), dx=1., field_x0=0., curve_table=None, active_table=None, q_scale=1.)
+    depths = np.geomspace(1.e-6, .10, 400)
+    fr = np.array([contact(ref, d, 0.)[0] for d in depths])
+    fine = np.geomspace(1.e-8, .10, 4000)
+    for name, poly, limit in (('curve_table', sc['remus_poly'], sc['fit_max_mm']), ('active_table', sc['active_poly'], sc['active_fit_max_mm'])):
+        force, k = probe_curve(poly, g, sc['transfer_gamma'], fine, limit)
+        force = force+k[0]*fine[0]/(1.5 if math.isfinite(g['radius']) else 1.)
+        val = np.r_[0., np.interp(depths, fine, force)]
+        x = np.r_[0., fr]
+        slopes = PchipInterpolator(x, val).derivative()(x)
+        if np.any(np.diff(x) <= 0.) or np.any(np.diff(val) <= 0.) or np.any(slopes <= 0.):
+            raise ValueError('Nonmonotone measured map or nonpositive slope')
+        sc[name] = (x, val, slopes)
 
 
 def solve_depth(sc, force, x=None, theta=0.):
@@ -318,8 +362,8 @@ def compliance(sc):
 
 def calibration(sc):
     # A fixed, zero-slide normal reference on the uniform soft tissue: independent of FD, position, ribs and scan regime.
-    ref = dict(sc, ribs=np.empty((0, 4)), full_cover=False, surface_radius=math.inf, asymmetry=False, q_field=np.full(2, sc['q_base']),
-               E_field=np.full(2, sc['E_base']), dx=1., field_x0=0.)
+    ref = dict(sc, ribs=np.empty((0, 4)), full_cover=False, surface_radius=math.inf, asymmetry=False, q_field=np.ones(2),
+               E_field=np.ones(2), dx=1., field_x0=0., q_scale=1.)
     d = solve_depth(ref, 8., 0.)
     k = contact(ref, d, 0.)[1]
     return math.tan(math.radians(sc['phi_hc']))*k/(2.*math.pi*20.8*8.)
@@ -379,7 +423,7 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
     for j in range(int(round(Tc/dt))):
         t = s[0]; it = min(int(round(t/dt))//2, len(u)-2); fr = (t-it*.001)/.001
         uu = u[it]*(1.-fr)+u[it+1]*fr; ud = (u[it+1]-u[it])*1000.
-        mod = 1.+c[18]*(act[it]*(1.-fr)+act[it+1]*fr)
+        activation = min(1., max(0., act[it]*(1.-fr)+act[it+1]*fr))
         oldxs = s[1]
         s[1] += (1.-math.exp(-dt/c[5]))*(xcmd[it]*(1.-fr)+xcmd[it+1]*fr-s[1])
         vs = (s[1]-oldxs)/dt
@@ -401,13 +445,12 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             # series with the bone then sets the depth, and a probe sliding onto a thin rib stays well posed.
             below = -math.inf; above = math.inf; back = .0002
             for iteration in range(40):
-                fe, ke, cop, length, cover = _contact(xc, d, theta, vc, geom, qfield, efield, ribs)
+                fe, ke, cop, length, cover = _contact(xc, d, theta, vc, geom, qfield, efield, ribs, activation)
                 if fe >= 1.e20:
                     above = d
                     d = .5*(d+below) if math.isfinite(below) else d-back
                     back *= 2.
                     continue
-                fe *= mod; ke *= mod
                 qsum = np.sum(s[10:13]*ei+weights*(fe-s[9]))
                 rate = 1.+c[4]*(3.*d-4.*s[13]+s[22])/(2.*dt)
                 fn = max((fe+qsum)*rate, 0.)
@@ -431,11 +474,10 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
                         d = above-back if math.isfinite(above) else below+back
                         back *= 2.
         # Re-evaluate at the accepted implicit state before committing Prony history.
-        fe, ke, cop, length, cover = _contact(xc, d, theta, vc, geom, qfield, efield, ribs)
+        fe, ke, cop, length, cover = _contact(xc, d, theta, vc, geom, qfield, efield, ribs, activation)
         if fe >= 1.e20 and math.isfinite(below):
             d = below
-            fe, ke, cop, length, cover = _contact(xc, d, theta, vc, geom, qfield, efield, ribs)
-        fe *= mod; ke *= mod
+            fe, ke, cop, length, cover = _contact(xc, d, theta, vc, geom, qfield, efield, ribs, activation)
         s[10:13] = s[10:13]*ei+weights*(fe-s[9])
         normal_velocity = (3.*d-4.*s[13]+s[22])/(2.*dt)
         hc_factor = max(1.+c[4]*normal_velocity, 0.)
@@ -454,13 +496,13 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             s[20] += 2.e-4*(7.5e-4/.08)*ns*noise[k, 4]
             s[5] += c[6]*(fax+s[6]+c[30]*ns*noise[k, 1]-s[5])
             s[19] += c[6]*(ftax+s[18]+c[30]*ns*noise[k, 3]-s[19])
-            s[21] += c[6]*(fn*cop+ft*c[29]+s[20]+7.5e-4*ns*noise[k, 5]-s[21])
+            s[21] += c[6]*(fn*cop+ft*c[29]+s[20]+7.5e-4*(c[30]/.08)*ns*noise[k, 5]-s[21])
             kk += 1
         if j % int(round(c[32]/dt)) == 0:
             w = 2.*math.pi*20.8
             if geom[5] != 0. and fn > 0.:
                 # On a convex face over a cover the closed-form force only approximates the integral of k; truth is its own slope.
-                ke = mod*(_contact(xc, d+1.e-6, theta, vc, geom, qfield, efield, ribs)[0]-_contact(xc, d-1.e-6, theta, vc, geom, qfield, efield, ribs)[0])/2.e-6
+                ke = (_contact(xc, d+1.e-6, theta, vc, geom, qfield, efield, ribs, activation)[0]-_contact(xc, d-1.e-6, theta, vc, geom, qfield, efield, ribs, activation)[0])/2.e-6
             tangent = ke*hc_factor if fn > 0. else 0.
             kc = complex(tangent, w*c[4]*max(hereditary_force, 0.)) if fn > 0. else 0.j
             kl = tangent; ki = tangent*(1.+np.sum(alpha))
@@ -473,7 +515,7 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             kt = kc/(1.+kc*series)*axial*ct
             log[nlog, 0] = t; log[nlog, 1] = s[1]; log[nlog, 2] = s[2]; log[nlog, 3] = fn
             log[nlog, 4] = s[3]; log[nlog, 5] = s[5]; log[nlog, 6] = d
-            log[nlog, 7] = _lookup(efield, geom[3], xc-geom[4]); log[nlog, 8] = kt.real
+            log[nlog, 7] = geom[19]*_lookup(efield, geom[3], xc-geom[4]); log[nlog, 8] = kt.real
             log[nlog, 9] = kl/(1.+kl*series)*axial*ct; log[nlog, 10] = ki/(1.+ki*series)*axial*ct
             log[nlog, 11] = buf[-1]; log[nlog, 12] = s[19]; log[nlog, 13] = s[21]
             log[nlog, 14] = uu; log[nlog, 15] = act[it]; log[nlog, 16] = vc; log[nlog, 17] = theta
@@ -492,7 +534,7 @@ def _constants(sc, pl):
     lp = pl['fc'] if sc.get('sensor_lp') in (None, False) else (100. if sc['sensor_lp'] is True else float(sc['sensor_lp']))
     return np.array([sc['m'], sc['c'], sc['k'], sc['kr'], calibration(sc), pl['tau_a'],
                      1.-math.exp(-2.*math.pi*lp*.001), sc['noise_scale'], pl['ndel'], 0., 0., 0., pl['VMAX'],
-                     sc['mu_k'], sc['mu_s'], sc['v_s'], sc['v_e'], sc['k_d'], sc.get('act_gain', 0.), 0., 0., sc['theta0'],
+                     sc['mu_k'], sc['mu_s'], sc['v_s'], sc['v_e'], sc['k_d'], 0., 0., 0., sc['theta0'],
                      float(sc['tracking']), sc['K_t'], sc['m_t'], sc['zeta_t'], C[0, 1], sc['surface_radius'],
                      sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc'])])
 
@@ -544,7 +586,7 @@ def _noise(rng, n, sensor):
     return np.c_[rng.standard_normal((n, 2)), rng.standard_normal((n, 4))]
 
 
-def _run(sc, seed, sensor, platform, commands=None, policy=None):
+def _run(sc, seed, sensor, platform, commands=None, policy=None, diagnostic=False):
     pl = dict(PLATFORM if platform is None else platform)
     if abs(pl['Tc']/.0005-round(pl['Tc']/.0005)) > 1.e-8:
         raise ValueError('Tc must be an integer multiple of 0.5 ms')
@@ -564,7 +606,7 @@ def _run(sc, seed, sensor, platform, commands=None, policy=None):
         if policy is not None:
             log[n, [0, 1, 2, 5, 11, 12, 13]] = [s[0], s[1], s[2], s[5], buf[-1], s[19], s[21]]
             obs = Obs(log, n+1)
-            if n > 0:
+            if diagnostic and n > 0:
                 obs.truth_k = float(log[n-1, 21]); obs.truth_re = float(log[n-1, 20])
             command = float(policy(obs))
         else:
@@ -585,5 +627,5 @@ def replay(sc, commands, seed=0, sensor=False, platform=None):
     return _run(sc, seed, sensor, platform, commands=np.asarray(commands, float))
 
 
-def episode(sc, policy, seed, platform=None, sensor=True):
-    return _run(sc, seed, sensor, platform, policy=policy)
+def episode(sc, policy, seed, platform=None, sensor=True, diagnostic=False):
+    return _run(sc, seed, sensor, platform, policy=policy, diagnostic=diagnostic)
