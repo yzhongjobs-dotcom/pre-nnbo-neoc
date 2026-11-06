@@ -1,0 +1,20 @@
+任务：为 Huber-D⁴ 刚度窗口估计器做一个更快、数值上等价的实现，并独立复核数学和代码。只改 experiments/rossi_failure_study/d_robust.py，以及新建一个核对脚本；不改其他已有文件，不提交 Git。Windows，用 `python -X utf8`。
+
+## 估计器（现在的实现在 d_robust.py 的 RobustRidge.estimate）
+每个控制周期，在最近 m（≤24）个样本的窗口上求解：
+    min_{k,d} ||z − kY − d||² + ρ Σ_i huber_c((D⁴d)_i / s),  s = noise/√ρ,  c = 1.345
+- D 是 m×m 单位阵的四阶差分（(m−4)×m）；ρ 由 RidgeProjection.reset 按 fc 设定；Y、z 由 common._build 构造，与 D⁴ 宿主（ridge_estimator.py）相同。
+- 现在用迭代重加权最小二乘（6 次）：给定权重 w，S = (I + ρ Dᵀ diag(w) D)⁻¹，M = I − S，k = Yᵀ M z / Yᵀ M Y；再用 u = |D S(z − kY)| / s 更新 w = min(1, c/u)。
+- 最后一次迭代的 M 用于 σ = sigma_scale·noise/√(YᵀMY) 和 χ = chi_scale·rᵀMr/noise²/dof，其中 r = z − kY，dof = m − 4 − 1。
+
+## 要做的
+1. **复核数学：** 上面的 IRLS 是否确实是该目标的正确求解（对 d 的部分是加权的 Whittaker 平滑，对 k 是变量投影）；权重更新用的 d 是否正确；σ 和 χ 在加权度量下的含义是否自洽。发现问题只报告，并说明影响。
+2. **更快的实现，结果相同：**
+   - 不显式求 m×m 逆，利用 I + ρDᵀWD 是带宽为 4 的对称正定带状矩阵（例如 scipy.linalg.solveh_banded 或 cholesky_banded，或自写）；
+   - 同时解 Y 和 z 两个右端项；
+   - 可选：用上一个控制周期窗口的权重做热启动、在权重收敛时提前停止，但必须保证与原实现的 k、σ、χ 相差在 1e−6 相对误差以内，或者说明差异的来源与大小。
+   - 保留原实现，例如保留为 `estimate_reference`，以便核对。
+3. **核对脚本** `d_robust_verify.py`：
+   - 在 3 个场景的闭环里，每个窗口同时调用新旧两种实现，报告 k、σ、χ 的最大相对差。场景用 scenes3.cell_scene3('combo','mixed','nominal',i,base=520500, overrides=dict(slide='long', force=8., dynamics='neural_white', phase=28.))，i = 0, 1, 2，策略用 d_robust.build(sc)；
+   - 报告两种实现每次调用的耗时（p50、p99），以及整个策略的 call_p50 / call_p99（method3.metric 里的 call_p50 / call_p99）。
+4. **最终输出（中文，简洁）：** 数学复核结论；改动的 diff；等价性数字；耗时前后对比；你不确定的地方。
