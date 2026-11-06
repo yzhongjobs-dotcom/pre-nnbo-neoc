@@ -65,8 +65,15 @@ class ForceSensing:
 TRACKER = dict(r_scale=1., q_maneuver=3.335)     # chosen with equal budgets in select4.py and d_compare.py
 
 
-def build(name, sc, overrides=None):
-    return attach(C.build(name, dict(TRACKER, **(overrides or {}))), sc)
+PRIOR = 'huber'      # prior on d in the D⁴ host: 'huber' (default since 2026-11-06, d_robust.py) or 'quadratic' (the D⁴ prior)
+
+
+def build(name, sc, overrides=None, prior=None):
+    pol = C.build(name, dict(TRACKER, **(overrides or {})))
+    if (prior or PRIOR) == 'huber' and not name.startswith('P5:'):
+        import d_robust as R
+        pol.estimator = R.ContactRobust(name)        # same window, gate scales and structure as the D⁴ host, Huber prior on D⁴d
+    return attach(pol, sc)
 
 
 def attach(pol, sc):

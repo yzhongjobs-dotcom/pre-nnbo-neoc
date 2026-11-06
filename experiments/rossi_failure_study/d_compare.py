@@ -36,7 +36,7 @@ def make(host, cfg, sc):
         C.RIDGE = dict(STRUCT['D4'][s], chi_scale=CHI[g], **GATE); name = 'H'
     else:
         C.P5 = dict(STRUCT['P'][s], chi_scale=CHI[g], **GATE); name = 'P5:H'
-    return M.build(name, sc, TRACK[t])
+    return M.build(name, sc, TRACK[t], prior='quadratic')      # this study compares the quadratic D⁴ prior with projection
 
 
 def _job(a):
