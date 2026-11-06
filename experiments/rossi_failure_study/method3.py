@@ -66,7 +66,11 @@ TRACKER = dict(r_scale=1., q_maneuver=3.335)     # chosen with equal budgets in 
 
 
 def build(name, sc, overrides=None):
-    pol = C.build(name, dict(TRACKER, **(overrides or {})))
+    return attach(C.build(name, dict(TRACKER, **(overrides or {}))), sc)
+
+
+def attach(pol, sc):
+    """The sensing stage and the Method settings every candidate shares."""
     if sc.get('tool_mass', 0.) > 0. or sc.get('sensor_delay_ms', 0.) > 0.:
         sensing = ForceSensing(pol, sc.get('tool_mass_hat', 0.), sc.get('sensor_delay_hat', 0.))
         pol.step = sensing; pol.reset = sensing.reset
