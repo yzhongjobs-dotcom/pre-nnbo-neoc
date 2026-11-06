@@ -10,7 +10,8 @@
 - 触发：用户要求按 top-researcher 重新梳理可靠辨识的现状、缺口和必须比较的方法；不预设 Huber-D⁴ 更好，不开发、不实验。Codex 中途被用户停止，Claude 接手。
 - 决定：已有方法按 d 的处理分为五条路线：表面已知或静止、激励加频率分离、高斯随机游走状态、有界扰动加死区、差分去偏移。必须在同一 Method 中公平比较的对手是：Rossi 型带通加遗忘 RLS、联合随机游走 Kalman、Xue 型死区自适应。Wei、Zhang、Beber、外部视觉等只写能力与边界；MHE、Xiao、Lin、Wang 适配后落入上述类别。
 - 依据：逐篇核读原文中的假设（Wei 参考面静止、Zhang 已知表面、Beber IROS2024 把压入速度等同于末端速度、Xue 超界扰动按环境更新）。对 Xiao 纠正为“图像只用于首次接触，刚度估计只用力和位置”。被否方案：直接把 MHE 和 EM 当同条件对手（核心机制依赖已知表面或动力学，适配后就不是原方法）。
-- 推翻条件：ARIS 正式检索发现新的处理 d 的路线，或待补原文（Erickson 2003、Haddadi 2012、Schindeler 2018）中对静止位置有不同处理。
+- 范围（用户 2026-11-06）：以 2022–2026 顶刊顶会为主，经典只留 Rossi 2016、Wijayarathne 2020、Schindeler T-RO2018（已核读：接触点需事先测定且不变）；更早的不补。补检 22 条 Scholar 查询后，近五年辨识近作大多回到“表面已知或静止”。
+- 推翻条件：待补原文（Huang TMECH2024、Xing TASE2026、Wang ICIT2024）或 ARIS 正式检索发现新的处理 d 的路线。
 - 链接：[研究文档](../research/identification_field_state.md)、[运行记录](agent_runs/2026-11-06_codex_identification_field_state/)。
 
 **2026-11-06 · d 的先验从二次改为 Huber（Huber-D⁴），已设为刚度估计默认（用户确认）**
