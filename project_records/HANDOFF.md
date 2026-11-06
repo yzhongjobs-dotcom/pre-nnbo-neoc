@@ -4,7 +4,15 @@
 
 ## 现在的情况
 
-**2026-11-06 最新：可靠接触辨识的 baseline 比较已完成。** 结果见 [baseline_interpretation.md](../experiments/rossi_failure_study/baseline_interpretation.md)。
+**2026-11-06 最新：估计主线评估完毕，保留 Huber-D⁴。** 时变刚度鲁棒 MHE（TVK）的结果：
+- q = 2 闭环明显退化；
+- q = 1 被开发集推回常数 k，与 Huber-D⁴ 持平；
+- 窗口内的信息只够可靠估计一个 k；
+- 完美估计器上限也很小。
+
+剩余收益来自两处：一是控制如何使用 k 和 σ，即对低估和刚度变化的容错；二是激励信息量。下一步方向待用户选择。详见 [disturbance_model.md](../research/disturbance_model.md) 的 TVK 条。
+
+**2026-11-06 ：可靠接触辨识的 baseline 比较已完成。** 结果见 [baseline_interpretation.md](../experiments/rossi_failure_study/baseline_interpretation.md)。
 - **用户定的原则**：对手只要实现正确、处在合理状态即可；我们的方法可以多调，但只用开发场景选参，最终数字用从未用于选参的新种子。
 - **结果**：当前 Method 总体最好，L 为 0.476，次好的对手为 Rossi-ID 0.588、MHE 0.626。但并非处处领先：
   - 呼吸工况，完整 Rossi、Xing、D⁴/P5 更好；
