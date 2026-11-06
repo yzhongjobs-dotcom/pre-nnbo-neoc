@@ -1,0 +1,111 @@
+任务：为“可靠接触辨识”补充有竞争力的仿真 baseline，并做公平比较。你负责实现、运行和分析；Claude 负责验收。科研质量第一。中文报告。不要提交或推送（Claude 验收后同步）。
+
+## 背景（先读）
+- research/identification_field_state.md：第 2 节为各方法的原文机制，文末“内部研究记录”D 节为比较设计。
+- research/disturbance_model.md 首节：D⁴、Huber-D⁴ 的比较方法与结果。
+- 代码在 experiments/rossi_failure_study/：
+  - 对象与场景：physics_plant3.py、scenes3.py；
+  - Method：method3.py（build/attach/metric，ForceSensing 是传感补偿，所有方法共用）；
+  - 宿主与接触模型：contact_candidates.py（CandidatePolicy、Preprocess 中的 H 相位超前、update_phase 用估计器的 nw 和 _matrix 做相位检测）、ridge_estimator.py、d_robust.py（当前默认 Huber-D⁴）、estimators.py（已有 Rossi 式 BandPassEstimator/R2Estimator，接口为 estimate(o, n, policy) -> (k, sigma, chi)）、sweeps.py、contact_compare.py（ModelPolicy）、common.py（_build）；
+  - 已有对比脚本：d_compare.py、d_prior_check.py（168 场景的测试格子）、d_module.py（模块级回放指标）。
+- 旧的完整控制器 baseline 实现在 experiments/cobot_scan_benchmark/（baselines_mpc.py 的 XueMPVIC 等，基于旧对象），可参考，不要直接搬结论。
+- 关键原文：
+  - literature/manual_inbox/（Rossi 的 “Implicit_force_control…stiffness estimation…”；Zhang 的 “Observer-Based_Variable_Impedance_Control_Using_Moving_Horizon_Estimation…”；“Autonomous robotic ultrasound scanning on complex surfaces … disturbance observer-based model predictive admittance control”，即 DO-MPAC；“Direct_Force_Compensation-Based_Adaptive_Hybrid_Impedance_Control…”，即 Xing TASE2026）；
+  - literature/papers/xue.pdf（Xue RAS2025）；
+  - Haninger ICRA2024 可从 arXiv 2303.17476 读；
+  - literature/papers/aris_supplements/S02.pdf、S03.pdf 分别是 Zhang 和 DO-MPAC 的另一份副本。
+
+## Claude 已定的 baseline（实现前先读原文核对；如果你认为某项不合理或遗漏了更强的方法，先在报告里说明理由，不要擅自增删）
+
+### 一、辨识器级：放进同一个 Method 的估计器位置
+其余部分全部不变：门控、保守量、前馈、跟踪器、ForceSensing。接触模型 H 和它的相位检测，是阶段二已选定的 Method 部件，各估计器共用：
+- update_phase 依赖估计器的 nw 和 _matrix。对没有这两者的估计器，给一个只服务相位检测的共用 D⁴ 矩阵（与默认宿主相同的 nw、fc、order），不让它影响 k 的估计；
+- 各估计器读 H 预处理后的位移（Preprocess._log），这样 k 都是探测频率的增益。
+
+每个估计器用自己机制的可信度输出 σ 和模型检验 χ，接入同样的门控尺度参数。
+
+1. **Rossi ICRA2016（经典，必须保留）**
+   - 机制：带通加指数加权 RLS，用已有的 BandPassEstimator/R2Estimator，接 H 预处理。
+   - σ 用现有实现（P 加噪声），χ 用其残差。
+   - 调：带宽或阶数、记忆长度。
+2. **Haninger ICRA2024 式联合 Kalman**
+   - 机制：参数（刚度 k、静止位置或等效扰动 d）作为随机游走状态并入 Kalman/EKF。适配到本观测：z_j = k·Y_j + d_j + ε_j，状态 [k, d]（d 可选 1 阶或 2 阶积分随机游走，作为可调结构）。
+   - σ 用后验方差；χ 用归一化新息平方的窗口平均。
+   - 调：q_k、q_d、d 的阶。
+3. **Zhang TIE2024 式 MHE**
+   - 机制：N 步历史，加到达代价（以上一时刻的解和其协方差为先验），量测权重为噪声逆方差。
+   - 适配：原文已知表面，本场景未知，所以 d 作为待估量。允许 k、d 在窗口内按权重 w_k、w_d 变化；w → ∞ 即原文“窗口内参数不变”的特例，作为调参候选之一，不预先排除。
+   - σ 用 k 的后验方差（Hessian 逆），χ 用加权残差。
+   - 调：N、w_k、w_d。
+4. **Xue RAS2025**
+   - 机制：死区鲁棒自适应。原文在本传感条件下可直接运行：以首次接触位置为已知初始位置（Assumption 1），压入量 = 探头位置 − 该位置；对数线性 HC 回归 y = log F，φ = [1, log z, ż]，θ = [log K, n, B/K]；死区归一化梯度更新（原文式 15–16，按原文核对）。
+   - 输出给 Method 的 k：工作点的切线刚度 dF/dz = n K zⁿ⁻¹。
+   - 原文没有 σ：报告两种接法——(a) σ 取常数（等价于不按可信度门控）；(b) 给它加与其他方法同样的残差 χ 门控，并写明是我们加的。
+   - 调：Δ、自适应增益、初值。
+   - 如果按原文实现后，呼吸使压入量持续偏离、结果崩溃，这是它“有界扰动”假设在本场景的真实后果，如实报告；同时报告 Δ 的敏感性。不要为救它改用我们的探测回归（那就不是 Xue 的方法了），除非你在报告中论证这是更合理的适配，并把两版都列出。
+
+**内部基线：** D⁴（prior='quadratic'）、投影（P5:H，用 d_compare 选过的参数）、当前 Huber-D⁴。
+
+**不加入辨识器级的**（报告中各写一句理由）：
+- Wei TMECH2025：依赖动力学模型，解决的是无力传感器下的力估计，静止表面；
+- Beber IROS2024：静止表面假设，EKF 机制已由第 2 项覆盖；
+- Schindeler T-RO2018：已知接触点，其 HC 回归已由第 4 项覆盖。
+
+### 二、完整控制器级：各用自己的完整架构
+同一对象、同一位置接口（P3.episode 的命令接口与伺服）、同样只用力和编码器（经同样的 ForceSensing），不使用任何真值列（log 的 col 4、9、20、21、22 等真值列只能用于评分）。
+
+1. **Rossi ICRA2016 完整控制器**
+   - 内容：激励加带通 EWRLS 估刚度，用估计柔度补偿积分力控增益（原文式 2–11），不加我们的前馈或跟踪器。
+   - 先查 rossi_failure_study 是否已有 Rossi 完整控制器的实现（sweeps.py、failure_*.py、scenes.py 等）；有就核对后复用，没有就按原文实现。
+2. **DO-MPAC（CEP2026，Shen 等）**
+   - 内容：固定虚拟 m、b、k = 0 的导纳；三阶 ESO 估计力误差导数和总扰动；有限时域二次代价的解析预测增益；执行端饱和（原文式 17–29，按原文核对）。
+   - 名义刚度：原文需要给定，用与其他方法同样可得的信息，例如首次接触阶段的估计，或调参得到的常数；不能用真值。
+3. **Xing TASE2026 DAHIC**
+   - 前提：只有能按原文忠实实现单力子空间的自适应力补偿律和参数范围时才加入，否则在报告中说明为何不加。
+
+**不加入控制器级的：**
+- Piedra IJRR2026：需要力矩接口，执行条件不同；
+- Xue 的完整 MPVIC：架构重，它与本问题相关的贡献是估计器，已在辨识器级比较。
+
+**我们的方法：** 当前完整 Method（Huber-D⁴ 默认）。
+
+### 三、公平性
+- **同样的对象、场景和传感：** 不允许使用仿真真值。
+- **同样的调参预算：** 每个方法在开发种子上最多 24 组配置（各自的结构参数，加上门控尺度或控制增益），按平均 L = log1p(J) 选参，开发场景与 d_compare.py 相同；我们的 Method 也在同样预算下重调或说明沿用的理由。
+- **新种子测试：** 用 d_prior_check.py 的 168 场景格子。如果它的格子与此不同，就用 d_compare 的 TEST 加 ×3 次；在报告中写明。
+- **允许合理实现：** 允许每个方法采用适合自身机制的实现（例如 Kalman 不必用窗口，MHE 不必用 D⁴），不强行统一预处理或结构。不要把控制器级方法塞进我们的 Method 结构。
+- **执行约束一致：** 控制周期、伺服延迟、限速和饱和与 Method 相同。
+
+### 四、实现前的核对（写进报告）
+- 每个 baseline 一张卡：原文的核心机制（页码与式号）、本适配保留了什么、改了什么及理由、不能用的信息、可能对它不利的地方。
+- 单元检查：
+  - Kalman 在 q_k = q_d = 0 时与带常数项的 RLS 一致；
+  - MHE 在 w → ∞、无到达代价时与同窗常数 d 的最小二乘一致；
+  - Xue 的死区律与原文式一致；
+  - DO-MPAC 的 ESO 和预测增益在名义模型上复现原文的闭环极点或增益；
+  - Rossi 控制器在静止表面上收敛。
+
+### 五、运行与指标
+- **模块级（回放）：** 在同一组闭环日志上（可用 Huber-D⁴ Method 和 D⁴ Method 的测试日志各一份，避免偏向）回放各估计器，输出以下指标，按工况和事件段分组：
+  - 刚度误差：静止、事件中、刚度变化时；
+  - 刚度阶跃后的恢复延迟；
+  - σ 的校准：被接受窗口中 |log(k̂/k)| ≤ 2σ/k̂ 的比例；
+  - 窗口可用率；
+  - 每次调用耗时 p50/p99。
+- **闭环：**
+  - 指标：平均 L，RMSE 中位和均值，事件 RMSE，峰值超过 15 N 和 36.5 N 的次数，长时间失联，数值失败，调用耗时；
+  - 配对差（相对当前 Method）给 95% bootstrap 区间，按工况分组；
+  - 报告全部统计，包括对我们不利的。
+- **耗时：** 长跑前估计耗时；15 进程并行；总运行量控制在合理范围（参考 d_compare 约 10 分钟级）。不跑无关的大矩阵。
+
+## 输出
+1. **代码：** 新文件放在 experiments/rossi_failure_study/，例如 id_baselines.py（辨识器）、ctrl_baselines.py（控制器）、baseline_compare.py（比较脚本）。现有文件只做必要的最小改动（例如相位检测与估计器解耦），改了什么在报告里列清。
+2. **结果 JSON：** 写到 experiments/rossi_failure_study/results/。
+3. **报告：** 写到 D:/pip_env/temp/claude/8fbcb2674095e6be/841f52cd-14a8-4db4-b56f-36be6ffcc337/scratchpad/baseline_report.md，结构：
+   - A. 每个 baseline 的卡片与单元检查结果；
+   - B. 调参（各方法选中的配置、默认对选中的分数）；
+   - C. 模块级结果表；
+   - D. 闭环结果表与配对差；
+   - E. 结论：哪些对手在哪些工况强于或弱于 Huber-D⁴ 及原因（到机制层）；控制器级与辨识器级结论是否一致；
+   - F. 不确定或可能不公平之处；
+   - G. 改动的现有文件清单。

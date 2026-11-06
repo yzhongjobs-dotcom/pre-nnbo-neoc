@@ -6,6 +6,23 @@
 
 ---
 
+**2026-11-06 · 可靠接触辨识 baseline：对手只求正确，我们的方法可多调；当前 Method 总体最好但并非处处领先**
+- 触发：用户要求补充近年强 baseline，并区分辨识器级与控制器级。第一轮验收发现 MHE 网格设计有误、退化成全历史常数参数，Kalman 的范围放偏。用户随后明确：对手只要正确即可，不必为它调到最优；我们的方法可以多调，但数字要真实。
+- 决定：
+  - 辨识器级：Rossi、Haninger 式 Kalman、Zhang 式 MHE、Xue 和内部的 D⁴/P5，放进同一 Method；
+  - 控制器级：完整 Rossi、DO-MPAC、Xing DAHIC，各用自己的架构；
+  - 修正 MHE 和 Kalman 的范围，已跑完的开发结果全部复用，不再扩展其余对手的边界；
+  - Method 保留当前默认参数。
+- 依据：
+  - 新种子 168 场景，当前 Method L=0.476，最接近的对手为 Rossi-ID 0.588、MHE 0.626、Kalman 0.757；
+  - 呼吸工况，完整 Rossi、Xing、D⁴/P5 更好；惊跳和综合工况与 MHE 持平；
+  - 事件段 2σ 覆盖率，Huber 0.63，不如 D⁴ 的 0.71。
+- 被否：
+  - 第二轮"只给对手追加预算"：违反用户的"调参机会一致"，也浪费额度；
+  - 按第一轮网格定稿：MHE 和 Kalman 处在明显不合理的状态。
+- 推翻条件：发现某个对手的适配不忠实，或我们的方法在从未用于选参的新种子上失去优势。
+- 链接：[结果解释](../experiments/rossi_failure_study/baseline_interpretation.md)、[协议](../experiments/rossi_failure_study/baseline_protocol.md)、`results/baseline_summary_r2.json`、[运行记录](agent_runs/2026-11-06_codex_baselines/)。
+
 **2026-11-06 · 辨识现状改为论文式论证：缺口不是“能否处理表面运动”，而是运动、刚度变化和突发扰动同时出现时信息是否可靠、控制能否知道**
 - 触发：用户对照 Li T-RO2025、Piedra IJRR2026、Xing T-RO2023、Jin T-RO2023 的写法，指出原稿按 d 的处理方式和逐篇资料卡组织，研究现状没有自然引出研究问题；还忽视了 Xue 已在硅胶和人体上验证有界位置突变。
 - 决定：正文按“任务需求 → 线性到非线性与鲁棒更新 → 联合估计几何与参数 → 主动探测（重点）→ 直接补偿与辨识价值 → 能力边界与研究问题”连续论述；方法证据、比较设计和核读页码移入文末内部记录。辨识价值用 Piedra 原文转述的 Whitney、Volpe–Khosla 和 Cortesão–Santos 论证：位置接口下力环稳定性与刚度成比例。核读 Huang TMECH2025（首次接触位置加加权 RLSE）和 Xing TASE2026（明确不估刚度，归入直接补偿）。

@@ -1,0 +1,1 @@
+第二轮（prompt_round2.txt）运行中被 Claude 按用户要求停止：用户指出对手只需正确，不应追加调参预算。停止前 Codex 已完成开发集扩展（results/baseline_dev_r2.json）、二阶 MHE=Kalman 检查（results/baseline_checks_r2.json）及脚本 baseline_round2.py；无最终输出。之后由 Claude 复用这些开发结果，运行 `baseline_round2.py --stage test` 与 `--stage replay`，并写 results/baseline_summary_r2.json 与 baseline_interpretation.md。
