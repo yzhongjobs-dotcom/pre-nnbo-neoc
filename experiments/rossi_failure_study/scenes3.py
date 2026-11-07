@@ -15,6 +15,10 @@ from scipy.optimize import nnls
 DX = .0005
 X0 = .42
 CONDITIONS = ('rest', 'breath', 'shift_slow', 'shift_fast', 'flinch', 'cough', 'tremor', 'rib', 'combo')
+# Additive scenes use the original randomization strata. Do not append them to
+# CONDITIONS: its nine-position balance and historical seeds must stay intact.
+OVERLAY_CONDITIONS = {'breath_rib': 'breath', 'breath_fast': 'shift_fast',
+                      'breath_rib_fast': 'shift_fast'}
 TISSUES = ('relaxed', 'active', 'rib', 'mixed')
 CELLS3 = [(c, s) for c in CONDITIONS for s in TISSUES]
 REGIMES = ('nominal', 'slow', 'stop_go', 'reversal', 'fast', 'curved', 'curved_untracked', 'strong', 'external')
@@ -153,6 +157,8 @@ def _cardiac(t, T, rng, amp):
 
 
 def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrides=None):
+    requested_cond = cond
+    cond = OVERLAY_CONDITIONS.get(cond, cond)
     if cond not in CONDITIONS or tissue not in TISSUES or regime not in REGIMES:
         raise ValueError((cond, tissue, regime))
     o = dict(overrides or {})
@@ -185,7 +191,7 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     ribs = []
     rib_gap = float(o.get('rib_gap', rng.uniform(.006, .019)))
     start_rib = float(rng.uniform(.04, .09))
-    if tissue == 'rib' or cond in ('rib', 'combo'):
+    if tissue == 'rib' or cond in ('rib', 'combo') or requested_cond in ('breath_rib', 'breath_rib_fast'):
         center = grid[0]+start_rib
         while center < grid[-1]:
             # the cover spreads the bone's influence at the surface over about its own thickness
@@ -199,11 +205,14 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     h_s = h_s-np.interp(center_s, grid, h_s)-(grid-center_s)**2/(2.*radius_s)
     u = np.zeros(len(t)); act = np.zeros(len(t)); events = []; event_info = []; components = []
     breath_pp = float(o.get('breath_pp', rng.uniform(.003, .012))); breath_period = float(o.get('breath_period', rng.uniform(3., 6.)))
+    breathing = np.zeros(len(t)); cardiac = np.zeros(len(t))
     if cond not in ('rest', 'rib'):
         # cos^2 cycles have zero slope at both joins; amp is peak-to-peak.
-        u += .5*breath_pp*(1.-np.cos(2.*np.pi*t/breath_period))
+        breathing = .5*breath_pp*(1.-np.cos(2.*np.pi*t/breath_period))
+        u += breathing
     if cond != 'rest':
-        u += _cardiac(t, T, rng, float(rng.uniform(5.e-5, 2.e-4)))
+        cardiac = _cardiac(t, T, rng, float(rng.uniform(5.e-5, 2.e-4)))
+        u += cardiac
     event_kinds = {'shift_slow': ['slow'], 'shift_fast': ['fast'], 'flinch': ['flinch'],
                    'cough': ['cough', 'cough'], 'combo': ['slow', 'fast', 'flinch', 'cough']}.get(cond, [])
     strong = regime == 'strong'
@@ -299,6 +308,9 @@ def cell_scene3(cond, tissue, regime='nominal', i=0, base=420000, T=10., overrid
     if 'remus_poly' in sc:
         import physics_plant3 as P
         P.attach_curve(sc)
+    if requested_cond in OVERLAY_CONDITIONS:
+        sc.update(cond=requested_cond, cell=(requested_cond, tissue),
+                  source_cond=cond, motion_breath=breathing, motion_cardiac=cardiac)
     return sc
 
 

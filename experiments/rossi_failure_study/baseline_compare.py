@@ -320,9 +320,13 @@ def replay_job(a):
     if isinstance(inner,I.XueHC):
         extra=dict(invalid_depth_or_contact=inner.invalid_depth,updates=inner.updates,
                    final_theta=inner.theta.tolist(),initial_contact_position=inner.contact)
-    return dict(source=source['method'],method=method,cond=cell[0],tissue=cell[1],dynamics=cell[2],phase=cell[3],i=cell[4],
+    record=dict(source=source['method'],method=method,cond=cell[0],tissue=cell[1],dynamics=cell[2],phase=cell[3],i=cell[4],
                 groups=result,recovery=recovery(t,k,kh,okseq),diagnostic=extra,
                 source_command_max_error=command_error if method==source['method'] else None)
+    if source.get('retain_series', False):
+        record['series']=dict(t=t,truth=k,estimate=kh,accepted=okseq,
+                              sigma=np.array([indexed.get(j,(np.nan,np.inf,np.inf,np.nan))[1] for j in range(len(log))]))
+    return record
 
 
 def replay(gap):
