@@ -99,7 +99,9 @@ class Preprocess:
     def _setup(self, kind, policy):
         self.kind = kind; self.owner = policy; self.private = None; self.count = 0
         self.st = np.zeros(1 if kind == 'S' else len(POWER_TAU)); self.y_last = None; self.y_out = None; self.y0 = None
-        self.h_increment = getattr(self, 'h_increment', False)
+        # False is a reproduction-only switch for historical cached levels.
+        self.h_increment = getattr(self, 'h_increment', True)
+        self.memory_increment = getattr(self, 'memory_increment', True)
         self.h_dy_prev = 0.
 
     def _log(self, o, n):
@@ -116,8 +118,14 @@ class Preprocess:
             else:
                 dy = y-self.y_last; self.y_last = y
                 if kind in MEMORY:
+                    previous = self.st
                     self.st = own.e_y*self.st+own.a_y*own.b_y*dy
-                    self.y_out = self.y0+((y-self.y0)+float(np.sum(self.st)))/own.mag_y
+                    if self.memory_increment:
+                        # Retain past branch inputs at their original weights;
+                        # today's normalization acts only on today's response.
+                        self.y_out += (dy+float(np.sum(self.st-previous)))/own.mag_y
+                    else:
+                        self.y_out = self.y0+((y-self.y0)+float(np.sum(self.st)))/own.mag_y
                 elif kind in HC:
                     if self.h_increment:
                         # Apply today's response only to today's increment.

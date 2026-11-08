@@ -19,11 +19,12 @@ MIN_TICKS = 8     # half a projection window; a shorter run has too few probe cy
 class RidgeProjection:
     name = 'Ridge'
 
-    def __init__(self, nw=32, order=4, fc=14., memory=False, sigma_scale=1., chi_scale=1., alpha=None, tau=None, gamma=0., lam=0.):
+    def __init__(self, nw=32, order=4, fc=14., memory=False, sigma_scale=1., chi_scale=1., alpha=None, tau=None, gamma=0., lam=0., increment=True):
         self.nw = int(nw); self.order = int(order); self.fc = float(fc); self.memory = bool(memory)
         self.sigma_scale = float(sigma_scale); self.chi_scale = float(chi_scale)
         self.alpha = POP_ALPHA if alpha is None else np.asarray(alpha, float); self.tau = POP_TAU if tau is None else np.asarray(tau, float)
         self.gamma = float(gamma); self.lam = float(lam); self.k_ref = None
+        self.increment = bool(increment)  # False reproduces historical levels.
 
     def reset(self, policy):
         # The window grows from MIN_TICKS after contact or start, as the projection's does: no estimate must wait for a full window.
@@ -38,6 +39,7 @@ class RidgeProjection:
             self.mag = abs(1+np.sum(self.alpha*self.b*(1-z)/(1-self.e*z)))
             self.state = np.zeros(len(self.tau))
         self.y_prev = None; self.y_ref = None; self.y_out = None
+        self.rate_out = None; self.base_prev = None; self.rate_dy_prev = 0.
 
     def _matrix(self, m):
         if m not in self.matrices:
@@ -58,18 +60,32 @@ class RidgeProjection:
             else:
                 dy = y-self.y_prev; self.y_prev = y
                 if self.memory:
+                    previous = self.state
                     self.state = self.e*self.state+self.alpha*self.b*dy
-                    self.y_out = self.y_ref+((y-self.y_ref)+float(np.sum(self.state)))/self.mag
+                    if self.increment:
+                        self.y_out += (dy+float(np.sum(self.state-previous)))/self.mag
+                    else:
+                        self.y_out = self.y_ref+((y-self.y_ref)+float(np.sum(self.state)))/self.mag
                 else:
                     self.y_out = y
             out = self.y_out
+            tau = 0.
             if self.lam and self.k_ref:
                 # Hunt-Crossley rate term, F = k d (1 + lam d'): the response leads motion by tau = lam F/k, normalised at the probe frequency
                 kt = self.k_ref
                 for _ in range(2):      # k_ref is the magnitude at the probe frequency, tau needs the elastic tangent
                     tau = self.lam*max(float(row[5]), .3)/kt; kt = self.k_ref/math.sqrt(1+(self.w0*tau)**2)
-                out = out+tau*dy/self.Tc
-                out = self.y_ref+(out-self.y_ref)/math.sqrt(1+(self.w0*tau)**2)
+                if not self.increment:
+                    out = out+tau*dy/self.Tc
+                    out = self.y_ref+(out-self.y_ref)/math.sqrt(1+(self.w0*tau)**2)
+            if self.lam and self.increment:
+                if self.rate_out is None:
+                    self.rate_out = self.y_out
+                else:
+                    self.rate_out += (self.y_out-self.base_prev+
+                        tau*(dy-self.rate_dy_prev)/self.Tc)/math.sqrt(1+(self.w0*tau)**2)
+                self.base_prev = self.y_out; self.rate_dy_prev = dy
+                out = self.rate_out
             row[2] = out; self.private[j] = row
         self.count = n
         return self.private[:n]
