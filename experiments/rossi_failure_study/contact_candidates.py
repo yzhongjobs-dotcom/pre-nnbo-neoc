@@ -99,6 +99,8 @@ class Preprocess:
     def _setup(self, kind, policy):
         self.kind = kind; self.owner = policy; self.private = None; self.count = 0
         self.st = np.zeros(1 if kind == 'S' else len(POWER_TAU)); self.y_last = None; self.y_out = None; self.y0 = None
+        self.h_increment = getattr(self, 'h_increment', False)
+        self.h_dy_prev = 0.
 
     def _log(self, o, n):
         kind = self.kind
@@ -117,7 +119,12 @@ class Preprocess:
                     self.st = own.e_y*self.st+own.a_y*own.b_y*dy
                     self.y_out = self.y0+((y-self.y0)+float(np.sum(self.st)))/own.mag_y
                 elif kind in HC:
-                    self.y_out = self.y0+((y-self.y0)+own.tau_h*dy/TC)/own.mag_h
+                    if self.h_increment:
+                        # Apply today's response only to today's increment.
+                        self.y_out += (dy+own.tau_h*(dy-self.h_dy_prev)/TC)/own.mag_h
+                        self.h_dy_prev = dy
+                    else:
+                        self.y_out = self.y0+((y-self.y0)+own.tau_h*dy/TC)/own.mag_h
                 else:
                     self.y_out = y
             row[2] = self.y_out
