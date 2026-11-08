@@ -13,7 +13,7 @@ from scipy.interpolate import PchipInterpolator
 
 PLATFORM = dict(Tc=.008, ndel=1, tau_a=.019, fc=30., VMAX=.25)
 ACTUATOR_T2 = .002     # fast pole of the axis, an assumption (axis bandwidth about 80 Hz); no measurement for this robot
-LOGC, NS, BRANCHES = 26, 47, 8      # memory states 37:45; 46 the probe's axial velocity (45 unused)
+LOGC, NS, BRANCHES = 28, 51, 8      # memory states 37:45; 46 the probe's axial velocity (45 unused); 47:49 arm deflection acceleration, deflection, rate
 GX, GW = np.polynomial.legendre.leggauss(4)
 BX, BW = np.polynomial.legendre.leggauss(8)
 
@@ -425,9 +425,21 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
         buf[j] = buf[j+1]
     buf[-1] = cmd
     ei = np.exp(-dt/tau); weights = alpha*tau/dt*(1.-ei)
+    # Optional command interpolation inside the robot: the setpoint ramps from the previous held value to the new one across the tick instead of stepping.
+    start_sp = s[50]
     for j in range(nsub):
         t = s[0]; it = min(int(round(t/dt))//2, len(u)-2); fr = (t-it*.001)/.001
-        s[24] = (buf[0]-s[2]-(t1+t2)*s[46])/(t1*t2)
+        setpoint = buf[0] if c[38] == 0. else start_sp+(buf[0]-start_sp)*(j+1.)/nsub
+        s[24] = (setpoint-s[2]-(t1+t2)*s[46])/(t1*t2)
+        # Dynamic arm: the tool is a mass on the arm spring, m(y''-e'') + F = k_r e + c_r e', integrated by Newmark (average acceleration), which adds no numerical damping.
+        dynamic = c[36] >= 0. and c[33] > 0.
+        arm_a = 0.; arm_b = 0.; e_pred = 0.; v_pred = 0.; arm_d = 1.; arm_c = 0.
+        if dynamic:
+            arm_c = 2.*c[36]*math.sqrt(c[3]*c[33])
+            e_pred = s[48]+dt*s[49]+.25*dt*dt*s[47]; v_pred = s[49]+.5*dt*s[47]
+            arm_d = 1.+c[3]*dt*dt/(4.*c[33])+arm_c*dt/(2.*c[33])
+            arm_a = e_pred+.25*dt*dt*(s[24]-(c[3]*e_pred+arm_c*v_pred)/c[33])/arm_d
+            arm_b = (dt*dt/(4.*c[33]))/arm_d
         uu = u[it]*(1.-fr)+u[it+1]*fr; ud = (u[it+1]-u[it])*1000.
         activation = min(1., max(0., act[it]*(1.-fr)+act[it+1]*fr))
         oldxs = s[1]
@@ -463,13 +475,16 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
                 ft = _friction(fn, vc, length, c, geom)
                 fax = fn*ct+ft*st; ftax = ft*ct-fn*st
                 # the arm carries the contact force and the force accelerating the probe
-                residual = d-(base-(fax+c[33]*s[24])*cnn-c[26]*ftax)*ct
+                if dynamic:
+                    residual = d-(base-(arm_a+arm_b*fax)-c[26]*ftax)*ct
+                else:
+                    residual = d-(base-(fax+c[33]*s[24])*cnn-c[26]*ftax)*ct
                 if residual > 0.:
                     above = d
                 else:
                     below = d
                 derivative = ke*(1.+np.sum(weights))*max(rate, 0.)+1.5*(fe+qsum)*c[4]/dt
-                slope = 1.+max(derivative, 0.)*ct*ct*cnn
+                slope = 1.+max(derivative, 0.)*ct*ct*(arm_b if dynamic else cnn)
                 change = min(max(residual/slope, -.002), .002)
                 if abs(change) < 1.e-12:
                     break
@@ -496,12 +511,17 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
         fax = fn*ct+ft*st; ftax = ft*ct-fn*st
         s[22] = s[13]
         s[7] = xc; s[8] = vc; s[9] = fe; s[13] = d; s[14] = fn; s[15] = ft; s[16] = fax; s[17] = theta
+        probe_acc = s[24]
+        if dynamic:
+            s[47] = (s[24]+(fax-c[3]*e_pred-arm_c*v_pred)/c[33])/arm_d
+            s[48] = e_pred+.25*dt*dt*s[47]; s[49] = v_pred+.5*dt*s[47]
+            probe_acc = s[24]-s[47]
         # State 19 is reserved for sensor Ft below; do not use it as a true load.
         if int(round(t/dt)) % 2 == 0:
             k = min(kk, len(noise)-1); ns = c[7]
             s[6] += 2.e-4*ns*noise[k, 0]; s[18] += 2.e-4*ns*noise[k, 2]
             # The sensor sits between arm and probe, so it reads the contact force plus the force accelerating the probe (Beber eq. 3-4).
-            s[28] = s[27]; s[27] = s[26]; s[26] = s[25]; s[25] = fax+c[33]*s[24]
+            s[28] = s[27]; s[27] = s[26]; s[26] = s[25]; s[25] = fax+c[37]*c[33]*probe_acc
             # time offset of the force stream against the encoder, fractions of a sample by interpolation
             lag = int(c[34]); frac = c[34]-lag
             sensed = (1.-frac)*s[25+lag]+frac*s[25+min(lag+1, 3)]
@@ -534,10 +554,20 @@ def _tick(s, buf, cmd, c, geom, qfield, efield, ribs, hs, xcmd, u, fext, act, ri
             log[nlog, 18] = fax; log[nlog, 19] = ft
             log[nlog, 20] = kt.real; log[nlog, 21] = abs(kt); log[nlog, 22] = math.atan2(kt.imag, kt.real)
             log[nlog, 23] = length; log[nlog, 24] = cop; log[nlog, 25] = cover
+            # effective stiffness: continuous axial force over encoder at the probe frequency, arm path and body support included
+            zb = complex(c[2]-c[0]*w*w, w*c[1])
+            if dynamic:
+                zarm = complex(c[3]-c[33]*w*w, w*arm_c)
+                carm = 1./zarm; lift = complex(c[3], w*arm_c)/zarm
+            else:
+                carm = complex(cnn, 0.); lift = complex(1.+c[33]*w*w*cnn, 0.)
+            keff = kc/(1.+kc*ct*(axial*(carm+1./zb)+c[26]*lateral))*axial*ct*lift
+            log[nlog, 26] = abs(keff); log[nlog, 27] = math.atan2(keff.imag, keff.real)
             nlog += 1
         s[46] += dt*s[24]; s[2] += dt*s[46]; s[0] = t+dt
         if not math.isfinite(fn) or fn > 5.e3 or abs(s[2]) > .5:
             return -nlog, kk
+    s[50] = buf[0]
     return nlog, kk
 
 
@@ -558,7 +588,7 @@ def _constants(sc, pl):
                      1.-math.exp(-2.*math.pi*lp*.001), sc['noise_scale'], pl['ndel'], 0., 0., 0., pl['VMAX'],
                      sc['mu_k'], sc['mu_s'], sc['v_s'], sc['v_e'], sc['k_d'], 0., 0., 0., sc['theta0'],
                      float(sc['tracking']), sc['K_t'], sc['m_t'], sc['zeta_t'], C[0, 1], sc['surface_radius'],
-                     sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc']), sc.get('tool_mass', 0.), float(sc.get('sensor_delay_ms', 0)), ACTUATOR_T2])
+                     sc['surface_center'], sc['l_tool'], sc['sensor_sigma'], pl['Tc'], pl.get('log_dt', pl['Tc']), sc.get('tool_mass', 0.), float(sc.get('sensor_delay_ms', 0)), float(sc.get('actuator_t2', ACTUATOR_T2)), float(sc.get('arm_zeta', -1.)), float(sc.get('sensor_inertia', 1.)), float(sc.get('cmd_interp', 0.))])
 
 
 def _init(sc, pl):
@@ -579,7 +609,7 @@ def _init(sc, pl):
     y = d/math.cos(theta)-z-h+C[0, 0]*fax+C[0, 1]*ftax
     s = np.zeros(NS); s[1] = xs; s[2] = y; s[3] = z; s[5] = fax
     s[7] = x; s[9] = f; s[13] = d; s[14] = total
-    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = total*cop; s[22] = d; s[25:29] = fax; s[45] = y; s[46] = 0.
+    s[16] = fax; s[17] = theta; s[19] = ftax; s[21] = total*cop; s[22] = d; s[25:29] = fax; s[45] = y; s[46] = 0.; s[48] = C[0, 0]*fax; s[50] = y
     s[37:45] = f*load
     gap = float(sc.get('start_gap', 0.))
     if gap > 0.:

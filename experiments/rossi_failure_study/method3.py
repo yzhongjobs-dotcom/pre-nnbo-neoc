@@ -19,7 +19,8 @@ class ForceSensing:
 
     Uses only calibrated values (probe mass, servo lag, force time offset), the encoder, the commands and the known force filter.
     """
-    def __init__(self, pol, mass, delay_ms):
+    def __init__(self, pol, mass, delay_ms, interp=False, t2=None):
+        self.interp = bool(interp); self.t2_given = t2
         self.pol = pol; self.mass = mass; self.delay = max(delay_ms, 0.); self.step = pol.step; self.reset_inner = pol.reset
         if self.delay > 0. and hasattr(pol, '_identify'):
             # Servo identification pairs the encoder with unshifted sent commands.
@@ -29,7 +30,7 @@ class ForceSensing:
     def reset(self, platform):
         self.reset_inner(platform)
         # the calibrated actuator (lag and fast pole), not the Method's online servo estimate, which has a different job
-        self.t2 = P3.ACTUATOR_T2; self.t1 = platform['tau_a']-self.t2
+        self.t2 = P3.ACTUATOR_T2 if self.t2_given is None else self.t2_given; self.t1 = platform['tau_a']-self.t2; self.prev_applied = None
         self.y = None; self.vel = 0.; self.x = 0.; self.a = np.zeros(4); self.done = 0; self.comp = np.zeros(4096)
 
     def __call__(self, o):
@@ -45,12 +46,15 @@ class ForceSensing:
             if j > 0:
                 # the same model the axis follows, driven by the sent commands from the first encoder reading
                 applied = log[i, 11] if i >= 0 else self.y
+                start = applied if self.prev_applied is None else self.prev_applied
                 for k in range(nsub):
-                    acc = (applied-self.y-(t1+t2)*self.vel)/(t1*t2)
+                    target = start+(applied-start)*(k+1.)/nsub if self.interp else applied
+                    acc = (target-self.y-(t1+t2)*self.vel)/(t1*t2)
                     if k % 2 == 0:
                         self.a[1:] = self.a[:-1]; self.a[0] = acc
                         self.x += p.afc*(self.mass*((1.-frac)*self.a[lag]+frac*self.a[lag+1])-self.x)
                     self.vel += dt*acc; self.y += dt*self.vel
+                self.prev_applied = applied
             self.comp[j] = self.x
         self.done = n
         log[:n, 5] -= self.comp[:n]
@@ -79,7 +83,7 @@ def build(name, sc, overrides=None, prior=None):
 def attach(pol, sc):
     """The sensing stage and the Method settings every candidate shares."""
     if sc.get('tool_mass', 0.) > 0. or sc.get('sensor_delay_ms', 0.) > 0.:
-        sensing = ForceSensing(pol, sc.get('tool_mass_hat', 0.), sc.get('sensor_delay_hat', 0.))
+        sensing = ForceSensing(pol, sc.get('tool_mass_hat', 0.), sc.get('sensor_delay_hat', 0.), interp=sc.get('cmd_interp', 0.) > 0., t2=sc.get('actuator_t2'))
         pol.step = sensing; pol.reset = sensing.reset
     pol.force_set = float(sc['FD'])
     pol.gate_on_prior = GATE_ON_PRIOR
