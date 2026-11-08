@@ -88,6 +88,6 @@
 - **同步：** 工作前 `git pull --rebase origin main`；每个完成的检查点运行 `python -X utf8 scripts/research_sync.py --message "research: <具体改动与目的>"`。不改写历史，不强推。
 - **记录：** Codex/ARIS 的任务书与最终输出存 [agent_runs](agent_runs/)，关键决定写入 [decision_log](decision_log.md)，科学推理放研究文档。不另建变更日志。
 - **保护：** `00_基线快照_2026-10-14/` 逐字节不动（`python -X utf8 literature/verify_materials.py`）。不翻译已有材料。
-- **实验目录：** [motion_aware_scan](../experiments/motion_aware_scan/README.md)（最终方法）、[method_redesign](../experiments/method_redesign/)（11-01 的 P1、P2）、[contact_model](../experiments/contact_model/)（11-01 傍晚起）、[cobot_scan_benchmark](../experiments/cobot_scan_benchmark/README.md)（对象与 C1）。
+- **实验目录：** 见[实验索引](../experiments/experiment_index.md)。已丢弃方法的目录于 2026-11-08 移出工作区，用 `git show ca398be:<路径>` 恢复。
 - **文献：** 索引 [literature_index](../literature/literature_index.md)；ARIS 运行 `recent-related-work-20261031`（RUN_ROOT `D:/pip_env/temp/scan_impedance_literature_20261031/aris_run`，机器本地）；当前没有待下载文献（[清单](../literature/manual_fulltext_requests.md)）；用户下载件放 `literature/manual_inbox/`。
 - **更早的实验和文档：** 早期 B0/二维实验已移出工作区，用 `git show b7a3f91:<路径>` 恢复。

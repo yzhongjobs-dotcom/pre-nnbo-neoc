@@ -1,29 +1,18 @@
 # Experiment index
 
-## Current (2026-11-03)
-
-Read `project_records/HANDOFF.md` first; `project_records/handoff/03_方法演进审计.md` maps each method attempt to its code, results and commit.
+## Current (2026-11-08)
 
 | Directory | Use | Boundary |
 |---|---|---|
-| [contact_information](contact_information/README.md) | Joint first-module work: endpoint gain; contact-curvature/moving-reference correction; positive local SLS and drift ablation; same-input prediction and targeted closed loops | Effective lean candidate preserved; complex models not adopted; SLS scalar interface negative, full dynamic inverse untested; no confirmation-cohort use |
-| [motion_aware_scan](motion_aware_scan/README.md) | Final method `Proposed-IMMb`, comparators, confirmation cohort (130000+), sweeps, robustness, tables for the draft | Basis of the paper draft |
-| [method_redesign](method_redesign/) | 2026-11-01 work: estimators E0–E4, constrained MPC, predictors, P1 attribution, V1 servo identification, V3/V4/V4b, feed-forward lead diagnosis | Diagnosis cohort (110000+); V1 is the only adopted result |
-| [contact_model](contact_model/) | 2026-11-01 evening: path modulus map prototype, time-varying windows, moment gradient check, measurement-gain fusion candidate | Candidates only; nothing adopted |
-| [cobot_scan_benchmark](cobot_scan_benchmark/README.md) | Plant, scenarios, older C1/C2 controllers and comparators | Sections below are the older C1 context |
+| [rossi_failure_study](rossi_failure_study/) | Current physical plant (`physics_plant3.py`, `scenes3.py`), Method entry (`method3.py`), Huber-D⁴ estimator, baseline, overlay, TVK and jump GLR comparisons, real-data derivations | Interpretations: [baseline](rossi_failure_study/baseline_interpretation.md), [overlay](rossi_failure_study/overlay_interpretation.md) |
+| [motion_aware_scan](motion_aware_scan/README.md) | IMM, admittance and feed-forward code the current Method uses; `Proposed-IMMb` evidence for the paper draft; feed-forward loop checks | The draft describes the 2026-10-31 method, not the current default |
+| [problem_mechanism_check](problem_mechanism_check/README.md) | Linear failure demonstration for the paper draft | Not a benchmark |
+| `cobot_scan_benchmark/` | Only `plant.py` and `scenarios.py`, which current code imports | Older controllers removed |
+| `method_redesign/` | Only `v1_servo_id.py` (online servo identification), which current code imports | Other prototypes removed |
 
-## Older C1 context
+## Discarded methods removed from the working tree (2026-11-08)
 
-[Cobot scan benchmark](cobot_scan_benchmark/README.md): synthetic PC125 normal-axis plant (8 ms outer loop, 8 ms transport delay, 19 ms servo, 1 kHz force with 30 Hz low-pass and 0.08 N noise). It holds the current C1 and C2 implementations, repaired field baselines and the seed-7200 three-task evidence.
-
-| Entry | Use | Boundary |
-|---|---|---|
-| [C1 repair results](cobot_scan_benchmark/contact_update_results/README.md), [controller](cobot_scan_benchmark/contact_update.py), [evaluation](cobot_scan_benchmark/evaluate_contact_update.py) | Current C1 on the original three tasks, estimator ablation, peaks, recovery, timing | T2 development data used for the repair; baselines keep earlier settings |
-| [Completed tasks](cobot_scan_benchmark/completed_tasks/README.md) | Seed-7200 protocol, 40 paired scenes per task, fixed extremes, figures | T1/T2 transfer frozen T3 settings; not separately retuned rankings |
-| [Repaired baselines](cobot_scan_benchmark/refined_baselines/results.md) | Xue, Jin, learned VIC and others after adaptation repair | Task adaptations, not reproductions of the original robot experiments |
-| [Paper tables](cobot_scan_benchmark/paper_tables/), [builder](cobot_scan_benchmark/build_paper_experiments.py) | Original-paper task/metric mapping used by the experiment section | No new control simulations |
-
-The Chinese simulation section is [paper_experiments_final_zh.md](../research/paper_experiments_final_zh.md).
+Removed: `contact_information`, `contact_model`, `conditional_linear_contact`, `evidence_memory_contact`, the rest of `method_redesign` (estimators E0–E4, constrained MPC, predictors, V3/V4) and the rest of `cobot_scan_benchmark` (C1/C2 controllers, repaired baselines, seed-7200 evidence, paper tables). Recover with `git show ca398be:experiments/<dir>/<file>`, or check out `ca398be` into a copy. The reasoning stays in `research/` and `project_records/handoff/03_方法演进审计.md`; their links to these paths resolve only at that commit.
 
 ## Early experiments removed from the working tree
 

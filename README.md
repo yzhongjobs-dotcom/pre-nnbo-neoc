@@ -2,7 +2,7 @@
 
 Research goal: during continuous robotic scanning of soft tissue, use new contact information to generate near-optimal impedance promptly, with actual force and motion-control benefits. The target paper requires a substantive scientific contribution and evidence sufficient to compete at leading journals; a complete method and evidence at that level have not yet been established.
 
-Read the [handoff](project_records/HANDOFF.md) first for the current state and next work. Confirmed goals and stage standards are in the [long-term requirements](project_records/long_term_requirements.md); stage-by-stage guidance is in [research_workflow](project_records/research_workflow/). The current method is C1 on the [cobot scan benchmark](experiments/cobot_scan_benchmark/README.md): it repairs stiff push/retract contact loss on three simulated tasks, but fair closest-prior comparisons, the gain ablation, a stability condition and real-robot evidence are still missing.
+Read the [handoff](project_records/HANDOFF.md) first for the current state and next work. Confirmed goals and stage standards are in the [long-term requirements](project_records/long_term_requirements.md); stage-by-stage guidance is in [research_workflow](project_records/research_workflow/). The current default method and its evidence are in [rossi_failure_study](experiments/rossi_failure_study/); see the [experiment index](experiments/experiment_index.md).
 
 The research proceeds iteratively through field analysis, question refinement,
 method design, experimental verification, failure review and long-term improvement.
