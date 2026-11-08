@@ -206,7 +206,7 @@ def refresh_p3():
     print('P3 refreshed; choices unchanged',d['chosen'],flush=True)
 
 
-def replay_job(job):
+def replay_job(job, log_folder='tvk_logs'):
     source,label,cfg=job;B.build=build
     raw=[];holder={}
     def instrument(method,cfg,sc):
@@ -243,13 +243,13 @@ def replay_job(job):
                          covered_all=int(np.sum(abs(err[vv])<=2*a[vv,1]/a[vv,0])),
                          lag_samples_s=(-err[rising]/grad[n[rising]]).tolist())
     r['safety']=extra
-    folder=B.OUT/'tvk_logs';folder.mkdir(exist_ok=True)
+    folder=B.OUT/log_folder;folder.mkdir(exist_ok=True)
     name=f"{label}_{r['source']}_{r['cond']}_{r['dynamics']}_{int(r['phase'])}_{r['i']}.npz"
     data=dict(index=n,estimate=a,truth=truth[n],accepted=ok,group=group)
     for kind,g in r['groups'].items():
         for field in ('error_samples','accepted_errors','times'):data[kind+'_'+field]=np.array(g.pop(field))
     for kind,g in extra.items():data[kind+'_lag_samples_s']=np.array(g.pop('lag_samples_s'))
-    np.savez_compressed(folder/name,**data);r['samples_file']='tvk_logs/'+name
+    np.savez_compressed(folder/name,**data);r['samples_file']=log_folder+'/'+name
     return r
 
 
