@@ -1,5 +1,7 @@
 # 完整 Method 的全局重新审视与推荐方案
 
+> **状态（2026-11-08 用户判定）：本文做偏，不是选定 Method。** 本文从现有 Method 出发，找到“刚度可信度与控制衔接”这一新切入点；它没有重建研究演变，也没有逐项裁决遗留问题。部分排除依据偏弱，例如第 4 节 C5 用短时预测残差排除呼吸结构，第 2.6 节的块对角结论未在呼吸＋跨肋骨下重查成立条件。第 2.2–2.4 节的推导与核验仍可作为证据，M1–M8 不作为后续研究起点。详见[失败与纠偏](../project_records/research_failures_and_corrections.md)。
+
 2026-11-08。按 top-researcher：审视现有 Method 用用法 B，设计新方案用用法 A（阶段三）。输入：ChatGPT 网页版交接 TXT（本地，未入库）、`long_term_requirements.md`、`paper_draft_zh.md` §一—三、`identification_field_state.md`、`disturbance_model.md`、`stiffness_separation_20261107.md`、`contact_model_selection.md`、基线与叠加工况实验记录。当前实现由 Codex 逐行核对（[运行记录](../project_records/agent_runs/2026-11-08_codex_current_method_map/)），成熟方法原文由 Codex 定向核查（[运行记录](../project_records/agent_runs/2026-11-08_codex_method_transfer_check/)），关键结论 Claude 已对照原文或推导验收。本轮没有做新方法的闭环实验；第 2.3 节有一项最小数值核验。
 
 证据标记：**[推导]** 本文数学推导；**[实测]** 仓库已有仿真结果；**[核验]** 本轮数值核对；**[原文]** 已核读页码；**[推断]** 有依据但未检验。
