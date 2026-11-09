@@ -1,14 +1,20 @@
 # Experiment index
 
-## Current (2026-11-08)
+## Current (2026-11-09)
 
 | Directory | Use | Boundary |
 |---|---|---|
-| [rossi_failure_study](rossi_failure_study/) | Current physical plant (`physics_plant3.py`, `scenes3.py`), Method entry (`method3.py`), Huber-D⁴ estimator, baseline, overlay, TVK and jump GLR comparisons, real-data derivations | Interpretations: [baseline](rossi_failure_study/baseline_interpretation.md), [overlay](rossi_failure_study/overlay_interpretation.md) |
+| [rossi_failure_study](rossi_failure_study/) | Current physical plant (`physics_plant3.py`, `scenes3.py`), Method entry (`method3.py`), Huber-D⁴ estimator, comparison code, real-data derivations | Current results: [three comparison tables](rossi_failure_study/comparison_tables.md) from `identification_completion.py` and `corrected_comparison.py`. The [baseline](rossi_failure_study/baseline_interpretation.md) and [overlay](rossi_failure_study/overlay_interpretation.md) interpretations predate the H correction and are invalid as conclusions. TVK and jump GLR results also predate it and have not been redone |
 | [motion_aware_scan](motion_aware_scan/README.md) | IMM, admittance and feed-forward code the current Method uses; `Proposed-IMMb` evidence for the paper draft; feed-forward loop checks | The draft describes the 2026-10-31 method, not the current default |
 | [problem_mechanism_check](problem_mechanism_check/README.md) | Linear failure demonstration for the paper draft | Not a benchmark |
 | `cobot_scan_benchmark/` | Only `plant.py` and `scenarios.py`, which current code imports | Older controllers removed |
 | `method_redesign/` | Only `v1_servo_id.py` (online servo identification), which current code imports | Other prototypes removed |
+
+## Stale intermediates removed from the working tree (2026-11-09)
+
+Removed from `rossi_failure_study`: pre-H-correction baseline and overlay logs, replays, module results and summaries; `memory_closed_loop_*`, `memory_root_causes`, `memory_segment_eval`, `rib_transition_eval`, `h_fix_eval`, `low_estimate_forensics` and `id_layer_root_cause` results; and the scripts `h_fix_eval.py`, `memory_root_causes.py`, `overlay_report.py`, `overlay_plots.py`, `baseline_report_r2.py`, `baseline_diagnostics.py`. Recover from Git `e5b2de9`.
+
+Kept because current code uses them: `baseline_test_r2.json` (frozen configurations), `baseline_dev_r2.json`, `baseline_test.json`, `baseline_calibration.json`, `baseline_report.py`. The old-form H switches are checked against `results/legacy_h_fixture.*`, one saved episode. The `main` stages of `memory_segment_eval.py`, `rib_transition_eval.py` and `low_estimate_forensics.py` read removed pre-correction references; those modules are used as libraries now.
 
 ## Discarded methods removed from the working tree (2026-11-08)
 

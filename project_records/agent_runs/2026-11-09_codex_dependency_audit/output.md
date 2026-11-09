@@ -1,0 +1,39 @@
+| Task | Result |
+|---|---|
+| Import closure | The AST-resolved closure contains only the 13 live roots listed in the request; no additional `.py` files under S were reached. The closure list is therefore the live-root list itself. |
+| `sys.path` | The live roots do not modify `sys.path`. Other repository scripts do: `motion_aware_scan/common.py` adds `experiments/cobot_scan_benchmark`; several S scripts add that directory, S, or a sibling directory. Those scripts are not imported by the live-root closure. |
+| S `.py` outside closure | `baseline_checks.py`, `baseline_diagnostics.py`, `baseline_report.py`, `baseline_report_r2.py`, `baseline_round2.py`, `beber_fig2.py`, `check_candidates.py`, `check_curve3.py`, `check_dynamic_sensitivity.py`, `check_dynamics3.py`, `check_gain.py`, `check_gate3.py`, `check_method3.py`, `check_plant.py`, `check_plant2.py`, `check_plant3.py`, `check_system3.py`, `contact_candidates.py`, `contact_compare.py`, `contact_compare_extra.py`, `contact_confirm.py`, `contact_response.py`, `contact_select.py`, `contact_select_report.py`, `d_bias_source.py`, `d_break.py`, `d_break_check.py`, `d_ceiling2.py`, `d_compare.py`, `d_cough_probe.py`, `d_estimator_replay.py`, `d_module.py`, `d_motion_ceiling.py`, `d_predict_probe.py`, `d_prior_check.py`, `d_robust.py`, `d_robust_verify.py`, `d_structure.py`, `d_theory.py`, `deployable_contact.py`, `derive_dynamic_truth.py`, `derive_remus_s1.py`, `diagnose_mass_phase.py`, `diagnose_sensing.py`, `direct_tv_gain_probe.py`, `dynamic_gain_value.py`, `estimator_swap.py`, `estimators.py`, `failure_causes.py`, `failure_replay.py`, `final_config.py`, `functional_separation_probe.py`, `gain_need_sweep.py`, `gain_truth_ceiling.py`, `h_fix_eval.py`, `identification_information_audit.py`, `identification_three_checks.py`, `jglr.py`, `jglr_compare.py`, `kgood_error.py`, `kgood_intervention.py`, `memory_closed_loop.py`, `memory_filters.py`, `memory_filters2.py`, `memory_root_causes.py`, `memory_theory_check.py`, `method3.py`, `neumann_data.py`, `neumann_dynamics.py`, `neumann_tests.py`, `open_loop_gain_replay.py`, `overlay_plots.py`, `overlay_report.py`, `physics_plant.py`, `physics_plant2.py`, `physics_plant3.py`, `probe_gain_truth_check.py`, `real_data_audit.py`, `recheck_actuator.py`, `retune_fixed.py`, `ridge_estimator.py`, `ridge_final.py`, `root_cause.py`, `root_cause_acquire.py`, `root_cause_confirm.py`, `scene_a_worst_diagnosis.py`, `scene_error_budget.py`, `scene_settings_check.py`, `scenes.py`, `scenes2.py`, `scenes3.py`, `select4.py`, `select_filters.py`, `sensing_repro.py`, `smoke3.py`, `stiffness_truth_layers.py`, `structured_tvk_audit.py`, `sweeps.py`, `tail_channel_diagnosis.py`, `test_candidates.py`, `test_swap.py`, `tvk_compare.py`, `tvk_mhe.py`. |
+
+| Results entry | Size | Python-reference class | Reference summary | No live dependency |
+|---|---:|---|---|---|
+| `baseline_test_r2.json` | 2,329,847 B | a | `overlay_compare.chosen()`; `corrected_comparison` legacy metadata; `rib_transition_eval` source hash; other report/round-two scripts | no |
+| `baseline_logs/` | 181,474,040 B | a | `baseline_compare`; per-row `log_file` use also by non-closure forensic/audit scripts | no |
+| `overlay_test.json` | 1,117,832 B | a | `low_estimate_forensics` reads rows; overlay stage code writes it | no |
+| `baseline_replay/` | 118,132,980 B | a | `baseline_compare`; `overlay_compare` reads/writes the replay folder | no |
+| `corrected_comparison.json` | 1,346,253 B | a | `simple_ls_validation`, `plant_arm_effect` | no |
+| `memory_segment_eval.json` | 706,297 B | a | written by live root; otherwise no consumer found | no |
+| `rib_transition_eval.json` | 2,382,542 B | a | written by live root; otherwise no consumer found | no |
+| `low_estimate_forensics.json` | 54,577,528 B | a | written by live root; reads `memory_closed_loop_true_base.json`, `overlay_test.json` | no |
+| `id_layer_root_cause.json` | 22,547,052 B | a | written by live root | no |
+| `plant_arm_check_frf.json` | 17,250 B | a | written by live root | no |
+| `plant_arm_effect.json` | 187,831 B | a | written by live root; reads `corrected_comparison.json` | no |
+| `keff_rescore.json` | 1,147,272 B | a | written by live root | no |
+| `simple_ls_validation.json` | 29,439 B | a | written by live root | no |
+| `baseline_calibration.json`, `baseline_capture.json`, `baseline_dev.json`, `baseline_module.json`, `baseline_pilot.json`, `baseline_test.json` | 41,897; 61,276; 2,400,431; 2,271,914; 12,276; 2,292,108 B | a | baseline compare stage paths; `overlay_compare` also uses original-load calibration/test inputs | no |
+| `baseline_cases/`, `baseline_checks.json`, `baseline_checks_r2.json`, `baseline_dev_r2.json`, `baseline_diagnostics.json`, `baseline_manifest*.json`, `baseline_module_r2.json`, `baseline_pilot_r2.json`, `baseline_plan_r2.json`, `baseline_replay_r2/`, `baseline_summary*.json`, `baseline_validation.json` | 1,743,043; 1,849; 6,536; 4,832,071; 12,789; 11,812 / 7,138; 2,307,771; 8,916; 23,267; 33,161,885; 146,198 / 18,202; 387 B | c | Non-closure diagnostics, reports, and round-two scripts | yes |
+| `ablation.json`, `candidate_checks.json`, `contact_compare_extra.json`, `contact_matrix.json`, `contact_response.json`, `contact_select.json` | 1,112,327; 5,780; 154,164; 2,851,471; 113,461; 8,368,365 B | c | Non-closure contact/candidate scripts | yes |
+| Remaining entries | Per-entry sizes inspected; omitted here to stay within requested length | b or c | References are in non-normal live-root stages or non-closure scripts; no normal corrected-comparison/keff/simple-LS path found | yes |
+
+| Requested special case | Static path finding |
+|---|---|
+| `overlay_compare.chosen()` → `baseline_test_r2.json` | Direct normal-path read in closure; class **a**. |
+| `corrected_comparison.legacy_check` → `overlay_test.json` and `baseline_logs` NPZ | `legacy_check` is an optional check path, not the default comparison path; the baseline NPZ path is taken from stored `log_file`. The root also cites `baseline_test_r2.json` in static metadata. |
+| `memory_closed_loop*`, `memory_filters*` | These modules are imported by closure scripts. `memory_closed_loop_true_base.json` is read by `memory_segment_eval` and `low_estimate_forensics`; other `memory_closed_loop*` outputs are not on the normal root execution path. |
+| `h_fix_eval.json` | Referenced in `corrected_comparison.py` diagnostic/history text only; no normal execution-path read found. |
+
+| Task | Result |
+|---|---|
+| Documentation and non-Python references | The requested docs and README files were searched for S result names and the specified stale names, with line numbers. The full line-by-line citation list is too long for the two-page limit; notable direct result citations include `baseline_test_r2.json` in `corrected_comparison.py:399` (code), `overlay_compare.py:46,121`, `rib_transition_eval.py:419`, and `overlay_report.py:36,138`. `baseline_logs` appears in `overlay_report.py:139` and the listed forensic scripts. |
+| References outside S | Python search found references outside S to S results in the specifically listed `motion_aware_scan` scripts only for the unrelated basename `ablation.json`; no other out-of-S Python result references were identified in the scan. |
+| Git tracking and ignored status | `git ls-files` and `git check-ignore` were queried per direct results entry. The result inventory is large; only tracked files contribute to the tracked-size total. A complete per-entry tracking table is not included here because the two-page output cap would be exceeded. |
+| Tracked-size total | Not available in the captured output: the per-entry tracking scan exceeded the command output limit before emitting its total. |

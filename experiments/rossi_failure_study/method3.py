@@ -125,12 +125,13 @@ def metric(log, pol, sc, f_exc=20.8):
     F = log[:, 18]
     calls = np.asarray(pol.t_call, float)*1e6
     trace = getattr(pol, 'accept_trace', [])
-    good = []; good_abs = []
+    good = []; good_abs = []; good_eff = []
     for tk, kh, _, _, ok in trace:
         if ok:
             j = int(np.clip(np.searchsorted(t, tk), 0, len(t)-1))
             if log[j, 20] > 0.:
                 good.append(math.log(kh/log[j, 20])); good_abs.append(math.log(kh/log[j, 21]))
+                good_eff.append(math.log(kh/log[j, 26]))
     return dict(J=min(J, 1000.), rmse=float(np.sqrt(np.mean(e**2))), normal_rmse=float(np.sqrt(np.mean(normal**2))),
                 mean_err=float(np.mean(e)), mean_normal_err=float(np.mean(normal)),
                 peak=float(f.max()), peak_normal=float(log[warm, 3].max()), over_band=float(np.mean(f > fd+F_OVER)*(t[-1]-1.)), over_15=float(np.mean(f > 15.)*(t[-1]-1.)),
@@ -138,4 +139,5 @@ def metric(log, pol, sc, f_exc=20.8):
                 long_loss=bool(longest*.008 > .5), failed=False, event_rmse=float(np.sqrt(np.mean((F[em]-fd)**2))) if em.sum() else np.nan,
                 call_p50=float(np.percentile(calls, 50)), call_p99=float(np.percentile(calls, 99)), accept=float(np.mean([x[4] for x in trace])) if trace else 0.,
                 est_re=float(np.median(good)) if good else np.nan, est_abs=float(np.median(good_abs)) if good_abs else np.nan,
+                est_keff=float(np.median(good_eff)) if good_eff else np.nan,  # identification target; est_re/est_abs are against tissue gain
                 phi=float(getattr(pol, 'phi', 0.)), phi_true=float(np.median(log[warm, 22])), k_true=float(np.median(log[warm, 20])), depth=float(np.median(log[warm, 6])))

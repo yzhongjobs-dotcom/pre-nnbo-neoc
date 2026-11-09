@@ -30,7 +30,13 @@ OUT = HERE/'results/corrected_comparison.json'
 BASE, SENSOR_BASE = 874500, 910000
 SETTINGS = (('neural_white', 28.), ('viscous', 14.))
 MEMORY = ('kal_long', 'kal_short', 'imm', 'lepski', 'ewa', 'forget_time', 'ard_fixed')
-METHODS = ('Huber-D4', 'D4', 'Rossi-ID', 'Kalman', 'MHE', 'off_none') + MEMORY + O.B.CTRL_METHODS + ('oracle',)
+# Historical margin diagnostic: 1.2 x tissue gain |K|, gates off. Not ideal identification.
+MARGIN = 'old_K_x1.2_margin'
+# Ideal reference: 1.0 x k_eff (log[:,26]) at the current tick, with and without gates.
+ORACLES = dict(oracle_keff_on=False, oracle_keff_off=True)
+# In baseline_compare but absent from the 612-episode grid.
+ADDED = ('P5', 'Xue-const', 'Xue-chi')
+METHODS = ('Huber-D4', 'D4', 'Rossi-ID', 'Kalman', 'MHE', 'off_none') + MEMORY + O.B.CTRL_METHODS + (MARGIN,)
 SCENES = ('A', 'A_slow_thin', 'B', 'A+B', 'cough', 'combo')
 
 
@@ -164,15 +170,15 @@ def numerical_checks():
 def legacy_check():
     O.setup()
     cell = ('breath_rib', 'rib', 'neural_white', 28., 2)
-    stored = next(r for r in O.ORIGINAL_LOAD('overlay_test.json')['rows']
-                  if r['method'] == 'Huber-D4' and O.B.key(r) == cell)
+    # One episode saved before the H correction; the old-form switches must reproduce it.
+    stored = json.loads((HERE/'results/legacy_h_fixture.json').read_text(encoding='utf-8'))
     sc = O.B.scene(cell, 674500, 0.)
     pol = O.B.build('Huber-D4', O.chosen()['Huber-D4'], sc)
     pol.estimator.h_increment = pol.estimator.memory_increment = False
     seed = O.sensor_seed(cell)
     log = SE.P3.episode(sc, pol, seed)
     metric = SE.M.metric(log, pol, sc)
-    with np.load(HERE/'results'/stored['log_file']) as z:
+    with np.load(HERE/'results/legacy_h_fixture.npz') as z:
         assert np.array_equal(log[:, z['cols']], z['log']), 'Legacy trajectory differs'
         count, columns = z['log'].shape
     for field in ('J', 'rmse', 'peak'):
@@ -183,32 +189,74 @@ def legacy_check():
         J_delta=0., rmse_delta=0., peak_delta=0.)
 
 
+def calibrate_contact(sc, seed):
+    """First-contact position Xue's Assumption 1 needs, from the sensor only.
+
+    Same procedure as baseline_compare.calibration_job, on this grid's own scene.
+    """
+    copy = dict(sc)
+    copy['T'] = 2.; copy['start_gap'] = .001
+    for k in ('u', 'act', 'fext', 'rip'):
+        copy[k] = np.full_like(sc[k], sc[k][0])
+    copy['xcmd'] = np.full_like(sc['xcmd'], sc['xcmd'][0])
+    pol = O.B.M.attach(O.B.ContactCalibration(), copy)
+    log = SE.P3.episode(copy, pol, seed+50000)
+    if log is None or pol.position is None:
+        raise RuntimeError(('first contact not acquired', seed))
+    return pol.position
+
+
+def inject_truth(pol, method, truth):
+    """Replace the window output by truth at the current tick; keep estimator side effects.
+
+    Truth comes from a shadow tick on copied state (R.oracle_run), so it is the
+    state at the current observation and cannot contain the current command or
+    later samples. Without contact there is no gain to report: return no update.
+    """
+    original_estimate = pol.estimator.estimate
+
+    def oracle(o, n, policy):
+        original_estimate(o, n, policy)
+        k = float(o.truth_k if method == MARGIN else o.truth_keff)
+        if not k > 0.:
+            return np.nan, np.inf, np.inf
+        pol.estimator.fit = dict(pol.estimator.fit, info=1.)
+        truth.append((n-1, k))
+        return (1.2*k if method == MARGIN else k), 0., 0.
+
+    pol.estimator.estimate = oracle
+
+
 def job(task):
     method, case = task
     O.setup()
     cell = tuple(case['cell'])
     sc = SE.MC.scene_for(cell, BASE, case['variant'])
     assert sc['tool_mass'] > 0. and sc['tool_mass_hat'] > 0.
-    host = 'Huber-D4' if method in ('off_none', 'oracle')+MEMORY else method
+    injected = method == MARGIN or method in ORACLES
+    simple = method in ('Simple-1', 'Simple-2')
+    host = 'Huber-D4' if method == 'off_none' or injected or simple or method in MEMORY else method
+    if host.startswith('Xue'):
+        sc['initial_contact_observed'] = calibrate_contact(sc, case['seed'])
     pol = O.B.build(host, O.chosen()[host], sc)
+    if simple:
+        from id_baselines import ContactAdapter
+        from simple_ls_validation import SimpleLS
+        cfg = O.chosen()[host]
+        pol.estimator = ContactAdapter(SimpleLS(method == 'Simple-2', nw=24, sigma_scale=cfg['sigma_scale'], chi_scale=cfg['gate']))
     identifier = host not in O.B.CTRL_METHODS
     if identifier:
         assert getattr(pol.estimator, 'h_increment', True)
-    if method in ('off_none', 'oracle')+MEMORY:
+    if method in ('off_none', MARGIN)+MEMORY or ORACLES.get(method):
         SE.gates_off(pol)
     sampling = R.make_filter(pol, method) if method in MEMORY else None
     oracle_truth = []
-    if method == 'oracle':
-        original_estimate = pol.estimator.estimate
-
-        def oracle(o, n, policy):
-            original_estimate(o, n, policy)
-            k = float(o.truth_k)
-            pol.estimator.fit = dict(pol.estimator.fit, info=1.)
-            oracle_truth.append((n-1, k))
-            return 1.2*k, 0., 0.
-
-        pol.estimator.estimate = oracle
+    if method in ORACLES:
+        # CENTRE scales k_good by 1.054 to offset the acceptance gate's selection
+        # bias; with truth injected it would make the reference 1.054 k_eff.
+        pol.centre = False
+    if injected:
+        inject_truth(pol, method, oracle_truth)
     channels = ('k_good', 'k_bar') if identifier else ('k_good',) if method in ('Rossi-control', 'DO-MPAC') else ()
     records = []
     step = pol.step
@@ -224,7 +272,7 @@ def job(task):
 
     pol.step = capture
     tic = time.perf_counter()
-    log = R.oracle_run(sc, pol, case['seed']) if method == 'oracle' else SE.P3.episode(sc, pol, case['seed'])
+    log = R.oracle_run(sc, pol, case['seed']) if injected else SE.P3.episode(sc, pol, case['seed'])
     if log is None:
         raise RuntimeError(('Plant failed', method, case))
     rec = np.asarray(records)
@@ -236,10 +284,12 @@ def job(task):
     scoring = rec.copy()
     for c, name in enumerate(('k_good', 'k_bar')):
         if name not in channels:
-            scoring[:, c+1] = np.maximum(log[:, 21], 1.)
+            scoring[:, c+1] = np.maximum(log[:, SE.K_REF], 1.)
     row = dict(method=method, config=method, **case, base=BASE,
         L=float(np.log1p(metric['J'])), force_rmse=metric['rmse'], peak=metric['peak'],
         catastrophic=bool(metric['peak'] > 36.5), seconds=time.perf_counter()-tic,
+        loss_time=metric['loss_time'], long_loss=metric['long_loss'], over_15_s=metric['over_15'],
+        event_rmse=metric['event_rmse'], call_p50=metric['call_p50'], call_p99=metric['call_p99'],
         tool_mass=sc['tool_mass'], tool_mass_hat=sc['tool_mass_hat'],
         estimate_channels=channels,
         estimate_meaning='fixed nominal k_h0, not an identified gain' if method == 'DO-MPAC' else
@@ -258,10 +308,18 @@ def job(task):
             min_gap_ticks=int(gaps.min()) if len(gaps) else None,
             max_gap_ticks=int(gaps.max()) if len(gaps) else None,
             gaps_over_six=int((gaps > 6).sum()))
-    if method == 'oracle':
-        difference = max((abs(k-log[n, 21]) for n, k in oracle_truth), default=0.)
+    if injected:
+        col = 21 if method == MARGIN else SE.K_REF
+        difference = max((abs(k-log[n, col]) for n, k in oracle_truth), default=0.)
         assert difference < 1e-8
         row['oracle_max_truth_delta'] = difference
+    if method in ORACLES:
+        # What the controller actually received, against the reference it was given.
+        good = np.isfinite(rec[:, 1]) & SE.contact_mask(log) & (log[:, 0] >= 1.)
+        row['ideal_check'] = dict(
+            k_good=R.dist(np.log(rec[good, 1]/log[good, SE.K_REF])),
+            k_bar=R.dist(np.log(rec[good, 2]/log[good, SE.K_REF])),
+            injected_ticks=len(oracle_truth))
     if identifier:
         assert pol.estimator.h_increment
         row['corrected_preprocessing'] = True
@@ -294,7 +352,7 @@ def summary(rows):
             detected = [e for r in rr for e in r['transitions']
                         if e['size_class'] == 'large' and e['direction'] == direction]
             events = [e for r in rr if not r['catastrophic'] for e in r['transitions']
-                      if e['size_class'] == 'large' and e['direction'] == direction]
+                      if e['size_class'] == 'large' and e['direction'] == direction and not e['overlaps_event']]
             item = dict(method=method, direction=direction, n=len(events),
                 detected=len(detected), too_few=len(events) < 5,
                 excluded_catastrophic=len(detected)-len(events),
@@ -373,11 +431,11 @@ def main():
             sensor_index='Sequential 0..35 in listed scene, setting, i order, identical across methods',
             force_metrics='method3.metric: t>=1s true axial force; L=ln(1+J), J capped at1000, force RMSE against8N; peak=max true F, >15 counted per episode',
             memory='rib_transition_eval.make_filter unchanged: >=6 ticks, R=4*(sigma/k)^2; IMM/EWA likelihood power1/4; forget_time includes Q_RATE_LO time floor; no forget_dist variant',
-            oracle='1.2*instantaneous true |K(20.8)| as window output through gates-off host, sigma=chi=0; unchanged side effects; truth verified at each call',
-            transitions='rib_transition_eval.score unchanged; pooled A nominal, A slow_thin, A+B, large abs(delta log k)>=.3; rising/falling separately. Exact truth for scoring, .1s boxcar for detection, rate>.2/s, gaps<.1s merged.',
+            margin='old_K_x1.2_margin: 1.2*instantaneous tissue gain |K(20.8)| through gates-off host, sigma=chi=0; a control margin diagnostic, not ideal identification',
+            transitions='rib_transition_eval.score; reference k_eff log[:,26], contact from fn and tissue gain; pooled A nominal, A slow_thin, A+B, large abs(delta log k)>=.3, not overlapping a scene event; rising/falling separately. Exact reference for scoring, .1s boxcar for detection, rate>.2/s, gaps<.1s merged.',
             transition_exclusions='Original rules: prior true-contact loss excludes event; episode force peak>36.5 excludes all its transitions. All exclusions and catastrophic episodes retained in JSON.',
             transition_metrics='lag grid0:.008:1.496 plus1.5s; local .5s pretransition median log bias removed (episode fallback recorded); settling abs(local error)<=.1 for .2s, cap2s; interval[t0,t1+.5]. Under-estimate = -min(log(hat/k)-local bias), signed; max across events is largest. Raw error also retained. Force peak_abs=max|F-8|; true F max also retained.',
-            plateau='SE plateau masks; ln(hat/k) bias=per-episode median, sd=(Q75-Q25)/1.349; reported medians over episodes with plateau, including catastrophes. DO-MPAC is nominal fixed k_h0 only; Xing has no stiffness estimate.',
+            plateau='SE plateau masks on k_eff, every scene event excluded; ln(hat/k_eff) bias=per-episode median, sd=(Q75-Q25)/1.349; reported medians over episodes with plateau, including catastrophes. DO-MPAC is nominal fixed k_h0 only; Xing has no stiffness estimate.',
             too_few='n<5 marked; counts refer to method-specific closed-loop trajectories, not matched events'),
             numerical_checks=numerical_checks(), code_path_audit=code_audit(), episodes=[])
         data['legacy_check'] = legacy_check()

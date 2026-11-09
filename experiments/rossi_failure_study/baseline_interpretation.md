@@ -1,5 +1,7 @@
 # Baseline 比较结果（2026-11-06 定稿）
 
+> **已失效（2026-11-09）。** 本文的数字都在 H 预处理缺陷修正之前产生，并以组织接触增益（`log[:,21]`）为刚度真值，其性能排序、误差归因和方法优劣判断不能用于当前研究。当前结论见[三张对比表](comparison_tables.md)。本文保留给协议和历史推理查阅；引用的 `results/` 中间文件已从工作区移除，需要时用 `git show e5b2de9:experiments/rossi_failure_study/results/<文件>` 恢复。
+
 原文卡片、适配、单元检查和评分协议见 [baseline_protocol.md](baseline_protocol.md)。主要数字见 `results/baseline_summary_r2.json`（第二轮定稿）；第一轮见 `results/baseline_summary.json`。
 
 ## 怎么比较的

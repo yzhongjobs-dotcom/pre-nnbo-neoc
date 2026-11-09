@@ -4,11 +4,13 @@
 
 ## 现在的情况
 
-**2026-11-07 增量仿真已完成：三个呼吸叠加工况。** 复用原物理对象与第二轮冻结参数，84配对实例×11方法、1344次双源辨识回放；未调参、未开发方法。[结果分析](../experiments/rossi_failure_study/overlay_interpretation.md)。当前Huber-D⁴总体平均L=0.181最低，但与D⁴/Rossi-ID/Kalman/MHE的总体区间跨零；呼吸＋跨肋骨Xing均值更低，呼吸＋快推拉D⁴略好，三因素Huber均值最低。刚度中位精度并非全面领先，峰值35.5 N与覆盖率不足仍在。本批仅补比较证据，不变更正在进行的研究方向。
+**2026-11-09 最新：修复评价错误、清理失效结果、补齐比较。** H 预处理缺陷修正后，当前有效的比较只有 [三张对比表](../experiments/rossi_failure_study/comparison_tables.md) 和[研究说明第 12 节](../research/identification_module_scheme_20261108.md)，来自 `identification_completion.py` 与 `corrected_comparison.py`。刚度真值统一为 \(k_{\rm eff}\)（`log[:,26]`）。Huber-D⁴ 的 L 均值最低（.558），但与 Rossi-ID、D⁴、MHE 的差距不足以称领先，分场景最优不同。Oracle（1.0 \(k_{\rm eff}\)）在软组织上出现 17–19 Hz 振荡，不是性能上限。配置未在修正后重调，不与事件重叠的大过渡只有 15 个。**下面 11-07 及更早的性能排序和误差归因都在缺陷修正之前，不能作为当前结论。**
+
+**（已失效：H 修正前）2026-11-07 增量仿真已完成：三个呼吸叠加工况。** 复用原物理对象与第二轮冻结参数，84配对实例×11方法、1344次双源辨识回放；未调参、未开发方法。[结果分析](../experiments/rossi_failure_study/overlay_interpretation.md)。当前Huber-D⁴总体平均L=0.181最低，但与D⁴/Rossi-ID/Kalman/MHE的总体区间跨零；呼吸＋跨肋骨Xing均值更低，呼吸＋快推拉D⁴略好，三因素Huber均值最低。刚度中位精度并非全面领先，峰值35.5 N与覆盖率不足仍在。本批仅补比较证据，不变更正在进行的研究方向。
 
 **2026-11-07 用户要求继续刚度辨识理论与方法研究。** 不沿用旧记录中“只剩控制收益/一个窗口只能估一个 k”的泛化结论。已在原物理 plant 的 6 类×3 条轨迹上作因果回放，数值复现 Huber-current，检验测量一致的局部斜率、直接乘性 TV-gain、两极点测量对照；均未满足好工况不明显退化、差工况实质改善的统一要求，默认 Method 未改。已给出当前 k 功能量的两点分离界及相同预测的不同刚度解释，并算出冻结模型中被动身体支撑的同频响应上界。下一项具体对象是接触响应—身体支撑—外生运动及有界标定误差的联合物理约束，不预设采用某种 k 曲线或阈值。详见 [本轮理论与证据](../research/stiffness_separation_20261107.md)。本轮仅候选辨识回放，无新候选闭环或人体结论。
 
-**2026-11-06 最新：估计主线评估完毕，保留 Huber-D⁴。** 时变刚度鲁棒 MHE（TVK）的结果：
+**（已失效：H 修正前）2026-11-06：估计主线评估完毕，保留 Huber-D⁴。** 时变刚度鲁棒 MHE（TVK）的结果：
 - q = 2 闭环明显退化；
 - q = 1 被开发集推回常数 k，与 Huber-D⁴ 持平；
 - 窗口内的信息只够可靠估计一个 k；
@@ -16,7 +18,7 @@
 
 剩余收益来自两处：一是控制如何使用 k 和 σ，即对低估和刚度变化的容错；二是激励信息量。下一步方向待用户选择。详见 [disturbance_model.md](../research/disturbance_model.md) 的 TVK 条。
 
-**2026-11-06 ：可靠接触辨识的 baseline 比较已完成。** 结果见 [baseline_interpretation.md](../experiments/rossi_failure_study/baseline_interpretation.md)。
+**（已失效：H 修正前）2026-11-06：可靠接触辨识的 baseline 比较已完成。** 结果见 [baseline_interpretation.md](../experiments/rossi_failure_study/baseline_interpretation.md)。
 - **用户定的原则**：对手只要实现正确、处在合理状态即可；我们的方法可以多调，但只用开发场景选参，最终数字用从未用于选参的新种子。
 - **结果**：当前 Method 总体最好，L 为 0.476，次好的对手为 Rossi-ID 0.588、MHE 0.626。但并非处处领先：
   - 呼吸工况，完整 Rossi、Xing、D⁴/P5 更好；

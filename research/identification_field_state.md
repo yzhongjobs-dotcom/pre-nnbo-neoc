@@ -230,7 +230,7 @@
 
 ### D. 必须做的比较（设计）
 
-**2026-11-06 已实施**，结果见 [baseline_interpretation.md](../experiments/rossi_failure_study/baseline_interpretation.md)。与下面的设计相比，有三处实际做法不同：
+**2026-11-06 已实施**（结果在 H 预处理缺陷修正之前，已失效，当前见[三张对比表](../experiments/rossi_failure_study/comparison_tables.md)），结果见 [baseline_interpretation.md](../experiments/rossi_failure_study/baseline_interpretation.md)。与下面的设计相比，有三处实际做法不同：
 - MHE 单列比较：二阶 d，覆盖 Kalman 的最优过程模型，端点与 Kalman 等价，差别只在窗口 χ；
 - Zhang 式 MHE 用估计 d 代替已知表面，Xue 按原文的 HC 回归实现，并提供标定得到的初始接触位置；
 - 控制器级加入完整 Rossi、DO-MPAC 和 Xing DAHIC。

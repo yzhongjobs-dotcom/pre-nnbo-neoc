@@ -1,5 +1,7 @@
 # 三个叠加工况：原协议增量比较（2026-11-07）
 
+> **已失效（2026-11-09）。** 本文的数字都在 H 预处理缺陷修正之前产生，并以组织接触增益（`log[:,21]`）为刚度真值，其性能排序、误差归因和方法优劣判断不能用于当前研究。当前结论见[三张对比表](comparison_tables.md)。本文保留给协议和历史推理查阅；引用的 `results/` 中间文件已从工作区移除，需要时用 `git show e5b2de9:experiments/rossi_failure_study/results/<文件>` 恢复。
+
 ## 范围与复现
 
 仅补三个场景；不改物理对象、方法或参数，不做开发选参。`overlay_compare.py` 是原 `baseline_compare.py` 的场景/种子适配入口，仍调用原 execute、标定、capture、replay_job、M.metric 和 bootstrap。论文机制的适配边界见 [原协议](baseline_protocol.md)，原比较见 [原分析](baseline_interpretation.md)。已核对 `structured_tvk_audit.py` 的同轨迹、真值仅评分原则；本次维持 baseline 协议的8 N/10 s，不照搬该专项的4 N/6 s，不引入其候选估计模型。

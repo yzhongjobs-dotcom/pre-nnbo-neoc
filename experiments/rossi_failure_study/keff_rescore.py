@@ -37,7 +37,8 @@ def job(a):
         hats[kind] = I.filter_replay(kind, windows, count)[0]
     out = dict(label=label, plant=plant, plateau={}, plateau_old={}, events=[], events_old=[], keff_over_old=float(np.median((log[:, 26]/np.maximum(log[:, 21], 1e-9))[log[:, 21] > 200.])))
     for tag, col in (('', 26), ('_old', 21)):
-        lg = log.copy(); lg[:, 21] = log[:, col]
+        # Swap both: segment and transition code read K_REF=26, event_scores reads 21; contact only tests >0.
+        lg = log.copy(); lg[:, 21] = lg[:, 26] = log[:, col]
         truth = np.log(np.maximum(lg[:, 21], 1e-30))
         _, masks = SE.segment_masks(lg, sc)
         _, _, events, _ = R.transitions(lg)

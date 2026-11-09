@@ -80,9 +80,38 @@ def expand(mask, t, seconds):
     return np.minimum(abs(t-hits[left]), abs(t-hits[right])) <= seconds+1e-10
 
 
+# Stiffness reference: effective probe-frequency gain |G3(i w0)|, axial force over
+# encoder displacement (body support and arm path included). Column 21, the
+# tissue contact gain, is a different quantity; it is used only to decide
+# whether contact physically exists.
+K_REF = 26
+EVENT_TAIL = .3
+
+
+def contact_mask(log):
+    return (log[:, 21] > 0.) & (log[:, 3] > 0.) & np.isfinite(log[:, 21]) & (log[:, K_REF] > 0.)
+
+
+def event_mask(t, sc, tail=EVENT_TAIL):
+    """Every scene event from its own drive record, not only breath_fast.
+
+    Cough and flinch activation lasts dur+.1 s, inside this tail.
+    """
+    mask = np.zeros(len(t), bool)
+    for e in sc['event_info']:
+        mask |= (t >= e['start']) & (t <= e['end']+tail)
+    return mask
+
+
 def segment_masks(log, sc):
-    t, k = log[:, 0], log[:, 21]
-    contact = (k > 0.) & (log[:, 3] > 0.) & np.isfinite(k)
+    """plateau, transition: no event. event: every event tick.
+
+    event splits into event_only and event_transition (the reference gain is
+    also changing, as in cough activation or a push moving the operating depth).
+    Overlap is reported as its own class, not credited to either cause.
+    """
+    t, k = log[:, 0], log[:, K_REF]
+    contact = contact_mask(log)
     r = np.full(len(t), np.nan)
     # Centered 0.2 s arithmetic boxcar of k, nearest endpoint extension within
     # each continuous contact run; no smoothing across contact-loss boundaries.
@@ -96,12 +125,11 @@ def segment_masks(log, sc):
             r[a:b] = abs(np.gradient(np.log(smooth), t[a:b]))
     transition = expand(contact & (r > .2), t, .1)
     plateau = contact & (r < .05) & ~expand(transition, t, .3)
-    event = np.zeros(len(t), bool)
-    if sc['cond'] == 'breath_fast':
-        for _, a, b in sc.get('events', []):
-            event |= (t >= a) & (t <= b+.3)
+    event = event_mask(t, sc)
     eligible = (t >= 1.) & contact
     masks = dict(event=eligible & event,
+                 event_only=eligible & event & ~transition,
+                 event_transition=eligible & event & transition,
                  transition=eligible & transition & ~event,
                  plateau=eligible & plateau & ~event)
     assert not np.any(masks['transition'] & masks['plateau'])

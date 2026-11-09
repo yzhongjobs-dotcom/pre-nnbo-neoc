@@ -52,10 +52,10 @@ def dist(values):
 
 
 def transitions(log):
-    """Exact 0.1 s centered boxcar of log truth, within contact runs only."""
-    t, k = log[:, 0], log[:, 21]
+    """Exact 0.1 s centered boxcar of the log reference gain, within contact runs only."""
+    t, k = log[:, 0], log[:, SE.K_REF]
     dt = float(np.median(np.diff(t)))
-    contact = (k > 0) & np.isfinite(k) & (log[:, 3] > 0)
+    contact = SE.contact_mask(log)
     ell = np.full(len(t), np.nan)
     radius = int(math.ceil(.05/dt))
     centres = np.arange(-radius, radius+1)*dt
@@ -155,7 +155,7 @@ def oracle_run(sc, pol, seed):
                       sc['q_field'], sc['E_field'], sc['ribs'], sc['h_s'],
                       sc['xcmd'], sc['u'], sc['fext'], sc['act'], sc['rip'],
                       alpha, tau, noise, kk, shadow, 0)
-                obs.truth_k = float(shadow[0, 21])"""
+                obs.truth_k = float(shadow[0, 21]); obs.truth_keff = float(shadow[0, 26])"""
     assert source.count(old) == 1
     namespace = {}
     exec(compile(source.replace(old, new), '<oracle-only runner>', 'exec'),
@@ -192,15 +192,20 @@ def force_metrics(error, band, t, a, b, recovery_end, plateau_band):
                 recovery=hold_time(error, t, recovery_end, .5))
 
 
-def score(log, rec, sc):
+def score(log, rec, sc, names=('k_good', 'k_bar'), keep_after_loss=False):
+    """keep_after_loss also scores events after the first contact loss, flagged, not dropped."""
     t = log[:, 0]
     _, contact, events, excluded = transitions(log)
+    if keep_after_loss:
+        events = sorted([dict(e, after_contact_loss=False) for e in events] +
+                        [dict(e, after_contact_loss=True) for e in excluded], key=lambda e: e['start'])
+        excluded = []
     dt = float(np.median(np.diff(t)))
     _, masks = SE.segment_masks(log, sc)
     plateau = masks['plateau']
     truth_raw = np.full(len(t), np.nan)
-    truth_raw[contact] = np.log(log[contact, 21])
-    # Smooth only for locating transitions. Scoring uses ell=ln|K| itself:
+    truth_raw[contact] = np.log(log[contact, SE.K_REF])
+    # Smooth only for locating transitions. Scoring uses ell=ln k_eff itself:
     # otherwise even an exact oracle receives spurious errors near curvature.
     ell = truth_raw
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -212,10 +217,11 @@ def score(log, rec, sc):
     episode_bias = [float(np.nanmedian((hat[:, c]-ell)[contact & (t >= 1.)]))
                     for c in range(2)]
     plateau_result = {name: SE.distribution((hat[:, c]-truth_raw)[plateau])
-                      for c, name in enumerate(('k_good', 'k_bar'))}
+                      for c, name in enumerate(names)}
     plateau_result['force_band_rms'] = plateau_band
     scored = []
     plateau_runs = spans(plateau)
+    drive = SE.event_mask(t, sc)
     for event in events:
         a, z = event['start'], event['end']
         b = int(np.searchsorted(t, event['t1']+.5+1e-9))
@@ -223,6 +229,7 @@ def score(log, rec, sc):
         row = dict(event, interval_ticks=b-a,
                    interval_truncated=bool(t[-1]+dt < window_end-1e-9),
                    contact_loss_in_interval=bool(not contact[a:b].all()),
+                   overlaps_event=bool(drive[a:z+1].any()),
                    recovery_window_next_transition=any(
                        e['t0'] > event['t1'] and e['t0'] < event['t1']+2.2
                        for e in events))
@@ -233,7 +240,7 @@ def score(log, rec, sc):
         # Do not interpolate across a contact boundary or endpoint extension.
         shifted = np.array([np.interp(t[idx]-tau, t, ell, left=np.nan, right=np.nan)
                             for tau in tau_grid])
-        for c, name in enumerate(('k_good', 'k_bar')):
+        for c, name in enumerate(names):
             pre_error = (hat[:, c]-ell)[pre]
             fallback = (len(pre_error) < int(round(.5/dt))-1 or
                         not np.isfinite(pre_error).all())
@@ -252,8 +259,12 @@ def score(log, rec, sc):
                 negative=float(np.nanmin(local[a:b])),
                 positive=float(np.nanmax(local[a:b])),
                 under_magnitude=float(-np.nanmin(local[a:b])),
-                raw_negative=float(np.nanmin(raw)),
-                raw_under_magnitude=float(-np.nanmin(raw)))
+                raw_negative=float(np.nanmin(raw)) if np.isfinite(raw).any() else None,
+                raw_under_magnitude=float(-np.nanmin(raw)) if np.isfinite(raw).any() else None,
+                # Share of the interval more than 15% low; missing estimates or contact counted apart.
+                under_fraction=float(np.mean(raw < math.log(.85))),
+                missing_fraction=float(np.mean(~np.isfinite(raw))),
+                recovery_raw=hold_time(hat[:, c]-truth_raw, t, event['t1'], math.log(1.2)))
         row['force'] = force_metrics(error, band, t, a, b, event['t1'], plateau_band)
         # Choose the nearest interval of IDENTICAL tick length, entirely inside
         # one contiguous plateau run; never pool disconnected plateau samples.

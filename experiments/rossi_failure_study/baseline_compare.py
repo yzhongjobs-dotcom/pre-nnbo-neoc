@@ -33,7 +33,7 @@ ID_METHODS=('Huber-D4','D4','P5','Rossi-ID','Kalman','MHE','Xue-const','Xue-chi'
 CTRL_METHODS=('Rossi-control','DO-MPAC','Xing-DAHIC')
 METHODS=ID_METHODS+CTRL_METHODS
 OBS_COLS=[0,1,2,5,11,12,13]
-SAVE_COLS=OBS_COLS+[3,6,18,20,21,22]
+SAVE_COLS=OBS_COLS+[3,6,18,20,21,22,26,27]
 
 
 def configurations(method):
@@ -274,7 +274,8 @@ def replay_job(a):
     source,method,cfg,gap=a;cell=key(source);sc=scene(cell,TEST_BASE,gap)
     if method.startswith('Xue') and gap==0.:
         sc['initial_contact_observed']=load('baseline_calibration.json')['positions'][calkey(cell,False)]
-    saved=np.load(OUT/source['log_file']);log=np.full((len(saved['log']),26),np.nan);log[:,saved['cols']]=saved['log']
+    saved=np.load(OUT/source['log_file']);log=np.full((len(saved['log']),P3.LOGC),np.nan);log[:,saved['cols']]=saved['log']
+    if 26 not in saved['cols']:raise ValueError('Source log predates k_eff; column 26 is the stiffness reference')
     observed=saved['observed']
     pol=build(method,cfg,sc);platform=dict(P3.PLATFORM,tau_a=sc['tau_a_hat']);pol.reset(platform)
     # Instrument every attempted estimator call, including invalid ones. Host
@@ -293,7 +294,7 @@ def replay_job(a):
     if method==source['method'] and command_error>=1e-10:
         raise AssertionError(('causal source command replay differs',method,cell,command_error))
     accepted={round(x[0],7):bool(x[4]) for x in pol.accept_trace}
-    t=log[:,0];k=log[:,21];ev=np.zeros(len(t),bool)
+    t=log[:,0];k=log[:,26];ev=np.zeros(len(t),bool)
     for e in sc['event_info']:ev|=(t>=e['start'])&(t<=e['end']+.3)
     changing=np.convolve(np.abs(np.gradient(np.log(np.maximum(k,1.)),t))>2.,np.ones(30),'same')>0
     # quiet means no detected event/change, not a physically motionless surface.

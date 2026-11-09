@@ -1,5 +1,8 @@
 """Identical-observation, simulation-only estimator forensics. No source edits.
 
+Scores against tissue gain log[:,21] (historical). keff_rescore.py scores against
+the identification target k_eff, log[:,26]; use that for current statements.
+
 python -X utf8 experiments/rossi_failure_study/id_layer_root_cause.py --workers 6
 """
 import os

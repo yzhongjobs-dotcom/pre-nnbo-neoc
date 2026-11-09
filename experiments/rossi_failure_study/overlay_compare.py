@@ -209,11 +209,7 @@ def replay():
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--stage',choices=('check','pilot','test','capture','replay','report'),required=True)
+    p.add_argument('--stage',choices=('check','pilot','test','capture','replay'),required=True)
     args = p.parse_args()
     setup()
-    if args.stage == 'report':
-        from overlay_report import generate
-        generate()
-    else:
-        globals()[args.stage]()
+    globals()[args.stage]()
