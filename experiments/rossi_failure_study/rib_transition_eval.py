@@ -242,11 +242,15 @@ def score(log, rec, sc, names=('k_good', 'k_bar'), keep_after_loss=False):
                             for tau in tau_grid])
         for c, name in enumerate(names):
             pre_error = (hat[:, c]-ell)[pre]
-            fallback = (len(pre_error) < int(round(.5/dt))-1 or
-                        not np.isfinite(pre_error).all())
+            pre_error = pre_error[np.isfinite(pre_error)]
+            fallback = len(pre_error) < .5*(int(round(.5/dt))-1)
             bias = episode_bias[c] if fallback else float(np.median(pre_error))
             local = hat[:, c]-ell-bias
-            lag_errors = np.mean(abs(hat[idx, c][None, :]-shifted-bias), axis=1)
+            # A lag needs the estimate and the shifted reference on most of the interval.
+            gaps = abs(hat[idx, c][None, :]-shifted-bias)
+            lag_errors = np.full(len(tau_grid), np.nan)
+            covered = np.isfinite(gaps).mean(axis=1) >= .5
+            lag_errors[covered] = np.nanmean(gaps[covered], axis=1)
             finite = np.flatnonzero(np.isfinite(lag_errors))
             j = int(finite[np.argmin(lag_errors[finite])]) if len(finite) else None
             raw = (hat[:, c]-truth_raw)[a:b]
@@ -256,11 +260,13 @@ def score(log, rec, sc, names=('k_good', 'k_bar'), keep_after_loss=False):
                 lag_at_upper_bound=bool(j is not None and j == len(tau_grid)-1),
                 lag_mae=float(lag_errors[j]) if j is not None else None,
                 settling=hold_time(local, t, event['t1'], .1),
-                negative=float(np.nanmin(local[a:b])),
-                positive=float(np.nanmax(local[a:b])),
-                under_magnitude=float(-np.nanmin(local[a:b])),
+                negative=float(np.nanmin(local[a:b])) if np.isfinite(local[a:b]).any() else None,
+                positive=float(np.nanmax(local[a:b])) if np.isfinite(local[a:b]).any() else None,
+                # Shortfall below the reference: zero if the estimate never goes below it.
+                under_magnitude=float(max(0., -np.nanmin(local[a:b]))) if np.isfinite(local[a:b]).any() else None,
                 raw_negative=float(np.nanmin(raw)) if np.isfinite(raw).any() else None,
-                raw_under_magnitude=float(-np.nanmin(raw)) if np.isfinite(raw).any() else None,
+                raw_under_magnitude=float(max(0., -np.nanmin(raw))) if np.isfinite(raw).any() else None,
+                raw_over_magnitude=float(max(0., np.nanmax(raw))) if np.isfinite(raw).any() else None,
                 # Share of the interval more than 15% low; missing estimates or contact counted apart.
                 under_fraction=float(np.mean(raw < math.log(.85))),
                 missing_fraction=float(np.mean(~np.isfinite(raw))),

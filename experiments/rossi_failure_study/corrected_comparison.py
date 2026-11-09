@@ -34,8 +34,10 @@ MEMORY = ('kal_long', 'kal_short', 'imm', 'lepski', 'ewa', 'forget_time', 'ard_f
 MARGIN = 'old_K_x1.2_margin'
 # Ideal reference: 1.0 x k_eff (log[:,26]) at the current tick, with and without gates.
 ORACLES = dict(oracle_keff_on=False, oracle_keff_off=True)
-# In baseline_compare but absent from the 612-episode grid.
-ADDED = ('P5', 'Xue-const', 'Xue-chi')
+# Literature mechanisms and plain least squares: the Method's acceptance gates are not theirs.
+OWN_MECHANISM = ('Rossi-ID', 'Kalman', 'MHE', 'Xue-const', 'Simple-1', 'Simple-2')
+# Same 36 scenes with exact mass, force offset and servo lag in the sensing stage.
+IDEAL_CAL = ('Huber-D4_idealcal', 'oracle_keff_idealcal')
 METHODS = ('Huber-D4', 'D4', 'Rossi-ID', 'Kalman', 'MHE', 'off_none') + MEMORY + O.B.CTRL_METHODS + (MARGIN,)
 SCENES = ('A', 'A_slow_thin', 'B', 'A+B', 'cough', 'combo')
 
@@ -189,6 +191,28 @@ def legacy_check():
         J_delta=0., rmse_delta=0., peak_delta=0.)
 
 
+def own_mechanism(pol):
+    """Remove acceptance that belongs to the Method; keep the common controller and safety.
+
+    Removed: precision, consistency and ln1.2 acceptance, the feed-forward jump
+    rule, and CENTRE, which only offsets the selection bias of that acceptance.
+    Kept: finite-value and contact checks, gain clipping, and k_bar's own bound
+    and downward rate limit, which are part of the shared feedback controller.
+    The estimator itself and its own mechanisms (Xue's dead zone, RLS forgetting)
+    are untouched. Phase detection now follows every valid window, as it does for
+    the injected references, not this estimator's interface sigma.
+    """
+    SE.gates_off(pol)
+    pol.params['rel_max'] = pol.params['chi2_max'] = math.inf
+    pol.centre = False
+
+
+def perfect_calibration(sc):
+    sc['tool_mass_hat'] = sc['tool_mass']
+    sc['sensor_delay_hat'] = sc['sensor_delay_ms']
+    sc['tau_a_hat'] = sc['tau_a_true']
+
+
 def calibrate_contact(sc, seed):
     """First-contact position Xue's Assumption 1 needs, from the sensor only.
 
@@ -233,6 +257,9 @@ def job(task):
     cell = tuple(case['cell'])
     sc = SE.MC.scene_for(cell, BASE, case['variant'])
     assert sc['tool_mass'] > 0. and sc['tool_mass_hat'] > 0.
+    if method in IDEAL_CAL:
+        perfect_calibration(sc)
+        method = {'Huber-D4_idealcal': 'Huber-D4', 'oracle_keff_idealcal': 'oracle_keff_off'}[method]
     injected = method == MARGIN or method in ORACLES
     simple = method in ('Simple-1', 'Simple-2')
     host = 'Huber-D4' if method == 'off_none' or injected or simple or method in MEMORY else method
@@ -249,6 +276,8 @@ def job(task):
         assert getattr(pol.estimator, 'h_increment', True)
     if method in ('off_none', MARGIN)+MEMORY or ORACLES.get(method):
         SE.gates_off(pol)
+    if method in OWN_MECHANISM:
+        own_mechanism(pol)
     sampling = R.make_filter(pol, method) if method in MEMORY else None
     oracle_truth = []
     if method in ORACLES:

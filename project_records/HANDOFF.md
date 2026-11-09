@@ -4,7 +4,7 @@
 
 ## 现在的情况
 
-**2026-11-09 最新：修复评价错误、清理失效结果、补齐比较。** H 预处理缺陷修正后，当前有效的比较只有 [三张对比表](../experiments/rossi_failure_study/comparison_tables.md) 和[研究说明第 12 节](../research/identification_module_scheme_20261108.md)，来自 `identification_completion.py` 与 `corrected_comparison.py`。刚度真值统一为 \(k_{\rm eff}\)（`log[:,26]`）。Huber-D⁴ 的 L 均值最低（.558），但与 Rossi-ID、D⁴、MHE 的差距不足以称领先，分场景最优不同。Oracle（1.0 \(k_{\rm eff}\)）在软组织上出现 17–19 Hz 振荡，不是性能上限。配置未在修正后重调，不与事件重叠的大过渡只有 15 个。**下面 11-07 及更早的性能排序和误差归因都在缺陷修正之前，不能作为当前结论。**
+**2026-11-09 最新：修复评价和比较错误。** H 预处理缺陷修正后，当前有效的比较只有 [三张对比表](../experiments/rossi_failure_study/comparison_tables.md) 和[研究说明第 12 节](../research/identification_module_scheme_20261108.md)，来自 `identification_completion.py`。刚度真值为 \(k_{\rm eff}\)（`log[:,26]`）；文献方法和 Simple 已去掉 Method 门控；Xue 不进入精度排名。Huber-D⁴ 的 L 均值最低（.558），但与 Rossi-ID（.610）、D⁴（.606）的差距不足以称领先。Oracle（1.0 \(k_{\rm eff}\)）在部分软组织回合振荡，原因是惯性补偿残差使回路实际增益高于 \(k_{\rm eff}\)，理想标定下消失。配置未重调，不与事件重叠的大过渡只有 15 个。**下面 11-07 及更早的性能排序和误差归因都在缺陷修正之前，不能作为当前结论。**
 
 **（已失效：H 修正前）2026-11-07 增量仿真已完成：三个呼吸叠加工况。** 复用原物理对象与第二轮冻结参数，84配对实例×11方法、1344次双源辨识回放；未调参、未开发方法。[结果分析](../experiments/rossi_failure_study/overlay_interpretation.md)。当前Huber-D⁴总体平均L=0.181最低，但与D⁴/Rossi-ID/Kalman/MHE的总体区间跨零；呼吸＋跨肋骨Xing均值更低，呼吸＋快推拉D⁴略好，三因素Huber均值最低。刚度中位精度并非全面领先，峰值35.5 N与覆盖率不足仍在。本批仅补比较证据，不变更正在进行的研究方向。
 
