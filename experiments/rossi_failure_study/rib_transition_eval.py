@@ -67,18 +67,22 @@ def transitions(log):
         ell[a:b] = convolve1d(np.log(k[a:b]), kernel, mode='nearest')
         if b-a >= 2:
             rate[a:b] = np.gradient(ell[a:b], t[a:b])
-    runs = spans(contact & (t >= 1.) & (abs(rate) > .2))
+    runs = sorted((a, b, sign) for sign in (-1, 1)
+                  for a, b in spans(contact & (t >= 1.) & (sign*rate > .2)))
     merged = []
-    for a, b in runs:
+    for a, b, sign in runs:
         # Count the duration of the intervening sub-threshold ticks.
-        if merged and (a-merged[-1][1])*dt < .1-1e-10 and contact[merged[-1][1]:a].all():
+        # Chronological signed runs make any opposite run a merge barrier,
+        # even if that opposite run is later below the endpoint-delta cutoff.
+        if (merged and sign == merged[-1][2] and
+                (a-merged[-1][1])*dt < .1-1e-10 and contact[merged[-1][1]:a].all()):
             merged[-1][1] = b
         else:
-            merged.append([a, b])
+            merged.append([a, b, sign])
     losses = np.flatnonzero(~contact & np.r_[False, np.maximum.accumulate(contact)[:-1]])
     first_loss = int(losses[0]) if len(losses) else len(t)
     result, excluded = [], []
-    for a, b in merged:
+    for a, b, sign in merged:
         delta = float(ell[b-1]-ell[a])
         if abs(delta) < .15:
             continue
@@ -163,7 +167,7 @@ def oracle_run(sc, pol, seed):
     return namespace['_run'](sc, seed, True, None, policy=pol, diagnostic=True)
 
 
-def hold_time(error, t, end, tolerance):
+def hold_time(error, t, end, tolerance, limit=None):
     """First start of a continuous >=0.2 s in-band run, up to 2 s.
 
     Durations include a tick's support; a start at t1 can have zero recovery.
@@ -174,6 +178,25 @@ def hold_time(error, t, end, tolerance):
     need = int(math.ceil(.2/dt-1e-8))
     start = int(np.searchsorted(t, end-1e-9))
     good = np.isfinite(error) & (abs(error) <= tolerance)
+    if limit is not None:
+        episode_end = float(t[-1]+dt)
+        boundary = min(float(limit), episode_end)
+        horizon = max(0., min(2., boundary-end))
+        reason = ('horizon' if horizon >= 2.-1e-9 else
+                  'next_change' if limit <= episode_end else 'episode_end')
+        # A full tick's support must fit before the boundary. Keep the original
+        # recovery-start cap of 2 s, but never borrow hold ticks from a new change.
+        good &= t+dt <= boundary+1e-9
+        if horizon > 0.:
+            for a, b in spans(good[start:]):
+                a, b = a+start, b+start
+                if b-a >= need and t[a]-end <= 2.+1e-9:
+                    return dict(time=max(0., float(t[a]-end)), censored=False,
+                                observed_horizon=horizon, censored_by=None)
+        return dict(time=horizon, censored=True, observed_horizon=horizon,
+                    censored_by=reason)
+    # Unbounded callers (lag/settling and force diagnostics) retain their
+    # previous behavior and fields.
     for a, b in spans(good[start:]):
         a, b = a+start, b+start
         if b-a >= need and t[a]-end <= 2.+1e-9:
@@ -196,6 +219,9 @@ def score(log, rec, sc, names=('k_good', 'k_bar'), keep_after_loss=False):
     """keep_after_loss also scores events after the first contact loss, flagged, not dropped."""
     t = log[:, 0]
     _, contact, events, excluded = transitions(log)
+    all_events = sorted(events+excluded, key=lambda e: e['start'])
+    next_start = {e['start']: all_events[j+1]['t0'] if j+1 < len(all_events) else math.inf
+                  for j, e in enumerate(all_events)}
     if keep_after_loss:
         events = sorted([dict(e, after_contact_loss=False) for e in events] +
                         [dict(e, after_contact_loss=True) for e in excluded], key=lambda e: e['start'])
@@ -226,7 +252,12 @@ def score(log, rec, sc, names=('k_good', 'k_bar'), keep_after_loss=False):
         a, z = event['start'], event['end']
         b = int(np.searchsorted(t, event['t1']+.5+1e-9))
         window_end = event['t1']+.5
+        next_t0 = next_start[a]
+        raw_window_end = min(window_end, next_t0)
+        raw_end = int(np.searchsorted(t, raw_window_end))
         row = dict(event, interval_ticks=b-a,
+                   next_t0=next_t0 if math.isfinite(next_t0) else None,
+                   raw_window_end=raw_window_end, raw_interval_ticks=raw_end-a,
                    interval_truncated=bool(t[-1]+dt < window_end-1e-9),
                    contact_loss_in_interval=bool(not contact[a:b].all()),
                    overlaps_event=bool(drive[a:z+1].any()),
@@ -254,7 +285,11 @@ def score(log, rec, sc, names=('k_good', 'k_bar'), keep_after_loss=False):
             finite = np.flatnonzero(np.isfinite(lag_errors))
             j = int(finite[np.argmin(lag_errors[finite])]) if len(finite) else None
             raw = (hat[:, c]-truth_raw)[a:b]
+            bounded_raw = (hat[:, c]-truth_raw)[a:raw_end]
+            change = (hat[:, c]-truth_raw)[a:z+1]
+            change = change[np.isfinite(change)]
             row['channels'][name] = dict(
+                change_mae=float(np.mean(abs(change))) if len(change) else None,
                 bias=bias, bias_fallback=fallback,
                 lag=float(tau_grid[j]) if j is not None else None,
                 lag_at_upper_bound=bool(j is not None and j == len(tau_grid)-1),
@@ -265,12 +300,12 @@ def score(log, rec, sc, names=('k_good', 'k_bar'), keep_after_loss=False):
                 # Shortfall below the reference: zero if the estimate never goes below it.
                 under_magnitude=float(max(0., -np.nanmin(local[a:b]))) if np.isfinite(local[a:b]).any() else None,
                 raw_negative=float(np.nanmin(raw)) if np.isfinite(raw).any() else None,
-                raw_under_magnitude=float(max(0., -np.nanmin(raw))) if np.isfinite(raw).any() else None,
-                raw_over_magnitude=float(max(0., np.nanmax(raw))) if np.isfinite(raw).any() else None,
+                raw_under_magnitude=float(max(0., -np.nanmin(bounded_raw))) if np.isfinite(bounded_raw).any() else None,
+                raw_over_magnitude=float(max(0., np.nanmax(bounded_raw))) if np.isfinite(bounded_raw).any() else None,
                 # Share of the interval more than 15% low; missing estimates or contact counted apart.
-                under_fraction=float(np.mean(raw < math.log(.85))),
-                missing_fraction=float(np.mean(~np.isfinite(raw))),
-                recovery_raw=hold_time(hat[:, c]-truth_raw, t, event['t1'], math.log(1.2)))
+                under_fraction=float(np.mean(bounded_raw < math.log(.85))),
+                missing_fraction=float(np.mean(~np.isfinite(bounded_raw))),
+                recovery_raw=hold_time(hat[:, c]-truth_raw, t, event['t1'], math.log(1.2), limit=next_t0))
         row['force'] = force_metrics(error, band, t, a, b, event['t1'], plateau_band)
         # Choose the nearest interval of IDENTICAL tick length, entirely inside
         # one contiguous plateau run; never pool disconnected plateau samples.

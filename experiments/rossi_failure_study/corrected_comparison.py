@@ -36,10 +36,11 @@ MARGIN = 'old_K_x1.2_margin'
 ORACLES = dict(oracle_keff_on=False, oracle_keff_off=True)
 # Literature mechanisms and plain least squares: the Method's acceptance gates are not theirs.
 OWN_MECHANISM = ('Rossi-ID', 'Kalman', 'MHE', 'Xue-const', 'Simple-1', 'Simple-2')
+ARMS = ('Huber-D4_nogate', 'Huber-D4_imm', 'D4_nogate', 'D4_imm')
 # Same 36 scenes with exact mass, force offset and servo lag in the sensing stage.
 IDEAL_CAL = ('Huber-D4_idealcal', 'oracle_keff_idealcal')
 METHODS = ('Huber-D4', 'D4', 'Rossi-ID', 'Kalman', 'MHE', 'off_none') + MEMORY + O.B.CTRL_METHODS + (MARGIN,)
-SCENES = ('A', 'A_slow_thin', 'B', 'A+B', 'cough', 'combo')
+SCENES = ('A', 'A_slow_thin', 'B', 'A+B', 'cough', 'combo', 'A_large')
 
 
 def clean(v):
@@ -70,14 +71,15 @@ def cases():
         ('B', 'breath_fast', (0, 1, 2), 'nominal'),
         ('A+B', 'breath_rib_fast', (0, 2, 6), 'nominal'),
         ('cough', 'cough', (0, 3, 7), 'nominal'),
-        ('combo', 'combo', (0, 3, 7), 'nominal')):
+        ('combo', 'combo', (0, 3, 7), 'nominal'),
+        ('A_large', 'breath_rib', (0, 2, 6), 'large_rib')):
         source = original if cond in ('cough', 'combo') else overlay
         for dy, ph in SETTINGS:
             for i in indices:
                 cell, = [c for c in source if c[0] == cond and c[2:] == (dy, ph, i)]
                 selected.append(dict(index=len(selected), group=label, cell=cell,
                                      variant=variant, seed=SENSOR_BASE+len(selected)))
-    assert len(selected) == 36 and len({c['seed'] for c in selected}) == 36
+    assert len(selected) == 42 and len({c['seed'] for c in selected}) == 42
     return selected
 
 
@@ -262,7 +264,7 @@ def job(task):
         method = {'Huber-D4_idealcal': 'Huber-D4', 'oracle_keff_idealcal': 'oracle_keff_off'}[method]
     injected = method == MARGIN or method in ORACLES
     simple = method in ('Simple-1', 'Simple-2')
-    host = 'Huber-D4' if method == 'off_none' or injected or simple or method in MEMORY else method
+    host = method.rsplit('_', 1)[0] if method in ARMS else 'Huber-D4' if method == 'off_none' or injected or simple or method in MEMORY else method
     if host.startswith('Xue'):
         sc['initial_contact_observed'] = calibrate_contact(sc, case['seed'])
     pol = O.B.build(host, O.chosen()[host], sc)
@@ -276,9 +278,9 @@ def job(task):
         assert getattr(pol.estimator, 'h_increment', True)
     if method in ('off_none', MARGIN)+MEMORY or ORACLES.get(method):
         SE.gates_off(pol)
-    if method in OWN_MECHANISM:
+    if method in OWN_MECHANISM + ARMS:
         own_mechanism(pol)
-    sampling = R.make_filter(pol, method) if method in MEMORY else None
+    sampling = R.make_filter(pol, 'imm' if method in ARMS else method) if method in MEMORY or method.endswith('_imm') else None
     oracle_truth = []
     if method in ORACLES:
         # CENTRE scales k_good by 1.054 to offset the acceptance gate's selection

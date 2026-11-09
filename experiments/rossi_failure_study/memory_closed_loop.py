@@ -83,6 +83,9 @@ def scene_for(cell, base, variant):
     if variant == 'nominal':
         return B.scene(cell, base, 0.)
     c, t, dy, ph, i = cell
+    if variant == 'large_rib':
+        return B.S3.cell_scene3(c, t, 'nominal', i, base=base,
+            overrides=dict(slide='short', force=8., dynamics=dy, phase=ph, cover=.018))
     rng = np.random.default_rng([base, i, int(ph), dy == 'viscous', 7])
     o = dict(slide='long', force=8., dynamics=dy, phase=ph, speed=float(rng.uniform(.004, .010)), cover=.007)
     return B.S3.cell_scene3(c, t, 'nominal', i, base=base, overrides=o)
