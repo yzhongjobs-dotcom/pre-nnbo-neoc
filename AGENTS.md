@@ -18,7 +18,7 @@ completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
    and impact clearly. See HANDOFF for the latest evidence and next work.
 3. Follow `project_records/long_term_requirements.md` for the approved goal, research workflow
    and stage-specific judgment standards. Before any Method research, read its section
-   "Method 研究的思维逻辑" and think that way; do not expand or rewrite it. Co-refine important questions, prior
+   二 and 三 and think that way; do not expand or rewrite it. Co-refine important questions, prior
    limitations and complete methods through interleaved literature analysis,
    design and quick task-relevant verification. Actively propose and implement
    candidate mechanisms; do not turn the workflow into a defensive checklist or
