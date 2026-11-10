@@ -67,21 +67,39 @@ def hc_log(log, tau_h, mag_h, tc):
     return out
 
 
+def time_weighted(log, j0, m, ns, eb, afc, te, ye, enc):
+    """h1 of the V2 note, eq. (1): the same sub-samples, weights and encoder interpolation as common._build, each times (t_jm - T)."""
+    a = 1.-afc; ebn = eb**ns
+    h1 = np.zeros(m)
+    for jj in range(m):
+        j = j0+jj
+        for mm in range(1, ns+1):
+            w = afc*a**(ns-mm)
+            fr = (1.-eb**(mm-1))/(1.-ebn) if ebn < 1. else (mm-1)/ns
+            if enc:
+                p = log[j, 2]+fr*(log[j+1, 2]-log[j, 2])-ye
+            else:
+                raise ValueError('only the encoder form is used')
+            h1[jj] += w*(log[j, 0]+(mm-1)*1e-3-te)*p
+    return h1
+
+
 def windows(log, policy, enc, eb):
-    """eb[n-1]: the online servo estimate in force when the estimator was called at n."""
+    """eb[n-1]: the online servo estimate in force when the estimator was called at n. Also returns the time-weighted regressor h1."""
     n_all = len(log)
-    Y = np.full((n_all, NW), np.nan); z = np.full((n_all, NW), np.nan)
+    Y = np.full((n_all, NW), np.nan); z = np.full((n_all, NW), np.nan); Y1 = np.full((n_all, NW), np.nan)
     for n in range(1, n_all+1):
         j0 = max(policy['ndel']+1, n-1-NW); m = n-2-j0+1
         if m < 8:
             continue
         _, y1, z1, keep = common._build(log, j0, m, 0, policy['ns'], eb[n-1], policy['afc'], policy['ndel'], log[n-1, 0], log[n-1, 2], NW*policy['ns']*1e-3, enc)
+        t1 = time_weighted(log, j0, m, policy['ns'], eb[n-1], policy['afc'], log[n-1, 0], log[n-1, 2], enc)
         broken = np.flatnonzero(~keep)
         if len(broken):
-            y1, z1 = y1[broken[-1]+1:], z1[broken[-1]+1:]
+            y1, z1, t1 = y1[broken[-1]+1:], z1[broken[-1]+1:], t1[broken[-1]+1:]
         if len(y1):
-            Y[n-1, NW-len(y1):] = y1; z[n-1, NW-len(y1):] = z1
-    return Y, z
+            Y[n-1, NW-len(y1):] = y1; z[n-1, NW-len(y1):] = z1; Y1[n-1, NW-len(y1):] = t1
+    return Y, z, Y1
 
 
 def job(case):
@@ -131,25 +149,25 @@ def job(case):
     assert worst < 1e-12, worst
     eb = np.array([ebs.get(j, np.nan) for j in range(len(rows))])
     eb = np.where(np.isfinite(eb), eb, policy['eb'])
-    Y, z = windows(noisy, policy, policy['enc'], eb)
+    Y, z, H1 = windows(noisy, policy, policy['enc'], eb)
     # Same commands, sensor noise off, same preprocessing coefficients.
     replay = Replay(sent, pol, sc)
     log0 = P3.episode(dict(sc, noise_scale=0.), ReplayPolicy(replay), case['seed'])
     # The estimator is not called after a final contact loss, so its rows may stop before the episode ends.
     rows0 = np.asarray(replay.seen)[:len(rows)]
     assert len(rows0) == len(rows), (len(rows0), len(rows))
-    Y0, z0 = windows(hc_log(rows0, tau_h[:len(rows)], mag_h[:len(rows)], policy['Tc']), policy, policy['enc'], eb)
+    Y0, z0, H10 = windows(hc_log(rows0, tau_h[:len(rows)], mag_h[:len(rows)], policy['Tc']), policy, policy['enc'], eb)
     # Same commands, noise off, sensing stage given the true calibration: what the calibration error alone contributes.
     ideal = dict(sc, noise_scale=0.); CC.perfect_calibration(ideal)
     replay_i = Replay(sent, pol, ideal)
     P3.episode(ideal, ReplayPolicy(replay_i), case['seed'])
     rows_i = np.asarray(replay_i.seen)[:len(rows)]
-    Y0i, z0i = windows(hc_log(rows_i, tau_h[:len(rows)], mag_h[:len(rows)], policy['Tc']), policy, policy['enc'], eb)
+    Y0i, z0i, _ = windows(hc_log(rows_i, tau_h[:len(rows)], mag_h[:len(rows)], policy['Tc']), policy, policy['enc'], eb)
     meta = dict(index=case['index'], group=case['group'], cell=case['cell'], seed=case['seed'], variant=case['variant'],
                 event_info=sc['event_info'], cols=COLS, policy=policy, preprocess_max_error=worst,
                 K_t=float(sc['K_t']), kr=float(sc['kr']), cover=float(sc['cover']),
                 tool_mass=float(sc['tool_mass']), tool_mass_hat=float(sc['tool_mass_hat']), delay=float(sc['sensor_delay_ms']), delay_hat=float(sc['sensor_delay_hat']), tau_a=float(sc['tau_a_true']), tau_a_hat=float(sc['tau_a_hat']))
-    np.savez_compressed(OUT/f"case_{case['index']:02d}.npz", Y=Y.astype(np.float64), z=z.astype(np.float64), Y0=Y0.astype(np.float64), z0=z0.astype(np.float64), Y0i=Y0i.astype(np.float64), z0i=z0i.astype(np.float64),
+    np.savez_compressed(OUT/f"case_{case['index']:02d}.npz", Y=Y.astype(np.float64), z=z.astype(np.float64), H1=H1, H10=H10, Y0=Y0.astype(np.float64), z0=z0.astype(np.float64), Y0i=Y0i.astype(np.float64), z0i=z0i.astype(np.float64),
                         log=log[:len(rows), COLS], log0=log0[:len(rows), COLS], raw=np.array([raw.get(j, np.nan) for j in range(len(rows))]), meta=np.asarray(json.dumps(meta, default=float)))
     return meta
 
