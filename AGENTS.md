@@ -1,77 +1,24 @@
-# Research work and GitHub synchronization
+# Shared research instructions (Claude Code and Codex)
 
-This is a long-term research project. The user authorizes committing and pushing
-completed project changes to https://github.com/yzhongjobs-dotcom/pre-nnbo-neoc.
+## Always-on principles
 
-1. Read `project_records/HANDOFF.md` to resume, then the current user request and
-   relevant parts of `project_records/long_term_requirements.md`.
-   Older root handoffs and dated plans were consolidated; recover originals
-   from Git only when needed. Do not repeatedly reread all history.
-2. Research context (not an instruction to start research on every turn): the
-   user explicitly corrected the drift toward abstract whole-acquisition
-   candidate A. For research work, continue from the original question: use online
-   environment information to rapidly update near-optimal impedance with actual
-   control value. Compare the model/optimization route and the learned impedance
-   route; investigate task benefit and computational bottlenecks together.
-   Candidate A and its tests remain contextual evidence, not the current selected
-   replacement question. Any substantive problem revision must state its basis
-   and impact clearly. See HANDOFF for the latest evidence and next work.
-3. Follow `project_records/long_term_requirements.md` for the approved goal, research workflow
-   and stage-specific judgment standards. Before any Method research, read its section
-   二 and 三 and think that way; do not expand or rewrite it. Co-refine important questions, prior
-   limitations and complete methods through interleaved literature analysis,
-   design and quick task-relevant verification. Actively propose and implement
-   candidate mechanisms; do not turn the workflow into a defensive checklist or
-   require all prior to fail before exploration. Deepen strong in-field work and
-   actively transfer mature mechanisms where useful. For a substantially changed
-   core question, explain grounded options for user selection; explore within
-   the selected question proactively without repeated approval.
-   When entering a research stage, read only the matching file in
-   `project_records/research_workflow/` (linked from the stage table); load
-   reverse-analysis examples only when a specific case needs checking.
-4. Distinguish baseline, candidate changes and tested instances. Negative local
-   results only change the supported layer; accumulated evidence may justify
-   higher-level revision. Do not use locality to shield an idea indefinitely.
-   Do not call known baseline facts new
-   discoveries, nodal roots optimal controllers, or prototype timings real-time
-   certification. Check original evidence when it affects a decision.
-   The complete B0 question and method remain the current refinement starting
-   point; they have not been invalidated by local tests. Do not silently replace
-   them with the pre-B0 September 8 question or a new algorithmic subproblem.
-   Co-refinement may adjust an inaccurate question without requiring strict
-   falsification, provided the reasons support that level of change.
-5. Preserve `00_基线快照_2026-10-14/` byte-for-byte. The three working core
-   documents now live under `research/`; B0 contents and equations were preserved.
-   They may change in future based on research evidence, with explicit deltas.
-6. Keep useful reproducible source/configuration/primary results together. Files
-   retained merely to prove that work happened may be removed from the working
-   tree after recording necessary lessons and a Git recovery point. Do not use
-   archival completeness as a reason to preserve irrelevant material locally.
-7. Use Git history for change tracking. Do not create separate change logs,
-   cleanup records, language-migration reports or relocation histories.
-   Keep scientific reasoning in the relevant research document, experimental
-   report or failure analysis. For later review (user request 2026-10-31), also
-   keep two light records: `project_records/decision_log.md` (each key decision:
-   trigger, decision, reasons incl. rejected options, what would overturn it,
-   links; a few lines, newest first) and `project_records/agent_runs/` (raw
-   prompt and final output of every Codex/ARIS run, no process logs). They
-   support review only and must not displace the research documents. After checking each completed checkpoint,
-   automatically run `python -X utf8 scripts/research_sync.py --message "research: <specific change and purpose>"`.
-   No repeat upload permission is needed. Before starting work, update with
-   `git pull --rebase origin main`; the helper also fetches the baseline tag in
-   shallow clones and replays local commits on top of commits other agents
-   (Codex, Claude Code) pushed meanwhile, stopping on conflicts. If pushing fails, keep the local commit,
-   report the failure and retry. Never force-push or rewrite history.
+- **Current task first.** The user's current request and the active conversation define what to solve, the scope, and when to stop. Project documents supply standards and evidence; they are not additional assignments or instructions to reopen historical work.
+- **Scientific goal.** Study reliable, high-precision robotic contact-force control in dynamic, spatially nonuniform environments (including chest/abdominal ultrasound scanning). The prior B0 proposal is a revisable research starting point, not a mandatory solution or a reason to change the user's current subproblem.
+- **Research standard.** Work comes first; a rigorous, coherent Method and a supported Story also matter. Start from the physical problem, uncover useful mathematical structure and hidden conditions, use or adapt mature theory when appropriate, and design new mechanisms only when justified. Do not choose algorithms for novelty or complexity.
+- **Evidence standard.** Separate established facts, hypotheses, candidates, implementations and tested cases. Link theoretical claims to assumptions and derivations, and empirical claims to reproducible evidence and actual control benefit. Investigate disagreements rather than tuning simulations to fit expectations. Do not extrapolate local results to an entire research direction, or use locality to protect a failing idea indefinitely.
+- **Efficient work.** Use the least work that can answer the current scientific question; expand literature reading, simulation, baselines, or reporting only when the evidence calls for it. Preserve effective work. Do not convert a research process into a mandatory checklist or silently broaden the task.
 
-The synchronization helper runs at completed checkpoints, not arbitrary file
-writes. Preserve the user's notification and review preferences; report actual
-changes plainly, without making the user read inventory dumps.
+## Load information only when needed
 
-## Working conventions
+- **Research standards:** `project_records/long_term_requirements.md` contains the full approved goals, reasoning approach and quality criteria. Consult its relevant sections when doing substantive research design, evaluation or resolving a scientific-standard question; do not reload the entire file for every prompt. Its detailed process is guidance for judgment, not an obligatory sequence of deliverables.
+- **Stage-specific guidance:** When the task enters a particular research stage or needs that stage's criteria, read only its matching file under `project_records/research_workflow/`: `01_literature.md`, `02_problem.md`, `03_method.md`, `04_experiments.md` or `05_writing.md`. Do not pre-read the other stages.
+- **Project handoff:** Read `project_records/HANDOFF.md` when taking over in a new conversation and the previous research state needs restoring, or when the user explicitly requests it. Do not reread it during an ongoing conversation with sufficient context. Historical entries, including old "next steps", are not current instructions; prefer the latest applicable evidence and the current user request.
+- **Project evidence:** Open particular `research/`, `experiments/`, `literature/`, decisions, or Git-history records only to answer the task at hand. Do not sweep the whole repository by default.
+- **Tools:** Read `project_records/tool_rules/codex_cli.md` only when invoking or delegating to Codex CLI; read `project_records/tool_rules/git_sync.md` when preparing repository modifications or a completed-checkpoint sync. No tool-use rule should trigger unrelated research.
 
-Do not translate existing material unless explicitly requested.
-Preserve scientific meaning, equations, values, assumptions, references and
-evidence boundaries. Keep original sources, extracted texts, raw data,
-historical identifiers and the frozen snapshot unchanged.
-Explain actions, methods and results clearly and concisely.
-On Windows, use `python -X utf8`.
+## Project safeguards and communication
+
+- Preserve `00_基线快照_2026-10-14/` byte-for-byte; preserve scientific meaning, original evidence, equations, assumptions, references and raw data unless the user explicitly directs a justified change.
+- Record scientific conclusions in the relevant research or experiment document, key decisions briefly in `project_records/decision_log.md`, and Codex/ARIS prompts and final outputs in `project_records/agent_runs/` when used. Git history records changes; do not create redundant history files.
+- Commit and push completed project changes under the standing repository authorization, following the on-demand Git sync rule. Do not force-push.
+- Report the concrete question, actual work, results and limits clearly and concisely. On Windows use `python -X utf8`. Do not translate existing material unless requested.

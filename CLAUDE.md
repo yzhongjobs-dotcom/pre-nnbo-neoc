@@ -1,11 +1,7 @@
-# Project instructions
+# Claude Code entry
 
 @AGENTS.md
 
-Read `project_records/HANDOFF.md` and the current user request, then follow
-`AGENTS.md`. Do not translate existing material unless explicitly requested.
-Keep scientific content and original evidence intact.
+The imported `AGENTS.md` is the single source of always-on project instructions. Do not treat linked standards, stage guidance, HANDOFF or prior work as extra tasks to execute automatically.
 
-Codex CLI is installed; use `codex` when needed. Continue the same session (`codex exec resume <id>`) when a task continues; start a new session for a new task or an independent review. Keep key conclusions in files.
-
-Keep experiment specs light: run the fewest cases, conditions and metrics that answer the current question, and expand only when the result requires it.
+When actually using Codex CLI, first open `project_records/tool_rules/codex_cli.md`. Use `project_records/HANDOFF.md` only under the resumption conditions in `AGENTS.md`.

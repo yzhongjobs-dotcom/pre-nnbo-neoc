@@ -1,10 +1,10 @@
 # 交接入口：运动且软硬不均组织上的位置接口恒力超声扫描
 
-更新于 2026-11-03（`git log -1 -- project_records/HANDOFF.md` 给出提交）。**用户最新消息优先于这里的一切。** 旧版交接内容：`git show c64be05:project_records/HANDOFF.md`。
+本文件供**新对话接手研究时按需查阅**，不是每轮执行清单。内容包含不同日期的进展与已失效结论，**用户当前任务及更新的原始证据优先**；历史可从 Git 恢复。
 
 ## 现在的情况
 
-**2026-11-10 最新：V2 斜率的限制与上限。** 见[分析](../research/v2_slope_limits_20261110.md)。完美分段时斜率在 A_large 和振荡案例上有真实闭环价值（A_large L .273 → .205，A慢薄 7 2.89 → .216），但单窗斜率信噪比 .18–.30，历史有效性无法用刚度通道及时判断，ICI 与力通道分段都不成立。下降段信息缺口来自激励按滞后的 k_good 设定。默认方法未改，新信息来源待用户选择。
+**2026-11-10 最新：V2 斜率的限制、控制变量实验与根因更新。** 见[分析 §八–九](../research/v2_slope_limits_20261110.md)及[决策记录](decision_log.md)。真实分段可带来条件性闭环收益（A_large L .273 → .205，A慢薄 7 为 2.89 → .216），但当前观测下单窗斜率信噪比 .18–.30，因果分段与自适应跨度尚未实现该收益。**更正旧归因：**下降段信息减少没有单一主因，窗内分布、基于滞后 k_good 的激励及反馈调制共同作用；激励衰减不是唯一或主导原因。A 的部分共同偏差与黏弹记忆模型失配有关，A_large 的长窗口误差更多来自刚度曲线弯曲；其余根因仍有限定。默认方法未改；这些是后续设计的证据，不自动指定下一条技术路线。
 
 **2026-11-10 最新：V2有效历史已有数学闭合与候选回放，暂未采纳。** 见[理论与算法](../research/v2_adaptive_history_20261110.md)：局部直线对齐当前端点，历史斜率噪声约按H^(-3/2)下降，曲率代价分别为水平O(LH²)、斜率O(LH)。多尺度相容性正确计入重叠协方差，并修正Huber真实局部Jacobian。8个原plant同观测回放中平稳/部分事件改善，但36/37下降、反转仍退化；传播校准及探测频带敏感性未消除。只靠相容性不能排除共同失配偏差；不把条件方差改善写成最终Method成功，默认估计器、激励和控制器未改。
 
@@ -66,38 +66,11 @@
 
 **2026-11-03 接触模型续研：** 已修动态状态/目标力关系、前向力求解、独立回退和到达信息；完成五族静态/动态/柱面闭环，定位并修正剖面导数和累计观测参数方差。完整正负结果见专项研究 §7.5–7.10；汇总 `experiments/contact_model/results/dynamic_contact_five_family_summary.json`。没有一致改进，未采纳候选；低松弛假设在两场景有收益但参数未辨识，拟合仍数百毫秒至秒。**下一项：** 同输入回放比较松弛/空间假设的条件预测和控制功能量，区分结构偏差、可辨识性与反馈分布；若缺独立信息，再具体设计标定/压力矩接触候选，不继续靠调 R/门限补结果。只研究接触模型，不改仿真求胜、不换其他专项；本轮 Fn-only 负面不裁决未完成的动态力矩/空间预瞄。
 
-- **任务：** 位置接口协作臂只用力和编码器，在运动、软硬不均的组织上保持恒定接触力。
-- **目标：** 把已胜过多个基线的 Proposed Method 优化到 T-RO/IJRR 水准，work 第一，方法与 story 同样重要。
-- **可靠主体：** 最终方法 `Proposed-IMMb` 加 V1 伺服在线辨识（V1 的失配恢复已验证）。
-- **未完成：** 用户要求的接触模型、数学投影/MHE、GN/MPC 架构和整体方法升级。V1 之后的候选（`3b81615`、`c64be05`）都未并入方法，论文初稿也未修改。
-- **最近的教训：** 反复出现“诊断出原因却不修原候选，转向下一机制”。开始前务必看第 3 步的偏差模式。
 
-## 阅读顺序
+## 新对话接手时的阅读方式
 
-分层读，每步读完能回答对应问题再往下走。不要一开始就读 methods 全文（634 行）或 Git 全历史。
+1. 以用户本轮提出的任务为准；只有需要恢复上一轮状态时，先看上方**最新且仍有效**的记录，再沿对应链接核对原始研究和实验。
+2. 科研原则见 [长期科研要求](long_term_requirements.md)；进入具体阶段时只读 [research_workflow](research_workflow/) 中相关文件。具体实验证据查 [实验索引](../experiments/experiment_index.md)，文献查 [文献索引](../literature/literature_index.md)，重要决定查 [decision_log](decision_log.md)。
+3. 已标注“已失效”的条目和较早的“下一项”，只供历史审查，不是当前待办。不要按旧交接表逐项预读文件。工具调用和仓库同步遵循 [AGENTS.md](../AGENTS.md) 的按需入口。
 
-| 步 | 读什么 | 要能回答 | 约用时 |
-|---|---|---|---|
-| 1 | [handoff/01_要求与标准](handoff/01_要求与标准.md) | 用户的五条要求是什么？哪些历史方案已失效？有哪些待确认冲突？ | 短 |
-| 2 | Skill `top-researcher`：`README.md`、`references/stages/README.md`，再按当前阶段读 `workflow/03_method.md` 和 `references/stages/03_method.md` | 判据是什么？跨阶段闭环怎样检查？ | 中 |
-| 3 | [handoff/02_研究主线](handoff/02_研究主线.md)，并按其指引读 [论文初稿](../research/paper_draft_zh.md) §一至§四、§五.1、§五.3、§五.9 | 现状 → 问题 → 方法 → 证据这条线是什么？代码在哪？ | 中 |
-| 4 | [handoff/03_方法演进审计](handoff/03_方法演进审计.md) | 每项尝试实际做到哪一层？失败原因是什么？反复犯了哪些错？ | 中 |
-| 5 | [handoff/04_当前状态与待解决问题](handoff/04_当前状态与待解决问题.md) | 什么已验证、什么没研究透、什么可放下、当前要解决什么？ | 短 |
-| 6 | 只在需要时：[methods 记录](../research/optimal_impedance_question_and_methods.md) §16、§18–21；[B0 设计](../research/method_design.md) §3；[决策记录](decision_log.md)；[agent_runs](agent_runs/)；[实验索引](../experiments/experiment_index.md) | 原始推理与证据 | 按需 |
-
-读完后先向用户说明你的理解和下一步打算，再开始实质工作。本交接**不规定最终技术路线**。
-
-## 下一项决定属于谁
-
-- **题内技术探索：** 接手者依据 skill 主动研究，大规模实现前先报告设计及理由。
-- **研究问题的实质修订、长期约束的变更、[01 第 6 节](handoff/01_要求与标准.md)的冲突：** 由用户决定。
-
-## 运行与规则
-
-- **环境：** Windows，`python -X utf8`，Python 3.10，numpy、scipy、numba。
-- **同步：** 工作前 `git pull --rebase origin main`；每个完成的检查点运行 `python -X utf8 scripts/research_sync.py --message "research: <具体改动与目的>"`。不改写历史，不强推。
-- **记录：** Codex/ARIS 的任务书与最终输出存 [agent_runs](agent_runs/)，关键决定写入 [decision_log](decision_log.md)，科学推理放研究文档。不另建变更日志。
-- **保护：** `00_基线快照_2026-10-14/` 逐字节不动（`python -X utf8 literature/verify_materials.py`）。不翻译已有材料。
-- **实验目录：** 见[实验索引](../experiments/experiment_index.md)。已丢弃方法的目录于 2026-11-08 移出工作区，用 `git show ca398be:<路径>` 恢复。
-- **文献：** 索引 [literature_index](../literature/literature_index.md)；ARIS 运行 `recent-related-work-20261031`（RUN_ROOT `D:/pip_env/temp/scan_impedance_literature_20261031/aris_run`，机器本地）；当前没有待下载文献（[清单](../literature/manual_fulltext_requests.md)）；用户下载件放 `literature/manual_inbox/`。
-- **更早的实验和文档：** 早期 B0/二维实验已移出工作区，用 `git show b7a3f91:<路径>` 恢复。
+本交接不规定最终方法，也不要求接手时重新研究已解决的问题。
