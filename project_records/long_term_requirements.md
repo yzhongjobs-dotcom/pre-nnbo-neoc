@@ -1,6 +1,6 @@
 # 长期科研要求
 
-本文件汇总用户确认的长期科研要求。具体论文依据见[逐例逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md)，当前任务见[HANDOFF](HANDOFF.md)，科研偏差与教训见[失败复盘](research_failures_and_corrections.md)，版本历史由 Git 保存。
+本文件汇总用户确认的长期科研要求。具体论文依据见[逐例逆向分析](../research/independent_reverse_analysis_of_top_journal_methods.md)，科研偏差与教训见[失败复盘](research_failures_and_corrections.md)，版本历史由 Git 保存。
 
 **总逻辑。** 从真实任务中提炼值得解决的研究问题，以物理和数学洞见形成候选，让推导与实验共同改进 Method，最终以完整的任务证据支撑科学贡献。
 

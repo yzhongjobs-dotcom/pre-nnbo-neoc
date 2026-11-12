@@ -18,7 +18,7 @@ Kept because current code uses them: `baseline_test_r2.json` (frozen configurati
 
 ## Discarded methods removed from the working tree (2026-11-08)
 
-Removed: `contact_information`, `contact_model`, `conditional_linear_contact`, `evidence_memory_contact`, the rest of `method_redesign` (estimators E0–E4, constrained MPC, predictors, V3/V4) and the rest of `cobot_scan_benchmark` (C1/C2 controllers, repaired baselines, seed-7200 evidence, paper tables). Recover with `git show ca398be:experiments/<dir>/<file>`, or check out `ca398be` into a copy. The reasoning stays in `research/` and `project_records/handoff/03_方法演进审计.md`; their links to these paths resolve only at that commit.
+Removed: `contact_information`, `contact_model`, `conditional_linear_contact`, `evidence_memory_contact`, the rest of `method_redesign` (estimators E0–E4, constrained MPC, predictors, V3/V4) and the rest of `cobot_scan_benchmark` (C1/C2 controllers, repaired baselines, seed-7200 evidence, paper tables). Recover with `git show ca398be:experiments/<dir>/<file>`, or check out `ca398be` into a copy. The original code, results, and early method audit remain recoverable from Git history; historical links may resolve only at the corresponding commit.
 
 ## Early experiments removed from the working tree
 
