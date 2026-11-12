@@ -154,17 +154,19 @@ def equivalence(project):
 class ReturnedEstimate:
     def __init__(self,original,arm,index):
         self.original,self.arm,self.index = original,arm,index
-        self.filter = DelagCorrection() if arm == 'delag' else OnlineFilter()
+        self.filter = DelagCorrection(force_ratio_factor=arm == 'delag') if arm in ('delag', 'delag2') else OnlineFilter()
         self.t,self.n,self.k,self.kw,self.g = [],[],[],[],[]
         self.beta = []
+        self.force_ratio = []
 
     def __call__(self,o,n,policy):
         k_w,sigma,chi = self.original(o,n,policy)
         k_c,gain = k_w,np.nan
         y,force = float(o.log[n-1,2]),float(o.log[n-1,5])
         beta = np.nan
-        if self.arm == 'delag':
+        if self.arm in ('delag', 'delag2'):
             k_c,beta = self.filter.step(n,y,force,k_w,sigma)
+            self.force_ratio.append(self.filter.last_force_ratio)
         elif self.arm == 'traj':
             out,_,gain = self.filter.step(n,y,force,k_w,sigma)
             if np.isfinite(k_w) and np.isfinite(out):
@@ -185,14 +187,15 @@ class ReturnedEstimate:
         self.g.append(gain)
         self.beta.append(beta)
         if (not np.isfinite(k_w) or self.arm == 'huber'
-                or (self.arm == 'delag' and (k_c == k_w or not np.isfinite(sigma)))):
+                or (self.arm in ('delag', 'delag2') and (k_c == k_w or not np.isfinite(sigma)))):
             return k_w,sigma,chi
         return k_c,sigma*k_c/k_w,chi
 
 
 class DelagCorrection:
     """Window level plus bounded lag correction; return the pre-update gain."""
-    def __init__(self):
+    def __init__(self, force_ratio_factor=True):
+        self.force_ratio_factor = force_ratio_factor
         self.resets = 0
         self.reset()
 
@@ -216,6 +219,7 @@ class DelagCorrection:
         y24 = (self.y_sums[j+1]-self.y_sums[lo24])/(j+1-lo24)
         F6 = (self.f_sums[j+1]-self.f_sums[lo6])/(j+1-lo6)
         F24 = (self.f_sums[j+1]-self.f_sums[lo24])/(j+1-lo24)
+        self.last_force_ratio = F6/F24 if F24 != 0. else np.nan
         finite = np.isfinite(k_w)
         Cw = F24/k_w if finite else np.nan
         rel = sigma/k_w if finite else np.nan
@@ -226,7 +230,10 @@ class DelagCorrection:
         if finite and np.isfinite(sigma) and j >= 23 and F24 >= 1.:
             x = y6-y24
             r = np.clip(1.+beta_used*x/Cw,.5,2.)
-            k_c = float(np.clip(k_w*(F6/F24)/r,200.,3e5))
+            if self.force_ratio_factor:
+                k_c = float(np.clip(k_w*(F6/F24)/r,200.,3e5))
+            elif beta_used != 0.:
+                k_c = float(np.clip(k_w/r,200.,3e5))
         if (j >= 24 and np.isfinite(Cw) and np.isfinite(self.cw[j-24])
                 and rel <= 1. and self.rel[j-24] <= 1.
                 and all(f >= 1. for f in self.forces[j-24:j+1])):
@@ -261,15 +268,28 @@ def job(task):
                   n_est=np.asarray(recorder.n),trace=np.asarray(pol.trace))
     if arm == 'traj':
         arrays.update(k_w=np.asarray(recorder.kw),g=np.asarray(recorder.g))
-    elif arm == 'delag':
-        arrays.update(k_w=np.asarray(recorder.kw),beta=np.asarray(recorder.beta))
+    elif arm in ('delag', 'delag2'):
+        arrays.update(k_w=np.asarray(recorder.kw),beta=np.asarray(recorder.beta),
+                      force_ratio=np.asarray(recorder.force_ratio))
     with dest.open('xb') as stream:
         np.savez_compressed(stream,**arrays)
-    return dict(index=index,group=case['group'],arm=arm,seed=case['seed'],FD=float(sc['FD']),
+    row = dict(index=index,group=case['group'],arm=arm,seed=case['seed'],FD=float(sc['FD']),
                 L=float(np.log1p(metric['J'])),**{k:float(metric[k]) for k in METRICS},
                 J=float(metric['J']),event_info=sc['event_info'],
                 filter_resets=recorder.filter.resets,n_est=len(recorder.t),
                 trace_shape=list(arrays['trace'].shape),file=dest.name,runtime_s=time.perf_counter()-started)
+    if arm == 'delag2':
+        row['beta_zero_identity'] = beta_zero_identity(recorder)
+    return row
+
+
+def beta_zero_identity(recorder):
+    zero = np.asarray(recorder.beta) == 0.
+    returned = np.asarray(recorder.k, dtype=np.float64)[zero].view(np.uint64)
+    window = np.asarray(recorder.kw, dtype=np.float64)[zero].view(np.uint64)
+    mismatches = int(np.count_nonzero(returned != window))
+    assert mismatches == 0, 'delag2 beta=0 must return k_w bit for bit'
+    return dict(n=int(zero.sum()), mismatches=mismatches, bitwise_equal=True)
 
 
 def subprocess_job(task, spool):
@@ -329,7 +349,7 @@ def summarize(rows,output):
         row['force_rms'] = {s:dict(n=len(a),rms=D.rms(a) if len(a) else None) for s,a in force.items()}
     def aggregate(subset,identification=False):
         result = {}
-        for arm in ('huber','traj','traj_priv','delag'):
+        for arm in ('huber','traj','traj_priv','delag','delag2'):
             rr = [r for r in subset if r['arm'] == arm]
             if not rr:
                 continue
@@ -487,7 +507,7 @@ def main():
     parser.add_argument('--project-root',type=Path,default=PROJECT)
     parser.add_argument('--output-root',type=Path)
     parser.add_argument('--round2',action='store_true')
-    parser.add_argument('--worker-arm',choices=('huber','traj','traj_priv','delag'))
+    parser.add_argument('--worker-arm',choices=('huber','traj','traj_priv','delag','delag2'))
     parser.add_argument('--worker-index',type=int)
     parser.add_argument('--worker-output',type=Path)
     parser.add_argument('--worker-result',type=Path)
