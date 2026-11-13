@@ -1,6 +1,6 @@
 # 转动通道：用探头的转动刚度辨识接触刚度（2026-11-13，待用户决定是否深入）
 
-状态：只有物理推导和两项小核查，没有方法，没有改仿真。这个方向需要力矩观测和探头姿态的小幅主动转动，会改变整体技术路线，按约定先向用户说明。核查脚本：`experiments/rossi_failure_study/rotational_stiffness_check.py`（对象的静态接触函数）、`moment_channel_check.py`（7 个现有闭环回合）。
+状态：用户 2026-11-13 决定留给以后的项目，已记入 [后续项目点子](../project_records/future_project_ideas.md)，本项目不深入。只有物理推导和两项小核查，没有方法，没有改仿真。这个方向需要力矩观测和探头姿态的小幅主动转动，会改变整体技术路线，按约定先向用户说明。核查脚本：`experiments/rossi_failure_study/rotational_stiffness_check.py`（对象的静态接触函数）、`moment_channel_check.py`（7 个现有闭环回合）。
 
 ## 一、为什么找到这里
 
